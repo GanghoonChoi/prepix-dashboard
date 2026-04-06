@@ -5,7 +5,7 @@ export default function RefundPolicyPage() {
     <PolicyLayout title="Refund Policy" lastUpdated="April 6, 2026">
       <Section title="Overview">
         <p>
-          At Prepix Inc, operator of Prepix, we want you to be completely satisfied with your purchase. This Refund Policy outlines the conditions under which refunds are processed for our subscription services.
+          At Lasker Inc, operator of Prepix, we want you to be completely satisfied with your purchase. This Refund Policy outlines the conditions under which refunds are processed for our subscription services.
         </p>
         <p>
           Prepix uses Paddle.com as the Merchant of Record for processing all payments. All transactions are handled by Paddle, and refunds are processed in accordance with Paddle&apos;s refund policy.

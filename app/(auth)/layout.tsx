@@ -34,7 +34,7 @@ export default function AuthLayout({
             <Link href="/refund-policy" className="hover:text-foreground">Refund Policy</Link>
           </div>
           <p className="text-xs text-muted">
-            &copy; {new Date().getFullYear()} Prepix Inc. All rights reserved.
+            &copy; {new Date().getFullYear()} Lasker Inc. All rights reserved.
           </p>
         </div>
       </div>

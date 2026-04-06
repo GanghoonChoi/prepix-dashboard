@@ -5,7 +5,7 @@ export default function TermsPage() {
     <PolicyLayout title="Terms of Service" lastUpdated="December 7, 2025">
       <Section title="1. Acceptance of Terms">
         <p>
-          By accessing and using Prepix (&quot;the Service&quot;), operated by Prepix Inc (&quot;the Company&quot;), you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.
+          By accessing and using Prepix (&quot;the Service&quot;), operated by Lasker Inc (&quot;the Company&quot;), you accept and agree to be bound by the terms and provision of this agreement. If you do not agree to abide by the above, please do not use this service.
         </p>
       </Section>
       <Section title="2. Use License">
@@ -30,7 +30,7 @@ export default function TermsPage() {
       </Section>
       <Section title="4. Intellectual Property">
         <p>
-          The Service and its original content, features, and functionality are and will remain the exclusive property of Prepix Inc and its licensors. The Service is protected by copyright, trademark, and other laws of both the United States and foreign countries.
+          The Service and its original content, features, and functionality are and will remain the exclusive property of Lasker Inc and its licensors. The Service is protected by copyright, trademark, and other laws of both the United States and foreign countries.
         </p>
       </Section>
       <Section title="5. Termination">
@@ -40,7 +40,7 @@ export default function TermsPage() {
       </Section>
       <Section title="6. Limitation of Liability">
         <p>
-          In no event shall Prepix Inc, nor its directors, employees, partners, agents, suppliers, or affiliates, be liable for any indirect, incidental, special, consequential or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses, resulting from your access to or use of or inability to access or use the Service.
+          In no event shall Lasker Inc, nor its directors, employees, partners, agents, suppliers, or affiliates, be liable for any indirect, incidental, special, consequential or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses, resulting from your access to or use of or inability to access or use the Service.
         </p>
       </Section>
       <Section title="7. Changes to Terms">

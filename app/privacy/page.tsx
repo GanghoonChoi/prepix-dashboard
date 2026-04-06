@@ -36,7 +36,7 @@ export default function PrivacyPage() {
           <li>With your consent or at your direction</li>
           <li>With service providers who assist in our operations (under strict confidentiality agreements)</li>
           <li>To comply with legal obligations or valid legal requests</li>
-          <li>To protect the rights, property, or safety of Prepix Inc, our users, or others</li>
+          <li>To protect the rights, property, or safety of Lasker Inc, our users, or others</li>
           <li>In connection with a merger, acquisition, or sale of assets</li>
         </ul>
       </Section>
