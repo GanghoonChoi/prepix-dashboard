@@ -3,17 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  Card,
-  CardHeader,
-  CardContent,
-  CardFooter,
-  CardTitle,
-  CardDescription,
-  Button,
-} from "@heroui/react";
-import { Alert, AlertDescription } from "@heroui/react";
-import { Logo } from "@/components/logo";
+import { Button } from "@heroui/react";
 import { LoadingScreen } from "@/components/loading-screen";
 import { authService } from "@/lib/api/services/auth.service";
 import { sleep } from "@/lib/utils";
@@ -66,113 +56,95 @@ export default function LoginPage() {
     return (
       <LoadingScreen
         title="Signing you in"
-        subtitle="Please wait while we verify your credentials..."
+        subtitle="Please wait..."
       />
     );
   }
 
+  const inputClass =
+    "w-full rounded-md border border-border bg-field-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted outline-none transition-colors focus:border-foreground/30";
+
   return (
-    <>
-      <div className="mb-8 flex justify-center">
-        <Logo size="lg" />
+    <div className="space-y-8">
+      {/* Header */}
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+          Sign in
+        </h1>
+        <p className="mt-1.5 text-sm text-muted">
+          Don&apos;t have an account?{" "}
+          <Link href="/signup" className="text-foreground underline underline-offset-4 hover:no-underline">
+            Create one
+          </Link>
+        </p>
       </div>
 
-      <Card>
-        <CardHeader className="text-center">
-          <CardTitle>Sign in to Prepix</CardTitle>
-          <CardDescription>
-            Enter your credentials to access your dashboard
-          </CardDescription>
-        </CardHeader>
+      {/* Error */}
+      {error && (
+        <div className="rounded-md border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
+          {error}
+        </div>
+      )}
 
-        <CardContent>
-          {error && (
-            <Alert status="danger" className="mb-4">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+      {/* Form */}
+      <form onSubmit={handleLogin} className="space-y-5">
+        <div className="space-y-1.5">
+          <label htmlFor="email" className="block text-sm font-medium text-foreground">
+            Email
+          </label>
+          <input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoFocus
+            placeholder="you@example.com"
+            className={inputClass}
+          />
+        </div>
 
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label
-                htmlFor="email"
-                className="mb-1.5 block text-sm text-muted"
-              >
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                autoFocus
-                placeholder="you@example.com"
-                className="w-full rounded-lg border border-border bg-field-background px-3 py-2 text-sm text-foreground placeholder:text-muted outline-none focus:ring-2 focus:ring-accent"
-              />
-            </div>
-
-            <div>
-              <div className="mb-1.5 flex items-center justify-between">
-                <label htmlFor="password" className="text-sm text-muted">
-                  Password
-                </label>
-                <Link
-                  href="/forgot-password"
-                  className="text-xs text-accent hover:underline"
-                >
-                  Forgot password?
-                </Link>
-              </div>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                placeholder="••••••••"
-                className="w-full rounded-lg border border-border bg-field-background px-3 py-2 text-sm text-foreground placeholder:text-muted outline-none focus:ring-2 focus:ring-accent"
-              />
-            </div>
-
-            <Button
-              type="submit"
-              variant="primary"
-              className="w-full"
-              isDisabled={isLoading}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <label htmlFor="password" className="text-sm font-medium text-foreground">
+              Password
+            </label>
+            <Link
+              href="/forgot-password"
+              className="text-xs text-muted hover:text-foreground"
             >
-              {isLoading ? "Signing in..." : "Sign In"}
-            </Button>
-          </form>
-        </CardContent>
-
-        <CardFooter className="justify-center">
-          <p className="text-sm text-muted">
-            Don&apos;t have an account?{" "}
-            <Link href="/signup" className="text-accent hover:underline">
-              Sign up
+              Forgot password?
             </Link>
-          </p>
-        </CardFooter>
-      </Card>
+          </div>
+          <input
+            id="password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            placeholder="••••••••"
+            className={inputClass}
+          />
+        </div>
 
-      <p className="mt-6 text-center text-xs text-muted">
-        By signing in, you agree to our{" "}
-        <Link href="/terms" className="underline hover:text-foreground">
-          Terms
-        </Link>
-        ,{" "}
-        <Link href="/privacy" className="underline hover:text-foreground">
-          Privacy Policy
-        </Link>
-        , and{" "}
-        <Link
-          href="/refund-policy"
-          className="underline hover:text-foreground"
+        <Button
+          type="submit"
+          variant="primary"
+          className="w-full"
+          isDisabled={isLoading}
         >
-          Refund Policy
-        </Link>
+          {isLoading ? "Signing in..." : "Continue"}
+        </Button>
+      </form>
+
+      {/* Footer */}
+      <p className="text-center text-xs leading-relaxed text-muted">
+        By continuing, you agree to our{" "}
+        <Link href="/terms" className="underline underline-offset-2 hover:text-foreground">Terms</Link>,{" "}
+        <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground">Privacy</Link>{" "}
+        &amp;{" "}
+        <Link href="/refund-policy" className="underline underline-offset-2 hover:text-foreground">Refund Policy</Link>
       </p>
-    </>
+    </div>
   );
 }
