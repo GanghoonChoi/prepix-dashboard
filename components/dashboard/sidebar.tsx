@@ -26,13 +26,13 @@ export function Sidebar({
   return (
     <aside className="fixed inset-y-0 left-0 z-50 flex w-[220px] flex-col border-r border-border bg-background">
       {/* Logo */}
-      <div className="flex h-14 items-center gap-2.5 px-5">
-        <Image src="/prepix-symbol.svg" alt="Prepix" width={22} height={22} />
-        <Image src="/prepix-wordmark.svg" alt="Prepix" width={72} height={18} />
+      <div className="flex h-14 items-center gap-2.5 border-b border-border px-5">
+        <Image src="/prepix-symbol.svg" alt="Prepix" width={20} height={20} />
+        <Image src="/prepix-wordmark.svg" alt="Prepix" width={68} height={17} />
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-2">
+      <nav className="flex-1 px-3 py-3">
         <div className="space-y-0.5">
           {NAV_ITEMS.map((item) => {
             const active = pathname === item.href;
@@ -41,9 +41,9 @@ export function Sidebar({
                 key={item.href}
                 href={item.href}
                 onClick={onClose}
-                className={`block rounded-md px-3 py-2 text-[13px] font-medium transition-colors ${
+                className={`block rounded-md px-3 py-2 text-[13px] transition-colors ${
                   active
-                    ? "bg-surface text-foreground"
+                    ? "font-medium text-foreground bg-foreground/[0.06]"
                     : "text-muted hover:text-foreground"
                 }`}
               >
@@ -55,18 +55,16 @@ export function Sidebar({
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-border px-3 py-3 space-y-1">
-        <div className="px-3 py-1.5">
-          <p className="truncate text-[13px] font-medium text-foreground">
-            {displayName}
-          </p>
+      <div className="border-t border-border px-3 py-3">
+        <div className="rounded-md px-3 py-2">
+          <p className="truncate text-[13px] font-medium text-foreground">{displayName}</p>
           {profile?.email && profile.email !== displayName && (
             <p className="truncate text-[11px] text-muted">{profile.email}</p>
           )}
         </div>
         <button
           onClick={onLogout}
-          className="block w-full rounded-md px-3 py-2 text-left text-[13px] font-medium text-muted transition-colors hover:text-foreground"
+          className="mt-1 block w-full rounded-md px-3 py-2 text-left text-[13px] text-muted transition-colors hover:text-foreground"
         >
           Log out
         </button>

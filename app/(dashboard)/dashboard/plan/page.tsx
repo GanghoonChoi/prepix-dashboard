@@ -2,10 +2,6 @@
 
 import { useState, useEffect } from "react";
 import {
-  Card,
-  CardHeader,
-  CardContent,
-  CardTitle,
   Button,
   Chip,
 } from "@heroui/react";
@@ -43,8 +39,7 @@ export default function PlanPage() {
   const cancelModal = useOverlayState();
 
   useEffect(() => {
-    subscriptionService
-      .getCurrent()
+    subscriptionService.getCurrent()
       .then(setCurrentSub)
       .catch(() => setCurrentSub({ plan: "free", status: "active" }))
       .finally(() => setLoading(false));
@@ -95,69 +90,57 @@ export default function PlanPage() {
   const price = PLAN_PRICES[currentPlan]?.[billingCycle] ?? 0;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
       <div>
-        <h1 className="text-2xl font-semibold text-foreground">Plan</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Plan</h1>
         <p className="mt-1 text-sm text-muted">Manage your subscription.</p>
       </div>
 
       {/* Current plan */}
-      <Card>
-        <CardContent className="pt-5 pb-5">
-          {loading ? (
-            <Skeleton className="h-16 w-full rounded" />
-          ) : (
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-semibold text-foreground">
-                    {PLAN_NAMES[currentPlan]}
-                  </h2>
-                  <Chip size="sm" color={currentSub?.status === "active" ? "success" : "danger"} variant="soft">
-                    {currentSub?.status === "active" ? "Active" : "Cancelled"}
-                  </Chip>
-                </div>
-                <p className="mt-1 text-sm text-muted">
-                  ${price}/month &middot; Billed {billingCycle}
-                </p>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onPress={() => cancelModal.open()}
-              >
-                Cancel
-              </Button>
+      {loading ? (
+        <Skeleton className="h-20 w-full rounded-lg" />
+      ) : (
+        <div className="flex items-start justify-between rounded-lg border border-border p-6">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h2 className="text-lg font-semibold text-foreground">{PLAN_NAMES[currentPlan]}</h2>
+              <Chip size="sm" color={currentSub?.status === "active" ? "success" : "danger"} variant="soft">
+                {currentSub?.status === "active" ? "Active" : "Cancelled"}
+              </Chip>
             </div>
-          )}
-        </CardContent>
-      </Card>
+            <p className="mt-1 text-sm text-muted">
+              ${price}/month &middot; Billed {billingCycle}
+            </p>
+          </div>
+          <button
+            onClick={() => cancelModal.open()}
+            className="text-xs text-muted hover:text-foreground transition-colors"
+          >
+            Cancel subscription
+          </button>
+        </div>
+      )}
 
-      {/* Billing toggle + plans */}
-      <div className="space-y-4">
+      {/* Plans */}
+      <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-medium text-foreground">Available plans</h2>
           <div className="flex rounded-md border border-border text-xs">
-            <button
-              onClick={() => setBillingCycle("monthly")}
-              className={`px-3 py-1.5 font-medium transition-colors ${
-                billingCycle === "monthly" ? "bg-surface text-foreground" : "text-muted"
-              }`}
-            >
-              Monthly
-            </button>
-            <button
-              onClick={() => setBillingCycle("yearly")}
-              className={`px-3 py-1.5 font-medium transition-colors ${
-                billingCycle === "yearly" ? "bg-surface text-foreground" : "text-muted"
-              }`}
-            >
-              Yearly
-            </button>
+            {(["monthly", "yearly"] as const).map((cycle) => (
+              <button
+                key={cycle}
+                onClick={() => setBillingCycle(cycle)}
+                className={`px-3 py-1.5 font-medium capitalize transition-colors ${
+                  billingCycle === cycle ? "bg-foreground/[0.06] text-foreground" : "text-muted"
+                }`}
+              >
+                {cycle}
+              </button>
+            ))}
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {PLANS.map((planId) => {
             const isCurrent = currentPlan === planId;
             const planPrice = PLAN_PRICES[planId][billingCycle];
@@ -165,27 +148,24 @@ export default function PlanPage() {
             return (
               <div
                 key={planId}
-                className={`flex flex-col rounded-lg border p-5 ${
-                  isCurrent ? "border-foreground" : "border-border"
+                className={`flex flex-col rounded-lg border p-5 transition-colors ${
+                  isCurrent ? "border-foreground/30 bg-foreground/[0.02]" : "border-border hover:border-foreground/15"
                 }`}
               >
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-foreground">
-                    {PLAN_NAMES[planId]}
-                  </p>
-                  <p className="mt-1 text-xs text-muted leading-relaxed">
-                    {PLAN_DESCRIPTIONS[planId]}
-                  </p>
-                  <p className="mt-3">
-                    <span className="text-2xl font-semibold tabular-nums text-foreground">
-                      ${planPrice}
-                    </span>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold text-foreground">{PLAN_NAMES[planId]}</p>
+                    {isCurrent && <span className="text-[10px] font-medium uppercase tracking-widest text-muted">Current</span>}
+                  </div>
+                  <p className="mt-2">
+                    <span className="text-2xl font-semibold tabular-nums text-foreground">${planPrice}</span>
                     <span className="text-xs text-muted">/mo</span>
                   </p>
-                  <ul className="mt-4 space-y-1.5">
+                  <p className="mt-2 text-xs leading-relaxed text-muted">{PLAN_DESCRIPTIONS[planId]}</p>
+                  <ul className="mt-4 space-y-2">
                     {PLAN_FEATURES[planId].map((feat) => (
                       <li key={feat} className="flex items-start gap-2 text-xs text-muted">
-                        <span className="mt-0.5 text-foreground">·</span>
+                        <span className="mt-px text-foreground/40">&#8226;</span>
                         {feat}
                       </li>
                     ))}
@@ -198,45 +178,38 @@ export default function PlanPage() {
                   isDisabled={isCurrent || actionLoading}
                   onPress={() => handleUpgrade(planId)}
                 >
-                  {isCurrent ? "Current" : "Select"}
+                  {isCurrent ? "Current plan" : "Select"}
                 </Button>
               </div>
             );
           })}
         </div>
-      </div>
+      </section>
 
-      {/* Comparison table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Compare Plans</CardTitle>
-        </CardHeader>
-        <CardContent>
-        <div className="overflow-x-auto">
+      {/* Comparison */}
+      <section className="space-y-4">
+        <h2 className="text-sm font-medium text-foreground">Compare plans</h2>
+        <div className="overflow-x-auto rounded-lg border border-border">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-border">
-                <th className="px-4 py-3 text-left font-medium text-muted">Feature</th>
+              <tr className="border-b border-border bg-surface">
+                <th className="px-5 py-3 text-left font-medium text-muted">Feature</th>
                 {PLANS.map((p) => (
-                  <th key={p} className="px-4 py-3 text-center font-medium text-muted">
-                    {PLAN_NAMES[p]}
-                  </th>
+                  <th key={p} className="px-5 py-3 text-center font-medium text-muted">{PLAN_NAMES[p]}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {COMPARISON_ROWS.map((row) => (
-                <tr key={row.feature}>
-                  <td className="px-4 py-3 text-foreground">{row.feature}</td>
+                <tr key={row.feature} className="transition-colors hover:bg-foreground/[0.02]">
+                  <td className="px-5 py-3 font-medium text-foreground">{row.feature}</td>
                   {PLANS.map((p) => {
                     const val = row[p];
                     return (
-                      <td key={p} className="px-4 py-3 text-center text-muted">
+                      <td key={p} className="px-5 py-3 text-center text-muted">
                         {typeof val === "boolean" ? (
-                          val ? <Check className="mx-auto h-3.5 w-3.5 text-foreground" /> : <X className="mx-auto h-3.5 w-3.5 text-muted/40" />
-                        ) : (
-                          val
-                        )}
+                          val ? <Check className="mx-auto h-3.5 w-3.5 text-foreground" /> : <X className="mx-auto h-3.5 w-3.5 text-muted/30" />
+                        ) : val}
                       </td>
                     );
                   })}
@@ -245,26 +218,21 @@ export default function PlanPage() {
             </tbody>
           </table>
         </div>
-        </CardContent>
-      </Card>
+      </section>
 
       {/* Cancel modal */}
       <Modal state={cancelModal}>
         <ModalBackdrop />
         <ModalContainer>
           <ModalDialog>
-            <ModalHeader>
-              <ModalHeading>Cancel subscription</ModalHeading>
-            </ModalHeader>
+            <ModalHeader><ModalHeading>Cancel subscription</ModalHeading></ModalHeader>
             <ModalBody>
               <p className="text-sm text-muted">
                 Are you sure? You&apos;ll lose access to premium features at the end of your billing period.
               </p>
             </ModalBody>
             <ModalFooter>
-              <Button variant="outline" size="sm" onPress={() => cancelModal.close()} isDisabled={actionLoading}>
-                Keep plan
-              </Button>
+              <Button variant="outline" size="sm" onPress={() => cancelModal.close()} isDisabled={actionLoading}>Keep plan</Button>
               <Button variant="danger" size="sm" onPress={confirmCancel} isDisabled={actionLoading}>
                 {actionLoading ? "Cancelling..." : "Cancel subscription"}
               </Button>
