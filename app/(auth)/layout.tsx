@@ -27,9 +27,16 @@ export default function AuthLayout({
           </div>
         </div>
 
-        <p className="text-xs text-muted">
-          &copy; {new Date().getFullYear()} Prepix Inc. All rights reserved.
-        </p>
+        <div className="space-y-3">
+          <div className="flex gap-4 text-xs text-muted">
+            <Link href="/terms" className="hover:text-foreground">Terms</Link>
+            <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
+            <Link href="/refund-policy" className="hover:text-foreground">Refund Policy</Link>
+          </div>
+          <p className="text-xs text-muted">
+            &copy; {new Date().getFullYear()} Prepix Inc. All rights reserved.
+          </p>
+        </div>
       </div>
 
       {/* Right panel - form */}

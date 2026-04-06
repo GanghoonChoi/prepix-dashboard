@@ -68,6 +68,11 @@ export function Sidebar({
         >
           Log out
         </button>
+        <div className="mt-2 flex gap-3 px-3 py-1">
+          <Link href="/terms" className="text-[10px] text-muted hover:text-foreground">Terms</Link>
+          <Link href="/privacy" className="text-[10px] text-muted hover:text-foreground">Privacy</Link>
+          <Link href="/refund-policy" className="text-[10px] text-muted hover:text-foreground">Refund</Link>
+        </div>
       </div>
     </aside>
   );

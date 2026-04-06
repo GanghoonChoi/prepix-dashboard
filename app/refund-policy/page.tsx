@@ -2,122 +2,76 @@ import Link from "next/link";
 
 export default function RefundPolicyPage() {
   return (
-    <PolicyLayout title="Refund Policy" lastUpdated="December 17, 2025">
+    <PolicyLayout title="Refund Policy" lastUpdated="April 6, 2026">
       <Section title="Overview">
         <p>
-          At Prepix Inc, operator of Prepix, we want you to be completely satisfied with your purchase. This Refund Policy outlines the conditions under which refunds may be requested and processed for our subscription services.
+          At Prepix Inc, operator of Prepix, we want you to be completely satisfied with your purchase. This Refund Policy outlines the conditions under which refunds are processed for our subscription services.
         </p>
         <p>
-          Prepix uses Paddle.com as the Merchant of Record for processing payments. All transactions are processed through Paddle, and refunds are subject to both Prepix Inc&apos;s and Paddle&apos;s policies.
+          Prepix uses Paddle.com as the Merchant of Record for processing all payments. All transactions are handled by Paddle, and refunds are processed in accordance with Paddle&apos;s refund policy.
         </p>
       </Section>
 
-      <Section title="Consumer Right to Cancel">
+      <Section title="14-Day Money-Back Guarantee">
         <p>
-          If you are a Consumer, you have the right to cancel your subscription and return the Product within <strong>14 days</strong> without giving any reason. The cancellation period will expire after 14 days from the day after completion of the transaction.
+          We offer a <strong>14-day money-back guarantee</strong> on all subscription plans. If you are not satisfied with your purchase for any reason, you may request a full refund within 14 days of your purchase date — no questions asked.
         </p>
         <p>
-          To meet the cancellation deadline, it is sufficient that you send us your communication concerning your exercise of the cancellation right before the expiration of the 14-day period.
+          This guarantee applies to:
         </p>
-        <p>
-          <strong>Note:</strong> In respect of subscription services, your right to cancel is only present following the initial subscription and not upon each automatic renewal.
-        </p>
-      </Section>
-
-      <Section title="Refund Eligibility">
-        <p>This 14-day money-back guarantee applies to:</p>
         <ul>
-          <li>First-time purchases of any subscription plan (Standard, Pro, or Ultra)</li>
-          <li>Initial subscription period only (not applicable to renewals)</li>
+          <li>All subscription plans (Standard, Pro, and Ultra)</li>
           <li>Both monthly and yearly billing cycles</li>
-        </ul>
-        <p>To be eligible for a refund, the following conditions must be met:</p>
-        <ul>
-          <li>The refund request must be submitted within 14 days of the initial purchase date</li>
-          <li>The request must be made through our official support channels</li>
-          <li>You must provide your account email and transaction details</li>
-          <li>The subscription must not have been previously refunded</li>
-        </ul>
-      </Section>
-
-      <Section title="Refund Policy">
-        <p>
-          Refunds are provided at the sole discretion of Prepix Inc and on a case-by-case basis and may be refused. We will refuse a refund request if we find evidence of fraud, refund abuse, or other manipulative behavior that entitles us to deny the refund.
-        </p>
-        <p>
-          This does not affect your rights as a Consumer in relation to Products which are not as described, faulty or not fit for purpose.
-        </p>
-      </Section>
-
-      <Section title="Exception to the Right to Cancel">
-        <p>Your right as a Consumer to cancel your order does not apply to:</p>
-        <ul>
-          <li>Digital content that you have started to download, stream or otherwise acquire</li>
-          <li>Products which you have had the benefit of using</li>
-          <li>Subscription renewals (monthly or yearly) - only initial purchases qualify for the 14-day cancellation right</li>
-          <li>Accounts suspended or terminated due to Terms of Service violations</li>
+          <li>First-time purchases and subscription renewals</li>
         </ul>
       </Section>
 
       <Section title="How to Request a Refund">
         <p>
-          To cancel your order and request a refund, you must inform Prepix Inc of your decision. To ensure immediate processing, please follow these steps:
+          To request a refund, please follow these steps:
         </p>
         <ol>
           <li>Contact our support team at <strong>support@prepix.ai</strong></li>
           <li>Include &quot;Refund Request&quot; in the subject line</li>
           <li>Provide your account email address</li>
           <li>Include your transaction ID or purchase date</li>
-          <li>Briefly explain the reason for your refund request (optional for cancellations within 14 days)</li>
         </ol>
         <p>
-          Our support team will review your request and respond within 2-3 business days. We will communicate acknowledgment of receipt of your cancellation request to you without delay.
+          Our support team will process your refund request within 2-3 business days. We will send you a confirmation once the refund has been initiated.
         </p>
       </Section>
 
-      <Section title="Effect of Cancellation">
-        <p>If you cancel your subscription as permitted above:</p>
+      <Section title="Effect of Refund">
+        <p>Once your refund is processed:</p>
         <ul>
-          <li>We will reimburse to you all payments received from you</li>
-          <li>Reimbursement will be made without undue delay, and not later than 14 days after the day on which we are informed about your decision to cancel</li>
-          <li>We will make the reimbursement using the same means of payment as you used for the initial transaction</li>
-          <li>You will not incur any fees as a result of the reimbursement</li>
-          <li>Your subscription will be immediately downgraded to the Free plan</li>
+          <li>You will receive a full reimbursement of the payment amount</li>
+          <li>Reimbursement will be made without undue delay, and not later than 14 days after we receive your refund request</li>
+          <li>The refund will be issued to the original payment method used for the transaction</li>
+          <li>You will not incur any fees as a result of the refund</li>
+          <li>Your subscription will be downgraded to the Free plan</li>
         </ul>
       </Section>
 
       <Section title="Subscription Cancellation">
         <p>
-          You may cancel your subscription at any time through your account settings or by contacting support. If you wish to cancel your subscription, please contact us at least 48 hours before the end of the current billing period.
+          You may cancel your subscription at any time through your account settings or by contacting our support team.
         </p>
-        <p>Please note:</p>
         <ul>
-          <li>Cancellations do not automatically result in a refund unless within the 14-day cancellation period</li>
           <li>Upon cancellation, you will retain access to your subscription features until the end of your current billing period</li>
           <li>Your cancellation will take effect at the next payment date</li>
           <li>After cancellation, your account will automatically revert to the Free plan</li>
-          <li>There are no refunds on unused subscription periods outside the 14-day cancellation window</li>
         </ul>
       </Section>
 
       <Section title="Processing Time">
-        <p>Once your refund request is approved:</p>
+        <p>Once your refund has been approved:</p>
         <ul>
-          <li>Refunds will be processed to the original payment method used for the purchase</li>
-          <li>Processing time typically takes 5-10 business days, depending on your payment provider and Paddle&apos;s processing procedures</li>
+          <li>Refunds will be processed to the original payment method</li>
+          <li>Processing typically takes 5-10 business days, depending on your payment provider and Paddle&apos;s processing procedures</li>
           <li>You will receive an email confirmation once the refund has been initiated</li>
         </ul>
         <p>
           Please allow additional time for the refund to appear in your account, as this depends on your bank or payment provider&apos;s processing times.
-        </p>
-      </Section>
-
-      <Section title="Sales Tax Refunds">
-        <p>
-          If you&apos;ve been charged sales tax (including VAT, GST, or other applicable taxes) on your purchase and are registered for sales tax in the country of purchase, you may be entitled to a refund of the sales tax amount if permitted by the laws applicable in such country.
-        </p>
-        <p>
-          You must contact us within 60 days after completing the purchase to be eligible for a sales tax refund. This refund will only be processed upon the provision of a valid sales tax code for your country. All refund requests received after 60 days from the date of the transaction will not be processed.
         </p>
       </Section>
 
