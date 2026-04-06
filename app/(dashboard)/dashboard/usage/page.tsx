@@ -18,18 +18,15 @@ export default function UsagePage() {
       setUsage({
         inferenceQuota: { total: 6000, used: 0, remaining: 6000, totalFormatted: "01:40:00", usedFormatted: "00:00:00", remainingFormatted: "01:40:00", usagePercentage: 0 },
         videos: { total: 0, thisMonth: 0, completed: 0, processing: 0 },
-        storage: { used: "0 GB", usedBytes: 0, limit: "1 GB", limitBytes: 1073741824, usagePercentage: 0 },
       });
     }).finally(() => setLoading(false));
   }, []);
 
   const quota = usage?.inferenceQuota;
   const videos = usage?.videos;
-  const storage = usage?.storage;
   const remaining = Number(quota?.remaining ?? 0);
   const total = Number(quota?.total ?? 0);
   const pct = total > 0 ? (remaining / total) * 100 : 100;
-  const storagePct = Number(storage?.usagePercentage ?? 0);
 
   return (
     <div className="space-y-10">
@@ -72,53 +69,27 @@ export default function UsagePage() {
         )}
       </section>
 
-      {/* Videos + Storage */}
-      <div className="grid gap-8 lg:grid-cols-2">
-        <section className="space-y-4">
-          <h2 className="text-sm font-medium text-foreground">Videos</h2>
-          {loading ? (
-            <Skeleton className="h-28 w-full rounded-lg" />
-          ) : (
-            <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border">
-              {[
-                { label: "Total", value: videos?.total ?? 0 },
-                { label: "This month", value: videos?.thisMonth ?? 0 },
-                { label: "Completed", value: videos?.completed ?? 0 },
-                { label: "Processing", value: videos?.processing ?? 0 },
-              ].map((item) => (
-                <div key={item.label} className="bg-surface px-5 py-4">
-                  <p className="text-[11px] font-medium uppercase tracking-widest text-muted">{item.label}</p>
-                  <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">{String(item.value)}</p>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="space-y-4">
-          <h2 className="text-sm font-medium text-foreground">Storage</h2>
-          {loading ? (
-            <Skeleton className="h-28 w-full rounded-lg" />
-          ) : (
-            <div className="rounded-lg border border-border p-6">
-              <div className="flex items-baseline justify-between">
-                <div className="flex items-baseline gap-1.5">
-                  <span className="text-2xl font-semibold tabular-nums text-foreground">
-                    {String(storage?.used ?? "0 GB")}
-                  </span>
-                  <span className="text-sm text-muted">of {String(storage?.limit ?? "—")}</span>
-                </div>
-                <span className="text-sm tabular-nums text-muted">{storagePct.toFixed(1)}%</span>
+      {/* Videos */}
+      <section className="space-y-4">
+        <h2 className="text-sm font-medium text-foreground">Videos</h2>
+        {loading ? (
+          <Skeleton className="h-28 w-full rounded-lg" />
+        ) : (
+          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border lg:grid-cols-4">
+            {[
+              { label: "Total", value: videos?.total ?? 0 },
+              { label: "This month", value: videos?.thisMonth ?? 0 },
+              { label: "Completed", value: videos?.completed ?? 0 },
+              { label: "Processing", value: videos?.processing ?? 0 },
+            ].map((item) => (
+              <div key={item.label} className="bg-surface px-5 py-4">
+                <p className="text-[11px] font-medium uppercase tracking-widest text-muted">{item.label}</p>
+                <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">{String(item.value)}</p>
               </div>
-              <div className="mt-4">
-                <ProgressBar aria-label="Storage" value={storagePct} size="sm">
-                  <ProgressBarTrack><ProgressBarFill /></ProgressBarTrack>
-                </ProgressBar>
-              </div>
-            </div>
-          )}
-        </section>
-      </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

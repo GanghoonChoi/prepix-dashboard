@@ -38,8 +38,6 @@ export default function DashboardPage() {
   const plan = subscription?.plan || "free";
   const quota = (usage as Record<string, Record<string, number | string>>)?.inferenceQuota;
   const videos = (usage as Record<string, Record<string, number>>)?.videos;
-  const storage = (usage as Record<string, Record<string, string | number>>)?.storage;
-
   const remaining = Number(quota?.remaining ?? 0);
   const total = Number(quota?.total ?? 0);
   const used = total - remaining;
@@ -58,12 +56,11 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border xl:grid-cols-4">
+      <div className="grid grid-cols-3 gap-px overflow-hidden rounded-lg border border-border">
         {([
           { label: "Plan", value: loading ? null : PLAN_NAMES[plan], sub: loading ? null : subscription?.status === "active" ? "Active" : "Inactive" },
           { label: "Credits remaining", value: loading ? null : String(quota?.remainingFormatted ?? `${remaining}s`), sub: loading ? null : `of ${String(quota?.totalFormatted ?? `${total}s`)}` },
           { label: "Videos this month", value: loading ? null : String(videos?.thisMonth ?? 0), sub: loading ? null : `${videos?.completed ?? 0} completed` },
-          { label: "Storage used", value: loading ? null : String(storage?.used ?? "0 GB"), sub: loading ? null : `of ${String(storage?.limit ?? "—")}` },
         ]).map((item) => (
           <div key={item.label} className="bg-surface p-5">
             <p className="text-[11px] font-medium uppercase tracking-widest text-muted">{item.label}</p>
