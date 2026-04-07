@@ -18,7 +18,6 @@ export const metadata: Metadata = {
   description: "AI video editing assistant dashboard",
   icons: {
     icon: [
-      { url: "/favicon.svg", type: "image/svg+xml" },
       { url: "/favicon.ico", sizes: "any" },
     ],
     apple: "/apple-touch-icon.png",
@@ -42,6 +41,8 @@ export default function RootLayout({
       className={`dark ${geistSans.variable} ${geistMono.variable} antialiased`}
     >
       <head>
+        <link rel="icon" type="image/svg+xml" href="/favicon_black.svg" media="(prefers-color-scheme: light)" />
+        <link rel="icon" type="image/svg+xml" href="/favicon_white.svg" media="(prefers-color-scheme: dark)" />
         <Script
           src="https://cdn.paddle.com/paddle/v2/paddle.js"
           strategy="beforeInteractive"
