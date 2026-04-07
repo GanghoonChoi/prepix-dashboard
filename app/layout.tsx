@@ -16,13 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Prepix Dashboard",
   description: "AI video editing assistant dashboard",
-  icons: {
-    icon: [
-      { url: "/favicon.ico", sizes: "any" },
-    ],
-    apple: "/apple-touch-icon.png",
-  },
-  manifest: "/site.webmanifest",
+  icons: null,
   openGraph: {
     title: "Prepix Dashboard",
     description: "AI video editing assistant dashboard",
