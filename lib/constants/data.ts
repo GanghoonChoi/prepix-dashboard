@@ -38,13 +38,15 @@ export const PLAN_DESCRIPTIONS: Record<string, string> = {
 
 export const PLAN_FEATURES: Record<string, string[]> = {
   free: [
-    "60 minutes of AI processing",
+    "1 hour of AI processing per month",
+    "Unlimited videos",
     "Rough cut generation",
     "NG take removal",
     "Community support",
   ],
   pro: [
-    "Unlimited AI processing",
+    "5 hours of AI processing per month",
+    "Unlimited videos",
     "Rough cut generation",
     "NG take removal",
     "Natural language search",
@@ -59,7 +61,8 @@ export const PLAN_PRICES: Record<string, { monthly: number; label: string }> = {
 };
 
 export const COMPARISON_ROWS = [
-  { feature: "AI Processing", free: "60 min", pro: "Unlimited" },
+  { feature: "AI Processing", free: "1 hour / month", pro: "5 hours / month" },
+  { feature: "Videos", free: "Unlimited", pro: "Unlimited" },
   { feature: "Rough cut generation", free: true, pro: true },
   { feature: "NG take removal", free: true, pro: true },
   { feature: "Natural language search", free: false, pro: true },
