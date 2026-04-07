@@ -10,10 +10,7 @@ import {
 import { Skeleton } from "@heroui/react";
 import { usageService } from "@/lib/api/services/usage.service";
 import { subscriptionService } from "@/lib/api/services/subscription.service";
-
-const PLAN_NAMES: Record<string, string> = {
-  free: "Free", standard: "Standard", pro: "Pro", ultra: "Ultra",
-};
+import { PLAN_NAMES } from "@/lib/constants/data";
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
