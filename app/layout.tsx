@@ -16,7 +16,6 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Prepix Dashboard",
   description: "AI video editing assistant dashboard",
-  icons: null,
   openGraph: {
     title: "Prepix Dashboard",
     description: "AI video editing assistant dashboard",
