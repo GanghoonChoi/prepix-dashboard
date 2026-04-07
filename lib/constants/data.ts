@@ -33,7 +33,7 @@ export const PLAN_NAMES: Record<string, string> = {
 
 export const PLAN_DESCRIPTIONS: Record<string, string> = {
   free: "Get started with basic AI video editing features.",
-  pro: "Full power of the AI editing agent. $1/mo for your first 2 months.",
+  pro: "Full power of the AI editing agent.",
 };
 
 export const PLAN_FEATURES: Record<string, string[]> = {
@@ -57,7 +57,7 @@ export const PLAN_FEATURES: Record<string, string[]> = {
 
 export const PLAN_PRICES: Record<string, { monthly: number; label: string }> = {
   free: { monthly: 0, label: "Free forever" },
-  pro: { monthly: 1, label: "$1/mo for first 2 months, then $56/mo" },
+  pro: { monthly: 1, label: "$1/mo · Billed monthly" },
 };
 
 export const COMPARISON_ROWS = [

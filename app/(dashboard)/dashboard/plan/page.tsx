@@ -140,9 +140,8 @@ export default function PlanPage() {
                         <div className="flex items-baseline gap-2">
                           <span className="text-3xl font-semibold text-foreground">$1</span>
                           <span className="text-sm text-muted">/mo</span>
-                          <span className="text-xs line-through text-muted">$56</span>
                         </div>
-                        <p className="mt-1 text-xs text-muted">for first 2 months, then $56/mo</p>
+                        <p className="mt-1 text-xs text-muted">Billed monthly</p>
                       </div>
                     )}
                   </div>
@@ -166,7 +165,7 @@ export default function PlanPage() {
                   isDisabled={isCurrent || actionLoading}
                   onPress={() => handleUpgrade(planId)}
                 >
-                  {isCurrent ? "Current plan" : planId === "free" ? "Downgrade" : "Start for $1/mo"}
+                  {isCurrent ? "Current plan" : planId === "free" ? "Downgrade" : "Get Pro"}
                 </Button>
 
                 {planId === "pro" && !isCurrent && (
