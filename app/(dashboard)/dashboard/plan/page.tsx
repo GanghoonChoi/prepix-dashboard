@@ -86,9 +86,15 @@ export default function PlanPage() {
                 {currentSub?.status === "active" ? "Active" : "Cancelled"}
               </Chip>
             </div>
-            <p className="mt-1 text-sm text-muted">{PLAN_PRICES[currentPlan]?.label}</p>
+            {currentSub?.status === "cancelled" && currentSub?.currentPeriodEnd ? (
+              <p className="mt-1 text-sm text-muted">
+                Access until {new Date(currentSub.currentPeriodEnd).toLocaleDateString()}. After that, your plan will revert to Free.
+              </p>
+            ) : (
+              <p className="mt-1 text-sm text-muted">{PLAN_PRICES[currentPlan]?.label}</p>
+            )}
           </div>
-          {currentPlan !== "free" && (
+          {currentPlan !== "free" && currentSub?.status === "active" && (
             <button
               onClick={() => cancelModal.open()}
               className="text-xs text-muted hover:text-foreground transition-colors"
