@@ -1,21 +1,25 @@
 import { apiClient } from "../client";
 
-// Note: The backend only has GET /auth/me for user profile.
-// Profile update, notifications, and password change are not yet implemented in the backend.
-// These functions are stubs that will work once backend endpoints are added.
-
 export const userService = {
   getProfile: async () => {
-    const response = await apiClient.get("/auth/me");
+    const response = await apiClient.get("/users/profile");
     return response.data.data;
   },
 
-  // Stub - backend endpoint not yet implemented
-  updateProfile: async (_data: Record<string, unknown>) => {
-    throw new Error("Profile update not yet implemented in backend");
+  updateProfile: async (data: Record<string, unknown>) => {
+    const response = await apiClient.patch("/users/profile", data);
+    return response.data.data;
   },
 
-  // Stub - backend endpoint not yet implemented
+  changePassword: async (data: {
+    currentPassword: string;
+    newPassword: string;
+  }) => {
+    const response = await apiClient.post("/users/change-password", data);
+    return response.data.data;
+  },
+
+  // Notifications - not yet implemented in backend
   getNotifications: async () => {
     return {
       emailNotifications: true,
@@ -25,16 +29,7 @@ export const userService = {
     };
   },
 
-  // Stub - backend endpoint not yet implemented
   updateNotifications: async (_data: Record<string, boolean>) => {
-    throw new Error("Notification settings not yet implemented in backend");
-  },
-
-  // Stub - backend endpoint not yet implemented
-  changePassword: async (_data: {
-    currentPassword: string;
-    newPassword: string;
-  }) => {
-    throw new Error("Password change not yet implemented in backend");
+    // no-op until backend implements this
   },
 };
