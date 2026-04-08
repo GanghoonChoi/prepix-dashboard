@@ -37,7 +37,7 @@ export default function PlanPage() {
         window.Paddle.Checkout.open({
           items: [{ priceId: result.priceId, quantity: 1 }],
           customer: result.email ? { email: result.email } : undefined,
-          customData: result.userId ? { userId: result.userId } : undefined,
+          customData: { userId: result.userId, plan: result.plan },
           settings: {
             displayMode: "overlay",
             theme: "dark",
