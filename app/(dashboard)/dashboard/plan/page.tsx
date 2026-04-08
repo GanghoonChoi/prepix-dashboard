@@ -58,7 +58,7 @@ export default function PlanPage() {
   const confirmCancel = async () => {
     setActionLoading(true);
     try {
-      await subscriptionService.changePlan("free");
+      await subscriptionService.cancel();
       const data = await subscriptionService.getCurrent();
       setCurrentSub(data);
       cancelModal.close();
@@ -214,7 +214,7 @@ export default function PlanPage() {
       </section>
 
       {/* Cancel modal */}
-      <Modal state={cancelModal}>
+      <Modal state={cancelModal} isDismissable>
         <ModalBackdrop />
         <ModalContainer><ModalDialog>
           <ModalHeader><ModalHeading>Cancel subscription</ModalHeading></ModalHeader>

@@ -19,4 +19,9 @@ export const subscriptionService = {
     });
     return response.data.data;
   },
+
+  cancel: async () => {
+    const response = await apiClient.post("/subscriptions/cancel");
+    return response.data.data;
+  },
 };
