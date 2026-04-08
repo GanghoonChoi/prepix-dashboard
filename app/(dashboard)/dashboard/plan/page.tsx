@@ -214,7 +214,7 @@ export default function PlanPage() {
       </section>
 
       {/* Cancel modal */}
-      <Modal state={cancelModal} isDismissable>
+      <Modal state={cancelModal}>
         <ModalBackdrop />
         <ModalContainer><ModalDialog>
           <ModalHeader><ModalHeading>Cancel subscription</ModalHeading></ModalHeader>
