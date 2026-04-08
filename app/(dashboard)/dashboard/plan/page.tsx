@@ -10,6 +10,7 @@ import {
   PLAN_PRICES, COMPARISON_ROWS,
 } from "@/lib/constants/data";
 import { useOverlayState } from "@heroui/react";
+import { Dialog } from "@/components/dialog";
 
 export default function PlanPage() {
   const [loading, setLoading] = useState(true);
@@ -216,25 +217,17 @@ export default function PlanPage() {
       </section>
 
       {/* Cancel modal */}
-      {cancelModal.isOpen && (
-        <div className="fixed inset-0 z-50">
-          <div className="fixed inset-0 bg-black/60" onClick={() => cancelModal.close()} />
-          <div className="fixed inset-0 flex items-center justify-center p-4">
-            <div className="relative w-full max-w-md rounded-lg border border-border bg-background p-6 shadow-lg">
-              <h3 className="text-lg font-semibold text-foreground">Cancel subscription</h3>
-              <p className="mt-3 text-sm text-muted">
-                Are you sure? You&apos;ll lose access to Pro features at the end of your billing period.
-              </p>
-              <div className="mt-6 flex justify-end gap-3">
-                <Button variant="outline" size="sm" onPress={() => cancelModal.close()} isDisabled={actionLoading}>Keep plan</Button>
-                <Button variant="danger" size="sm" onPress={confirmCancel} isDisabled={actionLoading}>
-                  {actionLoading ? "Cancelling..." : "Cancel subscription"}
-                </Button>
-              </div>
-            </div>
-          </div>
+      <Dialog state={cancelModal} title="Cancel subscription">
+        <p className="text-sm text-muted">
+          Are you sure? You&apos;ll lose access to Pro features at the end of your billing period.
+        </p>
+        <div className="mt-6 flex justify-end gap-3">
+          <Button variant="outline" size="sm" onPress={() => cancelModal.close()} isDisabled={actionLoading}>Keep plan</Button>
+          <Button variant="danger" size="sm" onPress={confirmCancel} isDisabled={actionLoading}>
+            {actionLoading ? "Cancelling..." : "Cancel subscription"}
+          </Button>
         </div>
-      )}
+      </Dialog>
     </div>
   );
 }

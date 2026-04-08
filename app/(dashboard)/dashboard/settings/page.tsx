@@ -3,18 +3,9 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Switch } from "@heroui/react";
-import {
-  Modal,
-  ModalBackdrop,
-  ModalContainer,
-  ModalDialog,
-  ModalHeader,
-  ModalHeading,
-  ModalBody,
-  ModalFooter,
-} from "@heroui/react";
 import { Skeleton } from "@heroui/react";
 import { useOverlayState } from "@heroui/react";
+import { Dialog } from "@/components/dialog";
 import { userService } from "@/lib/api/services/user.service";
 import { authService } from "@/lib/api/services/auth.service";
 
@@ -175,53 +166,37 @@ export default function SettingsPage() {
       </section>
 
       {/* Modals */}
-      <Modal state={nameModal}>
-        <ModalBackdrop />
-        <ModalContainer><ModalDialog>
-          <ModalHeader><ModalHeading>Edit name</ModalHeading></ModalHeader>
-          <ModalBody>
-            <div className="space-y-3">
-              <div><label className="mb-1 block text-xs font-medium text-muted">First name</label><input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} className={inputClass} /></div>
-              <div><label className="mb-1 block text-xs font-medium text-muted">Last name</label><input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} className={inputClass} /></div>
-            </div>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="outline" size="sm" onPress={() => nameModal.close()} isDisabled={saving}>Cancel</Button>
-            <Button variant="primary" size="sm" onPress={handleEditName} isDisabled={saving}>{saving ? "Saving..." : "Save"}</Button>
-          </ModalFooter>
-        </ModalDialog></ModalContainer>
-      </Modal>
+      <Dialog state={nameModal} title="Edit name">
+        <div className="space-y-3">
+          <div><label className="mb-1 block text-xs font-medium text-muted">First name</label><input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} className={inputClass} /></div>
+          <div><label className="mb-1 block text-xs font-medium text-muted">Last name</label><input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} className={inputClass} /></div>
+        </div>
+        <div className="mt-6 flex justify-end gap-3">
+          <Button variant="outline" size="sm" onPress={() => nameModal.close()} isDisabled={saving}>Cancel</Button>
+          <Button variant="primary" size="sm" onPress={handleEditName} isDisabled={saving}>{saving ? "Saving..." : "Save"}</Button>
+        </div>
+      </Dialog>
 
-      <Modal state={passwordModal}>
-        <ModalBackdrop />
-        <ModalContainer><ModalDialog>
-          <ModalHeader><ModalHeading>Change password</ModalHeading></ModalHeader>
-          <ModalBody>
-            <p className="mb-4 text-xs text-muted">You&apos;ll be logged out after changing your password.</p>
-            <div className="space-y-3">
-              <div><label className="mb-1 block text-xs font-medium text-muted">Current password</label><input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className={inputClass} /></div>
-              <div><label className="mb-1 block text-xs font-medium text-muted">New password</label><input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={inputClass} /></div>
-              <div><label className="mb-1 block text-xs font-medium text-muted">Confirm new password</label><input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={inputClass} /></div>
-            </div>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="outline" size="sm" onPress={() => passwordModal.close()} isDisabled={saving}>Cancel</Button>
-            <Button variant="primary" size="sm" onPress={handleUpdatePassword} isDisabled={saving}>{saving ? "Updating..." : "Update"}</Button>
-          </ModalFooter>
-        </ModalDialog></ModalContainer>
-      </Modal>
+      <Dialog state={passwordModal} title="Change password">
+        <p className="mb-4 text-xs text-muted">You&apos;ll be logged out after changing your password.</p>
+        <div className="space-y-3">
+          <div><label className="mb-1 block text-xs font-medium text-muted">Current password</label><input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className={inputClass} /></div>
+          <div><label className="mb-1 block text-xs font-medium text-muted">New password</label><input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={inputClass} /></div>
+          <div><label className="mb-1 block text-xs font-medium text-muted">Confirm new password</label><input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={inputClass} /></div>
+        </div>
+        <div className="mt-6 flex justify-end gap-3">
+          <Button variant="outline" size="sm" onPress={() => passwordModal.close()} isDisabled={saving}>Cancel</Button>
+          <Button variant="primary" size="sm" onPress={handleUpdatePassword} isDisabled={saving}>{saving ? "Updating..." : "Update"}</Button>
+        </div>
+      </Dialog>
 
-      <Modal state={deleteModal}>
-        <ModalBackdrop />
-        <ModalContainer><ModalDialog>
-          <ModalHeader><ModalHeading>Delete account</ModalHeading></ModalHeader>
-          <ModalBody><p className="text-sm text-muted">This cannot be undone. All data will be permanently deleted.</p></ModalBody>
-          <ModalFooter>
-            <Button variant="outline" size="sm" onPress={() => deleteModal.close()}>Cancel</Button>
-            <Button variant="danger" size="sm" onPress={() => { flash("error", "Please contact support to delete your account."); deleteModal.close(); }}>Delete account</Button>
-          </ModalFooter>
-        </ModalDialog></ModalContainer>
-      </Modal>
+      <Dialog state={deleteModal} title="Delete account">
+        <p className="text-sm text-muted">This cannot be undone. All data will be permanently deleted.</p>
+        <div className="mt-6 flex justify-end gap-3">
+          <Button variant="outline" size="sm" onPress={() => deleteModal.close()}>Cancel</Button>
+          <Button variant="danger" size="sm" onPress={() => { flash("error", "Please contact support to delete your account."); deleteModal.close(); }}>Delete account</Button>
+        </div>
+      </Dialog>
     </div>
   );
 }
