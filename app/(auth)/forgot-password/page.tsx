@@ -3,18 +3,32 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@heroui/react";
+import { authService } from "@/lib/api/services/auth.service";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setIsLoading(false);
-    setIsSubmitted(true);
+    setError("");
+    try {
+      await authService.requestPasswordReset(email);
+      setIsSubmitted(true);
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      // The backend returns a generic 200 even when the email is unknown,
+      // so anything reaching here is a transport-level error.
+      setError(
+        axiosErr.response?.data?.message ||
+          "Couldn't send the reset link. Please try again.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const inputClass =
@@ -28,7 +42,7 @@ export default function ForgotPasswordPage() {
         </h1>
         <p className="mt-1.5 text-sm text-muted">
           {isSubmitted
-            ? `We sent a reset link to ${email}`
+            ? `If an account exists for ${email}, we sent a reset link to it.`
             : "Enter your email and we'll send you a reset link"}
         </p>
       </div>
@@ -38,7 +52,10 @@ export default function ForgotPasswordPage() {
           <div className="rounded-md border border-border px-4 py-3 text-sm text-muted">
             Didn&apos;t receive the email? Check your spam folder, or{" "}
             <button
-              onClick={() => setIsSubmitted(false)}
+              onClick={() => {
+                setIsSubmitted(false);
+                setError("");
+              }}
               className="text-foreground underline underline-offset-2"
             >
               try again
@@ -47,7 +64,7 @@ export default function ForgotPasswordPage() {
           <Button
             variant="primary"
             className="w-full"
-            onPress={() => window.location.href = "/login"}
+            onPress={() => (window.location.href = "/login")}
           >
             Back to sign in
           </Button>
@@ -69,6 +86,11 @@ export default function ForgotPasswordPage() {
               className={inputClass}
             />
           </div>
+          {error && (
+            <div className="rounded-md border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
+              {error}
+            </div>
+          )}
           <Button
             type="submit"
             variant="primary"
