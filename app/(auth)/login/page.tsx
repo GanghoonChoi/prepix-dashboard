@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@heroui/react";
 import { LoadingScreen } from "@/components/loading-screen";
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { authService } from "@/lib/api/services/auth.service";
 import { sleep } from "@/lib/utils";
 
@@ -136,6 +137,25 @@ export default function LoginPage() {
           {isLoading ? "Signing in..." : "Continue"}
         </Button>
       </form>
+
+      {/* Google */}
+      <div className="space-y-5">
+        <div className="flex items-center gap-3">
+          <div className="h-px flex-1 bg-border" />
+          <span className="text-xs text-muted">or</span>
+          <div className="h-px flex-1 bg-border" />
+        </div>
+        <GoogleSignInButton
+          text="signin_with"
+          onError={(m) => setError(m)}
+          onSuccess={async () => {
+            setError("");
+            setIsSigningIn(true);
+            await sleep(800);
+            router.push("/dashboard");
+          }}
+        />
+      </div>
 
       {/* Footer */}
       <p className="text-center text-xs leading-relaxed text-muted">

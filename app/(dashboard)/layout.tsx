@@ -40,6 +40,8 @@ export default function DashboardLayout({
                 settings: { displayMode: "overlay", theme: "dark", showAddDiscounts: true },
               },
             });
+            // Signal the plan page that the client-side overlay is usable.
+            window.__paddleReady = true;
           } catch { /* ignore */ }
         }
       } else {

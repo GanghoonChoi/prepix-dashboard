@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Switch } from "@heroui/react";
+import { Button } from "@heroui/react";
 import { Skeleton } from "@heroui/react";
 import { useOverlayState } from "@heroui/react";
 import { Dialog } from "@/components/dialog";
 import { userService } from "@/lib/api/services/user.service";
 import { authService } from "@/lib/api/services/auth.service";
+
+const SUPPORT_EMAIL = "support@prepix.ai";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -16,12 +18,6 @@ export default function SettingsPage() {
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const [profile, setProfile] = useState<Record<string, string> | null>(null);
-  const [notifications, setNotifications] = useState({
-    emailNotifications: true,
-    marketingEmails: false,
-    productUpdates: true,
-    usageAlerts: true,
-  });
 
   const nameModal = useOverlayState();
   const passwordModal = useOverlayState();
@@ -39,16 +35,13 @@ export default function SettingsPage() {
       try { const p = JSON.parse(cached); setProfile(p); setFirstName(p.firstName || ""); setLastName(p.lastName || ""); } catch { /* */ }
     }
 
-    Promise.allSettled([userService.getProfile(), userService.getNotifications()])
-      .then(([pRes, nRes]) => {
-        if (pRes.status === "fulfilled") {
-          const p = pRes.value;
-          setProfile(p); setFirstName(p.firstName || ""); setLastName(p.lastName || "");
-          localStorage.setItem("userInfo", JSON.stringify(p));
-        }
-        if (nRes.status === "fulfilled") setNotifications(nRes.value);
-        setLoading(false);
-      });
+    userService.getProfile()
+      .then((p) => {
+        setProfile(p); setFirstName(p.firstName || ""); setLastName(p.lastName || "");
+        localStorage.setItem("userInfo", JSON.stringify(p));
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   const flash = (type: "success" | "error", text: string) => {
@@ -78,13 +71,6 @@ export default function SettingsPage() {
       alert("Password updated. Please login again."); router.push("/login");
     } catch { flash("error", "Failed to update password"); }
     setSaving(false);
-  };
-
-  const handleNotification = async (key: string, value: boolean) => {
-    const prev = { ...notifications };
-    setNotifications({ ...notifications, [key]: value });
-    try { await userService.updateNotifications({ ...notifications, [key]: value }); }
-    catch { setNotifications(prev); }
   };
 
   const inputClass = "w-full rounded-md border border-border bg-field-background px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-foreground/30";
@@ -124,42 +110,13 @@ export default function SettingsPage() {
         )}
       </section>
 
-      {/* Notifications */}
-      <section className="space-y-4">
-        <h2 className="text-sm font-medium text-foreground">Notifications</h2>
-        {loading ? (
-          <Skeleton className="h-48 w-full rounded-lg" />
-        ) : (
-          <div className="divide-y divide-border rounded-lg border border-border">
-            {([
-              { key: "emailNotifications", label: "Email notifications", desc: "Receive notifications via email" },
-              { key: "marketingEmails", label: "Marketing emails", desc: "Promotional content" },
-              { key: "productUpdates", label: "Product updates", desc: "New features and improvements" },
-              { key: "usageAlerts", label: "Usage alerts", desc: "Quota and limit warnings" },
-            ] as const).map((item) => (
-              <div key={item.key} className="flex items-center justify-between px-5 py-4">
-                <div>
-                  <p className="text-sm font-medium text-foreground">{item.label}</p>
-                  <p className="text-xs text-muted">{item.desc}</p>
-                </div>
-                <Switch
-                  isSelected={notifications[item.key]}
-                  onChange={() => handleNotification(item.key, !notifications[item.key])}
-                  size="sm"
-                />
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
       {/* Danger */}
       <section className="space-y-4">
         <h2 className="text-sm font-medium text-foreground">Danger zone</h2>
         <div className="flex items-center justify-between rounded-lg border border-border px-5 py-4">
           <div>
             <p className="text-sm font-medium text-foreground">Delete account</p>
-            <p className="text-xs text-muted">Permanently remove all data</p>
+            <p className="text-xs text-muted">Permanently remove your account and all data</p>
           </div>
           <Button variant="danger-soft" size="sm" onPress={() => deleteModal.open()}>Delete</Button>
         </div>
@@ -191,10 +148,24 @@ export default function SettingsPage() {
       </Dialog>
 
       <Dialog state={deleteModal} title="Delete account">
-        <p className="text-sm text-muted">This cannot be undone. All data will be permanently deleted.</p>
+        <p className="text-sm text-muted">
+          Deleting your account is permanent and removes all your data. To
+          protect against accidental or unauthorized deletion, we handle this
+          request manually. Email us from your account address and we&apos;ll
+          process it.
+        </p>
         <div className="mt-6 flex justify-end gap-3">
           <Button variant="outline" size="sm" onPress={() => deleteModal.close()}>Cancel</Button>
-          <Button variant="danger" size="sm" onPress={() => { flash("error", "Please contact support to delete your account."); deleteModal.close(); }}>Delete account</Button>
+          <Button
+            variant="danger"
+            size="sm"
+            onPress={() => {
+              window.location.href = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Account deletion request")}&body=${encodeURIComponent(`Please delete my Prepix account (${profile?.email ?? ""}).`)}`;
+              deleteModal.close();
+            }}
+          >
+            Contact support
+          </Button>
         </div>
       </Dialog>
     </div>

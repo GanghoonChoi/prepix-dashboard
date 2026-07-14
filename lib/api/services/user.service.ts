@@ -18,18 +18,4 @@ export const userService = {
     const response = await apiClient.post("/users/change-password", data);
     return response.data.data;
   },
-
-  // Notifications - not yet implemented in backend
-  getNotifications: async () => {
-    return {
-      emailNotifications: true,
-      marketingEmails: false,
-      productUpdates: true,
-      usageAlerts: true,
-    };
-  },
-
-  updateNotifications: async (_data: Record<string, boolean>) => {
-    // no-op until backend implements this
-  },
 };

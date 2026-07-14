@@ -44,6 +44,11 @@ export const authService = {
     return response.data.data;
   },
 
+  googleLogin: async (idToken: string): Promise<LoginResponse> => {
+    const response = await apiClient.post("/auth/google", { idToken });
+    return response.data.data;
+  },
+
   requestPasswordReset: async (email: string): Promise<{ success: true }> => {
     const response = await apiClient.post("/auth/password-reset/request", {
       email,

@@ -1,29 +1,3 @@
-export const JOB_ROLES = [
-  "video_editor",
-  "content_creator",
-  "filmmaker",
-  "motion_designer",
-  "social_media_manager",
-  "marketing_manager",
-  "photographer",
-  "producer",
-  "student",
-  "other",
-];
-
-export const INDUSTRIES = [
-  "media_entertainment",
-  "advertising_marketing",
-  "education",
-  "technology",
-  "ecommerce",
-  "healthcare",
-  "real_estate",
-  "gaming",
-  "sports",
-  "other",
-];
-
 export const PLANS = ["free", "pro"] as const;
 
 export const PLAN_NAMES: Record<string, string> = {

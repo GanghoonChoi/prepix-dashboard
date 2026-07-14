@@ -7,6 +7,7 @@ import { Button, ProgressBar, ProgressBarTrack, ProgressBarFill } from "@heroui/
 import confetti from "canvas-confetti";
 import { LoadingScreen } from "@/components/loading-screen";
 import { PasswordRequirements } from "@/components/auth/password-requirements";
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { authService } from "@/lib/api/services/auth.service";
 import { sleep } from "@/lib/utils";
 
@@ -200,6 +201,29 @@ export default function SignupPage() {
           </Button>
         </div>
       </form>
+
+      {/* Google (first step only — Google provides email + name so the wizard is skipped) */}
+      {step === 1 && (
+        <div className="space-y-5">
+          <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-xs text-muted">or</span>
+            <div className="h-px flex-1 bg-border" />
+          </div>
+          <GoogleSignInButton
+            text="signup_with"
+            onError={(m) => setError(m)}
+            onSuccess={async () => {
+              setError("");
+              fireConfetti();
+              await sleep(800);
+              setIsSettingUp(true);
+              await sleep(1500);
+              router.push("/dashboard");
+            }}
+          />
+        </div>
+      )}
 
       {/* Footer */}
       <p className="text-sm text-muted">

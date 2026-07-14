@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import Script from "next/script";
 
 export default function AuthLayout({
   children,
@@ -8,6 +9,9 @@ export default function AuthLayout({
 }) {
   return (
     <div className="flex min-h-dvh">
+      {/* Google Identity Services — powers "Sign in with Google" on auth pages. */}
+      <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" />
+
       {/* Left panel - branding */}
       <div className="hidden w-[480px] shrink-0 flex-col justify-between border-r border-border bg-surface p-10 lg:flex">
         <div>

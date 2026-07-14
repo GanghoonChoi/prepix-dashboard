@@ -16,6 +16,7 @@ export default function PlanPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [currentSub, setCurrentSub] = useState<Record<string, string> | null>(null);
+  const [justUpgraded, setJustUpgraded] = useState(false);
   const cancelModal = useOverlayState();
 
   useEffect(() => {
@@ -23,6 +24,17 @@ export default function PlanPage() {
       .then(setCurrentSub)
       .catch(() => setCurrentSub({ plan: "free", status: "active" }))
       .finally(() => setLoading(false));
+
+    // Returned here from the hosted-checkout redirect (?success=true). The
+    // Paddle webhook updates the plan server-side asynchronously, so show a
+    // confirmation and strip the query param from the URL.
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("success") === "true") {
+        setJustUpgraded(true);
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+    }
   }, []);
 
   const handleUpgrade = async (planId: string) => {
@@ -30,7 +42,11 @@ export default function PlanPage() {
     setActionLoading(true);
     try {
       const result = await subscriptionService.checkout(planId);
-      if (result.priceId && window.Paddle) {
+      // Prefer the in-page Paddle overlay when it's actually initialised (see
+      // dashboard layout). On completion the layout's eventCallback reloads the
+      // page so the new plan shows immediately. If Paddle isn't ready (client
+      // token not configured), fall back to the hosted-checkout redirect.
+      if (result.priceId && window.Paddle && window.__paddleReady) {
         window.Paddle.Checkout.open({
           items: [{ priceId: result.priceId, quantity: 1 }],
           customer: result.email ? { email: result.email } : undefined,
@@ -44,6 +60,8 @@ export default function PlanPage() {
         });
       } else if (result.checkoutUrl) {
         window.location.href = result.checkoutUrl;
+      } else {
+        alert("Checkout is not available right now. Please try again later.");
       }
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
@@ -74,6 +92,13 @@ export default function PlanPage() {
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">Plan</h1>
         <p className="mt-1 text-sm text-muted">Manage your subscription.</p>
       </div>
+
+      {justUpgraded && (
+        <div className="rounded-md border border-border bg-foreground/[0.03] px-4 py-3 text-sm text-foreground">
+          Payment received. Your plan will update within a few moments — refresh
+          if it hasn&apos;t changed yet.
+        </div>
+      )}
 
       {/* Current plan */}
       {loading ? (
@@ -112,7 +137,6 @@ export default function PlanPage() {
         <div className="grid gap-4 sm:grid-cols-2">
           {PLANS.map((planId) => {
             const isCurrent = currentPlan === planId;
-            const price = PLAN_PRICES[planId];
 
             return (
               <div
