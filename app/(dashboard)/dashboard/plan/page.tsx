@@ -3,27 +3,38 @@
 import { useState, useEffect } from "react";
 import { Button, Chip } from "@heroui/react";
 import { Skeleton } from "@heroui/react";
-import { Check, X } from "lucide-react";
+import { Check } from "lucide-react";
 import { subscriptionService } from "@/lib/api/services/subscription.service";
 import {
   PLANS, PLAN_NAMES, PLAN_DESCRIPTIONS, PLAN_FEATURES,
-  PLAN_PRICES, COMPARISON_ROWS,
+  PLAN_PRICES,
 } from "@/lib/constants/data";
 import { useOverlayState } from "@heroui/react";
 import { Dialog } from "@/components/dialog";
+import { useToast } from "@/components/toast";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 
 export default function PlanPage() {
+  usePageTitle("Plan");
+  const toast = useToast();
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [currentSub, setCurrentSub] = useState<Record<string, string> | null>(null);
   const [justUpgraded, setJustUpgraded] = useState(false);
   const cancelModal = useOverlayState();
 
-  useEffect(() => {
+  const loadSubscription = () => {
+    setLoading(true);
+    setLoadError(false);
     subscriptionService.getCurrent()
-      .then(setCurrentSub)
-      .catch(() => setCurrentSub({ plan: "free", status: "active" }))
+      .then((data) => { setCurrentSub(data); })
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    loadSubscription();
 
     // Returned here from the hosted-checkout redirect (?success=true). The
     // Paddle webhook updates the plan server-side asynchronously, so show a
@@ -59,13 +70,15 @@ export default function PlanPage() {
           },
         });
       } else if (result.checkoutUrl) {
+        // Full-page navigation to a hosted checkout — not React state.
+        // eslint-disable-next-line react-hooks/immutability
         window.location.href = result.checkoutUrl;
       } else {
-        alert("Checkout is not available right now. Please try again later.");
+        toast("Checkout is not available right now. Please try again later.", "error");
       }
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
-      alert(axiosErr.response?.data?.message || "Failed to start checkout");
+      toast(axiosErr.response?.data?.message || "Failed to start checkout", "error");
     }
     setActionLoading(false);
   };
@@ -77,9 +90,10 @@ export default function PlanPage() {
       const data = await subscriptionService.getCurrent();
       setCurrentSub(data);
       cancelModal.close();
+      toast("Subscription cancelled. Access continues until your billing period ends.");
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
-      alert(axiosErr.response?.data?.message || "Failed to cancel");
+      toast(axiosErr.response?.data?.message || "Failed to cancel", "error");
     }
     setActionLoading(false);
   };
@@ -88,10 +102,7 @@ export default function PlanPage() {
 
   return (
     <div className="space-y-10">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Plan</h1>
-        <p className="mt-1 text-sm text-muted">Manage your subscription.</p>
-      </div>
+      <h1 className="text-2xl font-semibold tracking-tight text-foreground">Plan</h1>
 
       {justUpgraded && (
         <div className="rounded-md border border-border bg-foreground/[0.03] px-4 py-3 text-sm text-foreground">
@@ -103,6 +114,11 @@ export default function PlanPage() {
       {/* Current plan */}
       {loading ? (
         <Skeleton className="h-20 w-full rounded-lg" />
+      ) : loadError ? (
+        <div className="flex items-center justify-between rounded-lg border border-danger/30 bg-danger/5 p-6">
+          <p className="text-sm text-danger">Couldn&apos;t load your subscription.</p>
+          <Button variant="outline" size="sm" onPress={loadSubscription}>Retry</Button>
+        </div>
       ) : (
         <div className="flex items-start justify-between rounded-lg border border-border p-6">
           <div>
@@ -137,12 +153,17 @@ export default function PlanPage() {
         <div className="grid gap-4 sm:grid-cols-2">
           {PLANS.map((planId) => {
             const isCurrent = currentPlan === planId;
+            const emphasize = planId === "pro" && !isCurrent;
 
             return (
               <div
                 key={planId}
                 className={`flex flex-col rounded-lg border p-6 transition-colors ${
-                  isCurrent ? "border-foreground/30 bg-foreground/[0.02]" : "border-border hover:border-foreground/15"
+                  isCurrent
+                    ? "border-foreground/30 bg-foreground/[0.02]"
+                    : emphasize
+                      ? "border-foreground/25 hover:border-foreground/40"
+                      : "border-border hover:border-foreground/15"
                 }`}
               >
                 <div className="flex-1">
@@ -203,40 +224,6 @@ export default function PlanPage() {
               </div>
             );
           })}
-        </div>
-      </section>
-
-      {/* Comparison */}
-      <section className="space-y-4">
-        <h2 className="text-sm font-medium text-foreground">Compare plans</h2>
-        <div className="overflow-x-auto rounded-lg border border-border">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-border bg-surface">
-                <th className="px-5 py-3 text-left font-medium text-muted">Feature</th>
-                {PLANS.map((p) => (
-                  <th key={p} className="px-5 py-3 text-center font-medium text-muted">{PLAN_NAMES[p]}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {COMPARISON_ROWS.map((row) => (
-                <tr key={row.feature} className="transition-colors hover:bg-foreground/[0.02]">
-                  <td className="px-5 py-3 font-medium text-foreground">{row.feature}</td>
-                  {PLANS.map((p) => {
-                    const val = row[p];
-                    return (
-                      <td key={p} className="px-5 py-3 text-center text-muted">
-                        {typeof val === "boolean" ? (
-                          val ? <Check className="mx-auto h-3.5 w-3.5 text-foreground" /> : <X className="mx-auto h-3.5 w-3.5 text-muted/30" />
-                        ) : val}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
       </section>
 

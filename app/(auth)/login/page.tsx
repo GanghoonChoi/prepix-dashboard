@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@heroui/react";
@@ -8,14 +8,31 @@ import { LoadingScreen } from "@/components/loading-screen";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { authService } from "@/lib/api/services/auth.service";
 import { sleep } from "@/lib/utils";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
+
+// Only allow internal paths as a post-login destination (prevents open-redirect
+// via a crafted ?returnTo=https://evil.com).
+function safeReturnTo(): string {
+  if (typeof window === "undefined") return "/dashboard";
+  const raw = new URLSearchParams(window.location.search).get("returnTo");
+  return raw && raw.startsWith("/") && !raw.startsWith("//") ? raw : "/dashboard";
+}
 
 export default function LoginPage() {
+  usePageTitle("Sign in");
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [error, setError] = useState("");
+
+  // Already signed in? Skip the form.
+  useEffect(() => {
+    if (localStorage.getItem("accessToken") || localStorage.getItem("refreshToken")) {
+      router.replace(safeReturnTo());
+    }
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +59,7 @@ export default function LoginPage() {
       setIsLoading(false);
       setIsSigningIn(true);
       await sleep(1000);
-      router.push("/dashboard");
+      router.push(safeReturnTo());
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
       setError(
@@ -96,6 +113,7 @@ export default function LoginPage() {
           <input
             id="email"
             type="email"
+            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -120,6 +138,7 @@ export default function LoginPage() {
           <input
             id="password"
             type="password"
+            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
@@ -152,7 +171,7 @@ export default function LoginPage() {
             setError("");
             setIsSigningIn(true);
             await sleep(800);
-            router.push("/dashboard");
+            router.push(safeReturnTo());
           }}
         />
       </div>

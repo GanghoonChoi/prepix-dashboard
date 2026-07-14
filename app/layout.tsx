@@ -19,6 +19,8 @@ export const metadata: Metadata = {
   ),
   title: "Prepix Dashboard",
   description: "AI video editing assistant dashboard",
+  // An authenticated app dashboard should never be indexed.
+  robots: { index: false, follow: false },
   openGraph: {
     title: "Prepix Dashboard",
     description: "AI video editing assistant dashboard",

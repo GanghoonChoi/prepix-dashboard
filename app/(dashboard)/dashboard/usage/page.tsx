@@ -6,21 +6,28 @@ import {
   ProgressBarTrack,
   ProgressBarFill,
 } from "@heroui/react";
-import { Skeleton } from "@heroui/react";
+import { Skeleton, Button } from "@heroui/react";
 import { usageService } from "@/lib/api/services/usage.service";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 
 export default function UsagePage() {
+  usePageTitle("Usage");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [usage, setUsage] = useState<Record<string, Record<string, number | string>> | null>(null);
 
-  useEffect(() => {
-    usageService.getUsage().then(setUsage).catch(() => {
-      setUsage({
-        inferenceQuota: { total: 6000, used: 0, remaining: 6000, totalFormatted: "01:40:00", usedFormatted: "00:00:00", remainingFormatted: "01:40:00", usagePercentage: 0 },
-        videos: { total: 0, thisMonth: 0, completed: 0, processing: 0 },
-      });
-    }).finally(() => setLoading(false));
-  }, []);
+  const loadUsage = () => {
+    setLoading(true);
+    setLoadError(false);
+    usageService.getUsage()
+      .then(setUsage)
+      .catch(() => setLoadError(true))
+      .finally(() => setLoading(false));
+  };
+
+  // Load usage on mount. loadUsage() sets state via its promise callbacks.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { loadUsage(); }, []);
 
   const quota = usage?.inferenceQuota;
   const videos = usage?.videos;
@@ -30,13 +37,17 @@ export default function UsagePage() {
 
   return (
     <div className="space-y-10">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Usage</h1>
-        <p className="mt-1 text-sm text-muted">Monitor your resource consumption.</p>
-      </div>
+      <h1 className="text-2xl font-semibold tracking-tight text-foreground">Usage</h1>
+
+      {loadError && !loading && (
+        <div className="flex items-center justify-between rounded-lg border border-danger/30 bg-danger/5 p-6">
+          <p className="text-sm text-danger">Couldn&apos;t load your usage data.</p>
+          <Button variant="outline" size="sm" onPress={loadUsage}>Retry</Button>
+        </div>
+      )}
 
       {/* Inference */}
-      <section className="space-y-4">
+      <section className={`space-y-4 ${loadError && !loading ? "hidden" : ""}`}>
         <h2 className="text-sm font-medium text-foreground">Inference quota</h2>
         {loading ? (
           <Skeleton className="h-36 w-full rounded-lg" />
@@ -70,7 +81,7 @@ export default function UsagePage() {
       </section>
 
       {/* Videos */}
-      <section className="space-y-4">
+      <section className={`space-y-4 ${loadError && !loading ? "hidden" : ""}`}>
         <h2 className="text-sm font-medium text-foreground">Videos</h2>
         {loading ? (
           <Skeleton className="h-28 w-full rounded-lg" />

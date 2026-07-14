@@ -33,13 +33,3 @@ export const PLAN_PRICES: Record<string, { monthly: number; label: string }> = {
   free: { monthly: 0, label: "Free forever" },
   pro: { monthly: 1, label: "$1/mo · Billed monthly" },
 };
-
-export const COMPARISON_ROWS = [
-  { feature: "AI Processing", free: "1 hour / month", pro: "5 hours / month" },
-  { feature: "Videos", free: "Unlimited", pro: "Unlimited" },
-  { feature: "Rough cut generation", free: true, pro: true },
-  { feature: "NG take removal", free: true, pro: true },
-  { feature: "Natural language search", free: false, pro: true },
-  { feature: "Premiere Pro & DaVinci export", free: false, pro: true },
-  { feature: "Support", free: "Community", pro: "Priority" },
-];

@@ -4,8 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@heroui/react";
 import { authService } from "@/lib/api/services/auth.service";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 
 export default function ForgotPasswordPage() {
+  usePageTitle("Reset password");
   const [email, setEmail] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -78,6 +80,7 @@ export default function ForgotPasswordPage() {
             <input
               id="email"
               type="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required

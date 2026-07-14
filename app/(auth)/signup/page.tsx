@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, ProgressBar, ProgressBarTrack, ProgressBarFill } from "@heroui/react";
@@ -10,6 +10,7 @@ import { PasswordRequirements } from "@/components/auth/password-requirements";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { authService } from "@/lib/api/services/auth.service";
 import { sleep } from "@/lib/utils";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 
 const TOTAL_STEPS = 4;
 
@@ -21,6 +22,7 @@ const STEP_INFO: Record<number, { title: string; description: string }> = {
 };
 
 export default function SignupPage() {
+  usePageTitle("Create account");
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -32,6 +34,13 @@ export default function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [error, setError] = useState("");
+
+  // Already signed in? Skip signup.
+  useEffect(() => {
+    if (localStorage.getItem("accessToken") || localStorage.getItem("refreshToken")) {
+      router.replace("/dashboard");
+    }
+  }, [router]);
 
   const fireConfetti = () => {
     const duration = 3000;
@@ -132,14 +141,14 @@ export default function SignupPage() {
           {step === 1 && (
             <div className="space-y-1.5">
               <label htmlFor="email" className="block text-sm font-medium text-foreground">Email</label>
-              <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus placeholder="you@example.com" className={inputClass} />
+              <input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus placeholder="you@example.com" className={inputClass} />
             </div>
           )}
 
           {step === 2 && (
             <div className="space-y-1.5">
               <label htmlFor="username" className="block text-sm font-medium text-foreground">Username</label>
-              <input id="username" type="text" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus placeholder="johndoe" className={inputClass} />
+              <input id="username" type="text" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus placeholder="johndoe" className={inputClass} />
               <p className="text-xs text-muted">Optional. You can change this later.</p>
             </div>
           )}
@@ -148,11 +157,11 @@ export default function SignupPage() {
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <label htmlFor="password" className="block text-sm font-medium text-foreground">Password</label>
-                <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoFocus placeholder="At least 8 characters" className={inputClass} />
+                <input id="password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required autoFocus placeholder="At least 8 characters" className={inputClass} />
               </div>
               <div className="space-y-1.5">
                 <label htmlFor="confirmPassword" className="block text-sm font-medium text-foreground">Confirm password</label>
-                <input id="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required placeholder="Re-enter password" className={inputClass} />
+                <input id="confirmPassword" type="password" autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required placeholder="Re-enter password" className={inputClass} />
               </div>
               <PasswordRequirements password={password} />
             </div>

@@ -6,16 +6,19 @@ import { Button } from "@heroui/react";
 import { Skeleton } from "@heroui/react";
 import { useOverlayState } from "@heroui/react";
 import { Dialog } from "@/components/dialog";
+import { useToast } from "@/components/toast";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { userService } from "@/lib/api/services/user.service";
 import { authService } from "@/lib/api/services/auth.service";
 
 const SUPPORT_EMAIL = "support@prepix.ai";
 
 export default function SettingsPage() {
+  usePageTitle("Settings");
   const router = useRouter();
+  const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const [profile, setProfile] = useState<Record<string, string> | null>(null);
 
@@ -30,8 +33,11 @@ export default function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
 
   useEffect(() => {
+    // Hydrate from the localStorage cache on mount (unavailable during SSR),
+    // then refresh from the API below.
     const cached = localStorage.getItem("userInfo");
     if (cached) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       try { const p = JSON.parse(cached); setProfile(p); setFirstName(p.firstName || ""); setLastName(p.lastName || ""); } catch { /* */ }
     }
 
@@ -44,32 +50,29 @@ export default function SettingsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const flash = (type: "success" | "error", text: string) => {
-    setMessage({ type, text });
-    setTimeout(() => setMessage(null), 3000);
-  };
-
   const handleEditName = async () => {
-    if (!firstName.trim() || !lastName.trim()) { flash("error", "Name is required"); return; }
+    if (!firstName.trim() || !lastName.trim()) { toast("Name is required", "error"); return; }
     setSaving(true);
     try {
       await userService.updateProfile({ firstName, lastName });
       const p = await userService.getProfile();
       setProfile(p); localStorage.setItem("userInfo", JSON.stringify(p));
-      flash("success", "Name updated"); nameModal.close();
-    } catch { flash("error", "Failed to update name"); }
+      toast("Name updated"); nameModal.close();
+    } catch { toast("Failed to update name", "error"); }
     setSaving(false);
   };
 
   const handleUpdatePassword = async () => {
-    if (!currentPassword || !newPassword || newPassword.length < 8) { flash("error", "Password must be at least 8 characters"); return; }
-    if (newPassword !== confirmPassword) { flash("error", "Passwords don't match"); return; }
+    if (!currentPassword || !newPassword || newPassword.length < 8) { toast("Password must be at least 8 characters", "error"); return; }
+    if (newPassword !== confirmPassword) { toast("Passwords don't match", "error"); return; }
     setSaving(true);
     try {
       await userService.changePassword({ currentPassword, newPassword });
-      passwordModal.close(); authService.logout();
-      alert("Password updated. Please login again."); router.push("/login");
-    } catch { flash("error", "Failed to update password"); }
+      passwordModal.close();
+      authService.logout();
+      toast("Password updated. Please sign in again.");
+      router.push("/login");
+    } catch { toast("Failed to update password", "error"); }
     setSaving(false);
   };
 
@@ -77,16 +80,7 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-3xl space-y-10">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">Settings</h1>
-        <p className="mt-1 text-sm text-muted">Manage your account.</p>
-      </div>
-
-      {message && (
-        <div className={`rounded-md border px-4 py-3 text-sm ${
-          message.type === "success" ? "border-border text-foreground" : "border-danger/30 text-danger"
-        }`}>{message.text}</div>
-      )}
+      <h1 className="text-2xl font-semibold tracking-tight text-foreground">Settings</h1>
 
       {/* Account */}
       <section className="space-y-4">
@@ -137,9 +131,9 @@ export default function SettingsPage() {
       <Dialog state={passwordModal} title="Change password">
         <p className="mb-4 text-xs text-muted">You&apos;ll be logged out after changing your password.</p>
         <div className="space-y-3">
-          <div><label className="mb-1 block text-xs font-medium text-muted">Current password</label><input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className={inputClass} /></div>
-          <div><label className="mb-1 block text-xs font-medium text-muted">New password</label><input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={inputClass} /></div>
-          <div><label className="mb-1 block text-xs font-medium text-muted">Confirm new password</label><input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={inputClass} /></div>
+          <div><label className="mb-1 block text-xs font-medium text-muted">Current password</label><input type="password" autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className={inputClass} /></div>
+          <div><label className="mb-1 block text-xs font-medium text-muted">New password</label><input type="password" autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={inputClass} /></div>
+          <div><label className="mb-1 block text-xs font-medium text-muted">Confirm new password</label><input type="password" autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={inputClass} /></div>
         </div>
         <div className="mt-6 flex justify-end gap-3">
           <Button variant="outline" size="sm" onPress={() => passwordModal.close()} isDisabled={saving}>Cancel</Button>
@@ -149,10 +143,8 @@ export default function SettingsPage() {
 
       <Dialog state={deleteModal} title="Delete account">
         <p className="text-sm text-muted">
-          Deleting your account is permanent and removes all your data. To
-          protect against accidental or unauthorized deletion, we handle this
-          request manually. Email us from your account address and we&apos;ll
-          process it.
+          This permanently removes your account and all data. Email us from your
+          account address and we&apos;ll process it.
         </p>
         <div className="mt-6 flex justify-end gap-3">
           <Button variant="outline" size="sm" onPress={() => deleteModal.close()}>Cancel</Button>

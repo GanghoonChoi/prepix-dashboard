@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@heroui/react";
 import { authService } from "@/lib/api/services/auth.service";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
 
 function ResetPasswordForm() {
+  usePageTitle("Choose a new password");
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
@@ -113,6 +115,7 @@ function ResetPasswordForm() {
           <input
             id="password"
             type="password"
+            autoComplete="new-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
@@ -130,6 +133,7 @@ function ResetPasswordForm() {
           <input
             id="confirm"
             type="password"
+            autoComplete="new-password"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             required
