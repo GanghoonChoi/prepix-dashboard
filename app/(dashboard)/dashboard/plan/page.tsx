@@ -73,20 +73,19 @@ export default function PlanPage() {
     setActionLoading(true);
     try {
       const result = await subscriptionService.checkout(planId, interval);
-      // Prefer the in-page Paddle overlay when it's actually initialised (see
-      // dashboard layout). On completion the layout's eventCallback reloads the
-      // page so the new plan shows immediately. If Paddle isn't ready (client
-      // token not configured), fall back to the hosted-checkout redirect.
-      if (result.priceId && window.Paddle && window.__paddleReady) {
+      // Open the in-page Paddle overlay against the SERVER-CREATED transaction
+      // (client-side transaction creation via `items` is blocked for this
+      // vendor). Customer, plan and any launch discount are already baked into
+      // the transaction server-side. On completion the layout's eventCallback
+      // reloads the page. If Paddle.js isn't ready, fall back to the hosted
+      // checkout page (which opens the same transaction by id).
+      if (result.transactionId && window.Paddle && window.__paddleReady) {
         window.Paddle.Checkout.open({
-          items: [{ priceId: result.priceId, quantity: 1 }],
-          customer: result.email ? { email: result.email } : undefined,
-          customData: { userId: result.userId, plan: result.plan },
-          ...(result.discountId ? { discountId: result.discountId } : {}),
+          transactionId: result.transactionId,
           settings: {
             displayMode: "overlay",
             theme: "dark",
-            showAddDiscounts: true,
+            showAddDiscounts: false,
             successUrl: `${window.location.origin}/dashboard/plan?success=true`,
           },
         });

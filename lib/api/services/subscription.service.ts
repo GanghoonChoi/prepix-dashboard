@@ -20,6 +20,19 @@ export interface CatalogPlan {
   prices: PlanPrice[];
 }
 
+export interface CheckoutResult {
+  // Server-created Paddle transaction the overlay opens (client-side creation
+  // is blocked for this vendor, so the backend always pre-creates it).
+  transactionId: string;
+  checkoutUrl: string;
+  priceId: string;
+  email: string;
+  userId: string;
+  plan: string;
+  interval: BillingInterval;
+  discountId?: string;
+}
+
 export const subscriptionService = {
   getCurrent: async () => {
     const response = await apiClient.get("/subscriptions/current");
@@ -32,7 +45,10 @@ export const subscriptionService = {
     return response.data.data;
   },
 
-  checkout: async (planId: string, interval: BillingInterval = "month") => {
+  checkout: async (
+    planId: string,
+    interval: BillingInterval = "month",
+  ): Promise<CheckoutResult> => {
     const response = await apiClient.post("/subscriptions/checkout", {
       planId,
       interval,

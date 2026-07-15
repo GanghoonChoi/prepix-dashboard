@@ -46,9 +46,13 @@ export default function DashboardLayout({
             if (env === "sandbox") window.Paddle.Environment.set("sandbox");
             window.Paddle.Initialize({
               token,
-              eventCallback: (data: { name: string }) => {
+              eventCallback: (data: { name: string; [key: string]: unknown }) => {
                 if (data.name === "checkout.completed") {
                   setTimeout(() => window.location.reload(), 2000);
+                }
+                // Surface Paddle-side failures instead of a silent overlay.
+                if (data.name === "checkout.error") {
+                  console.error("Paddle checkout error:", data);
                 }
               },
               checkout: {
