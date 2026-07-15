@@ -25,6 +25,8 @@ const STATUS_META: Record<
   pending_cancel: { label: "Cancelling", color: "warning" },
   paused: { label: "Paused", color: "default" },
   canceled: { label: "Cancelled", color: "danger" },
+  refunded: { label: "Refunded", color: "danger" },
+  chargeback: { label: "Chargeback", color: "danger" },
 };
 
 export default function PlanPage() {
