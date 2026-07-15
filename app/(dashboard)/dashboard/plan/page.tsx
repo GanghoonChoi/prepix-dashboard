@@ -4,11 +4,12 @@ import { useState, useEffect } from "react";
 import { Button, Chip } from "@heroui/react";
 import { Skeleton } from "@heroui/react";
 import { Check } from "lucide-react";
-import { subscriptionService } from "@/lib/api/services/subscription.service";
 import {
-  PLANS, PLAN_NAMES, PLAN_DESCRIPTIONS, PLAN_FEATURES,
-  PLAN_PRICES,
-} from "@/lib/constants/data";
+  subscriptionService,
+  type CatalogPlan,
+  type BillingInterval,
+} from "@/lib/api/services/subscription.service";
+import { PLAN_NAMES, PLAN_COPY, formatPrice } from "@/lib/constants/data";
 import { useOverlayState } from "@heroui/react";
 import { Dialog } from "@/components/dialog";
 import { useToast } from "@/components/toast";
@@ -21,20 +22,28 @@ export default function PlanPage() {
   const [loadError, setLoadError] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [currentSub, setCurrentSub] = useState<Record<string, string> | null>(null);
+  const [plans, setPlans] = useState<CatalogPlan[]>([]);
+  const [interval, setBillingInterval] = useState<BillingInterval>("month");
   const [justUpgraded, setJustUpgraded] = useState(false);
   const cancelModal = useOverlayState();
 
-  const loadSubscription = () => {
+  const loadData = () => {
     setLoading(true);
     setLoadError(false);
-    subscriptionService.getCurrent()
-      .then((data) => { setCurrentSub(data); })
+    Promise.all([
+      subscriptionService.getCurrent(),
+      subscriptionService.getPlans(),
+    ])
+      .then(([sub, catalog]) => {
+        setCurrentSub(sub);
+        setPlans(catalog);
+      })
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
-    loadSubscription();
+    loadData();
 
     // Returned here from the hosted-checkout redirect (?success=true). The
     // Paddle webhook updates the plan server-side asynchronously, so show a
@@ -49,10 +58,9 @@ export default function PlanPage() {
   }, []);
 
   const handleUpgrade = async (planId: string) => {
-    if (planId === "free") { cancelModal.open(); return; }
     setActionLoading(true);
     try {
-      const result = await subscriptionService.checkout(planId);
+      const result = await subscriptionService.checkout(planId, interval);
       // Prefer the in-page Paddle overlay when it's actually initialised (see
       // dashboard layout). On completion the layout's eventCallback reloads the
       // page so the new plan shows immediately. If Paddle isn't ready (client
@@ -99,6 +107,38 @@ export default function PlanPage() {
   };
 
   const currentPlan = currentSub?.plan || "free";
+  const isActive = currentSub?.status === "active";
+  const hasAnnual = plans.some((p) => p.prices.some((pr) => pr.interval === "year"));
+
+  const priceLabel = (plan: CatalogPlan) => {
+    if (plan.status === "coming_soon") return { big: "Coming soon", sub: null as string | null };
+    const price = plan.prices.find((p) => p.interval === interval) ?? plan.prices[0];
+    if (!price) return { big: formatPrice("KRW", 0), sub: "Free forever" };
+    if (price.interval === "year") {
+      const perMonth = Math.round(price.unitAmount / 12);
+      return {
+        big: `${formatPrice(price.currency, price.unitAmount)}/yr`,
+        sub: `≈ ${formatPrice(price.currency, perMonth)}/mo, billed annually`,
+      };
+    }
+    return { big: `${formatPrice(price.currency, price.unitAmount)}/mo`, sub: "Billed monthly" };
+  };
+
+  const buttonFor = (plan: CatalogPlan) => {
+    const isCurrent = currentPlan === plan.id;
+    if (isCurrent) return { label: "Current plan", disabled: true, onPress: () => {} };
+    if (plan.status === "coming_soon") return { label: "Coming soon", disabled: true, onPress: () => {} };
+    if (plan.prices.length === 0) {
+      // Free tier — only a downgrade target when you're on a paid plan.
+      return { label: "Downgrade", disabled: currentPlan === "free", onPress: () => cancelModal.open() };
+    }
+    return { label: `Get ${plan.displayName}`, disabled: false, onPress: () => handleUpgrade(plan.id) };
+  };
+
+  const toggleClass = (active: boolean) =>
+    `rounded px-3 py-1.5 text-sm font-medium transition-colors ${
+      active ? "bg-foreground text-background" : "text-muted hover:text-foreground"
+    }`;
 
   return (
     <div className="space-y-10">
@@ -117,15 +157,15 @@ export default function PlanPage() {
       ) : loadError ? (
         <div className="flex items-center justify-between rounded-lg border border-danger/30 bg-danger/5 p-6">
           <p className="text-sm text-danger">Couldn&apos;t load your subscription.</p>
-          <Button variant="outline" size="sm" onPress={loadSubscription}>Retry</Button>
+          <Button variant="outline" size="sm" onPress={loadData}>Retry</Button>
         </div>
       ) : (
         <div className="flex items-start justify-between rounded-lg border border-border p-6">
           <div>
             <div className="flex items-center gap-2.5">
               <h2 className="text-lg font-semibold text-foreground">{PLAN_NAMES[currentPlan] || "Free"}</h2>
-              <Chip size="sm" color={currentSub?.status === "active" ? "success" : "danger"} variant="soft">
-                {currentSub?.status === "active" ? "Active" : "Cancelled"}
+              <Chip size="sm" color={isActive ? "success" : "danger"} variant="soft">
+                {isActive ? "Active" : "Cancelled"}
               </Chip>
             </div>
             {currentSub?.status === "cancelled" && currentSub?.currentPeriodEnd ? (
@@ -133,10 +173,12 @@ export default function PlanPage() {
                 Access until {new Date(currentSub.currentPeriodEnd).toLocaleDateString()}. After that, your plan will revert to Free.
               </p>
             ) : (
-              <p className="mt-1 text-sm text-muted">{PLAN_PRICES[currentPlan]?.label}</p>
+              <p className="mt-1 text-sm text-muted">
+                {currentPlan === "free" ? "You're on the free plan." : "Your subscription is active."}
+              </p>
             )}
           </div>
-          {currentPlan !== "free" && currentSub?.status === "active" && (
+          {currentPlan !== "free" && isActive && (
             <button
               onClick={() => cancelModal.open()}
               className="text-xs text-muted hover:text-foreground transition-colors"
@@ -148,89 +190,100 @@ export default function PlanPage() {
       )}
 
       {/* Plan cards */}
-      <section className="space-y-4">
-        <h2 className="text-sm font-medium text-foreground">Available plans</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {PLANS.map((planId) => {
-            const isCurrent = currentPlan === planId;
-            const emphasize = planId === "pro" && !isCurrent;
-
-            return (
-              <div
-                key={planId}
-                className={`flex flex-col rounded-lg border p-6 transition-colors ${
-                  isCurrent
-                    ? "border-foreground/30 bg-foreground/[0.02]"
-                    : emphasize
-                      ? "border-foreground/25 hover:border-foreground/40"
-                      : "border-border hover:border-foreground/15"
-                }`}
-              >
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <p className="text-base font-semibold text-foreground">{PLAN_NAMES[planId]}</p>
-                    {planId === "pro" && !isCurrent && (
-                      <span className="text-[10px] font-medium uppercase tracking-widest text-muted">Launch offer</span>
-                    )}
-                    {isCurrent && (
-                      <span className="text-[10px] font-medium uppercase tracking-widest text-muted">Current</span>
-                    )}
-                  </div>
-
-                  <div className="mt-3">
-                    {planId === "free" ? (
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-3xl font-semibold text-foreground">$0</span>
-                        <span className="text-sm text-muted">/mo</span>
-                      </div>
-                    ) : (
-                      <div>
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-3xl font-semibold text-foreground">$1</span>
-                          <span className="text-sm text-muted">/mo</span>
-                        </div>
-                        <p className="mt-1 text-xs text-muted">Billed monthly</p>
-                      </div>
-                    )}
-                  </div>
-
-                  <p className="mt-3 text-xs leading-relaxed text-muted">{PLAN_DESCRIPTIONS[planId]}</p>
-
-                  <ul className="mt-5 space-y-2">
-                    {PLAN_FEATURES[planId].map((feat) => (
-                      <li key={feat} className="flex items-start gap-2 text-sm text-muted">
-                        <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-foreground/50" />
-                        {feat}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <Button
-                  className="mt-6 w-full"
-                  variant={isCurrent ? "outline" : "primary"}
-                  size="sm"
-                  isDisabled={isCurrent || actionLoading}
-                  onPress={() => handleUpgrade(planId)}
-                >
-                  {isCurrent ? "Current plan" : planId === "free" ? "Downgrade" : "Get Pro"}
-                </Button>
-
-                {planId === "pro" && !isCurrent && (
-                  <p className="mt-2 text-center text-[11px] text-muted">
-                    Cancel anytime. No commitment.
-                  </p>
-                )}
+      {!loading && !loadError && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium text-foreground">Available plans</h2>
+            {hasAnnual && (
+              <div className="inline-flex rounded-md border border-border p-0.5">
+                <button className={toggleClass(interval === "month")} onClick={() => setBillingInterval("month")}>
+                  Monthly
+                </button>
+                <button className={toggleClass(interval === "year")} onClick={() => setBillingInterval("year")}>
+                  Annual
+                </button>
               </div>
-            );
-          })}
-        </div>
-      </section>
+            )}
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {plans.map((plan) => {
+              const isCurrent = currentPlan === plan.id;
+              const emphasize = plan.id === "creator" && !isCurrent;
+              const price = priceLabel(plan);
+              const btn = buttonFor(plan);
+              const copy = PLAN_COPY[plan.id];
+
+              return (
+                <div
+                  key={plan.id}
+                  className={`flex flex-col rounded-lg border p-6 transition-colors ${
+                    isCurrent
+                      ? "border-foreground/30 bg-foreground/[0.02]"
+                      : emphasize
+                        ? "border-foreground/25 hover:border-foreground/40"
+                        : "border-border hover:border-foreground/15"
+                  }`}
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <p className="text-base font-semibold text-foreground">{plan.displayName}</p>
+                      {emphasize && (
+                        <span className="text-[10px] font-medium uppercase tracking-widest text-muted">Popular</span>
+                      )}
+                      {isCurrent && (
+                        <span className="text-[10px] font-medium uppercase tracking-widest text-muted">Current</span>
+                      )}
+                    </div>
+
+                    <div className="mt-3">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-3xl font-semibold text-foreground">{price.big}</span>
+                      </div>
+                      {price.sub && <p className="mt-1 text-xs text-muted">{price.sub}</p>}
+                    </div>
+
+                    {copy && <p className="mt-3 text-xs leading-relaxed text-muted">{copy.description}</p>}
+
+                    {copy && (
+                      <ul className="mt-5 space-y-2">
+                        {copy.features.map((feat) => (
+                          <li key={feat} className="flex items-start gap-2 text-sm text-muted">
+                            <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-foreground/50" />
+                            {feat}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  <Button
+                    className="mt-6 w-full"
+                    variant={isCurrent || plan.status === "coming_soon" ? "outline" : "primary"}
+                    size="sm"
+                    isDisabled={btn.disabled || actionLoading}
+                    onPress={btn.onPress}
+                  >
+                    {btn.label}
+                  </Button>
+
+                  {emphasize && (
+                    <p className="mt-2 text-center text-[11px] text-muted">
+                      Cancel anytime. No commitment.
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Cancel modal */}
       <Dialog state={cancelModal} title="Cancel subscription">
         <p className="text-sm text-muted">
-          Are you sure? You&apos;ll lose access to Pro features at the end of your billing period.
+          Are you sure? You&apos;ll keep access to your paid features until the end
+          of your billing period.
         </p>
         <div className="mt-6 flex justify-end gap-3">
           <Button variant="outline" size="sm" onPress={() => cancelModal.close()} isDisabled={actionLoading}>Keep plan</Button>
