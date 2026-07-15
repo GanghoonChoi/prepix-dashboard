@@ -139,8 +139,10 @@ export default function PlanPage() {
   const currentPlan = currentSub?.plan || "free";
   const status = currentSub?.status ?? "active";
   const statusMeta = STATUS_META[status] ?? { label: status, color: "default" as const };
-  const showPeriodEnd =
-    (status === "canceled" || status === "pending_cancel") && currentSub?.currentPeriodEnd;
+  // Only a pending cancel keeps access until the period end. canceled/refunded/
+  // chargeback mean access has already ended.
+  const showPeriodEnd = status === "pending_cancel" && currentSub?.currentPeriodEnd;
+  const isEnded = ["canceled", "refunded", "chargeback"].includes(status);
   const canCancel =
     currentPlan !== "free" && ["active", "trialing", "past_due"].includes(status);
   const hasAnnual = plans.some((p) => p.prices.some((pr) => pr.interval === "year"));
@@ -215,6 +217,10 @@ export default function PlanPage() {
             {showPeriodEnd ? (
               <p className="mt-1 text-sm text-muted">
                 Access until {new Date(currentSub!.currentPeriodEnd).toLocaleDateString()}. After that, your plan will revert to Free.
+              </p>
+            ) : isEnded ? (
+              <p className="mt-1 text-sm text-muted">
+                Your subscription has ended. You&apos;re on the Free plan.
               </p>
             ) : status === "past_due" ? (
               <p className="mt-1 text-sm text-warning">
