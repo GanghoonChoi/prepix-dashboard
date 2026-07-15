@@ -40,6 +40,7 @@ export default function PlanPage() {
   const [interval, setBillingInterval] = useState<BillingInterval>("month");
   const [justUpgraded, setJustUpgraded] = useState(false);
   const cancelModal = useOverlayState();
+  const refundModal = useOverlayState();
 
   const loadData = () => {
     setLoading(true);
@@ -116,6 +117,21 @@ export default function PlanPage() {
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
       toast(axiosErr.response?.data?.message || "Failed to cancel", "error");
+    }
+    setActionLoading(false);
+  };
+
+  const confirmRefund = async () => {
+    setActionLoading(true);
+    try {
+      const res = await subscriptionService.refund();
+      const data = await subscriptionService.getCurrent();
+      setCurrentSub(data);
+      refundModal.close();
+      toast(res?.message || "Your payment has been refunded and your subscription cancelled.");
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      toast(axiosErr.response?.data?.message || "Failed to process refund", "error");
     }
     setActionLoading(false);
   };
@@ -211,12 +227,20 @@ export default function PlanPage() {
             )}
           </div>
           {canCancel && (
-            <button
-              onClick={() => cancelModal.open()}
-              className="text-xs text-muted hover:text-foreground transition-colors"
-            >
-              Cancel subscription
-            </button>
+            <div className="flex flex-col items-end gap-1.5">
+              <button
+                onClick={() => cancelModal.open()}
+                className="text-xs text-muted hover:text-foreground transition-colors"
+              >
+                Cancel subscription
+              </button>
+              <button
+                onClick={() => refundModal.open()}
+                className="text-xs text-muted hover:text-foreground transition-colors"
+              >
+                Request refund
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -324,6 +348,21 @@ export default function PlanPage() {
           <Button variant="outline" size="sm" onPress={() => cancelModal.close()} isDisabled={actionLoading}>Keep plan</Button>
           <Button variant="danger" size="sm" onPress={confirmCancel} isDisabled={actionLoading}>
             {actionLoading ? "Cancelling..." : "Cancel subscription"}
+          </Button>
+        </div>
+      </Dialog>
+
+      {/* Refund modal */}
+      <Dialog state={refundModal} title="Request a refund">
+        <p className="text-sm text-muted">
+          We&apos;ll refund your most recent payment in full and cancel your
+          subscription immediately. Refunds are available within 14 days of the
+          payment.
+        </p>
+        <div className="mt-6 flex justify-end gap-3">
+          <Button variant="outline" size="sm" onPress={() => refundModal.close()} isDisabled={actionLoading}>Keep plan</Button>
+          <Button variant="danger" size="sm" onPress={confirmRefund} isDisabled={actionLoading}>
+            {actionLoading ? "Processing..." : "Refund & cancel"}
           </Button>
         </div>
       </Dialog>

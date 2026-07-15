@@ -68,4 +68,9 @@ export const subscriptionService = {
     const response = await apiClient.post("/subscriptions/cancel");
     return response.data.data;
   },
+
+  refund: async (): Promise<{ message: string }> => {
+    const response = await apiClient.post("/subscriptions/refund");
+    return response.data.data;
+  },
 };
