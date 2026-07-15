@@ -70,6 +70,7 @@ export default function PlanPage() {
           items: [{ priceId: result.priceId, quantity: 1 }],
           customer: result.email ? { email: result.email } : undefined,
           customData: { userId: result.userId, plan: result.plan },
+          ...(result.discountId ? { discountId: result.discountId } : {}),
           settings: {
             displayMode: "overlay",
             theme: "dark",
@@ -111,17 +112,24 @@ export default function PlanPage() {
   const hasAnnual = plans.some((p) => p.prices.some((pr) => pr.interval === "year"));
 
   const priceLabel = (plan: CatalogPlan) => {
-    if (plan.status === "coming_soon") return { big: "Coming soon", sub: null as string | null };
+    if (plan.status === "coming_soon")
+      return { big: "Coming soon", strike: null as string | null, sub: null as string | null };
     const price = plan.prices.find((p) => p.interval === interval) ?? plan.prices[0];
-    if (!price) return { big: formatPrice("KRW", 0), sub: "Free forever" };
+    if (!price) return { big: formatPrice("KRW", 0), strike: null, sub: "Free forever" };
+
+    const pct = price.launchDiscountPercent ?? 0;
+    const net = pct ? Math.round(price.unitAmount * (1 - pct / 100)) : price.unitAmount;
+    const per = price.interval === "year" ? "/yr" : "/mo";
+    const strike = pct ? formatPrice(price.currency, price.unitAmount) : null;
+
+    let sub: string;
     if (price.interval === "year") {
-      const perMonth = Math.round(price.unitAmount / 12);
-      return {
-        big: `${formatPrice(price.currency, price.unitAmount)}/yr`,
-        sub: `≈ ${formatPrice(price.currency, perMonth)}/mo, billed annually`,
-      };
+      const perMonth = Math.round(net / 12);
+      sub = `${pct ? `−${pct}% launch · ` : ""}≈ ${formatPrice(price.currency, perMonth)}/mo, billed annually`;
+    } else {
+      sub = pct ? `−${pct}% launch offer · billed monthly` : "Billed monthly";
     }
-    return { big: `${formatPrice(price.currency, price.unitAmount)}/mo`, sub: "Billed monthly" };
+    return { big: `${formatPrice(price.currency, net)}${per}`, strike, sub };
   };
 
   const buttonFor = (plan: CatalogPlan) => {
@@ -237,7 +245,10 @@ export default function PlanPage() {
                     </div>
 
                     <div className="mt-3">
-                      <div className="flex items-baseline gap-1">
+                      <div className="flex items-baseline gap-2">
+                        {price.strike && (
+                          <span className="text-sm text-muted line-through">{price.strike}</span>
+                        )}
                         <span className="text-3xl font-semibold text-foreground">{price.big}</span>
                       </div>
                       {price.sub && <p className="mt-1 text-xs text-muted">{price.sub}</p>}

@@ -6,6 +6,7 @@ export interface PlanPrice {
   interval: BillingInterval;
   currency: string;
   unitAmount: number;
+  launchDiscountPercent?: number | null;
 }
 
 export interface CatalogPlan {
