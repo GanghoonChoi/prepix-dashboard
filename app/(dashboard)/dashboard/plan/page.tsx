@@ -15,6 +15,18 @@ import { Dialog } from "@/components/dialog";
 import { useToast } from "@/components/toast";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 
+const STATUS_META: Record<
+  string,
+  { label: string; color: "success" | "danger" | "warning" | "default" }
+> = {
+  active: { label: "Active", color: "success" },
+  trialing: { label: "Trial", color: "success" },
+  past_due: { label: "Payment due", color: "warning" },
+  pending_cancel: { label: "Cancelling", color: "warning" },
+  paused: { label: "Paused", color: "default" },
+  canceled: { label: "Cancelled", color: "danger" },
+};
+
 export default function PlanPage() {
   usePageTitle("Plan");
   const toast = useToast();
@@ -108,7 +120,12 @@ export default function PlanPage() {
   };
 
   const currentPlan = currentSub?.plan || "free";
-  const isActive = currentSub?.status === "active";
+  const status = currentSub?.status ?? "active";
+  const statusMeta = STATUS_META[status] ?? { label: status, color: "default" as const };
+  const showPeriodEnd =
+    (status === "canceled" || status === "pending_cancel") && currentSub?.currentPeriodEnd;
+  const canCancel =
+    currentPlan !== "free" && ["active", "trialing", "past_due"].includes(status);
   const hasAnnual = plans.some((p) => p.prices.some((pr) => pr.interval === "year"));
 
   const priceLabel = (plan: CatalogPlan) => {
@@ -172,13 +189,19 @@ export default function PlanPage() {
           <div>
             <div className="flex items-center gap-2.5">
               <h2 className="text-lg font-semibold text-foreground">{PLAN_NAMES[currentPlan] || "Free"}</h2>
-              <Chip size="sm" color={isActive ? "success" : "danger"} variant="soft">
-                {isActive ? "Active" : "Cancelled"}
-              </Chip>
+              {currentPlan !== "free" && (
+                <Chip size="sm" color={statusMeta.color} variant="soft">
+                  {statusMeta.label}
+                </Chip>
+              )}
             </div>
-            {currentSub?.status === "cancelled" && currentSub?.currentPeriodEnd ? (
+            {showPeriodEnd ? (
               <p className="mt-1 text-sm text-muted">
-                Access until {new Date(currentSub.currentPeriodEnd).toLocaleDateString()}. After that, your plan will revert to Free.
+                Access until {new Date(currentSub!.currentPeriodEnd).toLocaleDateString()}. After that, your plan will revert to Free.
+              </p>
+            ) : status === "past_due" ? (
+              <p className="mt-1 text-sm text-warning">
+                We couldn&apos;t process your last payment. Please update your payment method to keep access.
               </p>
             ) : (
               <p className="mt-1 text-sm text-muted">
@@ -186,7 +209,7 @@ export default function PlanPage() {
               </p>
             )}
           </div>
-          {currentPlan !== "free" && isActive && (
+          {canCancel && (
             <button
               onClick={() => cancelModal.open()}
               className="text-xs text-muted hover:text-foreground transition-colors"
