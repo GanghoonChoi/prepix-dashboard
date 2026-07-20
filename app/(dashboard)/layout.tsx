@@ -4,8 +4,26 @@ import { useState, useEffect } from "react";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { LoadingScreen } from "@/components/loading-screen";
-import { ToastProvider } from "@/components/toast";
+import { ToastProvider, useToast } from "@/components/toast";
 import { userService } from "@/lib/api/services/user.service";
+
+// Paddle's eventCallback is registered in the layout effect, which lives ABOVE
+// ToastProvider — so it can't call useToast directly. It dispatches a window
+// event on checkout failure; this listener (rendered inside ToastProvider)
+// turns that into a user-visible toast so a failed checkout is never silent.
+function CheckoutErrorListener() {
+  const toast = useToast();
+  useEffect(() => {
+    const handler = () =>
+      toast(
+        "We couldn't complete checkout. You have not been charged — please try again.",
+        "error",
+      );
+    window.addEventListener("prepix:checkout-error", handler);
+    return () => window.removeEventListener("prepix:checkout-error", handler);
+  }, [toast]);
+  return null;
+}
 
 export default function DashboardLayout({
   children,
@@ -50,9 +68,13 @@ export default function DashboardLayout({
                 if (data.name === "checkout.completed") {
                   setTimeout(() => window.location.reload(), 2000);
                 }
-                // Surface Paddle-side failures instead of a silent overlay.
+                // Surface Paddle-side failures to the user instead of leaving a
+                // silent/blank overlay. Relayed via a window event so the toast
+                // fires from inside ToastProvider (see CheckoutErrorListener).
+                // Log a bare message only — the event object may carry PII.
                 if (data.name === "checkout.error") {
-                  console.error("Paddle checkout error:", data);
+                  console.error("Paddle checkout error");
+                  window.dispatchEvent(new CustomEvent("prepix:checkout-error"));
                 }
               },
               checkout: {
@@ -94,6 +116,7 @@ export default function DashboardLayout({
 
   return (
     <ToastProvider>
+      <CheckoutErrorListener />
       <div className="min-h-dvh bg-background">
         {mobileOpen && (
           <div

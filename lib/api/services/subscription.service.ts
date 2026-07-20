@@ -20,6 +20,18 @@ export interface CatalogPlan {
   prices: PlanPrice[];
 }
 
+export interface CurrentSubscription {
+  plan: string;
+  status: string;
+  currentPeriodStart?: string | null;
+  currentPeriodEnd?: string | null;
+  paddleSubscriptionId?: string | null;
+  cancelledAt?: string | null;
+  // Whether the self-serve refund button should be offered (backend re-verifies
+  // the real 14-day window on submit — this is only the UX gate).
+  refundEligible: boolean;
+}
+
 export interface CheckoutResult {
   // Server-created Paddle transaction the overlay opens (client-side creation
   // is blocked for this vendor, so the backend always pre-creates it).
@@ -34,7 +46,7 @@ export interface CheckoutResult {
 }
 
 export const subscriptionService = {
-  getCurrent: async () => {
+  getCurrent: async (): Promise<CurrentSubscription> => {
     const response = await apiClient.get("/subscriptions/current");
     return response.data.data;
   },

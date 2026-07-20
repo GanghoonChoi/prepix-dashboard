@@ -10,7 +10,10 @@ import {
 import { Skeleton, Button } from "@heroui/react";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { usageService } from "@/lib/api/services/usage.service";
-import { subscriptionService } from "@/lib/api/services/subscription.service";
+import {
+  subscriptionService,
+  type CurrentSubscription,
+} from "@/lib/api/services/subscription.service";
 import { PLAN_NAMES } from "@/lib/constants/data";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 
@@ -20,7 +23,7 @@ export default function DashboardPage() {
   const [loadError, setLoadError] = useState(false);
   const [profile, setProfile] = useState<Record<string, string> | null>(null);
   const [usage, setUsage] = useState<Record<string, unknown> | null>(null);
-  const [subscription, setSubscription] = useState<Record<string, string> | null>(null);
+  const [subscription, setSubscription] = useState<CurrentSubscription | null>(null);
 
   const loadData = () => {
     setLoading(true);

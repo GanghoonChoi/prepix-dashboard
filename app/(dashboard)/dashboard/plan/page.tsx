@@ -8,6 +8,7 @@ import {
   subscriptionService,
   type CatalogPlan,
   type BillingInterval,
+  type CurrentSubscription,
 } from "@/lib/api/services/subscription.service";
 import { PLAN_NAMES, PLAN_COPY, formatPrice } from "@/lib/constants/data";
 import { useOverlayState } from "@heroui/react";
@@ -35,7 +36,7 @@ export default function PlanPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
-  const [currentSub, setCurrentSub] = useState<Record<string, string> | null>(null);
+  const [currentSub, setCurrentSub] = useState<CurrentSubscription | null>(null);
   const [plans, setPlans] = useState<CatalogPlan[]>([]);
   const [interval, setBillingInterval] = useState<BillingInterval>("month");
   const [justUpgraded, setJustUpgraded] = useState(false);
@@ -106,45 +107,66 @@ export default function PlanPage() {
     setActionLoading(false);
   };
 
+  // Refresh the current subscription after a mutation. Best-effort: the mutation
+  // already succeeded server-side, so a reload failure must NOT be reported as
+  // the mutation failing (the next page load reconciles).
+  const refreshCurrent = async () => {
+    try {
+      setCurrentSub(await subscriptionService.getCurrent());
+    } catch {
+      /* keep the stale view */
+    }
+  };
+
   const confirmCancel = async () => {
     setActionLoading(true);
     try {
       await subscriptionService.cancel();
-      const data = await subscriptionService.getCurrent();
-      setCurrentSub(data);
-      cancelModal.close();
-      toast("Subscription cancelled. Access continues until your billing period ends.");
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
       toast(axiosErr.response?.data?.message || "Failed to cancel", "error");
+      setActionLoading(false);
+      return;
     }
+    cancelModal.close();
+    toast("Subscription cancelled. Access continues until your billing period ends.");
+    await refreshCurrent();
     setActionLoading(false);
   };
 
   const confirmRefund = async () => {
     setActionLoading(true);
+    let message = "Your payment has been refunded and your subscription cancelled.";
     try {
       const res = await subscriptionService.refund();
-      const data = await subscriptionService.getCurrent();
-      setCurrentSub(data);
-      refundModal.close();
-      toast(res?.message || "Your payment has been refunded and your subscription cancelled.");
+      if (res?.message) message = res.message;
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
       toast(axiosErr.response?.data?.message || "Failed to process refund", "error");
+      setActionLoading(false);
+      return;
     }
+    refundModal.close();
+    toast(message);
+    await refreshCurrent();
     setActionLoading(false);
   };
 
   const currentPlan = currentSub?.plan || "free";
   const status = currentSub?.status ?? "active";
   const statusMeta = STATUS_META[status] ?? { label: status, color: "default" as const };
+  const periodEndLabel = currentSub?.currentPeriodEnd
+    ? new Date(currentSub.currentPeriodEnd).toLocaleDateString()
+    : null;
   // Only a pending cancel keeps access until the period end. canceled/refunded/
   // chargeback mean access has already ended.
-  const showPeriodEnd = status === "pending_cancel" && currentSub?.currentPeriodEnd;
+  const showPeriodEnd = status === "pending_cancel" && !!periodEndLabel;
   const isEnded = ["canceled", "refunded", "chargeback"].includes(status);
   const canCancel =
     currentPlan !== "free" && ["active", "trialing", "past_due"].includes(status);
+  // Gated on the backend's eligibility flag (paid, non-terminal, within the
+  // 14-day window) so we never show a refund action that would only 4xx.
+  const canRefund = currentSub?.refundEligible === true;
   const hasAnnual = plans.some((p) => p.prices.some((pr) => pr.interval === "year"));
 
   const priceLabel = (plan: CatalogPlan) => {
@@ -216,7 +238,7 @@ export default function PlanPage() {
             </div>
             {showPeriodEnd ? (
               <p className="mt-1 text-sm text-muted">
-                Access until {new Date(currentSub!.currentPeriodEnd).toLocaleDateString()}. After that, your plan will revert to Free.
+                Access until {periodEndLabel}. After that, your plan will revert to Free.
               </p>
             ) : isEnded ? (
               <p className="mt-1 text-sm text-muted">
@@ -232,20 +254,24 @@ export default function PlanPage() {
               </p>
             )}
           </div>
-          {canCancel && (
+          {(canCancel || canRefund) && (
             <div className="flex flex-col items-end gap-1.5">
-              <button
-                onClick={() => cancelModal.open()}
-                className="text-xs text-muted hover:text-foreground transition-colors"
-              >
-                Cancel subscription
-              </button>
-              <button
-                onClick={() => refundModal.open()}
-                className="text-xs text-muted hover:text-foreground transition-colors"
-              >
-                Request refund
-              </button>
+              {canCancel && (
+                <button
+                  onClick={() => cancelModal.open()}
+                  className="text-xs text-muted hover:text-foreground transition-colors"
+                >
+                  Cancel subscription
+                </button>
+              )}
+              {canRefund && (
+                <button
+                  onClick={() => refundModal.open()}
+                  className="text-xs text-muted hover:text-foreground transition-colors"
+                >
+                  Request refund
+                </button>
+              )}
             </div>
           )}
         </div>
