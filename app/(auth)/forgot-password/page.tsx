@@ -5,9 +5,11 @@ import Link from "next/link";
 import { Button } from "@heroui/react";
 import { authService } from "@/lib/api/services/auth.service";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
+import { useT } from "@/lib/i18n/context";
 
 export default function ForgotPasswordPage() {
-  usePageTitle("Reset password");
+  const t = useT();
+  usePageTitle(t("auth.resetPassword"));
   const [email, setEmail] = useState("");
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -25,8 +27,7 @@ export default function ForgotPasswordPage() {
       // The backend returns a generic 200 even when the email is unknown,
       // so anything reaching here is a transport-level error.
       setError(
-        axiosErr.response?.data?.message ||
-          "Couldn't send the reset link. Please try again.",
+        axiosErr.response?.data?.message || t("auth.resetLinkSendFailed"),
       );
     } finally {
       setIsLoading(false);
@@ -40,19 +41,19 @@ export default function ForgotPasswordPage() {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          {isSubmitted ? "Check your email" : "Reset password"}
+          {isSubmitted ? t("auth.checkYourEmail") : t("auth.resetPassword")}
         </h1>
         <p className="mt-1.5 text-sm text-muted">
           {isSubmitted
-            ? `If an account exists for ${email}, we sent a reset link to it.`
-            : "Enter your email and we'll send you a reset link"}
+            ? t("auth.resetLinkSentTo", { email })
+            : t("auth.enterEmailForReset")}
         </p>
       </div>
 
       {isSubmitted ? (
         <div className="space-y-4">
           <div className="rounded-md border border-border px-4 py-3 text-sm text-muted">
-            Didn&apos;t receive the email? Check your spam folder, or{" "}
+            {t("auth.didntReceiveEmailPrefix")}
             <button
               onClick={() => {
                 setIsSubmitted(false);
@@ -60,7 +61,7 @@ export default function ForgotPasswordPage() {
               }}
               className="text-foreground underline underline-offset-2"
             >
-              try again
+              {t("auth.tryAgain")}
             </button>
           </div>
           <Button
@@ -68,14 +69,14 @@ export default function ForgotPasswordPage() {
             className="w-full"
             onPress={() => (window.location.href = "/login")}
           >
-            Back to sign in
+            {t("auth.backToSignIn")}
           </Button>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-1.5">
             <label htmlFor="email" className="block text-sm font-medium text-foreground">
-              Email
+              {t("auth.email")}
             </label>
             <input
               id="email"
@@ -85,7 +86,7 @@ export default function ForgotPasswordPage() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoFocus
-              placeholder="you@example.com"
+              placeholder={t("auth.emailPlaceholder")}
               className={inputClass}
             />
           </div>
@@ -100,14 +101,14 @@ export default function ForgotPasswordPage() {
             className="w-full"
             isDisabled={isLoading}
           >
-            {isLoading ? "Sending..." : "Send reset link"}
+            {isLoading ? t("auth.sending") : t("auth.sendResetLink")}
           </Button>
         </form>
       )}
 
       <p className="text-sm text-muted">
         <Link href="/login" className="text-foreground underline underline-offset-4 hover:no-underline">
-          Back to sign in
+          {t("auth.backToSignIn")}
         </Link>
       </p>
     </div>

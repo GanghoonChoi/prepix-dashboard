@@ -37,10 +37,11 @@ export default function GlobalError({
       >
         <div>
           <h1 style={{ fontSize: "22px", fontWeight: 600, margin: 0 }}>
-            Something went wrong
+            문제가 발생했어요 / Something went wrong
           </h1>
           <p style={{ fontSize: "14px", opacity: 0.6, marginTop: "8px" }}>
-            An unexpected error occurred. Please try again.
+            예상치 못한 오류가 발생했어요. 다시 시도해 주세요. / An unexpected error
+            occurred. Please try again.
           </p>
         </div>
         <button
@@ -55,7 +56,7 @@ export default function GlobalError({
             cursor: "pointer",
           }}
         >
-          Try again
+          다시 시도 / Try again
         </button>
       </body>
     </html>

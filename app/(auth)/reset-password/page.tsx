@@ -6,9 +6,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@heroui/react";
 import { authService } from "@/lib/api/services/auth.service";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
+import { useT } from "@/lib/i18n/context";
 
 function ResetPasswordForm() {
-  usePageTitle("Choose a new password");
+  const t = useT();
+  usePageTitle(t("auth.chooseNewPassword"));
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
@@ -27,11 +29,10 @@ function ResetPasswordForm() {
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Invalid reset link
+            {t("auth.invalidResetLink")}
           </h1>
           <p className="mt-1.5 text-sm text-muted">
-            This page needs a token from the email we sent you. Request a new
-            reset link to continue.
+            {t("auth.invalidResetLinkBody")}
           </p>
         </div>
         <Button
@@ -39,7 +40,7 @@ function ResetPasswordForm() {
           className="w-full"
           onPress={() => router.replace("/forgot-password")}
         >
-          Request new link
+          {t("auth.requestNewLink")}
         </Button>
       </div>
     );
@@ -50,11 +51,11 @@ function ResetPasswordForm() {
     setError("");
 
     if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
+      setError(t("auth.passwordMinLength"));
       return;
     }
     if (password !== confirm) {
-      setError("Passwords do not match.");
+      setError(t("auth.passwordsMismatch"));
       return;
     }
 
@@ -65,8 +66,7 @@ function ResetPasswordForm() {
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
       setError(
-        axiosErr.response?.data?.message ||
-          "Couldn't reset your password. The link may have expired — request a new one.",
+        axiosErr.response?.data?.message || t("auth.resetPasswordFailed"),
       );
     } finally {
       setIsLoading(false);
@@ -78,11 +78,10 @@ function ResetPasswordForm() {
       <div className="space-y-8">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Password updated
+            {t("auth.passwordUpdated")}
           </h1>
           <p className="mt-1.5 text-sm text-muted">
-            Your password has been changed. Sign in with your new password to
-            continue.
+            {t("auth.passwordUpdatedBody")}
           </p>
         </div>
         <Button
@@ -90,7 +89,7 @@ function ResetPasswordForm() {
           className="w-full"
           onPress={() => router.replace("/login")}
         >
-          Go to sign in
+          {t("auth.goToSignIn")}
         </Button>
       </div>
     );
@@ -100,17 +99,17 @@ function ResetPasswordForm() {
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Choose a new password
+          {t("auth.chooseNewPassword")}
         </h1>
         <p className="mt-1.5 text-sm text-muted">
-          Enter the new password for your Prepix account.
+          {t("auth.enterNewPasswordBody")}
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="space-y-1.5">
           <label htmlFor="password" className="block text-sm font-medium text-foreground">
-            New password
+            {t("auth.newPassword")}
           </label>
           <input
             id="password"
@@ -122,13 +121,13 @@ function ResetPasswordForm() {
             autoFocus
             minLength={8}
             maxLength={100}
-            placeholder="At least 8 characters"
+            placeholder={t("auth.passwordPlaceholderHint")}
             className={inputClass}
           />
         </div>
         <div className="space-y-1.5">
           <label htmlFor="confirm" className="block text-sm font-medium text-foreground">
-            Confirm new password
+            {t("auth.confirmNewPassword")}
           </label>
           <input
             id="confirm"
@@ -139,7 +138,7 @@ function ResetPasswordForm() {
             required
             minLength={8}
             maxLength={100}
-            placeholder="Re-enter password"
+            placeholder={t("auth.reenterPasswordPlaceholder")}
             className={inputClass}
           />
         </div>
@@ -154,13 +153,13 @@ function ResetPasswordForm() {
           className="w-full"
           isDisabled={isLoading}
         >
-          {isLoading ? "Updating..." : "Update password"}
+          {isLoading ? t("auth.updatingPassword") : t("auth.updatePasswordButton")}
         </Button>
       </form>
 
       <p className="text-sm text-muted">
         <Link href="/login" className="text-foreground underline underline-offset-4 hover:no-underline">
-          Back to sign in
+          {t("auth.backToSignIn")}
         </Link>
       </p>
     </div>

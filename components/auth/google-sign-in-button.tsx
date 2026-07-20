@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { authService } from "@/lib/api/services/auth.service";
+import { useI18n } from "@/lib/i18n/context";
 
 type Props = {
   onSuccess: (user: unknown) => void;
@@ -22,6 +23,7 @@ export function GoogleSignInButton({
   onError,
   text = "continue_with",
 }: Props) {
+  const { t, lang } = useI18n();
   const divRef = useRef<HTMLDivElement>(null);
   const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
@@ -37,6 +39,11 @@ export function GoogleSignInButton({
   useEffect(() => {
     if (!clientId) return;
     let cancelled = false;
+    // Captured once per (lang) run so the GIS callback shows localized errors,
+    // and the rendered button uses the matching locale.
+    const cancelledMsg = t("auth.googleSignInCancelled");
+    const failedMsg = t("auth.googleSignInFailed");
+    const gisLocale = lang === "ko" ? "ko" : "en";
 
     const init = () => {
       if (cancelled) return;
@@ -51,7 +58,7 @@ export function GoogleSignInButton({
         client_id: clientId,
         callback: async (response: { credential?: string }) => {
           if (!response.credential) {
-            onErrorRef.current?.("Google sign-in was cancelled.");
+            onErrorRef.current?.(cancelledMsg);
             return;
           }
           try {
@@ -69,7 +76,7 @@ export function GoogleSignInButton({
               response?: { data?: { message?: string } };
             };
             onErrorRef.current?.(
-              axiosErr.response?.data?.message || "Google sign-in failed.",
+              axiosErr.response?.data?.message || failedMsg,
             );
           }
         },
@@ -83,6 +90,7 @@ export function GoogleSignInButton({
         shape: "rectangular",
         logo_alignment: "center",
         width: 320,
+        locale: gisLocale,
       });
     };
 
@@ -90,7 +98,7 @@ export function GoogleSignInButton({
     return () => {
       cancelled = true;
     };
-  }, [clientId, text]);
+  }, [clientId, text, t, lang]);
 
   if (!clientId) return null;
 

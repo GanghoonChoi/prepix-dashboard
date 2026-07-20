@@ -3,12 +3,15 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useI18n } from "@/lib/i18n/context";
+import { legalUrl } from "@/lib/i18n/config";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 const NAV_ITEMS = [
-  { name: "Overview", href: "/dashboard" },
-  { name: "Usage", href: "/dashboard/usage" },
-  { name: "Plan", href: "/dashboard/plan" },
-  { name: "Settings", href: "/dashboard/settings" },
+  { key: "nav.overview", href: "/dashboard" },
+  { key: "nav.usage", href: "/dashboard/usage" },
+  { key: "nav.plan", href: "/dashboard/plan" },
+  { key: "nav.settings", href: "/dashboard/settings" },
 ];
 
 export function Sidebar({
@@ -21,6 +24,7 @@ export function Sidebar({
   onClose?: () => void;
 }) {
   const pathname = usePathname();
+  const { t, lang } = useI18n();
   const displayName = profile?.username || profile?.email || "User";
 
   return (
@@ -47,7 +51,7 @@ export function Sidebar({
                     : "text-muted hover:text-foreground"
                 }`}
               >
-                {item.name}
+                {t(item.key)}
               </Link>
             );
           })}
@@ -66,12 +70,17 @@ export function Sidebar({
           onClick={onLogout}
           className="mt-1 block w-full rounded-md px-3 py-2 text-left text-[13px] text-muted transition-colors hover:text-foreground"
         >
-          Log out
+          {t("nav.logout")}
         </button>
+        <div className="mt-2 px-3">
+          <LanguageSwitcher />
+        </div>
+        {/* Policy links point at the marketing homepage (single source of truth
+            for legal text), matching the current language. */}
         <div className="mt-2 flex gap-3 px-3 py-1">
-          <Link href="/terms" className="text-[10px] text-muted hover:text-foreground">Terms</Link>
-          <Link href="/privacy" className="text-[10px] text-muted hover:text-foreground">Privacy</Link>
-          <Link href="/refund-policy" className="text-[10px] text-muted hover:text-foreground">Refund</Link>
+          <a href={legalUrl(lang, "terms-of-service")} target="_blank" rel="noopener noreferrer" className="text-[10px] text-muted hover:text-foreground">{t("nav.terms")}</a>
+          <a href={legalUrl(lang, "privacy-policy")} target="_blank" rel="noopener noreferrer" className="text-[10px] text-muted hover:text-foreground">{t("nav.privacy")}</a>
+          <a href={legalUrl(lang, "refund-policy")} target="_blank" rel="noopener noreferrer" className="text-[10px] text-muted hover:text-foreground">{t("nav.refund")}</a>
         </div>
       </div>
     </aside>

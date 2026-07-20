@@ -1,8 +1,11 @@
 "use client";
 
 import { Button } from "@heroui/react";
+import { useT } from "@/lib/i18n/context";
 
 export default function NotFound() {
+  const t = useT();
+
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 px-6 text-center">
       <div>
@@ -10,10 +13,10 @@ export default function NotFound() {
           404
         </p>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
-          Page not found
+          {t("misc.notFoundTitle")}
         </h1>
         <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
-          The page you&apos;re looking for doesn&apos;t exist or has moved.
+          {t("misc.notFoundDescription")}
         </p>
       </div>
       <Button
@@ -21,7 +24,7 @@ export default function NotFound() {
         size="sm"
         onPress={() => (window.location.href = "/dashboard")}
       >
-        Back to dashboard
+        {t("misc.backToDashboard")}
       </Button>
     </div>
   );

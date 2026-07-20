@@ -16,9 +16,12 @@ import {
 } from "@/lib/api/services/subscription.service";
 import { PLAN_NAMES } from "@/lib/constants/data";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
+import { useI18n } from "@/lib/i18n/context";
+import { downloadUrl } from "@/lib/i18n/config";
 
 export default function DashboardPage() {
-  usePageTitle("Overview");
+  const { t, lang } = useI18n();
+  usePageTitle(t("dashboard.title"));
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [profile, setProfile] = useState<Record<string, string> | null>(null);
@@ -62,13 +65,15 @@ export default function DashboardPage() {
     <div className="space-y-8">
       {/* Greeting */}
       <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-        {profile?.username ? `Welcome back, ${profile.username}` : "Welcome back"}
+        {profile?.username
+          ? t("dashboard.welcomeBack", { name: profile.username })
+          : t("dashboard.welcomeBackGeneric")}
       </h1>
 
       {loadError && (
         <div className="flex items-center justify-between rounded-lg border border-danger/30 bg-danger/5 px-5 py-4">
-          <p className="text-sm text-danger">Couldn&apos;t load your account data.</p>
-          <Button variant="outline" size="sm" onPress={loadData}>Retry</Button>
+          <p className="text-sm text-danger">{t("dashboard.loadError")}</p>
+          <Button variant="outline" size="sm" onPress={loadData}>{t("common.retry")}</Button>
         </div>
       )}
 
@@ -79,26 +84,28 @@ export default function DashboardPage() {
         <div className="rounded-xl border border-border bg-surface p-6 sm:p-8">
           <div className="flex items-center justify-between">
             <p className="text-[11px] font-medium uppercase tracking-widest text-muted">
-              Credits remaining
+              {t("dashboard.creditsRemaining")}
             </p>
             <Link
               href="/dashboard/usage"
               className="inline-flex items-center gap-1 text-xs text-muted transition-colors hover:text-foreground"
             >
-              Usage <ArrowRight className="h-3 w-3" />
+              {t("dashboard.usage")} <ArrowRight className="h-3 w-3" />
             </Link>
           </div>
           <p className="mt-3 text-5xl font-semibold tabular-nums tracking-tight text-foreground">
             {String(quota?.remainingFormatted ?? `${remaining}s`)}
           </p>
           <div className="mt-5">
-            <ProgressBar aria-label="Credits remaining" value={pct} size="sm">
+            <ProgressBar aria-label={t("dashboard.creditsRemaining")} value={pct} size="sm">
               <ProgressBarTrack><ProgressBarFill /></ProgressBarTrack>
             </ProgressBar>
           </div>
           <p className="mt-3 text-sm text-muted">
-            {String(quota?.usedFormatted ?? `${used}s`)} used of{" "}
-            {String(quota?.totalFormatted ?? `${total}s`)} this month
+            {t("dashboard.usedOfTotal", {
+              used: String(quota?.usedFormatted ?? `${used}s`),
+              total: String(quota?.totalFormatted ?? `${total}s`),
+            })}
           </p>
         </div>
       )}
@@ -106,8 +113,8 @@ export default function DashboardPage() {
       {/* Secondary stats */}
       <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border">
         {([
-          { label: "Plan", value: loading ? null : PLAN_NAMES[plan], sub: loading ? null : subscription?.status === "active" ? "Active" : "Inactive" },
-          { label: "Videos this month", value: loading ? null : String(videos?.thisMonth ?? 0), sub: loading ? null : `${videos?.completed ?? 0} completed` },
+          { label: t("dashboard.planLabel"), value: loading ? null : PLAN_NAMES[plan], sub: loading ? null : subscription?.status === "active" ? t("dashboard.active") : t("dashboard.inactive") },
+          { label: t("dashboard.videosThisMonth"), value: loading ? null : String(videos?.thisMonth ?? 0), sub: loading ? null : t("dashboard.completedCount", { count: videos?.completed ?? 0 }) },
         ]).map((item) => (
           <div key={item.label} className="bg-surface p-5">
             <p className="text-[11px] font-medium uppercase tracking-widest text-muted">{item.label}</p>
@@ -126,9 +133,9 @@ export default function DashboardPage() {
       {/* Quick actions */}
       <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
         {[
-          { label: "Upgrade plan", href: "/dashboard/plan" },
-          { label: "Settings", href: "/dashboard/settings" },
-          { label: "Download desktop app", href: "https://prepix.ai/download", external: true },
+          { label: t("dashboard.upgradePlan"), href: "/dashboard/plan" },
+          { label: t("dashboard.settings"), href: "/dashboard/settings" },
+          { label: t("dashboard.downloadDesktopApp"), href: downloadUrl(lang), external: true },
         ].map((item) => {
           const inner = (
             <div className="flex items-center justify-between px-5 py-4 transition-colors hover:bg-foreground/[0.03]">

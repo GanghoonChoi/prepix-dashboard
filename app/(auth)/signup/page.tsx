@@ -11,18 +11,13 @@ import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { authService } from "@/lib/api/services/auth.service";
 import { sleep } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
+import { useT } from "@/lib/i18n/context";
 
 const TOTAL_STEPS = 4;
 
-const STEP_INFO: Record<number, { title: string; description: string }> = {
-  1: { title: "Create your account", description: "Enter your email to get started" },
-  2: { title: "Choose a username", description: "This is how others will see you" },
-  3: { title: "Set a password", description: "Must be at least 8 characters" },
-  4: { title: "Confirm details", description: "Review and create your account" },
-};
-
 export default function SignupPage() {
-  usePageTitle("Create account");
+  const t = useT();
+  usePageTitle(t("auth.createAccount"));
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -34,6 +29,13 @@ export default function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [error, setError] = useState("");
+
+  const STEP_INFO: Record<number, { title: string; description: string }> = {
+    1: { title: t("auth.step1Title"), description: t("auth.step1Desc") },
+    2: { title: t("auth.step2Title"), description: t("auth.step2Desc") },
+    3: { title: t("auth.step3Title"), description: t("auth.step3Desc") },
+    4: { title: t("auth.step4Title"), description: t("auth.step4Desc") },
+  };
 
   // Already signed in? Skip signup.
   useEffect(() => {
@@ -61,8 +63,8 @@ export default function SignupPage() {
     setError("");
 
     if (step === 3) {
-      if (password !== confirmPassword) { setError("Passwords do not match"); return; }
-      if (password.length < 8) { setError("Password must be at least 8 characters"); return; }
+      if (password !== confirmPassword) { setError(t("auth.passwordsMismatch")); return; }
+      if (password.length < 8) { setError(t("auth.passwordMinLength")); return; }
     }
 
     if (step === TOTAL_STEPS) {
@@ -83,7 +85,7 @@ export default function SignupPage() {
         return;
       } catch (err: unknown) {
         const axiosErr = err as { response?: { data?: { message?: string } } };
-        setError(axiosErr.response?.data?.message || "Registration failed");
+        setError(axiosErr.response?.data?.message || t("auth.registrationFailed"));
         setIsLoading(false);
         return;
       }
@@ -105,7 +107,7 @@ export default function SignupPage() {
   };
 
   if (isSettingUp) {
-    return <LoadingScreen title="Setting up your workspace" subtitle="This will only take a moment..." />;
+    return <LoadingScreen title={t("auth.settingUpWorkspace")} subtitle={t("auth.settingUpSubtitle")} />;
   }
 
   const info = STEP_INFO[step];
@@ -121,10 +123,10 @@ export default function SignupPage() {
         </h1>
         <p className="mt-1.5 text-sm text-muted">{info.description}</p>
         <div className="mt-4">
-          <ProgressBar aria-label="Progress" value={(step / TOTAL_STEPS) * 100} size="sm">
+          <ProgressBar aria-label={t("auth.progressAriaLabel")} value={(step / TOTAL_STEPS) * 100} size="sm">
             <ProgressBarTrack><ProgressBarFill /></ProgressBarTrack>
           </ProgressBar>
-          <p className="mt-1.5 text-xs text-muted">Step {step} of {TOTAL_STEPS}</p>
+          <p className="mt-1.5 text-xs text-muted">{t("auth.stepOf", { step, total: TOTAL_STEPS })}</p>
         </div>
       </div>
 
@@ -140,28 +142,28 @@ export default function SignupPage() {
         <div className={`transition-all duration-250 ${isAnimating ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"}`}>
           {step === 1 && (
             <div className="space-y-1.5">
-              <label htmlFor="email" className="block text-sm font-medium text-foreground">Email</label>
-              <input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus placeholder="you@example.com" className={inputClass} />
+              <label htmlFor="email" className="block text-sm font-medium text-foreground">{t("auth.email")}</label>
+              <input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus placeholder={t("auth.emailPlaceholder")} className={inputClass} />
             </div>
           )}
 
           {step === 2 && (
             <div className="space-y-1.5">
-              <label htmlFor="username" className="block text-sm font-medium text-foreground">Username</label>
-              <input id="username" type="text" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus placeholder="johndoe" className={inputClass} />
-              <p className="text-xs text-muted">Optional. You can change this later.</p>
+              <label htmlFor="username" className="block text-sm font-medium text-foreground">{t("auth.username")}</label>
+              <input id="username" type="text" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus placeholder={t("auth.usernamePlaceholder")} className={inputClass} />
+              <p className="text-xs text-muted">{t("auth.usernameHint")}</p>
             </div>
           )}
 
           {step === 3 && (
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <label htmlFor="password" className="block text-sm font-medium text-foreground">Password</label>
-                <input id="password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required autoFocus placeholder="At least 8 characters" className={inputClass} />
+                <label htmlFor="password" className="block text-sm font-medium text-foreground">{t("auth.password")}</label>
+                <input id="password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required autoFocus placeholder={t("auth.passwordPlaceholderHint")} className={inputClass} />
               </div>
               <div className="space-y-1.5">
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-foreground">Confirm password</label>
-                <input id="confirmPassword" type="password" autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required placeholder="Re-enter password" className={inputClass} />
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-foreground">{t("auth.confirmPassword")}</label>
+                <input id="confirmPassword" type="password" autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required placeholder={t("auth.reenterPasswordPlaceholder")} className={inputClass} />
               </div>
               <PasswordRequirements password={password} />
             </div>
@@ -171,8 +173,8 @@ export default function SignupPage() {
             <div className="space-y-4">
               <div className="rounded-md border border-border divide-y divide-border">
                 {[
-                  ["Email", email],
-                  ["Username", username || "—"],
+                  [t("auth.email"), email],
+                  [t("auth.username"), username || "—"],
                 ].map(([k, v]) => (
                   <div key={k} className="flex items-center justify-between px-4 py-3">
                     <span className="text-sm text-muted">{k}</span>
@@ -189,10 +191,11 @@ export default function SignupPage() {
                   className="mt-0.5 h-4 w-4 rounded border-border accent-foreground"
                 />
                 <span className="text-sm text-muted leading-relaxed">
-                  I agree to the{" "}
-                  <Link href="/terms" className="underline underline-offset-2 hover:text-foreground" target="_blank">Terms</Link>{" "}
-                  and{" "}
-                  <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground" target="_blank">Privacy Policy</Link>
+                  {t("auth.agreeToTermsCheckboxPrefix")}
+                  <Link href="/terms" className="underline underline-offset-2 hover:text-foreground" target="_blank">{t("auth.terms")}</Link>
+                  {t("auth.and")}
+                  <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground" target="_blank">{t("auth.privacyPolicy")}</Link>
+                  {t("auth.agreeToTermsCheckboxSuffix")}
                 </span>
               </label>
             </div>
@@ -202,11 +205,11 @@ export default function SignupPage() {
         <div className="flex gap-3">
           {step > 1 && (
             <Button type="button" variant="outline" className="flex-1" onPress={handleBack} isDisabled={isLoading || isAnimating}>
-              Back
+              {t("auth.back")}
             </Button>
           )}
           <Button type="submit" variant="primary" className="flex-1" isDisabled={isLoading || isAnimating}>
-            {isLoading ? "Creating account..." : step < TOTAL_STEPS ? "Continue" : "Create account"}
+            {isLoading ? t("auth.creatingAccount") : step < TOTAL_STEPS ? t("auth.continue") : t("auth.createAccount")}
           </Button>
         </div>
       </form>
@@ -216,7 +219,7 @@ export default function SignupPage() {
         <div className="space-y-5">
           <div className="flex items-center gap-3">
             <div className="h-px flex-1 bg-border" />
-            <span className="text-xs text-muted">or</span>
+            <span className="text-xs text-muted">{t("auth.or")}</span>
             <div className="h-px flex-1 bg-border" />
           </div>
           <GoogleSignInButton
@@ -236,9 +239,9 @@ export default function SignupPage() {
 
       {/* Footer */}
       <p className="text-sm text-muted">
-        Already have an account?{" "}
+        {t("auth.alreadyHaveAccountPrefix")}
         <Link href="/login" className="text-foreground underline underline-offset-4 hover:no-underline">
-          Sign in
+          {t("auth.signIn")}
         </Link>
       </p>
     </div>

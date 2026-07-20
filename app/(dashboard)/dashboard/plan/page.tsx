@@ -15,23 +15,25 @@ import { useOverlayState } from "@heroui/react";
 import { Dialog } from "@/components/dialog";
 import { useToast } from "@/components/toast";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
+import { useI18n } from "@/lib/i18n/context";
 
 const STATUS_META: Record<
   string,
-  { label: string; color: "success" | "danger" | "warning" | "default" }
+  { labelKey: string; color: "success" | "danger" | "warning" | "default" }
 > = {
-  active: { label: "Active", color: "success" },
-  trialing: { label: "Trial", color: "success" },
-  past_due: { label: "Payment due", color: "warning" },
-  pending_cancel: { label: "Cancelling", color: "warning" },
-  paused: { label: "Paused", color: "default" },
-  canceled: { label: "Cancelled", color: "danger" },
-  refunded: { label: "Refunded", color: "danger" },
-  chargeback: { label: "Chargeback", color: "danger" },
+  active: { labelKey: "plan.statusActive", color: "success" },
+  trialing: { labelKey: "plan.statusTrial", color: "success" },
+  past_due: { labelKey: "plan.statusPastDue", color: "warning" },
+  pending_cancel: { labelKey: "plan.statusCancelling", color: "warning" },
+  paused: { labelKey: "plan.statusPaused", color: "default" },
+  canceled: { labelKey: "plan.statusCancelled", color: "danger" },
+  refunded: { labelKey: "plan.statusRefunded", color: "danger" },
+  chargeback: { labelKey: "plan.statusChargeback", color: "danger" },
 };
 
 export default function PlanPage() {
-  usePageTitle("Plan");
+  const { t, lang } = useI18n();
+  usePageTitle(t("plan.title"));
   const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -98,11 +100,11 @@ export default function PlanPage() {
         // eslint-disable-next-line react-hooks/immutability
         window.location.href = result.checkoutUrl;
       } else {
-        toast("Checkout is not available right now. Please try again later.", "error");
+        toast(t("plan.checkoutUnavailable"), "error");
       }
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
-      toast(axiosErr.response?.data?.message || "Failed to start checkout", "error");
+      toast(axiosErr.response?.data?.message || t("plan.checkoutFailed"), "error");
     }
     setActionLoading(false);
   };
@@ -124,25 +126,25 @@ export default function PlanPage() {
       await subscriptionService.cancel();
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
-      toast(axiosErr.response?.data?.message || "Failed to cancel", "error");
+      toast(axiosErr.response?.data?.message || t("plan.cancelFailed"), "error");
       setActionLoading(false);
       return;
     }
     cancelModal.close();
-    toast("Subscription cancelled. Access continues until your billing period ends.");
+    toast(t("plan.cancelToast"));
     await refreshCurrent();
     setActionLoading(false);
   };
 
   const confirmRefund = async () => {
     setActionLoading(true);
-    let message = "Your payment has been refunded and your subscription cancelled.";
+    let message = t("plan.refundToast");
     try {
       const res = await subscriptionService.refund();
       if (res?.message) message = res.message;
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
-      toast(axiosErr.response?.data?.message || "Failed to process refund", "error");
+      toast(axiosErr.response?.data?.message || t("plan.refundFailed"), "error");
       setActionLoading(false);
       return;
     }
@@ -154,9 +156,13 @@ export default function PlanPage() {
 
   const currentPlan = currentSub?.plan || "free";
   const status = currentSub?.status ?? "active";
-  const statusMeta = STATUS_META[status] ?? { label: status, color: "default" as const };
+  const statusMeta = STATUS_META[status];
+  const statusLabel = statusMeta ? t(statusMeta.labelKey) : status;
+  const statusColor = statusMeta?.color ?? "default";
   const periodEndLabel = currentSub?.currentPeriodEnd
-    ? new Date(currentSub.currentPeriodEnd).toLocaleDateString()
+    ? new Date(currentSub.currentPeriodEnd).toLocaleDateString(
+        lang === "ko" ? "ko-KR" : "en-US",
+      )
     : null;
   // Only a pending cancel keeps access until the period end. canceled/refunded/
   // chargeback mean access has already ended.
@@ -171,34 +177,35 @@ export default function PlanPage() {
 
   const priceLabel = (plan: CatalogPlan) => {
     if (plan.status === "coming_soon")
-      return { big: "Coming soon", strike: null as string | null, sub: null as string | null };
+      return { big: t("plan.comingSoon"), strike: null as string | null, sub: null as string | null };
     const price = plan.prices.find((p) => p.interval === interval) ?? plan.prices[0];
-    if (!price) return { big: formatPrice("KRW", 0), strike: null, sub: "Free forever" };
+    if (!price) return { big: formatPrice("KRW", 0), strike: null, sub: t("plan.freeForever") };
 
     const pct = price.launchDiscountPercent ?? 0;
     const net = pct ? Math.round(price.unitAmount * (1 - pct / 100)) : price.unitAmount;
-    const per = price.interval === "year" ? "/yr" : "/mo";
+    const per = price.interval === "year" ? t("plan.perYear") : t("plan.perMonth");
     const strike = pct ? formatPrice(price.currency, price.unitAmount) : null;
 
     let sub: string;
     if (price.interval === "year") {
-      const perMonth = Math.round(net / 12);
-      sub = `${pct ? `−${pct}% launch · ` : ""}≈ ${formatPrice(price.currency, perMonth)}/mo, billed annually`;
+      const perMonth = formatPrice(price.currency, Math.round(net / 12));
+      const prefix = pct ? t("plan.launchPrefix", { pct }) : "";
+      sub = prefix + t("plan.annualSuffix", { perMonth });
     } else {
-      sub = pct ? `−${pct}% launch offer · billed monthly` : "Billed monthly";
+      sub = pct ? t("plan.launchMonthly", { pct }) : t("plan.billedMonthly");
     }
     return { big: `${formatPrice(price.currency, net)}${per}`, strike, sub };
   };
 
   const buttonFor = (plan: CatalogPlan) => {
     const isCurrent = currentPlan === plan.id;
-    if (isCurrent) return { label: "Current plan", disabled: true, onPress: () => {} };
-    if (plan.status === "coming_soon") return { label: "Coming soon", disabled: true, onPress: () => {} };
+    if (isCurrent) return { label: t("plan.currentPlan"), disabled: true, onPress: () => {} };
+    if (plan.status === "coming_soon") return { label: t("plan.comingSoon"), disabled: true, onPress: () => {} };
     if (plan.prices.length === 0) {
       // Free tier — only a downgrade target when you're on a paid plan.
-      return { label: "Downgrade", disabled: currentPlan === "free", onPress: () => cancelModal.open() };
+      return { label: t("plan.downgrade"), disabled: currentPlan === "free", onPress: () => cancelModal.open() };
     }
-    return { label: `Get ${plan.displayName}`, disabled: false, onPress: () => handleUpgrade(plan.id) };
+    return { label: t("plan.get", { name: plan.displayName }), disabled: false, onPress: () => handleUpgrade(plan.id) };
   };
 
   const toggleClass = (active: boolean) =>
@@ -208,12 +215,11 @@ export default function PlanPage() {
 
   return (
     <div className="space-y-10">
-      <h1 className="text-2xl font-semibold tracking-tight text-foreground">Plan</h1>
+      <h1 className="text-2xl font-semibold tracking-tight text-foreground">{t("plan.title")}</h1>
 
       {justUpgraded && (
         <div className="rounded-md border border-border bg-foreground/[0.03] px-4 py-3 text-sm text-foreground">
-          Payment received. Your plan will update within a few moments — refresh
-          if it hasn&apos;t changed yet.
+          {t("plan.paymentReceived")}
         </div>
       )}
 
@@ -222,8 +228,8 @@ export default function PlanPage() {
         <Skeleton className="h-20 w-full rounded-lg" />
       ) : loadError ? (
         <div className="flex items-center justify-between rounded-lg border border-danger/30 bg-danger/5 p-6">
-          <p className="text-sm text-danger">Couldn&apos;t load your subscription.</p>
-          <Button variant="outline" size="sm" onPress={loadData}>Retry</Button>
+          <p className="text-sm text-danger">{t("plan.loadError")}</p>
+          <Button variant="outline" size="sm" onPress={loadData}>{t("common.retry")}</Button>
         </div>
       ) : (
         <div className="flex items-start justify-between rounded-lg border border-border p-6">
@@ -231,26 +237,26 @@ export default function PlanPage() {
             <div className="flex items-center gap-2.5">
               <h2 className="text-lg font-semibold text-foreground">{PLAN_NAMES[currentPlan] || "Free"}</h2>
               {currentPlan !== "free" && (
-                <Chip size="sm" color={statusMeta.color} variant="soft">
-                  {statusMeta.label}
+                <Chip size="sm" color={statusColor} variant="soft">
+                  {statusLabel}
                 </Chip>
               )}
             </div>
             {showPeriodEnd ? (
               <p className="mt-1 text-sm text-muted">
-                Access until {periodEndLabel}. After that, your plan will revert to Free.
+                {t("plan.accessUntil", { date: periodEndLabel! })}
               </p>
             ) : isEnded ? (
               <p className="mt-1 text-sm text-muted">
-                Your subscription has ended. You&apos;re on the Free plan.
+                {t("plan.ended")}
               </p>
             ) : status === "past_due" ? (
               <p className="mt-1 text-sm text-warning">
-                We couldn&apos;t process your last payment. Please update your payment method to keep access.
+                {t("plan.pastDue")}
               </p>
             ) : (
               <p className="mt-1 text-sm text-muted">
-                {currentPlan === "free" ? "You're on the free plan." : "Your subscription is active."}
+                {currentPlan === "free" ? t("plan.onFree") : t("plan.active")}
               </p>
             )}
           </div>
@@ -261,7 +267,7 @@ export default function PlanPage() {
                   onClick={() => cancelModal.open()}
                   className="text-xs text-muted hover:text-foreground transition-colors"
                 >
-                  Cancel subscription
+                  {t("plan.cancelSubscription")}
                 </button>
               )}
               {canRefund && (
@@ -269,7 +275,7 @@ export default function PlanPage() {
                   onClick={() => refundModal.open()}
                   className="text-xs text-muted hover:text-foreground transition-colors"
                 >
-                  Request refund
+                  {t("plan.requestRefund")}
                 </button>
               )}
             </div>
@@ -281,14 +287,14 @@ export default function PlanPage() {
       {!loading && !loadError && (
         <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium text-foreground">Available plans</h2>
+            <h2 className="text-sm font-medium text-foreground">{t("plan.availablePlans")}</h2>
             {hasAnnual && (
               <div className="inline-flex rounded-md border border-border p-0.5">
                 <button className={toggleClass(interval === "month")} onClick={() => setBillingInterval("month")}>
-                  Monthly
+                  {t("plan.monthly")}
                 </button>
                 <button className={toggleClass(interval === "year")} onClick={() => setBillingInterval("year")}>
-                  Annual
+                  {t("plan.annual")}
                 </button>
               </div>
             )}
@@ -300,7 +306,7 @@ export default function PlanPage() {
               const emphasize = plan.id === "creator" && !isCurrent;
               const price = priceLabel(plan);
               const btn = buttonFor(plan);
-              const copy = PLAN_COPY[plan.id];
+              const copy = PLAN_COPY[lang][plan.id];
 
               return (
                 <div
@@ -317,10 +323,10 @@ export default function PlanPage() {
                     <div className="flex items-center justify-between">
                       <p className="text-base font-semibold text-foreground">{plan.displayName}</p>
                       {emphasize && (
-                        <span className="text-[10px] font-medium uppercase tracking-widest text-muted">Popular</span>
+                        <span className="text-[10px] font-medium uppercase tracking-widest text-muted">{t("plan.popular")}</span>
                       )}
                       {isCurrent && (
-                        <span className="text-[10px] font-medium uppercase tracking-widest text-muted">Current</span>
+                        <span className="text-[10px] font-medium uppercase tracking-widest text-muted">{t("plan.current")}</span>
                       )}
                     </div>
 
@@ -360,7 +366,7 @@ export default function PlanPage() {
 
                   {emphasize && (
                     <p className="mt-2 text-center text-[11px] text-muted">
-                      Cancel anytime. No commitment.
+                      {t("plan.cancelAnytime")}
                     </p>
                   )}
                 </div>
@@ -371,30 +377,27 @@ export default function PlanPage() {
       )}
 
       {/* Cancel modal */}
-      <Dialog state={cancelModal} title="Cancel subscription">
+      <Dialog state={cancelModal} title={t("plan.cancelModalTitle")}>
         <p className="text-sm text-muted">
-          Are you sure? You&apos;ll keep access to your paid features until the end
-          of your billing period.
+          {t("plan.cancelModalBody")}
         </p>
         <div className="mt-6 flex justify-end gap-3">
-          <Button variant="outline" size="sm" onPress={() => cancelModal.close()} isDisabled={actionLoading}>Keep plan</Button>
+          <Button variant="outline" size="sm" onPress={() => cancelModal.close()} isDisabled={actionLoading}>{t("plan.keepPlan")}</Button>
           <Button variant="danger" size="sm" onPress={confirmCancel} isDisabled={actionLoading}>
-            {actionLoading ? "Cancelling..." : "Cancel subscription"}
+            {actionLoading ? t("plan.cancelling") : t("plan.cancelSubscription")}
           </Button>
         </div>
       </Dialog>
 
       {/* Refund modal */}
-      <Dialog state={refundModal} title="Request a refund">
+      <Dialog state={refundModal} title={t("plan.refundModalTitle")}>
         <p className="text-sm text-muted">
-          We&apos;ll refund your most recent payment in full and cancel your
-          subscription immediately. Refunds are available within 14 days of the
-          payment.
+          {t("plan.refundModalBody")}
         </p>
         <div className="mt-6 flex justify-end gap-3">
-          <Button variant="outline" size="sm" onPress={() => refundModal.close()} isDisabled={actionLoading}>Keep plan</Button>
+          <Button variant="outline" size="sm" onPress={() => refundModal.close()} isDisabled={actionLoading}>{t("plan.keepPlan")}</Button>
           <Button variant="danger" size="sm" onPress={confirmRefund} isDisabled={actionLoading}>
-            {actionLoading ? "Processing..." : "Refund & cancel"}
+            {actionLoading ? t("plan.processing") : t("plan.refundAndCancel")}
           </Button>
         </div>
       </Dialog>

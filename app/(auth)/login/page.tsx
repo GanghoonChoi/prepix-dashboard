@@ -9,6 +9,7 @@ import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { authService } from "@/lib/api/services/auth.service";
 import { sleep } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
+import { useT } from "@/lib/i18n/context";
 
 // Only allow internal paths as a post-login destination (prevents open-redirect
 // via a crafted ?returnTo=https://evil.com).
@@ -19,7 +20,8 @@ function safeReturnTo(): string {
 }
 
 export default function LoginPage() {
-  usePageTitle("Sign in");
+  const t = useT();
+  usePageTitle(t("auth.signIn"));
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -62,10 +64,7 @@ export default function LoginPage() {
       router.push(safeReturnTo());
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
-      setError(
-        axiosErr.response?.data?.message ||
-          "Login failed. Please check your credentials.",
-      );
+      setError(axiosErr.response?.data?.message || t("auth.loginFailed"));
       setIsLoading(false);
     }
   };
@@ -73,8 +72,8 @@ export default function LoginPage() {
   if (isSigningIn) {
     return (
       <LoadingScreen
-        title="Signing you in"
-        subtitle="Please wait..."
+        title={t("auth.signingYouIn")}
+        subtitle={t("auth.pleaseWait")}
       />
     );
   }
@@ -87,12 +86,12 @@ export default function LoginPage() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Sign in
+          {t("auth.signIn")}
         </h1>
         <p className="mt-1.5 text-sm text-muted">
-          Don&apos;t have an account?{" "}
+          {t("auth.noAccountPrompt")}
           <Link href="/signup" className="text-foreground underline underline-offset-4 hover:no-underline">
-            Create one
+            {t("auth.createOne")}
           </Link>
         </p>
       </div>
@@ -108,7 +107,7 @@ export default function LoginPage() {
       <form onSubmit={handleLogin} className="space-y-5">
         <div className="space-y-1.5">
           <label htmlFor="email" className="block text-sm font-medium text-foreground">
-            Email
+            {t("auth.email")}
           </label>
           <input
             id="email"
@@ -118,7 +117,7 @@ export default function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
             required
             autoFocus
-            placeholder="you@example.com"
+            placeholder={t("auth.emailPlaceholder")}
             className={inputClass}
           />
         </div>
@@ -126,13 +125,13 @@ export default function LoginPage() {
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <label htmlFor="password" className="text-sm font-medium text-foreground">
-              Password
+              {t("auth.password")}
             </label>
             <Link
               href="/forgot-password"
               className="text-xs text-muted hover:text-foreground"
             >
-              Forgot password?
+              {t("auth.forgotPassword")}
             </Link>
           </div>
           <input
@@ -142,7 +141,7 @@ export default function LoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            placeholder="••••••••"
+            placeholder={t("auth.passwordPlaceholderDots")}
             className={inputClass}
           />
         </div>
@@ -153,7 +152,7 @@ export default function LoginPage() {
           className="w-full"
           isDisabled={isLoading}
         >
-          {isLoading ? "Signing in..." : "Continue"}
+          {isLoading ? t("auth.signingIn") : t("auth.continue")}
         </Button>
       </form>
 
@@ -161,7 +160,7 @@ export default function LoginPage() {
       <div className="space-y-5">
         <div className="flex items-center gap-3">
           <div className="h-px flex-1 bg-border" />
-          <span className="text-xs text-muted">or</span>
+          <span className="text-xs text-muted">{t("auth.or")}</span>
           <div className="h-px flex-1 bg-border" />
         </div>
         <GoogleSignInButton
@@ -178,11 +177,12 @@ export default function LoginPage() {
 
       {/* Footer */}
       <p className="text-center text-xs leading-relaxed text-muted">
-        By continuing, you agree to our{" "}
-        <Link href="/terms" className="underline underline-offset-2 hover:text-foreground">Terms</Link>,{" "}
-        <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground">Privacy</Link>{" "}
+        {t("auth.agreeToTermsPrefix")}
+        <Link href="/terms" className="underline underline-offset-2 hover:text-foreground">{t("auth.terms")}</Link>,{" "}
+        <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground">{t("auth.privacy")}</Link>{" "}
         &amp;{" "}
-        <Link href="/refund-policy" className="underline underline-offset-2 hover:text-foreground">Refund Policy</Link>
+        <Link href="/refund-policy" className="underline underline-offset-2 hover:text-foreground">{t("auth.refundPolicy")}</Link>
+        {t("auth.agreeToTermsSuffix")}
       </p>
     </div>
   );

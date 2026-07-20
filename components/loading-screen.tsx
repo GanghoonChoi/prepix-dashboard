@@ -6,6 +6,7 @@ import {
   ProgressCircleTrackCircle,
   ProgressCircleFillCircle,
 } from "@heroui/react";
+import { useT } from "@/lib/i18n/context";
 
 export function LoadingScreen({
   title,
@@ -14,9 +15,11 @@ export function LoadingScreen({
   title?: string;
   subtitle?: string;
 }) {
+  const t = useT();
+
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 bg-background">
-      <ProgressCircle aria-label="Loading" isIndeterminate size="lg">
+      <ProgressCircle aria-label={t("common.loading")} isIndeterminate size="lg">
         <ProgressCircleTrack>
           <ProgressCircleTrackCircle />
           <ProgressCircleFillCircle />

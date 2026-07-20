@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import Script from "next/script";
+import { AuthBrandPanel } from "@/components/auth/auth-brand-panel";
 
 export default function AuthLayout({
   children,
@@ -13,35 +14,7 @@ export default function AuthLayout({
       <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" />
 
       {/* Left panel - branding */}
-      <div className="hidden w-[480px] shrink-0 flex-col justify-between border-r border-border bg-surface p-10 lg:flex">
-        <div>
-          <Link href="/" className="flex items-center gap-2.5">
-            <Image src="/prepix-symbol.svg" alt="Prepix" width={24} height={24} />
-            <Image src="/prepix-wordmark.svg" alt="Prepix" width={80} height={20} />
-          </Link>
-        </div>
-
-        <div className="space-y-6">
-          <blockquote className="text-lg font-medium leading-relaxed text-foreground">
-            &quot;Prepix transformed our post-production workflow. What used to take hours now takes minutes.&quot;
-          </blockquote>
-          <div>
-            <p className="text-sm font-medium text-foreground">Video Production Team</p>
-            <p className="text-xs text-muted">Professional Video Editors</p>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <div className="flex gap-4 text-xs text-muted">
-            <Link href="/terms" className="hover:text-foreground">Terms</Link>
-            <Link href="/privacy" className="hover:text-foreground">Privacy</Link>
-            <Link href="/refund-policy" className="hover:text-foreground">Refund Policy</Link>
-          </div>
-          <p className="text-xs text-muted">
-            &copy; {new Date().getFullYear()} Lasker Inc. All rights reserved.
-          </p>
-        </div>
-      </div>
+      <AuthBrandPanel />
 
       {/* Right panel - form */}
       <div className="flex flex-1 flex-col">
