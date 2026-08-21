@@ -9,14 +9,17 @@ import { LoadingScreen } from "@/components/loading-screen";
 import { PasswordRequirements } from "@/components/auth/password-requirements";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { authService } from "@/lib/api/services/auth.service";
+import { markSignedIn } from "@/lib/account-hint";
+import { loginHref } from "@/lib/auth-entry";
 import { sleep } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
-import { useT } from "@/lib/i18n/context";
+import { useI18n } from "@/lib/i18n/context";
+import { readPrefilledEmail, readReturnTo } from "@/lib/return-to";
 
 const TOTAL_STEPS = 4;
 
 export default function SignupPage() {
-  const t = useT();
+  const { t, lang } = useI18n();
   usePageTitle(t("auth.createAccount"));
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -37,12 +40,35 @@ export default function SignupPage() {
     4: { title: t("auth.step4Title"), description: t("auth.step4Desc") },
   };
 
-  // Already signed in? Skip signup.
+  // Already signed in? Skip signup — but honour where they were headed, which
+  // may be back to the onboarding checklist on the marketing site.
   useEffect(() => {
     if (localStorage.getItem("accessToken") || localStorage.getItem("refreshToken")) {
-      router.replace("/dashboard");
+      go(readReturnTo());
     }
-  }, [router]);
+  }, []);
+
+  // The address the site already asked for. Typing it twice is the kind of
+  // small insult that makes two pages feel like two products.
+  useEffect(() => {
+    const prefilled = readPrefilledEmail();
+    if (prefilled) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setEmail(prefilled);
+    }
+  }, []);
+
+  /**
+   * `router.push` cannot leave the origin, and the destination here may be
+   * `prepix.ai/start`. Split on that rather than assuming an internal route.
+   */
+  const go = (destination: string) => {
+    if (destination.startsWith("/")) {
+      router.push(destination);
+    } else {
+      window.location.assign(destination);
+    }
+  };
 
   const fireConfetti = () => {
     const duration = 3000;
@@ -75,13 +101,15 @@ export default function SignupPage() {
         localStorage.setItem("accessToken", loginData.accessToken);
         localStorage.setItem("refreshToken", loginData.refreshToken);
         if (loginData.user) localStorage.setItem("userInfo", JSON.stringify(loginData.user));
+        // So prepix.ai's header can offer "dashboard" instead of "sign in".
+        markSignedIn();
 
         setIsLoading(false);
         fireConfetti();
         await sleep(800);
         setIsSettingUp(true);
         await sleep(2000);
-        router.push("/dashboard");
+        go(readReturnTo());
         return;
       } catch (err: unknown) {
         const axiosErr = err as { response?: { data?: { message?: string } } };
@@ -231,7 +259,7 @@ export default function SignupPage() {
               await sleep(800);
               setIsSettingUp(true);
               await sleep(1500);
-              router.push("/dashboard");
+              go(readReturnTo());
             }}
           />
         </div>
@@ -240,7 +268,7 @@ export default function SignupPage() {
       {/* Footer */}
       <p className="text-sm text-muted">
         {t("auth.alreadyHaveAccountPrefix")}
-        <Link href="/login" className="text-foreground underline underline-offset-4 hover:no-underline">
+        <Link href={loginHref({ lang })} className="text-foreground underline underline-offset-4 hover:no-underline">
           {t("auth.signIn")}
         </Link>
       </p>

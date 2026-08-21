@@ -6,10 +6,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@heroui/react";
 import { authService } from "@/lib/api/services/auth.service";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
-import { useT } from "@/lib/i18n/context";
+import { useI18n } from "@/lib/i18n/context";
+import { loginHref } from "@/lib/auth-entry";
 
 function ResetPasswordForm() {
-  const t = useT();
+  const { t, lang } = useI18n();
   usePageTitle(t("auth.chooseNewPassword"));
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -158,7 +159,7 @@ function ResetPasswordForm() {
       </form>
 
       <p className="text-sm text-muted">
-        <Link href="/login" className="text-foreground underline underline-offset-4 hover:no-underline">
+        <Link href={loginHref({ lang })} className="text-foreground underline underline-offset-4 hover:no-underline">
           {t("auth.backToSignIn")}
         </Link>
       </p>

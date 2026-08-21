@@ -9,18 +9,18 @@ import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { authService } from "@/lib/api/services/auth.service";
 import { sleep } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
-import { useT } from "@/lib/i18n/context";
+import { useI18n } from "@/lib/i18n/context";
+import { readReturnTo } from "@/lib/return-to";
+import { markSignedIn } from "@/lib/account-hint";
+import { signupHref } from "@/lib/auth-entry";
 
-// Only allow internal paths as a post-login destination (prevents open-redirect
-// via a crafted ?returnTo=https://evil.com).
-function safeReturnTo(): string {
-  if (typeof window === "undefined") return "/dashboard";
-  const raw = new URLSearchParams(window.location.search).get("returnTo");
-  return raw && raw.startsWith("/") && !raw.startsWith("//") ? raw : "/dashboard";
-}
+// Internal paths, plus absolute URLs on a short list of our own hosts — the
+// marketing site's onboarding sends people here and expects them back. See
+// `lib/return-to.ts` for why the host is matched exactly rather than by suffix.
+const safeReturnTo = () => readReturnTo();
 
 export default function LoginPage() {
-  const t = useT();
+  const { t, lang } = useI18n();
   usePageTitle(t("auth.signIn"));
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -29,12 +29,22 @@ export default function LoginPage() {
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [error, setError] = useState("");
 
+  /** `router.push` cannot leave the origin; the destination may be prepix.ai. */
+  const go = (destination: string) => {
+    if (destination.startsWith("/")) {
+      router.push(destination);
+    } else {
+      window.location.assign(destination);
+    }
+  };
+
   // Already signed in? Skip the form.
   useEffect(() => {
     if (localStorage.getItem("accessToken") || localStorage.getItem("refreshToken")) {
-      router.replace(safeReturnTo());
+      go(safeReturnTo());
     }
-  }, [router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,6 +57,8 @@ export default function LoginPage() {
       if (data.accessToken && data.refreshToken) {
         localStorage.setItem("accessToken", data.accessToken);
         localStorage.setItem("refreshToken", data.refreshToken);
+        // So prepix.ai's header can offer "dashboard" instead of "sign in".
+        markSignedIn();
       }
 
       try {
@@ -61,7 +73,7 @@ export default function LoginPage() {
       setIsLoading(false);
       setIsSigningIn(true);
       await sleep(1000);
-      router.push(safeReturnTo());
+      go(safeReturnTo());
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
       setError(axiosErr.response?.data?.message || t("auth.loginFailed"));
@@ -90,7 +102,7 @@ export default function LoginPage() {
         </h1>
         <p className="mt-1.5 text-sm text-muted">
           {t("auth.noAccountPrompt")}
-          <Link href="/signup" className="text-foreground underline underline-offset-4 hover:no-underline">
+          <Link href={signupHref({ lang })} className="text-foreground underline underline-offset-4 hover:no-underline">
             {t("auth.createOne")}
           </Link>
         </p>
@@ -170,7 +182,7 @@ export default function LoginPage() {
             setError("");
             setIsSigningIn(true);
             await sleep(800);
-            router.push(safeReturnTo());
+            go(safeReturnTo());
           }}
         />
       </div>

@@ -1,7 +1,7 @@
-import Image from "next/image";
 import Link from "next/link";
 import Script from "next/script";
 import { AuthBrandPanel } from "@/components/auth/auth-brand-panel";
+import { Lockup } from "@/components/brand";
 
 export default function AuthLayout({
   children,
@@ -21,8 +21,7 @@ export default function AuthLayout({
         {/* Mobile logo */}
         <div className="flex h-14 items-center px-6 lg:hidden">
           <Link href="/" className="flex items-center gap-2">
-            <Image src="/prepix-symbol.svg" alt="Prepix" width={20} height={20} />
-            <Image src="/prepix-wordmark.svg" alt="Prepix" width={68} height={17} />
+            <Lockup />
           </Link>
         </div>
 
