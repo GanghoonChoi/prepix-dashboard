@@ -4,3 +4,113 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
+
+/*
+ * The marketing site's palette, applied here.
+ *
+ * Signing up is step two of an onboarding that starts on prepix.ai, and until
+ * now step two looked like a different company: HeroUI's stock cool greys, on
+ * a hardcoded dark page, arriving from a site the reader may well have been
+ * viewing in light mode.
+ *
+ * Nothing is restyled component by component. Every HeroUI colour resolves
+ * from the handful of base variables below — `bg-field-background`,
+ * `text-muted`, `border-border` and the rest are all downstream — so remapping
+ * these carries the whole app, dashboard pages included.
+ *
+ * Values are the site's design tokens verbatim
+ * (`laskerstudio.com/apps/site/design-system/tokens.ts`). Keep them in sync by
+ * hand: the two repos deploy separately, and a build-time import across them
+ * would tie two release cadences together to save one copy-paste.
+ *
+ * THE LIGHT SCHEME'S RULE IS "SURFACES WARM, INK COOL" — surface, control and
+ * line sit on hue 40; `muted` is hue 216. Half-applying it is exactly what
+ * made the site's own cards look wrong before, so do not neutralise one of
+ * them in isolation.
+ */
+
+:root,
+.light,
+[data-theme="light"] {
+  /* ground */
+  --background: #ffffff; /* ds canvas */
+  --foreground: #171717; /* ds text */
+  --surface: #f7f6f4; /* ds surface — warm, hue 40 */
+  --surface-foreground: #171717;
+  --surface-secondary: #ece8e2; /* ds control */
+  --surface-secondary-foreground: #171717;
+  --surface-tertiary: #e5e0d8;
+  --surface-tertiary-foreground: #171717;
+  --overlay: #ffffff;
+  --overlay-foreground: #171717;
+
+  /* ink */
+  --muted: #595c61; /* ds muted — cool, hue 216 */
+
+  /* controls */
+  --default: #ece8e2; /* ds control — the secondary button */
+  --default-foreground: #0a0a0a; /* ds control-label */
+  --accent: #0a0a0a; /* ds accent — the primary button's ground */
+  --accent-foreground: #ffffff; /* ds accent-label */
+
+  /* fields */
+  --field-background: #f7f6f4;
+  --field-foreground: #171717;
+  --field-border: #eae5dd;
+
+  /*
+   * The site's `--ds-line` is `rgba(233,229,222,.6)`. HeroUI needs an opaque
+   * value here (it mixes against it), so this is that colour composited on
+   * white — the same edge, computed once instead of at every use.
+   */
+  --border: #f2efeb;
+  --separator: #f2efeb;
+
+  --link: #171717;
+  --focus: #0a0a0a;
+  --scrollbar: #ded8ce;
+}
+
+.dark,
+[data-theme="dark"] {
+  --background: #0a0a0a; /* ds canvas — not pure black, so cards lift */
+  --foreground: #ededed;
+  --surface: #1a1a1a;
+  --surface-foreground: #ededed;
+  --surface-secondary: #1d1d1d;
+  --surface-secondary-foreground: #ededed;
+  --surface-tertiary: #222222;
+  --surface-tertiary-foreground: #ededed;
+  --overlay: #1a1a1a;
+  --overlay-foreground: #ededed;
+
+  --muted: #929292;
+
+  --default: #1d1d1d;
+  --default-foreground: #d5d9e2; /* one step below body ink, per the board */
+  --accent: #ffffff;
+  --accent-foreground: #0a0a0a;
+
+  --field-background: #1a1a1a;
+  --field-foreground: #ededed;
+  --field-border: #242424;
+
+  /* `rgba(255,255,255,.06)` over the dark canvas, made opaque. */
+  --border: #1c1c1c;
+  --separator: #161616;
+
+  --link: #ededed;
+  --focus: #ffffff;
+  --scrollbar: #3a3a3a;
+}
+
+/*
+ * Corner radii from the same scale as the site: 6 control / 8 card / 10 panel.
+ * `--field-radius` is normally derived as `radius * 1.5`, which would put text
+ * inputs at 12px — rounder than any control on the marketing pages, and the
+ * first thing that reads as "different app" once the colours agree.
+ */
+:root {
+  --radius: 8px;
+  --field-radius: 6px;
+}

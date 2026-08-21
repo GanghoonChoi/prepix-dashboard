@@ -11,6 +11,7 @@ import { usage } from "./strings/usage";
 import { auth } from "./strings/auth";
 import { pricing } from "./strings/pricing";
 import { misc } from "./strings/misc";
+import { connect } from "./strings/connect";
 
 const namespaces = [
   common,
@@ -22,6 +23,7 @@ const namespaces = [
   auth,
   pricing,
   misc,
+  connect,
 ];
 
 function merge(lang: Lang): Record<string, string> {
