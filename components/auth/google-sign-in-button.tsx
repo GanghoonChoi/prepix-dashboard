@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { authService } from "@/lib/api/services/auth.service";
+import { markSignedIn } from "@/lib/account-hint";
 import { useI18n } from "@/lib/i18n/context";
 
 type Props = {
@@ -66,6 +67,8 @@ export function GoogleSignInButton({
             if (data.accessToken && data.refreshToken) {
               localStorage.setItem("accessToken", data.accessToken);
               localStorage.setItem("refreshToken", data.refreshToken);
+              // So prepix.ai's header can offer "dashboard" instead of "sign in".
+              markSignedIn();
             }
             if (data.user) {
               localStorage.setItem("userInfo", JSON.stringify(data.user));

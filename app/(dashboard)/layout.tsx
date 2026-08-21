@@ -6,6 +6,8 @@ import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { LoadingScreen } from "@/components/loading-screen";
 import { ToastProvider, useToast } from "@/components/toast";
 import { userService } from "@/lib/api/services/user.service";
+import { clearSignedIn } from "@/lib/account-hint";
+import { loginHref } from "@/lib/auth-entry";
 
 // Paddle's eventCallback is registered in the layout effect, which lives ABOVE
 // ToastProvider — so it can't call useToast directly. It dispatches a window
@@ -44,10 +46,12 @@ export default function DashboardLayout({
     const accessToken = localStorage.getItem("accessToken");
     const refreshToken = localStorage.getItem("refreshToken");
     if (!accessToken && !refreshToken) {
+      // Arriving here with no session means any hint left on `.prepix.ai` is
+      // stale — drop it, or the marketing site keeps offering a dashboard this
+      // browser cannot open.
+      clearSignedIn();
       const returnTo = window.location.pathname + window.location.search;
-      window.location.replace(
-        `/login?returnTo=${encodeURIComponent(returnTo)}`,
-      );
+      window.location.replace(loginHref({ returnTo }));
       return;
     }
     // Token confirmed synchronously from localStorage on mount — flip the render gate.
@@ -105,7 +109,8 @@ export default function DashboardLayout({
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
     localStorage.removeItem("userInfo");
-    window.location.href = "/login";
+    clearSignedIn();
+    window.location.href = loginHref();
   };
 
   // Gate: don't render the shell until auth is confirmed (prevents flash of

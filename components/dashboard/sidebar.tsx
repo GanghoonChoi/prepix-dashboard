@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/lib/i18n/context";
 import { legalUrl } from "@/lib/i18n/config";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { Lockup } from "@/components/brand";
 
 const NAV_ITEMS = [
   { key: "nav.overview", href: "/dashboard" },
@@ -31,8 +31,7 @@ export function Sidebar({
     <aside className="fixed inset-y-0 left-0 z-50 flex w-[220px] flex-col border-r border-border bg-background">
       {/* Logo */}
       <div className="flex h-14 items-center gap-2.5 border-b border-border px-5">
-        <Image src="/prepix-symbol.svg" alt="Prepix" width={20} height={20} />
-        <Image src="/prepix-wordmark.svg" alt="Prepix" width={68} height={17} />
+        <Lockup />
       </div>
 
       {/* Nav */}

@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useI18n } from "@/lib/i18n/context";
 import { legalUrl } from "@/lib/i18n/config";
+import { Lockup } from "@/components/brand";
 
 // Left branding panel on the auth pages. Client component so its copy is
 // localized and its policy links point at the homepage in the current language.
@@ -13,8 +13,7 @@ export function AuthBrandPanel() {
     <div className="hidden w-[480px] shrink-0 flex-col justify-between border-r border-border bg-surface p-10 lg:flex">
       <div>
         <Link href="/" className="flex items-center gap-2.5">
-          <Image src="/prepix-symbol.svg" alt="Prepix" width={24} height={24} />
-          <Image src="/prepix-wordmark.svg" alt="Prepix" width={80} height={20} />
+          <Lockup />
         </Link>
       </div>
 
