@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Tooling state, not source. Written per-session by the local HUD.
+.omc/
