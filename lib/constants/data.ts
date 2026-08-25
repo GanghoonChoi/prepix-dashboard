@@ -12,6 +12,23 @@ export const PLAN_NAMES: Record<string, string> = {
   pro: "Pro",
 };
 
+// How each billing status is labelled wherever a plan's state is shown. Shared
+// so the home tile and the plan page can never disagree — they used to, and a
+// user on Creator was told "Inactive" on one screen and "Active" on the other.
+export const PLAN_STATUS_META: Record<
+  string,
+  { labelKey: string; color: "success" | "danger" | "warning" | "default" }
+> = {
+  active: { labelKey: "plan.statusActive", color: "success" },
+  trialing: { labelKey: "plan.statusTrial", color: "success" },
+  past_due: { labelKey: "plan.statusPastDue", color: "warning" },
+  pending_cancel: { labelKey: "plan.statusCancelling", color: "warning" },
+  paused: { labelKey: "plan.statusPaused", color: "default" },
+  canceled: { labelKey: "plan.statusCancelled", color: "danger" },
+  refunded: { labelKey: "plan.statusRefunded", color: "danger" },
+  chargeback: { labelKey: "plan.statusChargeback", color: "danger" },
+};
+
 // Marketing copy per tier, per language. The backend owns prices/quotas/status;
 // the frontend owns the localized feature bullets, keyed by plan id.
 type PlanCopy = { description: string; features: string[] };

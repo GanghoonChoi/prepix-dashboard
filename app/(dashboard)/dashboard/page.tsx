@@ -14,7 +14,7 @@ import {
   subscriptionService,
   type CurrentSubscription,
 } from "@/lib/api/services/subscription.service";
-import { PLAN_NAMES } from "@/lib/constants/data";
+import { PLAN_NAMES, PLAN_STATUS_META } from "@/lib/constants/data";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useI18n } from "@/lib/i18n/context";
 import { downloadUrl } from "@/lib/i18n/config";
@@ -53,7 +53,14 @@ export default function DashboardPage() {
     loadData();
   }, []);
 
-  const plan = subscription?.plan || "free";
+  // /usage reports the same entitled tier, so a failed subscription fetch falls
+  // back to it rather than silently claiming the user is on Free.
+  const plan =
+    subscription?.plan || (usage as Record<string, string> | null)?.currentPlan || "free";
+  // Say nothing about the billing state we couldn't read — the plan page owns
+  // the detail, and "Inactive" here was reading as "your plan is dead".
+  const planStatusMeta = subscription ? PLAN_STATUS_META[subscription.status] : undefined;
+  const planStatus = planStatusMeta ? t(planStatusMeta.labelKey) : subscription?.status ?? "";
   const quota = (usage as Record<string, Record<string, number | string>>)?.inferenceQuota;
   const videos = (usage as Record<string, Record<string, number>>)?.videos;
   const remaining = Number(quota?.remaining ?? 0);
@@ -113,7 +120,7 @@ export default function DashboardPage() {
       {/* Secondary stats */}
       <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border">
         {([
-          { label: t("dashboard.planLabel"), value: loading ? null : PLAN_NAMES[plan], sub: loading ? null : subscription?.status === "active" ? t("dashboard.active") : t("dashboard.inactive") },
+          { label: t("dashboard.planLabel"), value: loading ? null : PLAN_NAMES[plan] ?? PLAN_NAMES.free, sub: loading ? null : planStatus },
           { label: t("dashboard.videosThisMonth"), value: loading ? null : String(videos?.thisMonth ?? 0), sub: loading ? null : t("dashboard.completedCount", { count: videos?.completed ?? 0 }) },
         ]).map((item) => (
           <div key={item.label} className="bg-surface p-5">

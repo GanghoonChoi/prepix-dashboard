@@ -10,26 +10,12 @@ import {
   type BillingInterval,
   type CurrentSubscription,
 } from "@/lib/api/services/subscription.service";
-import { PLAN_NAMES, PLAN_COPY, formatPrice } from "@/lib/constants/data";
+import { PLAN_NAMES, PLAN_COPY, PLAN_STATUS_META, formatPrice } from "@/lib/constants/data";
 import { useOverlayState } from "@heroui/react";
 import { Dialog } from "@/components/dialog";
 import { useToast } from "@/components/toast";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useI18n } from "@/lib/i18n/context";
-
-const STATUS_META: Record<
-  string,
-  { labelKey: string; color: "success" | "danger" | "warning" | "default" }
-> = {
-  active: { labelKey: "plan.statusActive", color: "success" },
-  trialing: { labelKey: "plan.statusTrial", color: "success" },
-  past_due: { labelKey: "plan.statusPastDue", color: "warning" },
-  pending_cancel: { labelKey: "plan.statusCancelling", color: "warning" },
-  paused: { labelKey: "plan.statusPaused", color: "default" },
-  canceled: { labelKey: "plan.statusCancelled", color: "danger" },
-  refunded: { labelKey: "plan.statusRefunded", color: "danger" },
-  chargeback: { labelKey: "plan.statusChargeback", color: "danger" },
-};
 
 export default function PlanPage() {
   const { t, lang } = useI18n();
@@ -156,7 +142,7 @@ export default function PlanPage() {
 
   const currentPlan = currentSub?.plan || "free";
   const status = currentSub?.status ?? "active";
-  const statusMeta = STATUS_META[status];
+  const statusMeta = PLAN_STATUS_META[status];
   const statusLabel = statusMeta ? t(statusMeta.labelKey) : status;
   const statusColor = statusMeta?.color ?? "default";
   const periodEndLabel = currentSub?.currentPeriodEnd
@@ -168,8 +154,12 @@ export default function PlanPage() {
   // chargeback mean access has already ended.
   const showPeriodEnd = status === "pending_cancel" && !!periodEndLabel;
   const isEnded = ["canceled", "refunded", "chargeback"].includes(status);
+  // Only a live Paddle subscription can be cancelled. A tier granted by hand
+  // (comp/promo) reports manageable: false — offering "Cancel" there would only
+  // 400, since there is no subscription behind it.
   const canCancel =
-    currentPlan !== "free" && ["active", "trialing", "past_due"].includes(status);
+    currentSub?.manageable === true &&
+    ["active", "trialing", "past_due"].includes(status);
   // Gated on the backend's eligibility flag (paid, non-terminal, within the
   // 14-day window) so we never show a refund action that would only 4xx.
   const canRefund = currentSub?.refundEligible === true;
@@ -202,8 +192,9 @@ export default function PlanPage() {
     if (isCurrent) return { label: t("plan.currentPlan"), disabled: true, onPress: () => {} };
     if (plan.status === "coming_soon") return { label: t("plan.comingSoon"), disabled: true, onPress: () => {} };
     if (plan.prices.length === 0) {
-      // Free tier — only a downgrade target when you're on a paid plan.
-      return { label: t("plan.downgrade"), disabled: currentPlan === "free", onPress: () => cancelModal.open() };
+      // Free tier — only a downgrade target when there's a subscription to
+      // cancel (a granted paid tier has nothing to downgrade from here).
+      return { label: t("plan.downgrade"), disabled: !canCancel, onPress: () => cancelModal.open() };
     }
     return { label: t("plan.get", { name: plan.displayName }), disabled: false, onPress: () => handleUpgrade(plan.id) };
   };

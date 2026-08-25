@@ -21,8 +21,15 @@ export interface CatalogPlan {
 }
 
 export interface CurrentSubscription {
+  // The ENTITLED tier (users.current_plan server-side) — what the account can
+  // actually use. It is not always backed by a subscription: comps and promos
+  // are granted directly, so `plan` can be paid while `manageable` is false.
   plan: string;
   status: string;
+  // Whether a live Paddle subscription backs this plan, i.e. whether there is
+  // anything to cancel or downgrade. False for granted tiers and for plans with
+  // no subscription at all.
+  manageable: boolean;
   currentPeriodStart?: string | null;
   currentPeriodEnd?: string | null;
   paddleSubscriptionId?: string | null;
