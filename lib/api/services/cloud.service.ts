@@ -11,6 +11,7 @@ export type Project = {
   workspaceId: string;
   name: string;
   createdBy: string;
+  managerId?: string | null;
   archivedAt: string | null;
   createdAt: string;
 };

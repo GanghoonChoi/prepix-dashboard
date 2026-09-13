@@ -58,6 +58,7 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
   const [folderName, setFolderName] = useState("");
   const [showFolder, setShowFolder] = useState(false);
   const [showAccess, setShowAccess] = useState(false);
+  const [manager, setManager] = useState("");
   const [editing, setEditing] = useState<Asset | null>(null);
   const [editName, setEditName] = useState("");
   const [editFolder, setEditFolder] = useState("");
@@ -398,11 +399,70 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
                   "Owners and admins can access every project. Other members need an explicit grant below. Folders and files inherit these permissions.",
                 )}
               </p>
+              {team.canManage && team.managementEnabled && (
+                <div className="space-y-3 rounded-lg border border-border p-4">
+                  <p className="text-sm">
+                    {c("프로젝트 담당자", "Project manager")}:{" "}
+                    {team.members.find(
+                      (m) => m.userId === data.project.managerId,
+                    )?.email || c("미배정", "Unassigned")}
+                  </p>
+                  <p className="text-xs leading-5 text-muted">
+                    {c(
+                      "새 담당자는 이 프로젝트의 편집 및 관리 권한을 받습니다. 이전 담당자의 편집 접근은 아래에서 별도로 변경할 수 있습니다.",
+                      "The new manager receives edit and management access. Change the previous manager's remaining project access separately below.",
+                    )}
+                  </p>
+                  <div className="flex flex-wrap gap-3">
+                    <select
+                      className={`${inputClass} sm:max-w-64`}
+                      aria-label={c(
+                        "새 프로젝트 담당자",
+                        "New project manager",
+                      )}
+                      value={manager}
+                      disabled={!!busy}
+                      onChange={(e) => setManager(e.target.value)}
+                    >
+                      <option value="">
+                        {c("담당자 선택", "Select a manager")}
+                      </option>
+                      {team.members
+                        .filter(
+                          (m) =>
+                            !m.suspendedAt &&
+                            m.role !== "reviewer" &&
+                            m.userId !== data.project.managerId,
+                        )
+                        .map((m) => (
+                          <option key={m.userId} value={m.userId}>
+                            {m.name || m.email}
+                          </option>
+                        ))}
+                    </select>
+                    <button
+                      className={secondaryClass}
+                      disabled={!!busy || !manager}
+                      onClick={() =>
+                        action("manager", async () => {
+                          await workspaceService.assign(id, projectId, manager);
+                          setManager("");
+                        })
+                      }
+                    >
+                      {c("담당자 변경", "Change manager")}
+                    </button>
+                  </div>
+                </div>
+              )}
               <ul className="divide-y divide-border">
                 {team.members.map((member) => {
                   const fixed =
                     ["owner", "admin"].includes(member.role) ||
-                    (member.userId === data.project.createdBy &&
+                    (member.userId ===
+                      (data.project.managerId === undefined
+                        ? data.project.createdBy
+                        : data.project.managerId) &&
                       member.userId === data.currentUserId);
                   const current =
                     data.members.find((m) => m.userId === member.userId)
@@ -415,19 +475,30 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
                       <div className="min-w-0">
                         <p className="break-all text-sm">{member.email}</p>
                         <p className="mt-1 text-xs text-muted">
-                          {fixed
-                            ? c("관리 권한 유지", "Management access")
-                            : c(
-                                "명시적으로 허용한 작업만 가능",
-                                "Only explicitly allowed actions",
-                              )}
+                          {member.suspendedAt
+                            ? c(
+                                "참여 정지 · 접근 불가",
+                                "Suspended · no access",
+                              )
+                            : fixed
+                              ? c("관리 권한 유지", "Management access")
+                              : c(
+                                  "명시적으로 허용한 작업만 가능",
+                                  "Only explicitly allowed actions",
+                                )}
                         </p>
                       </div>
                       <select
                         aria-label={`${member.email} ${c("프로젝트 권한", "project access")}`}
                         className={`${inputClass} sm:max-w-48`}
-                        value={fixed ? "editor" : current}
-                        disabled={fixed || !!busy}
+                        value={
+                          member.suspendedAt
+                            ? "none"
+                            : fixed
+                              ? "editor"
+                              : current
+                        }
+                        disabled={!!member.suspendedAt || fixed || !!busy}
                         onChange={(e) => {
                           void action(member.userId, () =>
                             cloudService.grant(

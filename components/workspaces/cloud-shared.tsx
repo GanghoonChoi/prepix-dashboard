@@ -5,6 +5,39 @@ import { bytes } from "@/lib/workspaces/upload";
 import type { StorageUsage } from "@/lib/api/services/cloud.service";
 import { secondaryClass } from "./shared";
 const messages: Record<string, [string, string]> = {
+  WORKSPACE_REAUTH_FAILED: [
+    "본인 확인에 실패했습니다. 현재 계정의 비밀번호 또는 연결된 Google 계정을 확인하세요.",
+    "Verification failed. Use your current password or linked Google account.",
+  ],
+  WORKSPACE_REAUTH_EXPIRED: [
+    "본인 확인 시간이 지났습니다. 다시 확인하세요.",
+    "Verification expired. Please verify again.",
+  ],
+  WORKSPACE_TRANSFER_PENDING: [
+    "진행 중인 소유권 이전이 있습니다. 먼저 완료하거나 취소하세요.",
+    "An ownership transfer is pending. Complete or cancel it first.",
+  ],
+  WORKSPACE_TRANSFER_UNAVAILABLE: [
+    "이전 요청이 만료되었거나 처리되었습니다. 새로고침하세요.",
+    "This transfer expired or was already resolved. Refresh the page.",
+  ],
+  WORKSPACE_MANAGEMENT_DISABLED: [
+    "워크스페이스 관리 기능을 준비 중입니다.",
+    "Workspace management is not enabled yet.",
+  ],
+  WORKSPACE_SETTINGS_CHANGED: [
+    "다른 관리자가 설정을 변경했습니다. 새로고침한 뒤 다시 저장하세요.",
+    "Another administrator changed these settings. Refresh before saving again.",
+  ],
+  WORKSPACE_SUCCESSOR_INVALID: [
+    "참여 중인 관리자 또는 편집자를 인수자로 선택하세요.",
+    "Choose an active admin or editor as the successor.",
+  ],
+  WORKSPACE_MEMBER_SUSPENDED: [
+    "팀 참여가 정지되어 있습니다. 관리자에게 참여 재개를 요청하세요.",
+    "Your membership is suspended. Ask an administrator to reactivate it.",
+  ],
+
   UPLOAD_SESSION_LOST: [
     "저장소의 업로드 세션이 종료되었습니다. 이 업로드를 취소하고 새로 시작하세요.",
     "The storage upload session has ended. Cancel this upload and start a new one.",

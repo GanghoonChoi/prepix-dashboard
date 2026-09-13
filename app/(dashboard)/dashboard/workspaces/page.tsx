@@ -12,13 +12,14 @@ import {
   TeamShell,
   TeamError,
   TeamLoading,
+  inputClass,
   primaryClass,
   secondaryClass,
 } from "@/components/workspaces/shared";
 import { workspaceError } from "@/lib/workspaces/onboarding";
 
 export default function WorkspacesPage() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const { capabilities, loaded } = useWorkspaceCapabilities();
   const [data, setData] = useState<WorkspaceList | null>(null);
   const [error, setError] = useState("");
@@ -33,7 +34,7 @@ export default function WorkspacesPage() {
         .catch((e) => {
           setError(workspaceError(e));
         }),
-    []
+    [],
   );
   useEffect(() => {
     if (capabilities?.enabled) void load();
@@ -66,29 +67,50 @@ export default function WorkspacesPage() {
               )}
               <section className="space-y-3">
                 <h2 className="text-sm font-medium">{t("team.myTeams")}</h2>
-                {data.workspaces.map((workspace) => (
-                  <Link
-                    key={workspace.id}
-                    href={`/dashboard/workspaces/${workspace.id}`}
-                    className="flex items-center gap-4 rounded-xl border border-border p-5 transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-foreground"
-                  >
-                    <Users strokeWidth={1.5} size={22} aria-hidden="true" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">{workspace.name}</p>
-                      <p className="mt-1 text-sm text-muted">
-                        {t(`team.role.${workspace.role}`)} ·{" "}
-                        {workspace.onboardingCompletedAt
-                          ? t("team.open")
-                          : t("team.continueSetup")}
+                {data.workspaces.map((workspace) =>
+                  workspace.suspendedAt ? (
+                    <div
+                      key={workspace.id}
+                      className="space-y-3 rounded-xl border border-border bg-surface p-5"
+                    >
+                      <p className="font-medium">{workspace.name}</p>
+                      <p className="text-sm text-muted">
+                        {lang === "ko"
+                          ? "참여가 정지되었습니다. 팀 관리자에게 참여 재개를 요청하세요."
+                          : "Your membership is suspended. Ask an administrator to reactivate it."}
                       </p>
+                      {workspace.managementEnabled && (
+                        <SuspendedLeave
+                          id={workspace.id}
+                          name={workspace.name}
+                          onChange={load}
+                        />
+                      )}
                     </div>
-                    <ArrowUpRight
-                      strokeWidth={1.5}
-                      size={18}
-                      aria-hidden="true"
-                    />
-                  </Link>
-                ))}
+                  ) : (
+                    <Link
+                      key={workspace.id}
+                      href={`/dashboard/workspaces/${workspace.id}`}
+                      className="flex items-center gap-4 rounded-xl border border-border p-5 transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-foreground"
+                    >
+                      <Users strokeWidth={1.5} size={22} aria-hidden="true" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium">{workspace.name}</p>
+                        <p className="mt-1 text-sm text-muted">
+                          {t(`team.role.${workspace.role}`)} ·{" "}
+                          {workspace.onboardingCompletedAt
+                            ? t("team.open")
+                            : t("team.continueSetup")}
+                        </p>
+                      </div>
+                      <ArrowUpRight
+                        strokeWidth={1.5}
+                        size={18}
+                        aria-hidden="true"
+                      />
+                    </Link>
+                  ),
+                )}
                 {data.workspaces.length === 0 && (
                   <div className="rounded-xl border border-dashed border-border px-6 py-10">
                     <p className="text-sm">{t("team.empty")}</p>
@@ -113,5 +135,77 @@ export default function WorkspacesPage() {
         </Link>
       </div>
     </TeamShell>
+  );
+}
+
+function SuspendedLeave({
+  id,
+  name,
+  onChange,
+}: {
+  id: string;
+  name: string;
+  onChange: () => Promise<void>;
+}) {
+  const { lang } = useI18n();
+  const [open, setOpen] = useState(false);
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  return (
+    <div>
+      {!open ? (
+        <button className={secondaryClass} onClick={() => setOpen(true)}>
+          {lang === "ko" ? "워크스페이스 탈퇴" : "Leave workspace"}
+        </button>
+      ) : (
+        <form
+          className="space-y-3"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setBusy(true);
+            try {
+              await workspaceService.leave(id);
+              await onChange();
+            } catch (e) {
+              setError(workspaceError(e));
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <label className="block space-y-2 text-sm">
+            <span>
+              {lang === "ko"
+                ? `팀 자료는 남습니다. 탈퇴하려면 ‘${name}’ 입력`
+                : `Team files remain. Type “${name}” to leave`}
+            </span>
+            <input
+              className={inputClass}
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              disabled={busy}
+            />
+          </label>
+          {error && <TeamError code={error} />}
+          <div className="flex flex-wrap gap-2">
+            <button
+              className={primaryClass}
+              disabled={busy || confirm !== name}
+            >
+              {lang === "ko" ? "탈퇴 확인" : "Confirm leaving"}
+            </button>
+            <button
+              type="button"
+              className={secondaryClass}
+              disabled={busy}
+              onClick={() => setOpen(false)}
+            >
+              {lang === "ko" ? "취소" : "Cancel"}
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
   );
 }

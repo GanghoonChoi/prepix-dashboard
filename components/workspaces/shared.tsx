@@ -1,4 +1,5 @@
 "use client";
+import { WorkspaceNav } from "./workspace-context";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useI18n } from "@/lib/i18n/context";
@@ -40,6 +41,7 @@ export function TeamShell({
           </p>
         )}
       </header>
+      <WorkspaceNav />
       {children}
     </div>
   );

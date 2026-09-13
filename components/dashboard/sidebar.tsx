@@ -1,6 +1,7 @@
 "use client";
 
-import { useWorkspaceCapabilities } from '@/components/workspaces/capabilities';
+import { WorkspaceSwitcher } from "@/components/workspaces/workspace-switcher";
+import { useWorkspaceCapabilities } from "@/components/workspaces/capabilities";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/lib/i18n/context";
@@ -36,10 +37,24 @@ export function Sidebar({
         <Lockup />
       </div>
 
+      {capabilities?.enabled && <WorkspaceSwitcher onClose={onClose} />}
       {/* Nav */}
       <nav className="flex-1 px-3 py-3">
         <div className="space-y-0.5">
-          {capabilities?.enabled && <Link href="/dashboard/workspaces" onClick={onClose} className={`block rounded-md px-3 py-2 text-[13px] transition-colors ${pathname.startsWith('/dashboard/workspaces') ? 'font-medium text-foreground bg-foreground/[0.06]' : 'text-muted hover:text-foreground'}`}>{t('team.title')}</Link>}
+          {capabilities?.enabled && (
+            <Link
+              href="/dashboard/workspaces"
+              onClick={onClose}
+              className={`block min-h-11 rounded-md px-3 py-3 text-[13px] transition-colors ${pathname.startsWith("/dashboard/workspaces") ? "font-medium text-foreground bg-foreground/[0.06]" : "text-muted hover:text-foreground"}`}
+            >
+              {t("team.title")}
+            </Link>
+          )}
+          {capabilities?.enabled && (
+            <p className="px-3 pb-2 pt-4 text-[11px] text-muted">
+              {lang === "ko" ? "개인 계정" : "Personal account"}
+            </p>
+          )}
           {NAV_ITEMS.map((item) => {
             const active = pathname === item.href;
             return (
@@ -47,7 +62,7 @@ export function Sidebar({
                 key={item.href}
                 href={item.href}
                 onClick={onClose}
-                className={`block rounded-md px-3 py-2 text-[13px] transition-colors ${
+                className={`block min-h-11 rounded-md px-3 py-3 text-[13px] transition-colors ${
                   active
                     ? "font-medium text-foreground bg-foreground/[0.06]"
                     : "text-muted hover:text-foreground"
@@ -63,7 +78,9 @@ export function Sidebar({
       {/* Footer */}
       <div className="border-t border-border px-3 py-3">
         <div className="rounded-md px-3 py-2">
-          <p className="truncate text-[13px] font-medium text-foreground">{displayName}</p>
+          <p className="truncate text-[13px] font-medium text-foreground">
+            {displayName}
+          </p>
           {profile?.email && profile.email !== displayName && (
             <p className="truncate text-[11px] text-muted">{profile.email}</p>
           )}
@@ -80,9 +97,30 @@ export function Sidebar({
         {/* Policy links point at the marketing homepage (single source of truth
             for legal text), matching the current language. */}
         <div className="mt-2 flex gap-3 px-3 py-1">
-          <a href={legalUrl(lang, "terms-of-service")} target="_blank" rel="noopener noreferrer" className="text-[10px] text-muted hover:text-foreground">{t("nav.terms")}</a>
-          <a href={legalUrl(lang, "privacy-policy")} target="_blank" rel="noopener noreferrer" className="text-[10px] text-muted hover:text-foreground">{t("nav.privacy")}</a>
-          <a href={legalUrl(lang, "refund-policy")} target="_blank" rel="noopener noreferrer" className="text-[10px] text-muted hover:text-foreground">{t("nav.refund")}</a>
+          <a
+            href={legalUrl(lang, "terms-of-service")}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10px] text-muted hover:text-foreground"
+          >
+            {t("nav.terms")}
+          </a>
+          <a
+            href={legalUrl(lang, "privacy-policy")}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10px] text-muted hover:text-foreground"
+          >
+            {t("nav.privacy")}
+          </a>
+          <a
+            href={legalUrl(lang, "refund-policy")}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10px] text-muted hover:text-foreground"
+          >
+            {t("nav.refund")}
+          </a>
         </div>
       </div>
     </aside>

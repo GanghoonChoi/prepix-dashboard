@@ -3,7 +3,6 @@ import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight, FolderClosed, LockKeyhole, Plus } from "lucide-react";
 import { useI18n } from "@/lib/i18n/context";
-import { activityLabel } from "@/lib/workspaces/activity";
 import {
   cloudService,
   type CloudOverview,
@@ -17,7 +16,6 @@ import {
   TeamLoading,
   inputClass,
   primaryClass,
-  secondaryClass,
 } from "@/components/workspaces/shared";
 import {
   CloudError,
@@ -40,11 +38,7 @@ function Content({ id }: { id: string }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [name, setName] = useState("");
-  const [tab, setTab] = useState<"projects" | "plan" | "activity">("projects");
   const [archive, setArchive] = useState(false);
-  const [activity, setActivity] = useState<
-    Awaited<ReturnType<typeof cloudService.activity>>
-  >([]);
   const load = useCallback(async () => {
     try {
       const [next, workspace] = await Promise.all([
@@ -90,49 +84,9 @@ function Content({ id }: { id: string }) {
         "Collect your source files and choose who can work on each project.",
       )}
     >
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <nav
-          className="flex flex-wrap gap-2"
-          aria-label={c("팀 메뉴", "Team navigation")}
-        >
-          {(
-            [
-              "projects",
-              "plan",
-              ...(team?.canManage ? ["activity"] : []),
-            ] as const
-          ).map((value) => (
-            <button
-              key={value}
-              className={tab === value ? primaryClass : secondaryClass}
-              aria-current={tab === value ? "page" : undefined}
-              onClick={() => {
-                setTab(value as typeof tab);
-                if (value === "activity") {
-                  setBusy(true);
-                  void cloudService
-                    .activity(id)
-                    .then(setActivity)
-                    .catch((e) => setError(cloudErrorCode(e)))
-                    .finally(() => setBusy(false));
-                }
-              }}
-            >
-              {value === "projects"
-                ? c("프로젝트", "Projects")
-                : value === "plan"
-                  ? c("플랜과 사용량", "Plan and usage")
-                  : c("활동 기록", "Activity")}
-            </button>
-          ))}
-        </nav>
-        <Link className={secondaryClass} href={`/dashboard/workspaces/${id}`}>
-          {c("멤버와 초대 관리", "Manage members")}
-        </Link>
-      </div>
       {error && <CloudError code={error} retry={load} />}
       {!data && !error && <TeamLoading />}
-      {data && tab === "projects" && (
+      {data && (
         <>
           <StorageMeter storage={data.storage} />
           {data.canCreate && (
@@ -243,72 +197,6 @@ function Content({ id }: { id: string }) {
             )}
           </p>
         </>
-      )}
-      {data && tab === "plan" && (
-        <div className="space-y-5">
-          <section className="space-y-4 rounded-xl border border-border p-6">
-            <p className="text-xs text-muted">
-              {c("현재 팀 플랜", "Current team plan")}
-            </p>
-            <h2 className="text-2xl font-medium">
-              {c("팀 프리뷰", "Team preview")}
-            </h2>
-            <p className="max-w-xl text-sm leading-6 text-muted">
-              {c(
-                "팀 요금과 결제 시작일은 아직 정해지지 않았습니다. 현재 팀 사용으로 청구되거나 개인 구독이 변경되지 않습니다.",
-                "Team pricing and billing start dates are not set. Current team use does not create a charge or change your personal subscription.",
-              )}
-            </p>
-          </section>
-          <section className="space-y-3 rounded-xl border border-border p-6">
-            <h2 className="font-medium">{c("팀 좌석", "Team seats")}</h2>
-            <p className="text-2xl font-medium tabular-nums">
-              {data.plan.seats.used + data.plan.seats.reserved} /{" "}
-              {data.plan.seats.limit}
-            </p>
-            <p className="text-sm leading-6 text-muted">
-              {c(
-                `멤버 ${data.plan.seats.used}명 · 초대 예약 ${data.plan.seats.reserved}명. 소유자·관리자·편집자는 좌석을 사용합니다. 검토자는 좌석을 사용하지 않습니다.`,
-                `${data.plan.seats.used} members · ${data.plan.seats.reserved} reserved invitations. Owners, admins, and editors use seats. Reviewers do not.`,
-              )}
-            </p>
-            <Link
-              href={`/dashboard/workspaces/${id}`}
-              className={secondaryClass}
-            >
-              {c("좌석과 초대 관리", "Manage seats and invitations")}
-            </Link>
-          </section>
-          <StorageMeter storage={data.storage} />
-          <p className="text-sm leading-6 text-muted">
-            {c(
-              "업로드 예약과 휴지통 파일도 저장 용량에 포함됩니다. 원본 보관 기한은 업로드 시점부터 1년이며 각 파일에 만료일을 표시합니다. 팀 AI 사용량과 자동 결제는 아직 제공하지 않습니다.",
-              "Upload reservations and trashed files count toward storage. Originals expire one year after upload; each file shows its expiry date. Team AI allowances and automated billing are not available yet.",
-            )}
-          </p>
-        </div>
-      )}
-      {data && tab === "activity" && (
-        <section className="space-y-4">
-          <h2 className="font-medium">
-            {c("최근 활동 100건", "Latest 100 events")}
-          </h2>
-          {busy ? (
-            <TeamLoading />
-          ) : (
-            <ul className="divide-y divide-border rounded-xl border border-border px-5">
-              {activity.map((row) => (
-                <li key={row.id} className="space-y-2 py-4">
-                  <p className="text-sm">{row.actor}</p>
-                  <p className="break-all text-xs text-muted">
-                    {activityLabel(row.action, lang)} ·{" "}
-                    {new Date(row.createdAt).toLocaleString(lang)}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
       )}
     </TeamShell>
   );

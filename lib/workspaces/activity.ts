@@ -1,4 +1,20 @@
 const labels: Record<string, [string, string]> = {
+  "workspace.updated": ["워크스페이스 설정 변경", "Workspace settings updated"],
+  "member.suspended": ["멤버 참여 정지", "Member suspended"],
+  "member.reactivated": ["멤버 참여 재개", "Member reactivated"],
+  "member.left": ["멤버 탈퇴", "Member left"],
+  "member.work_reassigned": [
+    "담당 프로젝트 인수인계",
+    "Project responsibilities reassigned",
+  ],
+  "project.manager_changed": [
+    "프로젝트 담당자 변경",
+    "Project manager changed",
+  ],
+  "ownership.requested": ["소유권 이전 요청", "Ownership transfer requested"],
+  "ownership.transferred": ["소유권 이전 완료", "Ownership transferred"],
+  "ownership.cancelled": ["소유권 이전 취소", "Ownership transfer cancelled"],
+  "ownership.declined": ["소유권 이전 거절", "Ownership transfer declined"],
   "workspace.created": ["워크스페이스 생성", "Workspace created"],
   "onboarding.completed": ["팀 시작 설정 완료", "Team setup completed"],
   "member.removed": ["멤버 접근 종료", "Member removed"],
