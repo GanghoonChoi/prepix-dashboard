@@ -100,6 +100,11 @@ function WorkspaceContent({ id }: { id: string }) {
               {t("team.readyTitle")}
             </div>
           )}
+          {!setup && process.env.NEXT_PUBLIC_START_ONBOARDING === '1' && (
+            <Link href={`/start?mode=team&workspace=${id}&locale=${lang}`} className={primaryClass}>
+              {lang === 'ko' ? '앱에서 첫 편집 시작하기' : 'Start your first edit in the app'}
+            </Link>
+          )}
           <section className="space-y-3 rounded-xl border border-border p-5">
             <h2 className="text-sm font-medium">{t("team.seats")}</h2>
             <p className="text-xl font-medium tabular-nums">

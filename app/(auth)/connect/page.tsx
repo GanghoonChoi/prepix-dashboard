@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@heroui/react";
 import { LoadingScreen } from "@/components/loading-screen";
 import { authService } from "@/lib/api/services/auth.service";
@@ -13,6 +13,7 @@ import {
 } from "@/lib/device-connect";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { loginHref } from "@/lib/auth-entry";
+import { clearSignedIn } from "@/lib/account-hint";
 import { useT } from "@/lib/i18n/context";
 
 /**
@@ -39,6 +40,7 @@ export default function ConnectPage() {
   const [request, setRequest] = useState<ConnectRequest | null>(null);
   const [account, setAccount] = useState<string>("");
   const [error, setError] = useState("");
+  const busy = useRef(false);
 
   useEffect(() => {
     const parsed = readConnectRequest(window.location.search);
@@ -51,47 +53,61 @@ export default function ConnectPage() {
     // Not signed in → send them through the normal login, then straight back
     // here with the request intact. `safeReturnTo` on the login page only
     // accepts internal paths, and this is one.
-    const signedIn =
-      localStorage.getItem("accessToken") || localStorage.getItem("refreshToken");
+    const signedIn = localStorage.getItem("accessToken") || localStorage.getItem("refreshToken");
     if (!signedIn) {
       const returnTo = window.location.pathname + window.location.search;
       window.location.replace(loginHref({ returnTo }));
       return;
     }
 
-    try {
-      const cached = JSON.parse(localStorage.getItem("userInfo") || "null");
-      if (cached?.email) setAccount(cached.email);
-    } catch {
-      /* the email is a courtesy on the confirm screen, not a requirement */
-    }
-
-    setPhase("confirm");
-  }, []);
-
-  // Fill in the account line from the server when there was nothing cached,
-  // so the confirmation never says "connect as (blank)".
-  useEffect(() => {
-    if (phase !== "confirm" || account) return;
+    // Confirm only the current server identity, never an email cached by another account.
     let cancelled = false;
     authService
       .getMe()
       .then((me: { email?: string }) => {
-        if (!cancelled && me?.email) setAccount(me.email);
+        if (cancelled) return;
+        if (!me.email) {
+          setPhase("error");
+          setError(t("connect.failed"));
+          return;
+        }
+        setAccount(me.email);
+        setPhase("confirm");
       })
       .catch(() => {
-        /* the interceptor handles a dead session; nothing to add here */
+        if (!cancelled) {
+          setPhase("error");
+          setError(t("connect.failed"));
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, [phase, account]);
+  }, [t]);
+
+  function switchAccount() {
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("userInfo");
+    clearSignedIn();
+    window.location.replace(
+      loginHref({ returnTo: window.location.pathname + window.location.search }),
+    );
+  }
 
   const connect = useCallback(async () => {
-    if (!request) return;
+    if (!request || !account || busy.current) return;
+    busy.current = true;
     setPhase("connecting");
     setError("");
     try {
+      const me = await authService.getMe();
+      if (!me.email || me.email !== account) {
+        setAccount(me.email ?? "");
+        setError(t("connect.accountChanged"));
+        setPhase(me.email ? "confirm" : "error");
+        return;
+      }
       const { code } = await authService.authorizeDevice({
         codeChallenge: request.codeChallenge,
         attributionId: readAttributionId(),
@@ -107,15 +123,15 @@ export default function ConnectPage() {
       }
 
       setPhase("done");
-      window.location.replace(
-        buildCallbackUrl(redirect, { code, state: request.state }),
-      );
+      window.location.replace(buildCallbackUrl(redirect, { code, state: request.state }));
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
       setError(axiosErr.response?.data?.message || t("connect.failed"));
       setPhase("error");
+    } finally {
+      busy.current = false;
     }
-  }, [request, t]);
+  }, [request, account, t]);
 
   if (phase === "checking") {
     return <LoadingScreen title={t("connect.title")} subtitle={t("auth.pleaseWait")} />;
@@ -161,11 +177,25 @@ export default function ConnectPage() {
           type="button"
           variant="primary"
           className="w-full"
-          isDisabled={phase === "connecting"}
+          isDisabled={phase === "connecting" || !account}
           onPress={connect}
         >
           {phase === "connecting" ? t("connect.connecting") : t("connect.confirm")}
         </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          className="w-full"
+          isDisabled={phase === "connecting"}
+          onPress={switchAccount}
+        >
+          {t("connect.switchAccount")}
+        </Button>
+        {phase === "error" && !account && (
+          <Button type="button" variant="secondary" onPress={() => window.location.reload()}>
+            {t("connect.retry")}
+          </Button>
+        )}
         <p className="text-xs text-muted">{t("connect.note")}</p>
       </div>
     </div>

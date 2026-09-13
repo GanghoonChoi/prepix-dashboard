@@ -3,13 +3,16 @@ import type { Lang } from "../config";
 
 export const connect: Record<Lang, Record<string, string>> = {
   en: {
+    "connect.accountChanged": "Your account changed. Check the email and confirm again.",
+    "connect.switchAccount": "Use another account",
+    "connect.retry": "Try again",
     "connect.title": "Connect the Prepix app",
     "connect.subtitle":
       "The app on this computer is asking to sign in as you. Nothing is shared until you confirm.",
     "connect.accountLabel": "Signing in as",
     "connect.confirm": "Connect",
     "connect.connecting": "Connecting…",
-    "connect.handingOver": "Connected",
+    "connect.handingOver": "Connecting to the app",
     "connect.returnToApp": "You can go back to the app now.",
     "connect.note":
       "Only an app running on this computer can receive this. You can sign out from the app at any time.",
@@ -24,13 +27,16 @@ export const connect: Record<Lang, Record<string, string>> = {
       "It only works once, and only for a couple of minutes. Sign in again and you will come straight back.",
   },
   ko: {
+    "connect.accountChanged": "계정이 변경되었습니다. 이메일을 확인하고 다시 연결해 주세요.",
+    "connect.switchAccount": "다른 계정 사용",
+    "connect.retry": "다시 시도",
     "connect.title": "Prepix 앱 연결",
     "connect.subtitle":
       "이 컴퓨터의 앱이 이 계정으로 로그인하려고 합니다. 확인을 누르기 전까지는 아무것도 전달되지 않습니다.",
     "connect.accountLabel": "연결할 계정",
     "connect.confirm": "연결하기",
     "connect.connecting": "연결하는 중…",
-    "connect.handingOver": "연결됐습니다",
+    "connect.handingOver": "앱에 연결을 요청하는 중",
     "connect.returnToApp": "앱으로 돌아가면 됩니다.",
     "connect.note":
       "이 컴퓨터에서 실행 중인 앱만 받을 수 있습니다. 앱에서 언제든 로그아웃할 수 있습니다.",
