@@ -1,7 +1,9 @@
 "use client";
 import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Check, Users, Cloud } from "lucide-react";
+import { Check, Users } from "lucide-react";
+import { CloudEntry } from "@/components/workspaces/cloud-entry";
+import { MemberActions } from "@/components/workspaces/member-actions";
 import { useI18n } from "@/lib/i18n/context";
 import {
   workspaceService,
@@ -100,9 +102,14 @@ function WorkspaceContent({ id }: { id: string }) {
               {t("team.readyTitle")}
             </div>
           )}
-          {!setup && process.env.NEXT_PUBLIC_START_ONBOARDING === '1' && (
-            <Link href={`/start?mode=team&workspace=${id}&locale=${lang}`} className={primaryClass}>
-              {lang === 'ko' ? '앱에서 첫 편집 시작하기' : 'Start your first edit in the app'}
+          {!setup && process.env.NEXT_PUBLIC_START_ONBOARDING === "1" && (
+            <Link
+              href={`/start?mode=team&workspace=${id}&locale=${lang}`}
+              className={primaryClass}
+            >
+              {lang === "ko"
+                ? "앱에서 첫 편집 시작하기"
+                : "Start your first edit in the app"}
             </Link>
           )}
           <section className="space-y-3 rounded-xl border border-border p-5">
@@ -127,21 +134,21 @@ function WorkspaceContent({ id }: { id: string }) {
                 workspaceId={id}
                 isOwner={data.role === "owner"}
                 existingEmails={data.members.map((member) =>
-                  member.email.trim().toLowerCase()
+                  member.email.trim().toLowerCase(),
                 )}
                 pendingEmails={data.invitations
                   .filter(
                     (invite) =>
                       !invite.acceptedAt &&
                       !invite.revokedAt &&
-                      new Date(invite.expiresAt).getTime() > now
+                      new Date(invite.expiresAt).getTime() > now,
                   )
                   .map((invite) => invite.email)}
                 availableSeats={Math.max(
                   0,
                   data.workspace.seatLimit -
                     data.seats.used -
-                    data.seats.reserved
+                    data.seats.reserved,
                 )}
                 onChange={load}
               />
@@ -159,8 +166,8 @@ function WorkspaceContent({ id }: { id: string }) {
                 busy === "complete"
                   ? "team.finishing"
                   : data.invitations.length
-                  ? "team.finish"
-                  : "team.skip"
+                    ? "team.finish"
+                    : "team.skip",
               )}
             </button>
           )}
@@ -190,6 +197,16 @@ function WorkspaceContent({ id }: { id: string }) {
                   <span className="text-xs text-muted">
                     {t(`team.role.${member.role}`)}
                   </span>
+                  {data.canManage &&
+                    data.canManageMembers &&
+                    member.userId !== data.currentUserId && (
+                      <MemberActions
+                        workspaceId={id}
+                        member={member}
+                        actorRole={data.role}
+                        onChange={load}
+                      />
+                    )}
                 </li>
               ))}
             </ul>
@@ -227,7 +244,7 @@ function WorkspaceContent({ id }: { id: string }) {
                             <p className="text-xs leading-5 text-muted">
                               {t("team.expires", {
                                 date: new Date(
-                                  invite.expiresAt
+                                  invite.expiresAt,
                                 ).toLocaleDateString(lang),
                               })}
                             </p>
@@ -245,12 +262,12 @@ function WorkspaceContent({ id }: { id: string }) {
                                     const result =
                                       await workspaceService.resend(
                                         id,
-                                        invite.id
+                                        invite.id,
                                       );
                                     setNotice(
                                       `${invite.email} · ${t(
-                                        `team.status.${result.status}`
-                                      )}`
+                                        `team.status.${result.status}`,
+                                      )}`,
                                     );
                                   })
                                 }
@@ -299,20 +316,7 @@ function WorkspaceContent({ id }: { id: string }) {
               )}
             </section>
           )}
-          <section className="flex gap-4 rounded-xl border border-border bg-surface p-5">
-            <Cloud
-              className="mt-0.5 shrink-0"
-              size={22}
-              strokeWidth={1.5}
-              aria-hidden="true"
-            />
-            <div>
-              <h2 className="text-sm font-medium">{t("team.cloudTitle")}</h2>
-              <p className="mt-2 text-sm leading-6 text-muted">
-                {t("team.cloudDesc")}
-              </p>
-            </div>
-          </section>
+          <CloudEntry workspaceId={id} />
         </>
       )}
       <Link href="/dashboard" className={secondaryClass}>

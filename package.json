@@ -13,6 +13,7 @@
   "dependencies": {
     "@heroui/react": "^3.0.2",
     "@heroui/styles": "^3.0.2",
+    "@noble/hashes": "^2.4.0",
     "axios": "^1.14.0",
     "canvas-confetti": "^1.9.4",
     "framer-motion": "^12.38.0",

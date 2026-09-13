@@ -12,6 +12,7 @@ import {
   type Capabilities,
 } from "@/lib/api/services/workspace.service";
 import { primaryClass, secondaryClass } from "@/components/workspaces/shared";
+import { CloudEntry } from "@/components/workspaces/cloud-entry";
 
 export function StartExperience() {
   const { lang } = useI18n();
@@ -21,7 +22,9 @@ export function StartExperience() {
   const [signedIn, setSignedIn] = useState(false);
   const [team, setTeam] = useState<WorkspaceDetail | null>(null);
   const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
-  const [teamStatus, setTeamStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [teamStatus, setTeamStatus] = useState<"loading" | "ready" | "error">(
+    "loading",
+  );
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     const read = () => {
@@ -30,7 +33,10 @@ export function StartExperience() {
       setAttempt((value) => value + 1);
       try {
         setSignedIn(
-          !!(localStorage.getItem("accessToken") || localStorage.getItem("refreshToken")),
+          !!(
+            localStorage.getItem("accessToken") ||
+            localStorage.getItem("refreshToken")
+          ),
         );
       } catch {
         setSignedIn(false);
@@ -58,7 +64,10 @@ export function StartExperience() {
     const load = async () => {
       try {
         const caps = await workspaceService.capabilities();
-        const detail = caps.enabled && workspace ? await workspaceService.detail(workspace) : null;
+        const detail =
+          caps.enabled && workspace
+            ? await workspaceService.detail(workspace)
+            : null;
         if (active) {
           setCapabilities(caps);
           setTeam(detail);
@@ -104,14 +113,19 @@ export function StartExperience() {
           className={secondaryClass}
           href={signedIn ? "/dashboard" : loginHref({ returnTo: target, lang })}
         >
-          {copy(signedIn ? "Your account" : "Sign in", signedIn ? "내 계정" : "로그인")}
+          {copy(
+            signedIn ? "Your account" : "Sign in",
+            signedIn ? "내 계정" : "로그인",
+          )}
         </Link>
       </header>
       <main className="mx-auto max-w-3xl space-y-8 px-6 py-10 sm:py-16">
         {!choosing && (
           <button
             className="flex items-center gap-2 text-sm text-muted"
-            onClick={() => navigate({ mode: "choose", step: "install", workspace: null })}
+            onClick={() =>
+              navigate({ mode: "choose", step: "install", workspace: null })
+            }
           >
             <ArrowLeft size={16} strokeWidth={1.5} />
             {copy("Ways to get started", "시작 방법 선택")}
@@ -127,7 +141,10 @@ export function StartExperience() {
               : setupTeam
                 ? copy("Set up your team", "함께 사용할 팀을 준비하세요")
                 : state.step === "install"
-                  ? copy("Bring Prepix to your computer", "컴퓨터에서 Prepix를 실행하세요")
+                  ? copy(
+                      "Bring Prepix to your computer",
+                      "컴퓨터에서 Prepix를 실행하세요",
+                    )
                   : copy("Make your first edit", "첫 편집을 만들어 보세요")}
           </h1>
           <p className="text-sm leading-7 text-muted">
@@ -154,7 +171,9 @@ export function StartExperience() {
                 <button
                   key={choice}
                   className="group space-y-4 rounded-xl border border-border bg-surface p-6 text-left transition-colors hover:bg-surface-secondary focus-visible:outline-2 focus-visible:outline-offset-4"
-                  onClick={() => navigate({ mode: choice, step: "install", workspace: null })}
+                  onClick={() =>
+                    navigate({ mode: choice, step: "install", workspace: null })
+                  }
                 >
                   {choice === "personal" ? (
                     <Film strokeWidth={1.5} aria-hidden="true" />
@@ -173,8 +192,8 @@ export function StartExperience() {
                           "설치 후 영상을 불러오고 편집합니다. AI를 사용할 때 로그인하세요.",
                         )
                       : copy(
-                          "Create or join a workspace. Team cloud media is not available in this preview.",
-                          "워크스페이스를 만들거나 참여합니다. 이번 미리보기에는 팀 클라우드 영상 저장이 포함되지 않습니다.",
+                          "Create or join a workspace and bring your team together.",
+                          "워크스페이스를 만들거나 참여하고 함께할 동료를 초대합니다.",
                         )}
                   </p>
                   <ArrowRight size={18} strokeWidth={1.5} aria-hidden="true" />
@@ -193,7 +212,10 @@ export function StartExperience() {
             {!signedIn ? (
               <>
                 <h2 className="font-medium">
-                  {copy("First, connect your account", "먼저 계정을 연결하세요")}
+                  {copy(
+                    "First, connect your account",
+                    "먼저 계정을 연결하세요",
+                  )}
                 </h2>
                 <p className="text-sm leading-6 text-muted">
                   {copy(
@@ -202,17 +224,26 @@ export function StartExperience() {
                   )}
                 </p>
                 <div className="flex flex-wrap gap-3">
-                  <Link className={primaryClass} href={signupHref({ returnTo: target, lang })}>
+                  <Link
+                    className={primaryClass}
+                    href={signupHref({ returnTo: target, lang })}
+                  >
                     {copy("Create account", "계정 만들기")}
                   </Link>
-                  <Link className={secondaryClass} href={loginHref({ returnTo: target, lang })}>
+                  <Link
+                    className={secondaryClass}
+                    href={loginHref({ returnTo: target, lang })}
+                  >
                     {copy("I have an account", "기존 계정으로 로그인")}
                   </Link>
                 </div>
               </>
             ) : teamStatus === "loading" ? (
               <p role="status">
-                {copy("Checking your workspace access", "워크스페이스 접근 권한을 확인하는 중")}
+                {copy(
+                  "Checking your workspace access",
+                  "워크스페이스 접근 권한을 확인하는 중",
+                )}
               </p>
             ) : teamStatus === "error" ? (
               <>
@@ -222,14 +253,20 @@ export function StartExperience() {
                     "워크스페이스 정보를 불러오지 못했습니다. 다시 시도하거나 로컬 편집을 계속할 수 있습니다.",
                   )}
                 </p>
-                <button className={secondaryClass} onClick={() => setAttempt(attempt + 1)}>
+                <button
+                  className={secondaryClass}
+                  onClick={() => setAttempt(attempt + 1)}
+                >
                   {copy("Try again", "다시 시도")}
                 </button>
               </>
             ) : capabilities?.enabled ? (
               <>
                 <h2 className="font-medium">
-                  {copy("Choose your workspace", "사용할 워크스페이스를 선택하세요")}
+                  {copy(
+                    "Choose your workspace",
+                    "사용할 워크스페이스를 선택하세요",
+                  )}
                 </h2>
                 <p className="text-sm text-muted">
                   {copy(
@@ -262,9 +299,14 @@ export function StartExperience() {
             )}
             <button
               className="block text-sm underline underline-offset-4"
-              onClick={() => navigate({ mode: "personal", step: "install", workspace: null })}
+              onClick={() =>
+                navigate({ mode: "personal", step: "install", workspace: null })
+              }
             >
-              {copy("Start editing on my computer", "내 컴퓨터에서 편집 먼저 시작")}
+              {copy(
+                "Start editing on my computer",
+                "내 컴퓨터에서 편집 먼저 시작",
+              )}
             </button>
           </section>
         ) : (
@@ -274,8 +316,8 @@ export function StartExperience() {
                 <p className="font-medium">{team.workspace.name}</p>
                 <p className="text-sm leading-6 text-muted">
                   {copy(
-                    "Workspace membership is ready. Edits you make in the current desktop app stay local and are not shared with your team. Team cloud projects will arrive in a later release.",
-                    "워크스페이스에 참여했습니다. 현재 앱에서 편집하는 프로젝트는 로컬에 저장되며 팀에 공유되지 않습니다. 팀 클라우드 프로젝트는 이후 출시에서 연결됩니다.",
+                    "Workspace membership is ready. Edits in the desktop app remain local. Manage shared originals in team projects when enabled; editing changes are not automatically published to your team.",
+                    "워크스페이스에 참여했습니다. 앱의 편집 내용은 로컬에 저장됩니다. 활성화된 팀 프로젝트에서 원본을 관리할 수 있으며, 앱에서 수정한 내용이 팀에 자동으로 발행되지는 않습니다.",
                   )}
                 </p>
                 <Link
@@ -284,6 +326,7 @@ export function StartExperience() {
                 >
                   {copy("Manage workspace", "워크스페이스 관리")}
                 </Link>
+                <CloudEntry workspaceId={team.workspace.id} />
               </aside>
             )}
             <ol
@@ -305,13 +348,19 @@ export function StartExperience() {
                     href={`${site}/download?${new URLSearchParams({ returnTo: new URL(startHref({ ...state, step: "edit" }, lang), window.location.origin).toString() })}`}
                   >
                     <Download size={16} strokeWidth={1.5} aria-hidden="true" />
-                    {copy("Download and installation guide", "다운로드와 설치 안내")}
+                    {copy(
+                      "Download and installation guide",
+                      "다운로드와 설치 안내",
+                    )}
                   </a>
                   <button
                     className={secondaryClass}
                     onClick={() => navigate({ ...state, step: "edit" })}
                   >
-                    {copy("I have the app — next steps", "앱이 있어요 · 다음 단계")}
+                    {copy(
+                      "I have the app — next steps",
+                      "앱이 있어요 · 다음 단계",
+                    )}
                   </button>
                 </div>
                 <p className="text-sm leading-6 text-muted">
@@ -340,7 +389,10 @@ export function StartExperience() {
                       ),
                     ],
                     [
-                      copy("Connect your account when you use AI", "AI를 사용할 때 계정 연결하기"),
+                      copy(
+                        "Connect your account when you use AI",
+                        "AI를 사용할 때 계정 연결하기",
+                      ),
                       copy(
                         "If the app offers Continue in browser, use your website account and confirm the email. Older apps can use the same email or Google account directly.",
                         "앱에 브라우저에서 계속하기가 보이면 웹 계정의 이메일을 확인하고 연결하세요. 이전 앱에서는 동일한 이메일 또는 Google 계정으로 로그인할 수 있습니다.",
@@ -358,7 +410,9 @@ export function StartExperience() {
                       <h2 className="text-sm font-medium">
                         {i + 1}. {title}
                       </h2>
-                      <p className="mt-2 text-sm leading-6 text-muted">{body}</p>
+                      <p className="mt-2 text-sm leading-6 text-muted">
+                        {body}
+                      </p>
                     </li>
                   ))}
                 </ol>

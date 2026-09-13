@@ -29,7 +29,7 @@ export const team = {
     "team.previewTerms":
       "This preview includes {seats} member seats. Reviewers do not use seats. Creating a workspace does not charge you.",
     "team.previewScope":
-      "This release covers team setup and invitations. Cloud media, team AI allowances, and team billing are not available yet. Your personal plan continues to apply.",
+      "Start with team setup and invitations. Team projects appear when enabled for your workspace. Team AI allowances and billing are not available yet. Your personal plan continues to apply.",
     "team.onePreview":
       "One preview workspace per account. If you already created one, we will resume it.",
     "team.creating": "Creating workspace…",
@@ -157,7 +157,7 @@ export const team = {
     "team.previewTerms":
       "미리보기에는 멤버 {seats}석이 포함됩니다. 검토자는 좌석을 사용하지 않으며, 워크스페이스를 만들어도 결제되지 않습니다.",
     "team.previewScope":
-      "현재는 팀 구성과 초대를 지원합니다. 클라우드 영상, 팀 AI 한도와 팀 결제는 아직 제공하지 않으며, 개인 플랜은 그대로 유지됩니다.",
+      "팀 구성과 초대부터 시작합니다. 활성화된 환경에서는 팀 프로젝트를 사용할 수 있습니다. 팀 AI 한도와 팀 결제는 아직 제공하지 않으며, 개인 플랜은 그대로 유지됩니다.",
     "team.onePreview":
       "계정당 미리보기 워크스페이스 1개를 제공합니다. 이미 만들었다면 이어서 설정합니다.",
     "team.creating": "워크스페이스를 만드는 중…",

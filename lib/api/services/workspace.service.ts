@@ -42,6 +42,8 @@ export type WorkspaceList = {
 };
 export type WorkspaceDetail = {
   workspace: Workspace;
+  canManageMembers?: boolean;
+  currentUserId?: string;
   role: Role;
   canManage: boolean;
   seats: { used: number; reserved: number };
@@ -69,6 +71,11 @@ const teamClient = {
 };
 
 export const workspaceService = {
+  changeMember: async (
+    id: string,
+    userId: string,
+    role: InviteRole | "remove",
+  ) => teamClient.post(`/workspaces/${id}/members/${userId}`, { role }),
   capabilities: async () =>
     (await teamClient.get<{ data: Capabilities }>("/workspaces/capabilities"))
       .data.data,
@@ -89,13 +96,13 @@ export const workspaceService = {
     (
       await teamClient.post<{ data: { results: InviteResult[] } }>(
         `/workspaces/${id}/invitations`,
-        { emails, role }
+        { emails, role },
       )
     ).data.data,
   resend: async (id: string, invitationId: string) =>
     (
       await teamClient.post<{ data: InviteResult }>(
-        `/workspaces/${id}/invitations/${invitationId}/resend`
+        `/workspaces/${id}/invitations/${invitationId}/resend`,
       )
     ).data.data,
   revoke: async (id: string, invitationId: string) =>
@@ -103,13 +110,13 @@ export const workspaceService = {
   preview: async (token: string) =>
     (
       await teamClient.get<{ data: InvitePreview }>(
-        `/workspaces/invitations/${token}`
+        `/workspaces/invitations/${token}`,
       )
     ).data.data,
   accept: async (token: string) =>
     (
       await teamClient.post<{ data: { workspaceId: string } }>(
-        `/workspaces/invitations/${token}/accept`
+        `/workspaces/invitations/${token}/accept`,
       )
     ).data.data,
 };

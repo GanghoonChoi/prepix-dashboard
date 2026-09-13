@@ -1,0 +1,32 @@
+const labels: Record<string, [string, string]> = {
+  "workspace.created": ["워크스페이스 생성", "Workspace created"],
+  "onboarding.completed": ["팀 시작 설정 완료", "Team setup completed"],
+  "member.removed": ["멤버 접근 종료", "Member removed"],
+  "member.role_changed": ["멤버 역할 변경", "Member role changed"],
+  "invitation.created": ["동료 초대", "Member invited"],
+  "invitation.accepted": ["초대 수락", "Invitation accepted"],
+  "invitation.revoked": ["초대 취소", "Invitation revoked"],
+  "invitation.resent": ["초대 다시 전송", "Invitation resent"],
+  "project.created": ["프로젝트 생성", "Project created"],
+  "project.updated": ["프로젝트 설정 변경", "Project settings updated"],
+  "project.access_changed": [
+    "프로젝트 접근 권한 변경",
+    "Project access changed",
+  ],
+  "folder.created": ["폴더 생성", "Folder created"],
+  "upload.started": ["원본 업로드 시작", "Original upload started"],
+  "upload.completed": ["원본 전송 완료", "Original transfer completed"],
+  "upload.cancelled": ["업로드 취소", "Upload cancelled"],
+  "asset.updated": ["파일 이름 또는 폴더 변경", "File renamed or moved"],
+  "asset.trashed": ["파일을 휴지통으로 이동", "File moved to trash"],
+  "asset.restored": ["파일 복구", "File restored"],
+  "asset.deletion_requested": [
+    "원본 영구 삭제 요청",
+    "Original deletion requested",
+  ],
+};
+export function activityLabel(action: string, lang: string) {
+  return (labels[action] ?? ["팀 설정 변경", "Team settings updated"])[
+    lang === "ko" ? 0 : 1
+  ];
+}
