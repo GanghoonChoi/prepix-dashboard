@@ -23,6 +23,7 @@ export default function LoginPage() {
   const { t, lang } = useI18n();
   usePageTitle(t("auth.signIn"));
   const router = useRouter();
+  const [authDestination, setAuthDestination] = useState("/dashboard");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -37,6 +38,11 @@ export default function LoginPage() {
       window.location.assign(destination);
     }
   };
+
+  useEffect(() => {
+    // Resolve browser-only returnTo after hydration, keeping the auth switch link safe.
+    setAuthDestination(readReturnTo());
+  }, []);
 
   // Already signed in? Skip the form.
   useEffect(() => {
@@ -102,7 +108,7 @@ export default function LoginPage() {
         </h1>
         <p className="mt-1.5 text-sm text-muted">
           {t("auth.noAccountPrompt")}
-          <Link href={signupHref({ lang })} className="text-foreground underline underline-offset-4 hover:no-underline">
+          <Link href={signupHref({ lang, returnTo: authDestination })} className="text-foreground underline underline-offset-4 hover:no-underline">
             {t("auth.createOne")}
           </Link>
         </p>

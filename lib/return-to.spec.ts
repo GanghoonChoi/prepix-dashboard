@@ -49,3 +49,15 @@ test("refuses junk and empties", () => {
 test("honours a caller-supplied fallback", () => {
   assert.equal(safeReturnTo(null, "/plan"), "/plan");
 });
+
+test('invitation destination survives authentication without accepting backslash redirects', () => {
+  const destination = '/dashboard/invitations/' + 'a'.repeat(64);
+  assert.equal(safeReturnTo(destination), destination);
+  assert.equal(safeReturnTo('/\\evil.example'), '/dashboard');
+  assert.equal(safeReturnTo('/\n/evil.example'), '/dashboard');
+});
+
+test('legacy desktop dashboard host preserves the team destination', () => {
+  const target = 'https://dashboard.laskerstudio.com/dashboard/workspaces';
+  assert.equal(safeReturnTo(target), target);
+});

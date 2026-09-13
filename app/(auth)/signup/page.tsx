@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, ProgressBar, ProgressBarTrack, ProgressBarFill } from "@heroui/react";
@@ -26,6 +26,7 @@ export default function SignupPage() {
   const [isAnimating, setIsAnimating] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSettingUp, setIsSettingUp] = useState(false);
+  const [authDestination, setAuthDestination] = useState("/dashboard");
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -40,13 +41,31 @@ export default function SignupPage() {
     4: { title: t("auth.step4Title"), description: t("auth.step4Desc") },
   };
 
+  /**
+   * `router.push` cannot leave the origin, and the destination here may be
+   * `prepix.ai/start`. Split on that rather than assuming an internal route.
+   */
+  const go = useCallback((destination: string) => {
+    if (destination.startsWith("/")) {
+      router.push(destination);
+    } else {
+      window.location.assign(destination);
+    }
+  }, [router]);
+
+  useEffect(() => {
+    // Resolve browser-only returnTo after hydration, keeping the auth switch link safe.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAuthDestination(readReturnTo());
+  }, []);
+
   // Already signed in? Skip signup — but honour where they were headed, which
   // may be back to the onboarding checklist on the marketing site.
   useEffect(() => {
     if (localStorage.getItem("accessToken") || localStorage.getItem("refreshToken")) {
       go(readReturnTo());
     }
-  }, []);
+  }, [go]);
 
   // The address the site already asked for. Typing it twice is the kind of
   // small insult that makes two pages feel like two products.
@@ -57,18 +76,6 @@ export default function SignupPage() {
       setEmail(prefilled);
     }
   }, []);
-
-  /**
-   * `router.push` cannot leave the origin, and the destination here may be
-   * `prepix.ai/start`. Split on that rather than assuming an internal route.
-   */
-  const go = (destination: string) => {
-    if (destination.startsWith("/")) {
-      router.push(destination);
-    } else {
-      window.location.assign(destination);
-    }
-  };
 
   const fireConfetti = () => {
     const duration = 3000;
@@ -268,7 +275,7 @@ export default function SignupPage() {
       {/* Footer */}
       <p className="text-sm text-muted">
         {t("auth.alreadyHaveAccountPrefix")}
-        <Link href={loginHref({ lang })} className="text-foreground underline underline-offset-4 hover:no-underline">
+        <Link href={loginHref({ lang, returnTo: authDestination })} className="text-foreground underline underline-offset-4 hover:no-underline">
           {t("auth.signIn")}
         </Link>
       </p>

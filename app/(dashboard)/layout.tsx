@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { WorkspaceCapabilities } from "@/components/workspaces/capabilities";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { LoadingScreen } from "@/components/loading-screen";
@@ -121,39 +122,44 @@ export default function DashboardLayout({
 
   return (
     <ToastProvider>
-      <CheckoutErrorListener />
-      <div className="min-h-dvh bg-background">
-        {mobileOpen && (
+      <WorkspaceCapabilities>
+        <CheckoutErrorListener />
+        <div className="min-h-dvh bg-background">
+          {mobileOpen && (
+            <div
+              className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+              onClick={() => setMobileOpen(false)}
+            />
+          )}
+
+          {/* Desktop sidebar */}
+          <div className="hidden lg:block">
+            <Sidebar profile={profile} onLogout={handleLogout} />
+          </div>
+
+          {/* Mobile sidebar */}
           <div
-            className="fixed inset-0 z-40 bg-black/50 lg:hidden"
-            onClick={() => setMobileOpen(false)}
-          />
-        )}
+            id="mobile-navigation"
+            inert={!mobileOpen}
+            aria-hidden={!mobileOpen}
+            className={`fixed inset-y-0 left-0 z-50 w-[220px] transform transition-transform duration-200 lg:hidden ${
+              mobileOpen ? "translate-x-0" : "-translate-x-full"
+            }`}
+          >
+            <Sidebar
+              profile={profile}
+              onLogout={handleLogout}
+              onClose={() => setMobileOpen(false)}
+            />
+          </div>
 
-        {/* Desktop sidebar */}
-        <div className="hidden lg:block">
-          <Sidebar profile={profile} onLogout={handleLogout} />
+          {/* Content */}
+          <div className="lg:pl-[220px]">
+            <DashboardHeader onMobileMenuToggle={() => setMobileOpen(!mobileOpen)} />
+            <main className="px-6 py-8 lg:px-10 lg:py-10">{children}</main>
+          </div>
         </div>
-
-        {/* Mobile sidebar */}
-        <div
-          className={`fixed inset-y-0 left-0 z-50 transform transition-transform duration-200 lg:hidden ${
-            mobileOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
-        >
-          <Sidebar
-            profile={profile}
-            onLogout={handleLogout}
-            onClose={() => setMobileOpen(false)}
-          />
-        </div>
-
-        {/* Content */}
-        <div className="lg:pl-[220px]">
-          <DashboardHeader onMobileMenuToggle={() => setMobileOpen(!mobileOpen)} />
-          <main className="px-6 py-8 lg:px-10 lg:py-10">{children}</main>
-        </div>
-      </div>
+      </WorkspaceCapabilities>
     </ToastProvider>
   );
 }

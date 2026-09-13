@@ -13,7 +13,10 @@ import { pricing } from "./strings/pricing";
 import { misc } from "./strings/misc";
 import { connect } from "./strings/connect";
 
+import { team } from './strings/team';
+
 const namespaces = [
+  team,
   common,
   nav,
   settings,

@@ -1,4 +1,7 @@
 import axios from "axios";
+import { loginHref } from "../auth-entry";
+import { readReturnTo } from "../return-to";
+import { clearSignedIn } from "../account-hint";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
@@ -34,8 +37,13 @@ let refreshPromise: Promise<string> | null = null;
 
 function handleAuthFailure() {
   if (typeof window !== "undefined") {
-    localStorage.clear();
-    window.location.replace("/login");
+    const path = window.location.pathname;
+    const returnTo = path === '/login' || path === '/signup' ? readReturnTo() : path + window.location.search;
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('userInfo');
+    clearSignedIn();
+    window.location.replace(loginHref({ returnTo }));
   }
 }
 

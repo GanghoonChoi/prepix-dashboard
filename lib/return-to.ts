@@ -23,6 +23,7 @@ const ALLOWED_HOSTS = new Set([
   "prepix.ai",
   "www.prepix.ai",
   "dashboard.prepix.ai",
+  "dashboard.laskerstudio.com", // Existing desktop dashboard URL.
 ]);
 
 const DEFAULT = "/dashboard";
@@ -31,7 +32,7 @@ export function safeReturnTo(
   raw: string | null | undefined,
   fallback: string = DEFAULT,
 ): string {
-  if (!raw) return fallback;
+  if (!raw || /[\\\u0000-\u001f\u007f]/.test(raw)) return fallback;
 
   // Internal path. `//evil.com` is protocol-relative and would leave the site,
   // so a leading slash alone is not enough.

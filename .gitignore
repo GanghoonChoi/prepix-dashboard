@@ -43,3 +43,7 @@ next-env.d.ts
 
 # Tooling state, not source. Written per-session by the local HUD.
 .omc/
+
+# Local browser verification
+/test-results/
+/playwright-report/

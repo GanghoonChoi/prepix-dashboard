@@ -1,5 +1,6 @@
 "use client";
 
+import { useWorkspaceCapabilities } from '@/components/workspaces/capabilities';
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/lib/i18n/context";
@@ -23,6 +24,7 @@ export function Sidebar({
   onLogout: () => void;
   onClose?: () => void;
 }) {
+  const { capabilities } = useWorkspaceCapabilities();
   const pathname = usePathname();
   const { t, lang } = useI18n();
   const displayName = profile?.username || profile?.email || "User";
@@ -37,6 +39,7 @@ export function Sidebar({
       {/* Nav */}
       <nav className="flex-1 px-3 py-3">
         <div className="space-y-0.5">
+          {capabilities?.enabled && <Link href="/dashboard/workspaces" onClick={onClose} className={`block rounded-md px-3 py-2 text-[13px] transition-colors ${pathname.startsWith('/dashboard/workspaces') ? 'font-medium text-foreground bg-foreground/[0.06]' : 'text-muted hover:text-foreground'}`}>{t('team.title')}</Link>}
           {NAV_ITEMS.map((item) => {
             const active = pathname === item.href;
             return (

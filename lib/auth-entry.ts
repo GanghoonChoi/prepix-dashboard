@@ -39,7 +39,11 @@ function entry(path: "/login" | "/signup", options: Options = {}): string {
   const lang = options.lang ?? readLang();
   const params = new URLSearchParams({ locale: lang });
   if (options.returnTo) {
-    params.set("returnTo", options.returnTo);
+    // Team links must also return to this dashboard when auth is hosted on the site.
+    const target = options.returnTo;
+    const isTeamPath = /^\/dashboard\/(workspaces|invitations)(\/|\?|#|$)/.test(target);
+    params.set("returnTo", isTeamPath && typeof window !== 'undefined'
+      ? new URL(target, window.location.origin).toString() : target);
   }
   return `${path}?${params.toString()}`;
 }
