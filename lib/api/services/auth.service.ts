@@ -57,6 +57,31 @@ export const authService = {
     return response.data.data;
   },
 
+  /**
+   * Resend the verification mail to the signed-in account's own address. The
+   * address is never a parameter — the server takes it from the session — so
+   * this cannot be used to mail a stranger. Rate limited; a 429 comes back in
+   * the house error shape.
+   */
+  requestEmailVerification: async (): Promise<{ success: true }> => {
+    const response = await apiClient.post("/auth/email/verify/request");
+    return response.data.data;
+  },
+
+  /**
+   * Public: the link lands here before there is necessarily a session.
+   * Invalid, expired and already-used are distinct answers and must stay that
+   * way — "try again" is wrong advice for two of the three.
+   */
+  confirmEmailVerification: async (
+    token: string,
+  ): Promise<{ success: true }> => {
+    const response = await apiClient.post("/auth/email/verify/confirm", {
+      token,
+    });
+    return response.data.data;
+  },
+
   resetPassword: async (
     token: string,
     password: string,

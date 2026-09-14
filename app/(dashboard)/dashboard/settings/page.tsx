@@ -8,7 +8,7 @@ import { useOverlayState } from "@heroui/react";
 import { Dialog } from "@/components/dialog";
 import { useToast } from "@/components/toast";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
-import { userService } from "@/lib/api/services/user.service";
+import { userService, type Profile } from "@/lib/api/services/user.service";
 import { authService } from "@/lib/api/services/auth.service";
 import { useT } from "@/lib/i18n/context";
 import { LanguageSwitcher } from "@/components/language-switcher";
@@ -23,7 +23,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  const [profile, setProfile] = useState<Record<string, string> | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
 
   const nameModal = useOverlayState();
   const passwordModal = useOverlayState();

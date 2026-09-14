@@ -6,7 +6,8 @@ import { Sidebar } from "@/components/dashboard/sidebar";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { LoadingScreen } from "@/components/loading-screen";
 import { ToastProvider, useToast } from "@/components/toast";
-import { userService } from "@/lib/api/services/user.service";
+import { userService, type Profile } from "@/lib/api/services/user.service";
+import { VerifyEmailNotice } from "@/components/workspaces/verify-email";
 import { clearSignedIn } from "@/lib/account-hint";
 import { loginHref } from "@/lib/auth-entry";
 
@@ -34,7 +35,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [profile, setProfile] = useState<Record<string, string> | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   // "checking" until we've confirmed a token client-side. We render only a
   // spinner while checking so protected content never flashes for an
   // unauthenticated visitor (tokens live in localStorage, so this can't be
@@ -156,7 +157,20 @@ export default function DashboardLayout({
           {/* Content */}
           <div className="lg:pl-[220px]">
             <DashboardHeader onMobileMenuToggle={() => setMobileOpen(!mobileOpen)} />
-            <main className="px-6 py-8 lg:px-10 lg:py-10">{children}</main>
+            <main className="px-6 py-8 lg:px-10 lg:py-10">
+              {/*
+                Every signed-in page, not just the team one: verification gates
+                accepting invitations, and `emailVerified` is now a real field
+                rather than something inferred from a team-only response.
+                Strictly `=== false` — an older server omits it entirely.
+              */}
+              {profile?.emailVerified === false && (
+                <div className="mb-8">
+                  <VerifyEmailNotice />
+                </div>
+              )}
+              {children}
+            </main>
           </div>
         </div>
       </WorkspaceCapabilities>
