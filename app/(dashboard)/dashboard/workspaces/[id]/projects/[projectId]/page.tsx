@@ -9,14 +9,18 @@ import {
   FolderPlus,
   LockKeyhole,
   Pause,
+  Play,
   RotateCcw,
   Trash2,
   Upload,
+  Users,
+  X,
 } from "lucide-react";
 import {
   cloudService,
   type Asset,
   type ProjectDetail,
+  type ProjectVisibility,
 } from "@/lib/api/services/cloud.service";
 import {
   workspaceService,
@@ -24,9 +28,29 @@ import {
 } from "@/lib/api/services/workspace.service";
 import { useI18n } from "@/lib/i18n/context";
 import { bytes, uploadFile } from "@/lib/workspaces/upload";
+import { contentGone } from "@/lib/workspaces/errors";
+import { isPersonal } from "@/lib/workspaces/kind";
+import {
+  previewAxis,
+  previewFailureIsSpace,
+} from "@/lib/workspaces/asset-state";
+import {
+  canCancel,
+  canPause,
+  canResume,
+  fileRejection,
+  isSettled,
+  nextQueued,
+  patch,
+  queueSummary,
+  transferProgress,
+  type Transfer,
+} from "@/lib/workspaces/queue";
 import {
   TeamShell,
+  SpaceBadge,
   TeamLoading,
+  ConfirmDialog,
   inputClass,
   primaryClass,
   secondaryClass,
@@ -35,6 +59,7 @@ import {
   CloudError,
   CloudProgress,
   cloudErrorCode,
+  cloudMessage,
   StorageMeter,
 } from "@/components/workspaces/cloud-shared";
 export default function ProjectPage({
@@ -66,39 +91,48 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
     label: string;
     run: () => Promise<unknown>;
   } | null>(null);
-  const [progress, setProgress] = useState<{
-    name: string;
-    total: number;
-    bytes: number;
-    phase: "hashing" | "uploading" | "verifying";
-    index: number;
-    count: number;
-  } | null>(null);
-  const [running, setRunning] = useState(false);
-  const controller = useRef<AbortController | null>(null);
+  // One row per file (F04.3). Everything that cannot live in state — the File
+  // handle, the abort, the digest we already paid for — is keyed by the row id.
+  const [transfers, setTransfers] = useState<Transfer[]>([]);
+  const queue = useRef<Transfer[]>([]);
+  const handles = useRef(new Map<string, File>());
+  const controllers = useRef(new Map<string, AbortController>());
+  const digests = useRef(new Map<string, string>());
+  const resumeAssets = useRef(new Map<string, Asset>());
+  const destinations = useRef(new Map<string, string | undefined>());
+  const cancelled = useRef(new Set<string>());
+  const pumping = useRef(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const resume = useRef<Asset | undefined>(undefined);
   const alive = useRef(true);
+  const commit = useCallback((next: Transfer[]) => {
+    queue.current = next;
+    setTransfers(next);
+  }, []);
+  const update = useCallback(
+    (entryId: string, changes: Partial<Transfer>) => {
+      if (alive.current) commit(patch(queue.current, entryId, changes));
+    },
+    [commit],
+  );
   const load = useCallback(async () => {
     try {
       const next = await cloudService.project(id, projectId);
       if (alive.current) {
         setData(next);
-        if (next.canManage) setTeam(await workspaceService.detail(id));
+        // Every role uploads, so the "which space am I in" stamp cannot depend
+        // on being a manager. A failed detail costs the stamp, not the page.
+        setTeam(await workspaceService.detail(id).catch(() => null));
       }
     } catch (e) {
       if (alive.current) {
         const code = cloudErrorCode(e);
         setError(code);
-        if (
-          [
-            "PROJECT_NOT_FOUND",
-            "WORKSPACE_NOT_FOUND",
-            "TEAM_PROJECTS_DISABLED",
-          ].includes(code)
-        ) {
+        // A failed refresh keeps the project on screen and the queue running.
+        // Only a code that says the project is gone tears it down (§5.1).
+        if (contentGone(code)) {
           setData(null);
-          controller.current?.abort();
+          for (const abort of controllers.current.values()) abort.abort();
         }
       }
     }
@@ -110,9 +144,10 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
       void load();
     };
     window.addEventListener("focus", focus);
+    const running = controllers.current;
     return () => {
       alive.current = false;
-      controller.current?.abort();
+      for (const abort of running.values()) abort.abort();
       window.removeEventListener("focus", focus);
     };
   }, [load]);
@@ -126,14 +161,19 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
     }, 5000);
     return () => clearInterval(timer);
   }, [pending, load]);
+  // `canManage` is also true for an editor who manages this project, but the
+  // server gates a visibility change on the workspace role, so mirror that.
+  const adminActor = !!team && ["owner", "admin"].includes(team.role);
+  const summary = queueSummary(transfers);
+  const queueBusy = summary.running + summary.waiting > 0;
   useEffect(() => {
-    if (!running) return;
+    if (!queueBusy) return;
     const leave = (e: BeforeUnloadEvent) => {
       e.preventDefault();
     };
     window.addEventListener("beforeunload", leave);
     return () => window.removeEventListener("beforeunload", leave);
-  }, [running]);
+  }, [queueBusy]);
   async function action(key: string, run: () => Promise<unknown>) {
     if (busy) return;
     setBusy(key);
@@ -148,85 +188,152 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
       setBusy("");
     }
   }
-  async function upload(files: File[]) {
-    if (
-      controller.current ||
-      !data?.canEdit ||
-      !data.capabilities.uploadsEnabled ||
-      !files.length
-    )
-      return;
-    const requestedResume = resume.current;
-    resume.current = undefined;
-    if (
-      files.some((f) => f.size === 0 || f.size > data.capabilities.maxFileBytes)
-    ) {
-      setError("UPLOAD_FILE_INVALID");
-      return;
-    }
-    const abort = new AbortController();
-    controller.current = abort;
-    setRunning(true);
-    setError("");
-    setNotice("");
+  /**
+   * Work the queue one file at a time, and never let one file end it.
+   *
+   * The loop this replaces shared a single AbortController and a single catch:
+   * a throw on file 3 skipped files 4..N entirely and left them with no status,
+   * and "pause" aborted the whole batch and told the user to re-pick the rest
+   * by hand. Each row now owns its abort and its verdict, and a failure is a
+   * `continue`.
+   */
+  const pump = useCallback(async () => {
+    if (pumping.current) return;
+    pumping.current = true;
     try {
-      for (const [index, file] of files.entries()) {
-        abort.signal.throwIfAborted();
-        setProgress({
-          name: file.name,
-          total: file.size,
-          bytes: 0,
-          phase: "hashing",
-          index: index + 1,
-          count: files.length,
-        });
-        await uploadFile({
-          file,
-          workspaceId: id,
-          projectId,
-          folderId,
-          resume: requestedResume,
-          signal: abort.signal,
-          onProgress: (phase, bytes) => {
-            if (alive.current)
-              setProgress({
-                name: file.name,
-                total: file.size,
-                bytes,
-                phase,
-                index: index + 1,
-                count: files.length,
-              });
-          },
-          onCreated: () => {
-            void load();
-          },
-        });
+      for (;;) {
+        const entry = nextQueued(queue.current);
+        if (!entry) break;
+        const file = handles.current.get(entry.id);
+        if (!file) {
+          update(entry.id, {
+            state: "failed",
+            error: "UPLOAD_RESUME_MISMATCH",
+          });
+          continue;
+        }
+        const abort = new AbortController();
+        controllers.current.set(entry.id, abort);
+        update(entry.id, { state: "hashing", error: undefined });
+        try {
+          await uploadFile({
+            file,
+            workspaceId: id,
+            projectId,
+            folderId: destinations.current.get(entry.id),
+            resume: resumeAssets.current.get(entry.id),
+            // Reuse the digest we already computed for this exact File object,
+            // so pausing a 50 GB original does not re-hash it on resume.
+            digest: digests.current.get(entry.id),
+            signal: abort.signal,
+            onDigest: (digest) => digests.current.set(entry.id, digest),
+            onProgress: (phase, moved) =>
+              update(
+                entry.id,
+                phase === "hashing"
+                  ? { state: "hashing", hashed: moved }
+                  : phase === "verifying"
+                    ? { state: "verifying", sent: moved }
+                    : { state: "uploading", sent: moved },
+              ),
+            onCreated: (asset) => {
+              resumeAssets.current.set(entry.id, asset);
+              update(entry.id, { assetId: asset.id });
+              void load();
+            },
+          });
+          update(entry.id, { state: "done", sent: entry.total });
+        } catch (e) {
+          update(
+            entry.id,
+            cancelled.current.has(entry.id)
+              ? { state: "cancelled" }
+              : abort.signal.aborted
+                ? { state: "paused" }
+                : { state: "failed", error: cloudErrorCode(e) },
+          );
+        } finally {
+          controllers.current.delete(entry.id);
+        }
         await load();
       }
-      setNotice(
-        c(
-          "전송이 끝났습니다. 원본 검증 후 다운로드할 수 있습니다.",
-          "Transfer complete. Files become downloadable after verification.",
-        ),
-      );
-    } catch (e) {
-      if (abort.signal.aborted)
-        setNotice(
-          c(
-            "업로드를 멈췄습니다. 아래 파일에서 이어 올릴 수 있습니다. 대기 중이던 나머지 파일은 다시 선택하세요.",
-            "Upload paused. Resume it from the file below. Select any remaining queued files again.",
-          ),
-        );
-      else setError(cloudErrorCode(e));
     } finally {
-      controller.current = null;
-      if (alive.current) {
-        setRunning(false);
-        setProgress(null);
-        await load();
-      }
+      pumping.current = false;
     }
+  }, [id, projectId, update, load]);
+  /**
+   * A rejected file is marked in the queue, not a verdict on the selection.
+   * Dropping 40 clips with one 0-byte sidecar uploads the other 39 and names
+   * the one that was refused.
+   */
+  function enqueue(selected: File[], resuming?: Asset) {
+    if (!data?.canEdit || !data.capabilities.uploadsEnabled || !selected.length)
+      return;
+    const limit = data.capabilities.maxFileBytes;
+    const added: Transfer[] = selected.map((file) => {
+      const entryId = crypto.randomUUID();
+      handles.current.set(entryId, file);
+      destinations.current.set(entryId, folderId);
+      if (resuming) resumeAssets.current.set(entryId, resuming);
+      const rejected = fileRejection(file, limit);
+      return {
+        id: entryId,
+        name: file.name,
+        total: file.size,
+        hashed: 0,
+        sent: 0,
+        state: rejected ? "invalid" : "queued",
+        error: rejected,
+      };
+    });
+    setNotice("");
+    commit([...queue.current, ...added]);
+    void pump();
+  }
+  function pauseTransfer(entry: Transfer) {
+    controllers.current.get(entry.id)?.abort();
+  }
+  function resumeTransfer(entry: Transfer) {
+    cancelled.current.delete(entry.id);
+    update(entry.id, { state: "queued", error: undefined });
+    void pump();
+  }
+  /**
+   * ONE confirmation path, two doors.
+   *
+   * The queue row and the asset row cancel the same server-side upload, but
+   * only the asset row asked first — so the same destructive call had a gate on
+   * one route and none on the other. That is the Linear shape exactly: a
+   * documented confirmation on the manual flow, and an automated or recovery
+   * path that walks straight past it. Both doors now ask the same question, in
+   * the same dialog, with the same copy.
+   *
+   * A queued row that never reached the server has no asset to destroy, so
+   * there is nothing to confirm — that is an absent consequence, not a skipped
+   * gate.
+   */
+  function cancelTransfer(entry: Transfer) {
+    if (!entry.assetId) return void discardTransfer(entry);
+    setConfirm({
+      label: cancelUploadLabel,
+      run: () => discardTransfer(entry),
+    });
+  }
+  async function discardTransfer(entry: Transfer) {
+    cancelled.current.add(entry.id);
+    controllers.current.get(entry.id)?.abort();
+    update(entry.id, { state: "cancelled" });
+    if (!entry.assetId) return;
+    // Completed files stay; only the file in flight is cancelled (F04.3).
+    try {
+      await cloudService.cancel(id, projectId, entry.assetId);
+    } catch {
+      /* the asset row keeps its own cancel button for a retry */
+    }
+    await load();
+  }
+  function clearSettled() {
+    commit(queue.current.filter((entry) => !isSettled(entry.state)));
   }
   async function download(asset: Asset) {
     await action(asset.id, async () => {
@@ -246,20 +353,30 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
       );
     });
   }
+  const cancelUploadLabel = c(
+    "이 업로드를 취소할까요? 완료된 조각도 정리하고 용량 예약을 해제합니다. 정리에 몇 분이 걸릴 수 있습니다.",
+    "Cancel this upload? Uploaded parts will be cleaned up before the storage reservation is released. Cleanup may take several minutes.",
+  );
+  const personal = !!team && isPersonal(team.workspace);
   const folder = data?.folders.find((f) => f.id === folderId);
   const files =
     data?.assets.filter((a) =>
       trash ? !!a.trashedAt : !a.trashedAt && a.folderId === (folderId ?? null),
     ) ?? [];
   const canUpload =
-    !!data?.canEdit && !!data.capabilities.uploadsEnabled && !running && !trash;
+    !!data?.canEdit && !!data.capabilities.uploadsEnabled && !trash;
+  /**
+   * The storage axis, and only that. F04.6 separates storage from preview and
+   * from app compatibility, so this no longer folds a preview problem into a
+   * storage verdict — see `previewLabel` below.
+   */
   const stateLabel = (a: Asset) =>
     a.trashedAt
       ? c("휴지통", "Trash")
       : a.state === "ready"
         ? new Date(a.expiresAt).getTime() <= Date.now()
           ? c("보관 기한 만료", "Expired")
-          : c("원본 검증 완료", "Original verified")
+          : c("보관됨", "Stored")
         : a.state === "uploading"
           ? new Date(a.uploadExpiresAt).getTime() <= Date.now()
             ? c("업로드 만료", "Upload expired")
@@ -271,10 +388,14 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
                   "검증 실패 · 다운로드 차단",
                   "Verification failed · download blocked",
                 )
-              : c(
-                  "정리 대기 · 용량 예약 유지",
-                  "Cleanup pending · storage reserved",
-                );
+              : a.state === "cancelling"
+                ? c(
+                    "취소 정리 중 · 용량 예약 유지",
+                    "Cancelling · storage still reserved",
+                  )
+                : // `cancelled` is finished, so saying capacity is still held
+                  // is simply wrong.
+                  c("취소됨 · 용량 예약 해제", "Cancelled · reservation released");
   return (
     <TeamShell
       title={data?.project.name ?? c("팀 프로젝트", "Team project")}
@@ -293,17 +414,19 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
         </Link>
         {data?.canManage && (
           <div className="flex flex-wrap gap-2">
+            {!personal && (
+              <button
+                className={secondaryClass}
+                onClick={() => setShowAccess(!showAccess)}
+                aria-expanded={showAccess}
+              >
+                <LockKeyhole size={16} strokeWidth={1.5} />
+                {c("프로젝트 접근 관리", "Project access")}
+              </button>
+            )}
             <button
               className={secondaryClass}
-              onClick={() => setShowAccess(!showAccess)}
-              aria-expanded={showAccess}
-            >
-              <LockKeyhole size={16} strokeWidth={1.5} />
-              {c("프로젝트 접근 관리", "Project access")}
-            </button>
-            <button
-              className={secondaryClass}
-              disabled={running || !!busy}
+              disabled={queueBusy || !!busy}
               onClick={() =>
                 setConfirm({
                   label: data.project.archivedAt
@@ -348,17 +471,15 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
         </p>
       )}
       {confirm && (
-        <div
-          role="alertdialog"
-          aria-label={c("작업 확인", "Confirm action")}
-          className="space-y-4 rounded-xl border border-border bg-surface p-5"
+        <ConfirmDialog
+          label={c("작업 확인", "Confirm action")}
+          onClose={() => setConfirm(null)}
         >
           <p className="text-sm leading-6">{confirm.label}</p>
           <div className="flex gap-2">
             <button
               className={primaryClass}
               disabled={!!busy}
-              autoFocus
               onClick={() => {
                 void action("confirm", confirm.run).then(() =>
                   setConfirm(null),
@@ -375,7 +496,7 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
               {c("돌아가기", "Go back")}
             </button>
           </div>
-        </div>
+        </ConfirmDialog>
       )}
       {data && (
         <>
@@ -387,8 +508,26 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
               )}
             </p>
           )}
+          {!personal && data.project.visibility && (
+            <p className="flex items-center gap-2 text-xs text-muted">
+              {data.project.visibility === "team" ? (
+                <Users size={14} strokeWidth={1.5} />
+              ) : (
+                <LockKeyhole size={14} strokeWidth={1.5} />
+              )}
+              {data.project.visibility === "team"
+                ? c(
+                    "팀 전체가 이 프로젝트를 볼 수 있습니다. 업로드와 원본 다운로드는 멤버별 권한을 따릅니다.",
+                    "Everyone on the team can see this project. Upload and original download still follow per-member access.",
+                  )
+                : c(
+                    "지정 멤버만 이 프로젝트를 볼 수 있습니다.",
+                    "Only chosen members can see this project.",
+                  )}
+            </p>
+          )}
           <StorageMeter storage={data.storage} />
-          {showAccess && data.canManage && team && (
+          {showAccess && data.canManage && team && !personal && (
             <section className="space-y-4 rounded-xl border border-border p-5">
               <h2 className="font-medium">
                 {c("프로젝트 참여자", "Project members")}
@@ -399,6 +538,61 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
                   "Owners and admins can access every project. Other members need an explicit grant below. Folders and files inherit these permissions.",
                 )}
               </p>
+              {data.project.visibility && (
+                <div className="space-y-3 rounded-lg border border-border p-4">
+                  <label
+                    htmlFor="project-visibility"
+                    className="block text-sm"
+                  >
+                    {c("공개 범위", "Visibility")}
+                  </label>
+                  {/*
+                    Creating with a choice is open to editors, but CHANGING it
+                    is an ACL change and the server allows it to owners and
+                    admins only. Show the reason and who can fix it (§5.1)
+                    rather than a control that will be refused.
+                  */}
+                  {adminActor ? (
+                    <select
+                      id="project-visibility"
+                      className={`${inputClass} sm:max-w-64`}
+                      value={data.project.visibility}
+                      disabled={!!busy}
+                      onChange={(e) =>
+                        void action("visibility", () =>
+                          cloudService.updateProject(id, projectId, {
+                            visibility: e.target.value as ProjectVisibility,
+                          }),
+                        )
+                      }
+                    >
+                      <option value="restricted">
+                        {c("지정 멤버만", "Chosen members only")}
+                      </option>
+                      <option value="team">
+                        {c("팀 전체", "Everyone on the team")}
+                      </option>
+                    </select>
+                  ) : (
+                    <p className="text-sm">
+                      {data.project.visibility === "team"
+                        ? c("팀 전체", "Everyone on the team")
+                        : c("지정 멤버만", "Chosen members only")}
+                    </p>
+                  )}
+                  <p className="text-xs leading-5 text-muted">
+                    {adminActor
+                      ? c(
+                          "공개 범위는 이 프로젝트를 볼 수 있는 사람만 정합니다. 업로드와 원본 다운로드 권한은 아래에서 멤버별로 유지됩니다.",
+                          "Visibility only decides who can see this project. Upload and original download stay per-member below.",
+                        )
+                      : c(
+                          "공개 범위 변경은 소유자와 관리자만 할 수 있습니다.",
+                          "Only workspace owners and admins can change visibility.",
+                        )}
+                  </p>
+                </div>
+              )}
               {team.canManage && team.managementEnabled && (
                 <div className="space-y-3 rounded-lg border border-border p-4">
                   <p className="text-sm">
@@ -538,9 +732,14 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
             }}
             onDrop={(e) => {
               e.preventDefault();
-              if (canUpload) void upload(Array.from(e.dataTransfer.files));
+              if (canUpload) enqueue(Array.from(e.dataTransfer.files));
             }}
           >
+            {/*
+              Upload is the durable action on this page, so the space it lands
+              in is named next to the button, not only in the switcher.
+            */}
+            {team && <SpaceBadge workspace={team.workspace} />}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <nav
                 aria-label={c("폴더 경로", "Folder path")}
@@ -586,7 +785,7 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
                 {data.canEdit && !trash && (
                   <button
                     className={secondaryClass}
-                    disabled={running}
+                    disabled={queueBusy}
                     aria-expanded={showFolder}
                     onClick={() => setShowFolder(!showFolder)}
                   >
@@ -617,7 +816,9 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
               onChange={(e) => {
                 const selected = Array.from(e.target.files ?? []);
                 e.target.value = "";
-                void upload(resume.current ? selected.slice(0, 1) : selected);
+                const resuming = resume.current;
+                resume.current = undefined;
+                enqueue(resuming ? selected.slice(0, 1) : selected, resuming);
               }}
             />
             {!data.capabilities.uploadsEnabled && data.canEdit && (
@@ -661,40 +862,101 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
                 </button>
               </form>
             )}
-            {progress && (
-              <div
-                role="status"
-                className="space-y-3 rounded-xl border border-border bg-surface p-5"
+            {transfers.length > 0 && (
+              <section
+                aria-label={c("전송 패널", "Transfer panel")}
+                className="space-y-4 rounded-xl border border-border bg-surface p-5"
               >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="min-w-0 break-all text-sm">
-                    {progress.name}{" "}
-                    <span className="text-muted tabular-nums">
-                      {progress.index}/{progress.count}
-                    </span>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p role="status" className="text-sm tabular-nums">
+                    {c(
+                      `전송 ${summary.total}개 · 완료 ${summary.done} · 진행 ${summary.running} · 대기 ${summary.waiting} · 실패 ${summary.failed}`,
+                      `${summary.total} transfers · ${summary.done} done · ${summary.running} running · ${summary.waiting} waiting · ${summary.failed} failed`,
+                    )}
                   </p>
-                  <button
-                    className={secondaryClass}
-                    onClick={() => controller.current?.abort()}
-                  >
-                    <Pause size={16} strokeWidth={1.5} />
-                    {c("멈추기", "Pause")}
-                  </button>
+                  {transfers.some((entry) => isSettled(entry.state)) && (
+                    <button className={secondaryClass} onClick={clearSettled}>
+                      {c("끝난 항목 지우기", "Clear finished")}
+                    </button>
+                  )}
                 </div>
-                <CloudProgress
-                  value={progress.bytes}
-                  max={progress.total}
-                  label={c("업로드 진행률", "Upload progress")}
-                />
-                <p className="text-xs text-muted tabular-nums">
-                  {progress.phase === "hashing"
-                    ? c("파일 확인 중", "Checking file")
-                    : progress.phase === "verifying"
-                      ? c("전송 완료 확인 중", "Finalizing transfer")
-                      : c("업로드 중", "Uploading")}{" "}
-                  · {bytes(progress.bytes)} / {bytes(progress.total)}
-                </p>
-              </div>
+                <ul className="divide-y divide-border">
+                  {transfers.map((entry) => {
+                    const shown = transferProgress(entry);
+                    return (
+                      <li key={entry.id} className="space-y-2 py-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="min-w-0 break-all text-sm">
+                            {entry.name}
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {canPause(entry.state) && (
+                              <button
+                                className={secondaryClass}
+                                onClick={() => pauseTransfer(entry)}
+                              >
+                                <Pause size={16} strokeWidth={1.5} />
+                                {c("멈추기", "Pause")}
+                              </button>
+                            )}
+                            {canResume(entry.state) && (
+                              <button
+                                className={secondaryClass}
+                                onClick={() => resumeTransfer(entry)}
+                              >
+                                <Play size={16} strokeWidth={1.5} />
+                                {c("이어 올리기", "Resume")}
+                              </button>
+                            )}
+                            {canCancel(entry.state) && (
+                              <button
+                                className={secondaryClass}
+                                onClick={() => void cancelTransfer(entry)}
+                              >
+                                <X size={16} strokeWidth={1.5} />
+                                {c("취소", "Cancel")}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <CloudProgress
+                          value={shown.value}
+                          max={shown.max}
+                          label={`${entry.name} ${c("전송 진행률", "transfer progress")}`}
+                        />
+                        <p className="text-xs leading-5 text-muted tabular-nums">
+                          {entry.state === "queued"
+                            ? c("대기 중", "Waiting")
+                            : entry.state === "hashing"
+                              ? c("파일 확인 중", "Checking file")
+                              : entry.state === "uploading"
+                                ? c("업로드 중", "Uploading")
+                                : entry.state === "verifying"
+                                  ? c("전송 완료 확인 중", "Finalizing transfer")
+                                  : entry.state === "done"
+                                    ? c(
+                                        "전송 완료 · 검증 후 다운로드 가능",
+                                        "Transferred · downloadable after verification",
+                                      )
+                                    : entry.state === "paused"
+                                      ? c("멈춤", "Paused")
+                                      : entry.state === "cancelled"
+                                        ? c("취소됨", "Cancelled")
+                                        : entry.state === "invalid"
+                                          ? c("업로드할 수 없음", "Cannot upload")
+                                          : c("실패", "Failed")}{" "}
+                          · {bytes(shown.value)} / {bytes(entry.total)}
+                        </p>
+                        {entry.error && (
+                          <p className="text-xs leading-5" role="alert">
+                            {cloudMessage(entry.error, lang)}
+                          </p>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
             )}
             {editing && (
               <form
@@ -770,6 +1032,7 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
                   !asset.trashedAt &&
                   ready &&
                   new Date(asset.expiresAt).getTime() > Date.now();
+                const preview = previewAxis(asset, lang);
                 return (
                   <li key={asset.id} className="space-y-4 p-5">
                     <div className="flex items-start gap-3">
@@ -789,6 +1052,34 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
                           <p className="text-xs leading-5 text-muted">
                             {c("보관 기한", "Expires")}{" "}
                             {new Date(asset.expiresAt).toLocaleDateString(lang)}
+                          </p>
+                        )}
+                        {preview && (
+                          <p className="mt-1 text-xs leading-5">
+                            {preview}
+                            {asset.previewState === "failed" &&
+                              asset.failure && (
+                                <>
+                                  {" "}
+                                  <span className="font-mono text-muted">
+                                    {asset.failure}
+                                  </span>
+                                  {previewFailureIsSpace(asset.failure) && (
+                                    <button
+                                      className="ml-2 underline underline-offset-4"
+                                      onClick={() => {
+                                        setTrash(true);
+                                        setFolderId(undefined);
+                                      }}
+                                    >
+                                      {c(
+                                        "저장공간 정리하기",
+                                        "Free up storage",
+                                      )}
+                                    </button>
+                                  )}
+                                </>
+                              )}
                           </p>
                         )}
                       </div>
@@ -907,13 +1198,10 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
                         ) && (
                           <button
                             className={secondaryClass}
-                            disabled={!!busy || running}
+                            disabled={!!busy}
                             onClick={() =>
                               setConfirm({
-                                label: c(
-                                  "이 업로드를 취소할까요? 완료된 조각도 정리하고 용량 예약을 해제합니다. 정리에 몇 분이 걸릴 수 있습니다.",
-                                  "Cancel this upload? Uploaded parts will be cleaned up before the storage reservation is released. Cleanup may take several minutes.",
-                                ),
+                                label: cancelUploadLabel,
                                 run: () =>
                                   cloudService.cancel(id, projectId, asset.id),
                               })

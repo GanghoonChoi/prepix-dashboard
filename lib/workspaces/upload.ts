@@ -23,6 +23,58 @@ export async function fileDigest(
   signal.throwIfAborted();
   return bytesToHex(hash.digest());
 }
+/**
+ * The same digest, off the main thread when the platform has a worker.
+ *
+ * Falls back to the in-thread version when there is no `Worker` (node tests,
+ * SSR) or when the bundler could not produce one — a hash that blocks the tab
+ * is still better than an upload that cannot start.
+ */
+export function fileDigestOffThread(
+  file: Blob,
+  signal: AbortSignal,
+  progress: (bytes: number) => void = () => {},
+): Promise<string> {
+  if (typeof Worker === "undefined") return fileDigest(file, signal, progress);
+  let worker: Worker;
+  try {
+    worker = new Worker(new URL("./digest.worker.ts", import.meta.url));
+  } catch {
+    return fileDigest(file, signal, progress);
+  }
+  return new Promise<string>((resolve, reject) => {
+    const stop = () => {
+      worker.terminate();
+      signal.removeEventListener("abort", abort);
+    };
+    const abort = () => {
+      stop();
+      reject(new DOMException("Paused", "AbortError"));
+    };
+    if (signal.aborted) return abort();
+    signal.addEventListener("abort", abort, { once: true });
+    worker.onmessage = (event: MessageEvent) => {
+      const data = event.data as {
+        progress?: number;
+        digest?: string;
+        error?: string;
+      };
+      if (typeof data.progress === "number") progress(data.progress);
+      else if (data.digest) {
+        stop();
+        resolve(data.digest);
+      } else {
+        stop();
+        reject(new Error(data.error || "UPLOAD_TRANSFER_FAILED"));
+      }
+    };
+    worker.onerror = () => {
+      stop();
+      reject(new Error("UPLOAD_TRANSFER_FAILED"));
+    };
+    worker.postMessage({ blob: file });
+  });
+}
 export function resumeMatches(
   file: { name: string; size: number },
   digest: string,
@@ -74,17 +126,25 @@ export async function uploadFile(input: {
   projectId: string;
   folderId?: string;
   resume?: Asset;
+  /**
+   * A digest already computed for this exact File object in this session, so a
+   * pause/resume does not re-hash 50 GB. Never reuse one across a re-selection
+   * from disk — F04.4 wants the re-picked file checked, not assumed.
+   */
+  digest?: string;
   signal: AbortSignal;
   onProgress: (
     phase: "hashing" | "uploading" | "verifying",
     bytes: number,
   ) => void;
   onCreated: (asset: Asset) => void;
+  onDigest?: (digest: string) => void;
 }) {
   const { file, workspaceId: w, projectId: p, signal, onProgress } = input;
-  const digest = await fileDigest(file, signal, (n) =>
-    onProgress("hashing", n),
-  );
+  const digest =
+    input.digest ??
+    (await fileDigestOffThread(file, signal, (n) => onProgress("hashing", n)));
+  input.onDigest?.(digest);
   if (input.resume && !resumeMatches(file, digest, input.resume))
     throw new Error("UPLOAD_RESUME_MISMATCH");
   const id = input.resume?.id ?? crypto.randomUUID();
@@ -114,6 +174,15 @@ export async function uploadFile(input: {
     onProgress("verifying", file.size);
     return cloudService.complete(w, p, id);
   }
+  // The part size drives the loop counter, so a server that answers 0 — or
+  // something small enough to demand millions of parts — hangs the tab rather
+  // than failing. Trust it only after it can actually finish.
+  if (
+    !Number.isInteger(status.partSize) ||
+    status.partSize <= 0 ||
+    file.size / status.partSize > 10_000
+  )
+    throw new Error("UPLOAD_PART_SIZE_INVALID");
   const completed = new Map(
     status.parts.map((part) => [part.number, part.size]),
   );

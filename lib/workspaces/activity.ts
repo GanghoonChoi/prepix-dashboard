@@ -42,7 +42,8 @@ const labels: Record<string, [string, string]> = {
   ],
 };
 export function activityLabel(action: string, lang: string) {
-  return (labels[action] ?? ["팀 설정 변경", "Team settings updated"])[
-    lang === "ko" ? 0 : 1
-  ];
+  // An unknown action falls back to the raw action string. Naming it
+  // "Team settings updated" made the audit trail assert an event that never
+  // happened, which is worse than an unfamiliar identifier (F12).
+  return labels[action]?.[lang === "ko" ? 0 : 1] ?? action;
 }

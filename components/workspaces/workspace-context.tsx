@@ -17,6 +17,8 @@ import {
 import { cloudService } from "@/lib/api/services/cloud.service";
 import { useI18n } from "@/lib/i18n/context";
 import { CloudError, cloudErrorCode } from "./cloud-shared";
+import { contentGone } from "@/lib/workspaces/errors";
+import { isPersonal } from "@/lib/workspaces/kind";
 const Context = createContext<{
   data: WorkspaceDetail;
   reload: () => Promise<void>;
@@ -47,8 +49,13 @@ export function WorkspaceProvider({
       }
     } catch (e) {
       if (request === serial.current) {
-        setError(cloudErrorCode(e));
-        setData(null);
+        const code = cloudErrorCode(e);
+        setError(code);
+        // Keep the last good workspace. This runs on the 30s poll and on every
+        // window focus, so clearing it here unmounts every child — a half-typed
+        // invitation list included — the moment wifi blinks. Only a code that
+        // says the workspace itself is gone may empty the screen (§5.1).
+        if (contentGone(code)) setData(null);
       }
     }
   }, [id]);
@@ -75,26 +82,60 @@ export function WorkspaceProvider({
       window.removeEventListener("focus", refresh);
     };
   }, [id, reload]);
+  // Loading keeps the structure (§5.1): the back link, the header block and the
+  // nav rail stay where they are and only the content is a skeleton, so the
+  // page does not jump when the workspace arrives.
   if (!data)
     return (
-      <div className="mx-auto max-w-4xl space-y-6">
+      <div className="mx-auto max-w-4xl space-y-8 text-foreground">
         <Link
-          className="inline-flex min-h-11 items-center text-sm underline"
+          className="inline-flex min-h-11 items-center text-sm text-muted underline-offset-4 hover:underline"
           href="/dashboard/workspaces"
         >
-          {lang === "ko" ? "워크스페이스로 돌아가기" : "Back to workspaces"}
+          {lang === "ko" ? "워크스페이스" : "Workspaces"}
         </Link>
+        <header>
+          <p className="mb-3 text-xs font-medium text-muted">
+            {lang === "ko" ? "팀 미리보기" : "Team preview"}
+          </p>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+            {lang === "ko" ? "워크스페이스" : "Workspace"}
+          </h1>
+        </header>
+        <div
+          aria-hidden="true"
+          className="h-11 border-b border-border"
+          data-skeleton="nav"
+        />
         {error ? (
           <CloudError code={error} retry={reload} />
         ) : (
-          <p role="status">
-            {lang === "ko" ? "워크스페이스 불러오는 중…" : "Loading workspace…"}
-          </p>
+          <>
+            <p role="status" className="text-sm text-muted">
+              {lang === "ko"
+                ? "워크스페이스 불러오는 중…"
+                : "Loading workspace…"}
+            </p>
+            <div aria-hidden="true" className="space-y-3">
+              <div className="h-24 rounded-xl border border-border bg-surface" />
+              <div className="h-40 rounded-xl border border-border bg-surface" />
+            </div>
+          </>
         )}
       </div>
     );
   return (
     <Context.Provider value={{ data, reload, cloudEnabled }}>
+      {/*
+        A failed refresh is a banner over the page that is already there, never
+        a replacement for it. Children — and their in-progress input — stay
+        mounted.
+      */}
+      {error && (
+        <div className="mx-auto mb-6 max-w-4xl">
+          <CloudError code={error} retry={reload} />
+        </div>
+      )}
       {children}
     </Context.Provider>
   );
@@ -106,15 +147,24 @@ export function WorkspaceNav() {
   if (!context) return null;
   const { data, cloudEnabled } = context;
   const base = `/dashboard/workspaces/${data.workspace.id}`;
+  /**
+   * A personal space has no team chrome — not disabled, absent (spec D13 §2.3).
+   * Members, seats, roles and the audit trail are all statements about other
+   * people, and there are no other people here. Nothing to invite into is
+   * nothing to invite into by mistake, which is the whole guardrail.
+   */
+  const personal = isPersonal(data.workspace);
   const links = [
     ["", "홈", "Home"],
-    ["/members", "멤버", "Members"],
+    ...(personal ? [] : [["/members", "멤버", "Members"]]),
     ...(cloudEnabled ? [["/projects", "프로젝트", "Projects"]] : []),
     ["/plan", "플랜과 사용량", "Plan and usage"],
     ...(data.managementEnabled
       ? [
           ["/settings", "설정", "Settings"],
-          ...(data.canManage ? [["/activity", "활동 기록", "Activity"]] : []),
+          ...(data.canManage && !personal
+            ? [["/activity", "활동 기록", "Activity"]]
+            : []),
         ]
       : []),
   ];

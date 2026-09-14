@@ -8,6 +8,7 @@ import { useI18n } from "@/lib/i18n/context";
 import { legalUrl } from "@/lib/i18n/config";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { Lockup } from "@/components/brand";
+import type { Profile } from "@/lib/api/services/user.service";
 
 const NAV_ITEMS = [
   { key: "nav.overview", href: "/dashboard" },
@@ -21,11 +22,15 @@ export function Sidebar({
   onLogout,
   onClose,
 }: {
-  profile: Record<string, string> | null;
+  profile: Profile | null;
   onLogout: () => void;
   onClose?: () => void;
 }) {
-  const { capabilities } = useWorkspaceCapabilities();
+  const { capabilities, status } = useWorkspaceCapabilities();
+  // A probe we could not reach is not proof the feature is gone. Keep the team
+  // entry where it was so a blip does not remove the way back to it; the list
+  // page behind it explains and offers a retry.
+  const showTeams = !!capabilities?.enabled || status === "unreachable";
   const pathname = usePathname();
   const { t, lang } = useI18n();
   const displayName = profile?.username || profile?.email || "User";
@@ -37,11 +42,11 @@ export function Sidebar({
         <Lockup />
       </div>
 
-      {capabilities?.enabled && <WorkspaceSwitcher onClose={onClose} />}
+      {showTeams && <WorkspaceSwitcher onClose={onClose} />}
       {/* Nav */}
       <nav className="flex-1 px-3 py-3">
         <div className="space-y-0.5">
-          {capabilities?.enabled && (
+          {showTeams && (
             <Link
               href="/dashboard/workspaces"
               onClick={onClose}
@@ -50,7 +55,7 @@ export function Sidebar({
               {t("team.title")}
             </Link>
           )}
-          {capabilities?.enabled && (
+          {showTeams && (
             <p className="px-3 pb-2 pt-4 text-[11px] text-muted">
               {lang === "ko" ? "개인 계정" : "Personal account"}
             </p>
