@@ -100,15 +100,22 @@ function InvitationContent({ token }: { token: string }) {
                   date: new Date(invite.expiresAt).toLocaleDateString(lang),
                 })}
           </p>
-          <button className={primaryClass} onClick={accept} disabled={busy}>
-            {t(
-              busy
-                ? "team.accepting"
-                : invite.accepted
-                ? "team.open"
-                : "team.accept"
-            )}
-          </button>
+          {invite.accepted ? (
+            // Nothing left to accept: this is navigation, so render it as
+            // navigation instead of a POST that happens to be idempotent.
+            <Link
+              className={primaryClass}
+              href={`/dashboard/workspaces${
+                invite.workspaceId ? `/${invite.workspaceId}` : ""
+              }`}
+            >
+              {t("team.open")}
+            </Link>
+          ) : (
+            <button className={primaryClass} onClick={accept} disabled={busy}>
+              {t(busy ? "team.accepting" : "team.accept")}
+            </button>
+          )}
         </section>
       )}
       <div className="flex flex-wrap gap-3">

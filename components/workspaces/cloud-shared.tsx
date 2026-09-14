@@ -70,6 +70,10 @@ const messages: Record<string, [string, string]> = {
     "소유자는 멤버 관리에서 제거하거나 역할을 변경할 수 없습니다.",
     "The workspace owner cannot be removed or demoted here.",
   ],
+  WORKSPACE_ADMIN_REQUIRED: [
+    "공개 범위 변경은 소유자와 관리자만 할 수 있습니다. 프로젝트 이름과 보관은 계속 변경할 수 있습니다.",
+    "Only workspace owners and admins can change visibility. You can still rename and archive this project.",
+  ],
   TEAM_PROJECTS_DISABLED: [
     "이 환경에서는 팀 프로젝트를 아직 사용할 수 없습니다.",
     "Team projects are not enabled in this environment.",
@@ -106,6 +110,10 @@ const messages: Record<string, [string, string]> = {
     "이어 올리기 기간이 지났습니다. 새 업로드를 시작하세요.",
     "This upload session expired. Start a new upload.",
   ],
+  UPLOAD_PART_SIZE_INVALID: [
+    "저장소가 알려준 조각 크기를 사용할 수 없습니다. 이 업로드를 취소하고 새로 시작하세요.",
+    "The storage service returned an unusable part size. Cancel this upload and start a new one.",
+  ],
   UPLOAD_FILE_INVALID: [
     "비어 있는 파일이거나 파일 크기 제한을 초과했습니다.",
     "This file is empty or exceeds the file size limit.",
@@ -135,6 +143,14 @@ const messages: Record<string, [string, string]> = {
     "Members and pending invitations already use all available seats.",
   ],
 };
+const FALLBACK: [string, string] = [
+  "요청을 완료하지 못했습니다. 다시 시도하세요.",
+  "The request could not be completed. Please try again.",
+];
+/** The message on its own, for places too small to carry the whole banner. */
+export function cloudMessage(code: string, lang: string) {
+  return (messages[code] ?? FALLBACK)[lang === "ko" ? 0 : 1];
+}
 export function cloudErrorCode(error: unknown) {
   return error instanceof Error && /^[A-Z_]+$/.test(error.message)
     ? error.message
@@ -153,14 +169,7 @@ export function CloudError({
       role="alert"
       className="space-y-3 rounded-lg border border-border bg-surface p-4 text-sm leading-6"
     >
-      <p>
-        {
-          (messages[code] ?? [
-            "요청을 완료하지 못했습니다. 다시 시도하세요.",
-            "The request could not be completed. Please try again.",
-          ])[lang === "ko" ? 0 : 1]
-        }
-      </p>
+      <p>{cloudMessage(code, lang)}</p>
       {retry && (
         <button className={secondaryClass} onClick={retry}>
           {lang === "ko" ? "다시 시도" : "Try again"}

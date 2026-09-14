@@ -4,9 +4,11 @@ import { FolderClosed, Users, Settings, ArrowUpRight } from "lucide-react";
 import { useI18n } from "@/lib/i18n/context";
 import {
   TeamShell,
+  SpaceBadge,
   primaryClass,
   secondaryClass,
 } from "@/components/workspaces/shared";
+import { isPersonal, seatFigures } from "@/lib/workspaces/kind";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import { MembersContent } from "@/components/workspaces/members-content";
 import { ResponsibilityQueue } from "@/components/workspaces/responsibility-queue";
@@ -18,20 +20,31 @@ export default function Page() {
   const { workspace } = data;
   const base = `/dashboard/workspaces/${workspace.id}`;
   const c = (ko: string, en: string) => (lang === "ko" ? ko : en);
-  if (!workspace.onboardingCompletedAt && data.canManage)
+  const personal = isPersonal(workspace);
+  const seats = seatFigures(data);
+  // The invite-first setup run belongs to a team. A personal space is finished
+  // the moment it exists, so it never lands on a members screen.
+  if (!workspace.onboardingCompletedAt && data.canManage && !personal)
     return <MembersContent id={workspace.id} />;
   return (
     <TeamShell
-      title={workspace.name}
+      title={personal ? t("team.personalTitle") : workspace.name}
       description={
-        workspace.description ||
-        c(
-          "팀의 프로젝트와 멤버를 한곳에서 관리하세요.",
-          "Manage your team's projects and people in one place.",
-        )
+        personal
+          ? t("team.personalDesc")
+          : workspace.description ||
+            c(
+              "팀의 프로젝트와 멤버를 한곳에서 관리하세요.",
+              "Manage your team's projects and people in one place.",
+            )
       }
     >
-      {data.pendingTransfer && (
+      {/*
+        The current space, on the page itself and not only in the switcher —
+        this is the home of every consequential action below it.
+      */}
+      <SpaceBadge workspace={workspace} />
+      {!personal && data.pendingTransfer && (
         <div
           role="status"
           className="space-y-3 rounded-xl border border-border bg-surface p-5"
@@ -52,44 +65,57 @@ export default function Page() {
           </Link>
         </div>
       )}
-      <section className="grid gap-4 sm:grid-cols-3">
-        {[
-          [c("내 역할", "Your role"), t(`team.role.${data.role}`)],
-          [
-            c("참여 중인 멤버", "Active members"),
-            String(data.members.filter((m) => !m.suspendedAt).length),
-          ],
-          [
-            c("좌석 사용 / 한도", "Seats used / limit"),
-            `${data.seats.used + data.seats.reserved} / ${workspace.seatLimit}`,
-          ],
-        ].map(([label, value]) => (
-          <div key={label} className="rounded-xl border border-border p-5">
-            <p className="text-xs text-muted">{label}</p>
-            <p className="mt-3 text-xl font-medium tabular-nums">{value}</p>
-          </div>
-        ))}
-      </section>
+      {/*
+        Roles and seats are statements about other people, so a personal space
+        does not carry them at all. For a team they are separate figures, never
+        a single total that can hide a seat a pending invitation is holding.
+      */}
+      {!personal && seats && (
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            [c("내 역할", "Your role"), t(`team.role.${data.role}`)],
+            [t("team.seatActive"), String(seats.active)],
+            [t("team.seatInvited"), String(seats.invited)],
+            [t("team.seatRemaining"), String(seats.remaining)],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-xl border border-border p-5">
+              <p className="text-xs leading-5 text-muted">{label}</p>
+              <p className="mt-3 text-xl font-medium tabular-nums">{value}</p>
+            </div>
+          ))}
+        </section>
+      )}
       <div className="grid gap-4 sm:grid-cols-2">
         {[
-          [
-            "/members",
-            c("멤버와 초대", "Members and invitations"),
-            c(
-              "역할과 좌석, 참여 상태를 관리합니다.",
-              "Manage roles, seats and membership.",
-            ),
-            Users,
-          ],
+          ...(personal
+            ? []
+            : [
+                [
+                  "/members",
+                  c("멤버와 초대", "Members and invitations"),
+                  c(
+                    "역할과 좌석, 참여 상태를 관리합니다.",
+                    "Manage roles, seats and membership.",
+                  ),
+                  Users,
+                ],
+              ]),
           ...(cloudEnabled
             ? [
                 [
                   "/projects",
-                  c("팀 프로젝트", "Team projects"),
-                  c(
-                    "팀 원본을 모으고 프로젝트 접근 권한을 정합니다.",
-                    "Collect team files and manage project access.",
-                  ),
+                  personal
+                    ? c("내 프로젝트", "Your projects")
+                    : c("팀 프로젝트", "Team projects"),
+                  personal
+                    ? c(
+                        "나만 접근하는 원본과 프로젝트입니다.",
+                        "Originals and projects only you can reach.",
+                      )
+                    : c(
+                        "팀 원본을 모으고 프로젝트 접근 권한을 정합니다.",
+                        "Collect team files and manage project access.",
+                      ),
                   FolderClosed,
                 ],
               ]
@@ -99,10 +125,15 @@ export default function Page() {
                 [
                   "/settings",
                   c("워크스페이스 설정", "Workspace settings"),
-                  c(
-                    "팀 정보, 소유권 이전과 내 참여를 관리합니다.",
-                    "Manage team details, ownership and your membership.",
-                  ),
+                  personal
+                    ? c(
+                        "이름과 소개를 바꿉니다.",
+                        "Change the name and description.",
+                      )
+                    : c(
+                        "팀 정보, 소유권 이전과 내 참여를 관리합니다.",
+                        "Manage team details, ownership and your membership.",
+                      ),
                   Settings,
                 ],
               ]
@@ -127,7 +158,15 @@ export default function Page() {
           );
         })}
       </div>
-      {data.canManage && data.managementEnabled && <ResponsibilityQueue />}
+      {!personal && data.canManage && data.managementEnabled && (
+        <ResponsibilityQueue />
+      )}
+      {personal && (
+        // The only route from personal to team is an explicit, named one.
+        <Link className={secondaryClass} href="/dashboard/workspaces/new">
+          {t("team.makeTeam")}
+        </Link>
+      )}
       {process.env.NEXT_PUBLIC_START_ONBOARDING === "1" && (
         <section className="flex flex-wrap items-center justify-between gap-5 rounded-xl border border-border bg-surface p-6">
           <div>
@@ -143,7 +182,7 @@ export default function Page() {
           </div>
           <Link
             className={primaryClass}
-            href={`/start?mode=team&workspace=${workspace.id}&locale=${lang}`}
+            href={`/start?step=app&workspace=${workspace.id}&locale=${lang}`}
           >
             {c("앱 시작 안내", "Open app guide")}
           </Link>

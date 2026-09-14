@@ -7,11 +7,13 @@ import { MemberActions } from "@/components/workspaces/member-actions";
 import { useI18n } from "@/lib/i18n/context";
 import { workspaceService } from "@/lib/api/services/workspace.service";
 import { invitationStatus, workspaceError } from "@/lib/workspaces/onboarding";
+import { seatFigures } from "@/lib/workspaces/kind";
 import { InviteForm } from "@/components/workspaces/invite-form";
 import {
   TeamShell,
   TeamError,
   TeamLoading,
+  SeatBreakdown,
   inputClass,
   primaryClass,
   secondaryClass,
@@ -105,17 +107,12 @@ export function MembersContent({ id }: { id: string }) {
               <li>{t("team.step3")}</li>
             </ol>
           )}
-          <section className="space-y-3 rounded-xl border border-border p-5">
-            <h2 className="text-sm font-medium">{t("team.seats")}</h2>
-            <p className="text-xl font-medium tabular-nums">
-              {t("team.seatCount", {
-                used: data.seats.used,
-                reserved: data.seats.reserved,
-                limit: data.workspace.seatLimit,
-              })}
-            </p>
-            <p className="text-xs leading-5 text-muted">{t("team.seatHint")}</p>
-          </section>
+          {/*
+            Four figures, never one total. `team.seatCount` used to print
+            "3 joined + 2 invited / 10", which still reads as one sum and hid
+            suspended members entirely.
+          */}
+          <SeatBreakdown detail={data} />
           {data.canManage && (
             <section className="space-y-5 rounded-xl border border-border p-5 sm:p-6">
               <h2 className="flex items-center gap-2 font-medium">
@@ -125,6 +122,7 @@ export function MembersContent({ id }: { id: string }) {
               <InviteForm
                 key={id}
                 workspaceId={id}
+                workspace={data.workspace}
                 isOwner={data.role === "owner"}
                 existingEmails={data.members.map((member) =>
                   member.email.trim().toLowerCase(),
@@ -137,12 +135,10 @@ export function MembersContent({ id }: { id: string }) {
                       new Date(invite.expiresAt).getTime() > now,
                   )
                   .map((invite) => invite.email)}
-                availableSeats={Math.max(
-                  0,
-                  data.workspace.seatLimit -
-                    data.seats.used -
-                    data.seats.reserved,
-                )}
+                availableSeats={seatFigures(data)?.remaining ?? 0}
+                ownerEmail={
+                  data.members.find((member) => member.role === "owner")?.email
+                }
                 onChange={load}
               />
             </section>
@@ -283,6 +279,12 @@ export function MembersContent({ id }: { id: string }) {
                           </div>
                           {canManage && (
                             <div className="flex flex-wrap gap-2">
+                              {/*
+                                Revoking releases the seat, so resending would
+                                silently re-reserve it (F02.4). A revoked
+                                invitation is re-sent by inviting again.
+                              */}
+                              {status !== "revoked" && (
                               <button
                                 className={secondaryClass}
                                 disabled={!!busy || cooling}
@@ -306,6 +308,7 @@ export function MembersContent({ id }: { id: string }) {
                               >
                                 {t("team.resend")}
                               </button>
+                              )}
                               {status !== "revoked" && status !== "expired" && (
                                 <button
                                   className={secondaryClass}

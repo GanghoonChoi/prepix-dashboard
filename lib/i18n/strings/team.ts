@@ -13,9 +13,6 @@ export const team = {
     "team.pending": "Pending invitations",
     "team.pendingDesc":
       "Open the invitation in your email to review and join the workspace.",
-    "team.empty": "You have not joined a workspace yet.",
-    "team.inviteHint":
-      "Already invited? Open the link sent to your invited email address.",
     "team.newTitle": "Name your workspace",
     "team.newDesc":
       "Use your company, studio, or team name. You can invite people in the next step.",
@@ -30,8 +27,7 @@ export const team = {
       "This preview includes {seats} member seats. Reviewers do not use seats. Creating a workspace does not charge you.",
     "team.previewScope":
       "Start with team setup and invitations. Team projects appear when enabled for your workspace. Team AI allowances and billing are not available yet. Your personal plan continues to apply.",
-    "team.onePreview":
-      "One preview workspace per account. If you already created one, we will resume it.",
+    "team.remaining": "You can create {count} more.",
     "team.creating": "Creating workspace…",
     "team.inviteTitle": "Invite your team",
     "team.inviteDesc":
@@ -57,9 +53,6 @@ export const team = {
     "team.readyDesc":
       "Your team has a shared workspace. You can manage invitations and see who has joined below.",
     "team.seats": "Member seats",
-    "team.seatCount": "{used} joined + {reserved} invited / {limit}",
-    "team.seatHint":
-      "Pending invitations reserve seats until accepted, revoked, or expired.",
     "team.members": "Members",
     "team.invitations": "Invitations",
     "team.noInvitations": "No invitations yet.",
@@ -100,8 +93,43 @@ export const team = {
       "This invitation has already been accepted. You can open your workspace.",
     "team.switchAccount": "Use a different account",
     "team.invitedEmail": "Invited email",
+    "team.acceptPending": "Accept invitation",
+    "team.verifyTitle": "Verify your email address",
+    "team.verifyBody":
+      "Open the link we sent to your account's email address. Verifying lets you accept team invitations.",
+    "team.verifyPending":
+      "{count} team invitation(s) are waiting for you. Verify your email to see who invited you and join.",
+    "team.verifyResend": "Resend verification email",
+    "team.verifySending": "Sending…",
+    "team.verifySent":
+      "Verification email sent. Check your inbox, including spam.",
+    "team.verifyConfirmTitle": "Email verification",
+    "team.verifyConfirmDesc":
+      "We are confirming the link from your verification email.",
+    "team.verifyChecking": "Verifying your email…",
+    "team.verifyDone": "Your email address is verified.",
+    "team.verifyDoneDesc":
+      "You can now accept team invitations sent to this address.",
+    "team.verifyOpenTeams": "Go to workspaces",
+    "team.error.EMAIL_VERIFICATION_TOKEN_INVALID":
+      "This verification link is not valid. Open the most recent verification email, or send a new one.",
+    "team.error.EMAIL_VERIFICATION_TOKEN_EXPIRED":
+      "This verification link expired. Send a new verification email and use the newest link.",
+    "team.error.EMAIL_VERIFICATION_TOKEN_USED":
+      "This link was already used. Your email is verified — sign in to continue.",
+    "team.error.EMAIL_VERIFICATION_RATE_LIMITED":
+      "Too many verification emails were requested. Wait a few minutes, then use the newest link you received.",
+    "team.seatRequest":
+      "Ask the workspace owner ({email}) to add seats. Your draft stays on this page.",
+    "team.seatRequestAction": "Email the owner",
     "team.error.WORKSPACES_DISABLED":
       "Team onboarding is not available for this environment yet. You can continue with your personal account.",
+    "team.error.WORKSPACES_UNREACHABLE":
+      "We could not reach the team service. Your account and personal tools are unaffected — try again in a moment.",
+    "team.error.WORKSPACES_EMPTY":
+      "Every account has a workspace, so this list should never be empty. Yours may still be getting ready — try again in a moment.",
+    "team.error.WORKSPACE_CREATE_LIMIT_REACHED":
+      "You have created as many workspaces as this account can. Open one you already have, or leave one you no longer need.",
     "team.error.WORKSPACE_CREATION_UNAVAILABLE":
       "Workspace creation is available to preview accounts. If you were invited, open your invitation email.",
     "team.error.WORKSPACE_NAME_INVALID":
@@ -127,6 +155,63 @@ export const team = {
     "team.error.RATE_LIMIT": "Too many requests. Wait a moment and try again.",
     "team.error.REQUEST_FAILED":
       "We could not complete the request. Your input is saved on this page. Check your connection and try again.",
+     "team.error.WORKSPACE_PERSONAL_INVITE_FORBIDDEN":
+      "A personal space cannot be invited into. Create a team and invite people there — your personal space stays yours alone.",
+    "team.error.WORKSPACE_PERSONAL_DELETE_FORBIDDEN":
+      "A personal space cannot be deleted. Every account has exactly one, and it is not a team you can close.",
+    "team.error.WORKSPACE_PERSONAL_MEMBERS_FORBIDDEN":
+      "A personal space has no members to manage. Create a team if you need to work with other people.",
+    "team.error.WORKSPACE_PERSONAL_LEAVE_FORBIDDEN":
+      "A personal space cannot be left. There is nobody else in it to leave it to.",
+    "team.error.WORKSPACE_PERSONAL_TRANSFER_FORBIDDEN":
+      "A personal space cannot be handed to anyone else. Move the work into a team if someone else needs to own it.",
+    "team.openPersonal": "Open your space",
+    "team.kind.personal": "Personal space",
+    "team.kind.team": "Team",
+    "team.personalTitle": "Your personal space",
+    "team.personalDesc":
+      "Only you can see this space. Nobody can be invited into it, it holds no seats, and it cannot be deleted or handed to anyone else.",
+    "team.personalOne":
+      "This is your space. Create a team when you want to work with other people — your personal space stays exactly as it is.",
+    "team.personalNoTeams": "You are not in a team yet.",
+    "team.teamsHeading": "Teams",
+    "team.spaceHeading": "Your space",
+    "team.makeTeam": "Create a team",
+    "team.personalNoMembers":
+      "A personal space has no members, no roles and no invitations. To work with someone, create a team and invite them there.",
+    "team.here": "You are in",
+    "team.hereTeam": "Anything you do here is visible to this team.",
+    "team.herePersonal": "Anything you do here is visible only to you.",
+    "team.seatActive": "Active members",
+    "team.seatInvited": "Held by invitations",
+    "team.seatSuspended": "Suspended",
+    "team.seatRemaining": "Seats remaining",
+    "team.seatReviewers": "Reviewers",
+    "team.seatHolds": "Holds a seat",
+    "team.seatFree": "Holds no seat",
+    "team.seatSplit":
+      "These are separate figures on purpose. An unaccepted invitation holds a seat until it is accepted, revoked or expires, so a single total would hide it — read all four before you change anything about seats.",
+    "team.capsTitle": "What each role can do",
+    "team.capsHint":
+      "A role is the ceiling on what someone can do; project access is granted separately. An admin cannot promote anyone — themselves included — to owner.",
+    "team.caps.billing": "Billing, seats, ownership, deleting the team",
+    "team.caps.people": "Invite, change roles, suspend, remove",
+    "team.caps.projects": "Create projects, upload originals",
+    "team.caps.publish": "Edit in the app, publish a version",
+    "team.caps.comment": "Comment on a review",
+    "team.caps.seat": "Uses a paid seat",
+    "team.caps.yes": "Yes",
+    "team.caps.no": "No",
+    "team.caps.scoped": "Within access",
+    "team.caps.notOwner": "Not the owner",
+    "team.startPersonalTitle": "Your personal space is ready",
+    "team.startPersonalBody":
+      "It was made with your account and nobody else can see it. You can create a team whenever you need one — that is a separate space, and this one stays yours.",
+    "team.startTeamName": "Team name",
+    "team.startTeamHint":
+      "Use your company, studio or team name. You can invite people in the next step.",
+    "team.startNoTeam":
+      "You have no team yet, so there is nobody to invite. Create one above whenever you want to, or carry on.",
   },
   ko: {
     "team.title": "워크스페이스",
@@ -142,9 +227,6 @@ export const team = {
     "team.pending": "대기 중인 초대",
     "team.pendingDesc":
       "이메일로 받은 초대 링크에서 내용을 확인하고 참여하세요.",
-    "team.empty": "아직 참여한 워크스페이스가 없습니다.",
-    "team.inviteHint":
-      "이미 초대받았나요? 초대받은 이메일의 링크를 열어주세요.",
     "team.newTitle": "워크스페이스 이름을 정하세요",
     "team.newDesc":
       "회사, 스튜디오 또는 팀 이름을 사용하세요. 다음 단계에서 팀원을 초대할 수 있습니다.",
@@ -158,8 +240,7 @@ export const team = {
       "미리보기에는 멤버 {seats}석이 포함됩니다. 검토자는 좌석을 사용하지 않으며, 워크스페이스를 만들어도 결제되지 않습니다.",
     "team.previewScope":
       "팀 구성과 초대부터 시작합니다. 활성화된 환경에서는 팀 프로젝트를 사용할 수 있습니다. 팀 AI 한도와 팀 결제는 아직 제공하지 않으며, 개인 플랜은 그대로 유지됩니다.",
-    "team.onePreview":
-      "계정당 미리보기 워크스페이스 1개를 제공합니다. 이미 만들었다면 이어서 설정합니다.",
+    "team.remaining": "{count}개를 더 만들 수 있습니다.",
     "team.creating": "워크스페이스를 만드는 중…",
     "team.inviteTitle": "함께할 팀원을 초대하세요",
     "team.inviteDesc":
@@ -185,9 +266,6 @@ export const team = {
     "team.readyDesc":
       "팀의 작업 공간이 만들어졌습니다. 아래에서 초대를 관리하고 참여한 팀원을 확인하세요.",
     "team.seats": "멤버 좌석",
-    "team.seatCount": "참여 {used}명 + 초대 {reserved}명 / {limit}석",
-    "team.seatHint":
-      "대기 중인 초대도 수락·취소·만료될 때까지 좌석을 예약합니다.",
     "team.members": "멤버",
     "team.invitations": "초대",
     "team.noInvitations": "아직 보낸 초대가 없습니다.",
@@ -228,8 +306,42 @@ export const team = {
       "이미 수락한 초대입니다. 워크스페이스로 이동할 수 있습니다.",
     "team.switchAccount": "다른 계정으로 로그인",
     "team.invitedEmail": "초대받은 이메일",
+    "team.acceptPending": "초대 수락",
+    "team.verifyTitle": "이메일 주소를 인증해 주세요",
+    "team.verifyBody":
+      "계정 이메일 주소로 보낸 링크를 열어주세요. 인증하면 팀 초대를 수락할 수 있습니다.",
+    "team.verifyPending":
+      "받은 팀 초대가 {count}개 있습니다. 이메일을 인증하면 어느 팀인지 확인하고 참여할 수 있습니다.",
+    "team.verifyResend": "인증 메일 다시 보내기",
+    "team.verifySending": "보내는 중…",
+    "team.verifySent":
+      "인증 메일을 보냈습니다. 받은 편지함과 스팸함을 확인하세요.",
+    "team.verifyConfirmTitle": "이메일 인증",
+    "team.verifyConfirmDesc": "인증 메일의 링크를 확인하고 있습니다.",
+    "team.verifyChecking": "이메일을 인증하는 중…",
+    "team.verifyDone": "이메일 주소를 인증했습니다.",
+    "team.verifyDoneDesc":
+      "이제 이 주소로 받은 팀 초대를 수락할 수 있습니다.",
+    "team.verifyOpenTeams": "워크스페이스로 이동",
+    "team.error.EMAIL_VERIFICATION_TOKEN_INVALID":
+      "인증 링크가 올바르지 않습니다. 가장 최근에 받은 인증 메일의 링크를 열거나 인증 메일을 다시 받으세요.",
+    "team.error.EMAIL_VERIFICATION_TOKEN_EXPIRED":
+      "인증 링크가 만료되었습니다. 인증 메일을 다시 받아 최신 링크를 사용하세요.",
+    "team.error.EMAIL_VERIFICATION_TOKEN_USED":
+      "이미 사용한 링크입니다. 이메일 인증이 끝났으니 로그인해서 계속하세요.",
+    "team.error.EMAIL_VERIFICATION_RATE_LIMITED":
+      "인증 메일을 너무 많이 요청했습니다. 몇 분 뒤에 가장 최근에 받은 링크를 사용하세요.",
+    "team.seatRequest":
+      "워크스페이스 소유자({email})에게 좌석 추가를 요청하세요. 입력한 내용은 이 화면에 유지됩니다.",
+    "team.seatRequestAction": "소유자에게 메일 보내기",
     "team.error.WORKSPACES_DISABLED":
       "이 환경에서는 팀 온보딩을 아직 사용할 수 없습니다. 개인 계정으로 계속 이용할 수 있습니다.",
+    "team.error.WORKSPACES_UNREACHABLE":
+      "팀 서비스에 연결하지 못했습니다. 계정과 개인 작업에는 영향이 없습니다. 잠시 후 다시 시도해주세요.",
+    "team.error.WORKSPACES_EMPTY":
+      "모든 계정에는 워크스페이스가 있으므로 이 목록이 비어 있을 수 없습니다. 아직 준비 중일 수 있으니 잠시 후 다시 시도해주세요.",
+    "team.error.WORKSPACE_CREATE_LIMIT_REACHED":
+      "이 계정에서 만들 수 있는 워크스페이스를 모두 만들었습니다. 이미 있는 워크스페이스를 사용하거나, 더 이상 쓰지 않는 곳에서 나가세요.",
     "team.error.WORKSPACE_CREATION_UNAVAILABLE":
       "워크스페이스 생성은 미리보기 대상 계정에 제공됩니다. 초대받았다면 이메일의 초대 링크를 열어주세요.",
     "team.error.WORKSPACE_NAME_INVALID":
@@ -255,5 +367,62 @@ export const team = {
     "team.error.RATE_LIMIT": "요청이 많습니다. 잠시 후 다시 시도해주세요.",
     "team.error.REQUEST_FAILED":
       "요청을 완료하지 못했습니다. 이 화면의 입력은 유지됩니다. 연결을 확인하고 다시 시도해주세요.",
+     "team.error.WORKSPACE_PERSONAL_INVITE_FORBIDDEN":
+      "개인 공간에는 초대할 수 없습니다. 팀을 만들어 그곳으로 초대하세요. 개인 공간은 계속 나만의 공간으로 남습니다.",
+    "team.error.WORKSPACE_PERSONAL_DELETE_FORBIDDEN":
+      "개인 공간은 삭제할 수 없습니다. 계정마다 하나씩 있으며, 닫을 수 있는 팀이 아닙니다.",
+    "team.error.WORKSPACE_PERSONAL_MEMBERS_FORBIDDEN":
+      "개인 공간에는 관리할 멤버가 없습니다. 다른 사람과 함께 일해야 한다면 팀을 만드세요.",
+    "team.error.WORKSPACE_PERSONAL_LEAVE_FORBIDDEN":
+      "개인 공간은 탈퇴할 수 없습니다. 남겨 줄 사람이 없습니다.",
+    "team.error.WORKSPACE_PERSONAL_TRANSFER_FORBIDDEN":
+      "개인 공간은 다른 사람에게 넘길 수 없습니다. 다른 사람이 소유해야 한다면 작업을 팀으로 옮기세요.",
+    "team.openPersonal": "내 공간 열기",
+    "team.kind.personal": "개인 공간",
+    "team.kind.team": "팀",
+    "team.personalTitle": "내 개인 공간",
+    "team.personalDesc":
+      "나만 보는 공간입니다. 이 공간에는 누구도 초대할 수 없고, 좌석을 쓰지 않으며, 삭제하거나 다른 사람에게 넘길 수 없습니다.",
+    "team.personalOne":
+      "여기가 내 공간입니다. 다른 사람과 함께 일할 때 팀을 만드세요. 개인 공간은 그대로 남습니다.",
+    "team.personalNoTeams": "아직 참여한 팀이 없습니다.",
+    "team.teamsHeading": "팀",
+    "team.spaceHeading": "내 공간",
+    "team.makeTeam": "팀 만들기",
+    "team.personalNoMembers":
+      "개인 공간에는 멤버도, 역할도, 초대도 없습니다. 누군가와 함께 일하려면 팀을 만들고 그곳으로 초대하세요.",
+    "team.here": "현재 위치",
+    "team.hereTeam": "여기서 하는 일은 이 팀에게 보입니다.",
+    "team.herePersonal": "여기서 하는 일은 나에게만 보입니다.",
+    "team.seatActive": "참여 중인 멤버",
+    "team.seatInvited": "초대가 잡아둔 좌석",
+    "team.seatSuspended": "참여 정지",
+    "team.seatRemaining": "남은 좌석",
+    "team.seatReviewers": "검토자",
+    "team.seatHolds": "좌석을 차지함",
+    "team.seatFree": "좌석을 차지하지 않음",
+    "team.seatSplit":
+      "일부러 숫자를 나눠 둡니다. 수락하지 않은 초대도 수락·취소·만료될 때까지 좌석을 잡고 있어서 합계 하나로는 보이지 않습니다. 좌석을 손대기 전에 네 숫자를 모두 확인하세요.",
+    "team.capsTitle": "역할별로 할 수 있는 일",
+    "team.capsHint":
+      "역할은 할 수 있는 일의 상한입니다. 프로젝트 접근 권한은 따로 부여합니다. 관리자는 자기 자신을 포함해 누구도 소유자로 올릴 수 없습니다.",
+    "team.caps.billing": "결제·좌석·소유권 이전·팀 삭제",
+    "team.caps.people": "초대·역할 변경·참여 정지·제거",
+    "team.caps.projects": "프로젝트 만들기·원본 업로드",
+    "team.caps.publish": "앱에서 편집·버전 발행",
+    "team.caps.comment": "리뷰 코멘트",
+    "team.caps.seat": "유료 좌석 사용",
+    "team.caps.yes": "가능",
+    "team.caps.no": "불가",
+    "team.caps.scoped": "범위 내",
+    "team.caps.notOwner": "소유자 제외",
+    "team.startPersonalTitle": "개인 공간이 준비되었습니다",
+    "team.startPersonalBody":
+      "계정 정보로 만들어 두었고 다른 사람에게는 보이지 않습니다. 팀이 필요해지면 언제든 만들 수 있습니다. 팀은 별도의 공간이고, 이 공간은 그대로 내 것입니다.",
+    "team.startTeamName": "팀 이름",
+    "team.startTeamHint":
+      "회사, 스튜디오 또는 팀 이름을 사용하세요. 다음 단계에서 팀원을 초대할 수 있습니다.",
+    "team.startNoTeam":
+      "아직 팀이 없어서 초대할 사람도 없습니다. 위에서 팀을 만들거나, 그냥 계속 진행하세요.",
   },
 };

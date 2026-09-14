@@ -5,10 +5,12 @@ import { useI18n } from "@/lib/i18n/context";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
   TeamShell,
+  SpaceBadge,
   inputClass,
   primaryClass,
   secondaryClass,
 } from "@/components/workspaces/shared";
+import { isPersonal } from "@/lib/workspaces/kind";
 import {
   CloudError,
   cloudErrorCode,
@@ -24,6 +26,13 @@ export default function Page() {
   const router = useRouter();
   const c = (ko: string, en: string) => (lang === "ko" ? ko : en);
   const id = data.workspace.id;
+  /**
+   * A personal workspace cannot be handed over, left or deleted — the backend
+   * rejects all three — so neither section is rendered here. Absent, not
+   * disabled: a greyed-out "transfer ownership" still teaches people that their
+   * private space is the kind of object that can be given away.
+   */
+  const personal = isPersonal(data.workspace);
   const [draft, setDraft] = useState<{
     name: string;
     description: string;
@@ -42,6 +51,10 @@ export default function Page() {
     description: data.workspace.description || "",
     revision: data.workspace.revision ?? 0,
   };
+  // The draft normalizes `revision` to 0; compare against the same
+  // normalization, or a response without the field reads as "someone else
+  // changed this" forever and Save never enables again.
+  const conflicted = !!draft && draft.revision !== (data.workspace.revision ?? 0);
   const pending = data.pendingTransfer;
   const confirming =
     confirm === "transfer"
@@ -71,8 +84,9 @@ export default function Page() {
   return (
     <TeamShell
       title={c("워크스페이스 설정", "Workspace settings")}
-      description={data.workspace.name}
+      description={personal ? t("team.kind.personal") : data.workspace.name}
     >
+      <SpaceBadge workspace={data.workspace} />
       {error && <CloudError code={error} />}
       {notice && (
         <p role="status" className="text-sm">
@@ -80,7 +94,11 @@ export default function Page() {
         </p>
       )}
       <section className="space-y-5 rounded-xl border border-border p-6">
-        <h2 className="font-medium">{c("팀 정보", "Team details")}</h2>
+        <h2 className="font-medium">
+          {personal
+            ? c("공간 정보", "Space details")
+            : c("팀 정보", "Team details")}
+        </h2>
         <form
           className="space-y-4"
           onSubmit={async (e) => {
@@ -106,7 +124,7 @@ export default function Page() {
             />
           </label>
           <label className="block space-y-2 text-sm">
-            <span>{c("팀 소개", "Description")}</span>
+            <span>{c("소개", "Description")}</span>
             <textarea
               className={`${inputClass} min-h-24 resize-y`}
               maxLength={500}
@@ -117,7 +135,7 @@ export default function Page() {
               }
             />
           </label>
-          {draft && draft.revision !== data.workspace.revision && (
+          {conflicted && (
             <p role="status" className="text-sm text-muted">
               {c(
                 "다른 관리자가 설정을 변경했습니다. 최신 정보 불러오기로 다시 시작하세요.",
@@ -130,10 +148,7 @@ export default function Page() {
               <button
                 className={primaryClass}
                 disabled={
-                  busy ||
-                  !draft ||
-                  !form.name.trim() ||
-                  draft.revision !== data.workspace.revision
+                  busy || !draft || !form.name.trim() || conflicted
                 }
               >
                 {c("변경 저장", "Save changes")}
@@ -160,6 +175,7 @@ export default function Page() {
           )}
         </p>
       </section>
+      {!personal && (
       <section className="space-y-4 rounded-xl border border-border p-6">
         <h2 className="font-medium">{c("소유권", "Ownership")}</h2>
         <p className="text-sm">
@@ -313,6 +329,8 @@ export default function Page() {
             />
           )}
       </section>
+      )}
+      {!personal && (
       <section className="space-y-4 rounded-xl border border-border p-6">
         <h2 className="font-medium">{c("내 참여", "Your membership")}</h2>
         <p className="text-sm leading-6 text-muted">
@@ -396,6 +414,12 @@ export default function Page() {
           </form>
         )}
       </section>
+      )}
+      {personal && (
+        <p className="max-w-2xl text-sm leading-6 text-muted">
+          {t("team.personalDesc")}
+        </p>
+      )}
     </TeamShell>
   );
 }

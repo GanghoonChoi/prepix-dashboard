@@ -28,6 +28,14 @@ export default function NewWorkspacePage() {
     setBusy(true);
     setError("");
     try {
+      /*
+        `resumed` here means a double-submit or a lost response landing on the
+        same creator and the same name — the server handing back the row it
+        already made rather than a duplicate. Either way the user asked for
+        this workspace and it exists, so it is the same destination. A
+        deliberate second team under a different name creates a new one, and
+        running out of them is a 409, handled as its own message below.
+      */
       const { workspace } = await workspaceService.create(name.trim());
       router.replace(`/dashboard/workspaces/${workspace.id}`);
     } catch (e) {
@@ -80,7 +88,11 @@ export default function NewWorkspacePage() {
               {t("team.previewTerms", { seats: capabilities.previewSeats })}
             </p>
             <p className="text-muted">{t("team.previewScope")}</p>
-            <p className="text-xs text-muted">{t("team.onePreview")}</p>
+            {typeof capabilities.remainingCreations === "number" && (
+              <p className="text-xs text-muted">
+                {t("team.remaining", { count: capabilities.remainingCreations })}
+              </p>
+            )}
           </div>
           {error && <TeamError code={error} />}
           <div className="flex flex-wrap gap-3">

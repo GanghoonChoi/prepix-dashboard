@@ -6,10 +6,19 @@ export type CloudCapabilities = {
   partSize: number;
   billingEnabled: boolean;
 };
+/**
+ * Who can SEE the project. `team` lets every active member open it without an
+ * explicit grant; `restricted` requires one. It confers view only — editing and
+ * original download stay per-member grants either way, so nothing in the UI may
+ * present this as widening them.
+ */
+export type ProjectVisibility = "team" | "restricted";
 export type Project = {
   id: string;
   workspaceId: string;
   name: string;
+  /** Optional only for servers older than the field; treat absent as unknown. */
+  visibility?: ProjectVisibility;
   createdBy: string;
   managerId?: string | null;
   archivedAt: string | null;
@@ -32,6 +41,24 @@ export type Asset = {
     | "cancelling"
     | "cancelled";
   failure: string | null;
+  /**
+   * The PREVIEW axis, independent of `state` above (F04.6). There is no proxy
+   * worker yet, so in practice a row is `stored` and becomes
+   * `app_check_required` once the original verifies; `pending`/`ready`/`failed`
+   * are the contract a future worker writes.
+   *
+   * A quarantined ORIGINAL deliberately stays `stored` and never becomes
+   * `failed` — an original that failed verification is a storage verdict, and
+   * reporting it as a preview failure is exactly what the spec forbids.
+   *
+   * Optional only for servers older than the field.
+   */
+  previewState?:
+    | "stored"
+    | "pending"
+    | "ready"
+    | "failed"
+    | "app_check_required";
   createdAt: string;
   expiresAt: string;
   uploadExpiresAt: string;
@@ -81,12 +108,20 @@ export const cloudService = {
         : "/workspaces/capabilities/cloud",
     ),
   overview: (w: string) => get<CloudOverview>(base(w)),
-  create: (w: string, name: string) => post<Project>(base(w), { name }),
+  // Creating with a choice is open to editors (F03.1 puts 공개 범위 on the
+  // create screen); CHANGING it later is owner/admin only — see updateProject.
+  create: (w: string, name: string, visibility: ProjectVisibility) =>
+    post<Project>(base(w), { name, visibility }),
   project: (w: string, p: string) => get<ProjectDetail>(base(w, p)),
   updateProject: (
     w: string,
     p: string,
-    input: { name?: string; archived?: boolean },
+    input: {
+      name?: string;
+      archived?: boolean;
+      /** Owner/admin only; the server answers WORKSPACE_ADMIN_REQUIRED. */
+      visibility?: ProjectVisibility;
+    },
   ) => post<Project>(base(w, p), input),
   grant: (w: string, p: string, userId: string, access: string) =>
     post(`${base(w, p)}/members`, { userId, access }),

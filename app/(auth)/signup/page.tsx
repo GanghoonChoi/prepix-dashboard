@@ -15,8 +15,21 @@ import { sleep } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useI18n } from "@/lib/i18n/context";
 import { readPrefilledEmail, readReturnTo } from "@/lib/return-to";
+import { startHref } from "@/lib/onboarding";
 
 const TOTAL_STEPS = 4;
+
+/**
+ * Where a brand-new account goes when nothing else asked for it.
+ *
+ * `/start` is gated by NEXT_PUBLIC_START_ONBOARDING; with the flag off it
+ * redirects to the marketing download page, so falling back to the dashboard
+ * keeps a signup from bouncing straight off the app.
+ */
+const firstRunHref = (lang: string) =>
+  process.env.NEXT_PUBLIC_START_ONBOARDING === "1"
+    ? startHref({ step: "join", workspace: null }, lang)
+    : "/dashboard";
 
 export default function SignupPage() {
   const { t, lang } = useI18n();
@@ -102,6 +115,14 @@ export default function SignupPage() {
 
     if (step === TOTAL_STEPS) {
       setIsLoading(true);
+      /*
+        This screen used to be a lie: it appeared AFTER registration had already
+        finished and sat there for a fixed two seconds while nothing was being
+        prepared. Registration now provisions the account's workspace, so the
+        screen is raised BEFORE the request and comes down when the server is
+        actually done — no padding, and the words match the work.
+      */
+      setIsSettingUp(true);
       try {
         await authService.register({ email, password, username: username || undefined });
         const loginData = await authService.login({ email, password });
@@ -111,16 +132,21 @@ export default function SignupPage() {
         // So prepix.ai's header can offer "dashboard" instead of "sign in".
         markSignedIn();
 
+        setIsSettingUp(false);
         setIsLoading(false);
         fireConfetti();
         await sleep(800);
-        setIsSettingUp(true);
-        await sleep(2000);
-        go(readReturnTo());
+        /*
+          First run continues at /start — the workspace is ready and the next
+          real step is the desktop app. An explicit `returnTo` still wins, so
+          someone who arrived from an invitation goes back to it.
+        */
+        go(readReturnTo(firstRunHref(lang)));
         return;
       } catch (err: unknown) {
         const axiosErr = err as { response?: { data?: { message?: string } } };
         setError(axiosErr.response?.data?.message || t("auth.registrationFailed"));
+        setIsSettingUp(false);
         setIsLoading(false);
         return;
       }
@@ -264,9 +290,10 @@ export default function SignupPage() {
               setError("");
               fireConfetti();
               await sleep(800);
-              setIsSettingUp(true);
-              await sleep(1500);
-              go(readReturnTo());
+              // No setup screen on this path: Google sign-up has already
+              // finished by the time onSuccess runs, so showing "preparing your
+              // workspace" here would be the same padding we just removed.
+              go(readReturnTo(firstRunHref(lang)));
             }}
           />
         </div>

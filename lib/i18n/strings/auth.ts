@@ -51,7 +51,8 @@ export const auth: Record<Lang, Record<string, string>> = {
     "auth.stepOf": "Step {step} of {total}",
     "auth.registrationFailed": "Registration failed",
     "auth.settingUpWorkspace": "Setting up your workspace",
-    "auth.settingUpSubtitle": "This will only take a moment...",
+    "auth.settingUpSubtitle":
+      "Creating your account and the workspace that comes with it.",
     "auth.username": "Username",
     "auth.usernamePlaceholder": "johndoe",
     "auth.usernameHint": "Optional. You can change this later.",
@@ -142,8 +143,9 @@ export const auth: Record<Lang, Record<string, string>> = {
     "auth.progressAriaLabel": "진행률",
     "auth.stepOf": "{step}/{total}단계",
     "auth.registrationFailed": "회원가입에 실패했어요",
-    "auth.settingUpWorkspace": "작업 공간을 준비하는 중이에요",
-    "auth.settingUpSubtitle": "잠깐이면 끝나요...",
+    "auth.settingUpWorkspace": "워크스페이스를 준비하고 있어요",
+    "auth.settingUpSubtitle":
+      "계정과 함께 만들어지는 워크스페이스를 준비하는 중이에요.",
     "auth.username": "사용자 이름",
     "auth.usernamePlaceholder": "johndoe",
     "auth.usernameHint": "선택 사항이에요. 나중에 변경할 수 있어요.",

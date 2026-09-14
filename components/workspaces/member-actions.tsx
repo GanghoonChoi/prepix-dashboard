@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n/context";
 import {
   workspaceService,
@@ -9,7 +9,12 @@ import {
   type MemberImpact,
 } from "@/lib/api/services/workspace.service";
 import { CloudError, cloudErrorCode } from "./cloud-shared";
-import { inputClass, primaryClass, secondaryClass } from "./shared";
+import {
+  RoleCapabilities,
+  inputClass,
+  primaryClass,
+  secondaryClass,
+} from "./shared";
 type Action = InviteRole | "remove" | "suspend" | "reactivate";
 export function MemberActions({
   workspaceId,
@@ -34,6 +39,11 @@ export function MemberActions({
   const [error, setError] = useState("");
   const [impact, setImpact] = useState<MemberImpact | null>(null);
   const [successor, setSuccessor] = useState("");
+  const trigger = useRef<HTMLButtonElement>(null);
+  const close = () => {
+    setEdit(false);
+    trigger.current?.focus();
+  };
   const offboard = role === "remove" || role === "suspend";
   if (
     member.role === "owner" ||
@@ -43,6 +53,7 @@ export function MemberActions({
   return (
     <div className="w-full">
       <button
+        ref={trigger}
         className={secondaryClass}
         aria-expanded={edit}
         onClick={() => {
@@ -86,6 +97,13 @@ export function MemberActions({
               </option>
             </select>
           </label>
+          {/*
+            The same grid the invite form shows, at the other place a role is
+            assigned. A role change is where "I made someone an admin by
+            accident" actually happens, so the comparison belongs here too —
+            including the rule that an admin can never reach owner.
+          */}
+          {!offboard && role !== "reactivate" && <RoleCapabilities />}
           <p className="text-sm leading-6 text-muted">
             {offboard
               ? c(
@@ -193,7 +211,7 @@ export function MemberActions({
                     offboard ? successor || undefined : undefined,
                   );
                   await onChange();
-                  setEdit(false);
+                  close();
                 } catch (e) {
                   setError(cloudErrorCode(e));
                 } finally {
@@ -210,7 +228,7 @@ export function MemberActions({
             <button
               className={secondaryClass}
               disabled={busy}
-              onClick={() => setEdit(false)}
+              onClick={close}
             >
               {c("취소", "Cancel")}
             </button>

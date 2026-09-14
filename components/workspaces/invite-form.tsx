@@ -5,23 +5,40 @@ import {
   workspaceService,
   type InviteRole,
   type InviteResult,
+  type Workspace,
 } from "@/lib/api/services/workspace.service";
 import { parseInviteEmails, workspaceError } from "@/lib/workspaces/onboarding";
-import { TeamError, inputClass, primaryClass } from "./shared";
+import {
+  RoleCapabilities,
+  SpaceBadge,
+  TeamError,
+  inputClass,
+  primaryClass,
+} from "./shared";
 
 export function InviteForm({
   workspaceId,
+  workspace,
   isOwner,
   availableSeats,
   existingEmails,
   pendingEmails,
+  ownerEmail,
   onChange,
 }: {
   workspaceId: string;
+  /**
+   * The space these people are about to be let into, named on the form itself.
+   * A Figma user added an editor to a draft that turned out to live in a
+   * client's team space and put that person on the client's payroll; the switcher
+   * at the top of the page is not where anybody looks while typing addresses.
+   */
+  workspace: Pick<Workspace, "name" | "type">;
   isOwner: boolean;
   availableSeats: number;
   existingEmails: string[];
   pendingEmails: string[];
+  ownerEmail?: string;
   onChange: () => Promise<void>;
 }) {
   const { t } = useI18n();
@@ -78,6 +95,7 @@ export function InviteForm({
   }
   return (
     <form onSubmit={send} className="space-y-4">
+      <SpaceBadge workspace={workspace} />
       <div className="space-y-2">
         <label className="block text-sm font-medium" htmlFor="invite-emails">
           {t("team.emails")}
@@ -113,6 +131,14 @@ export function InviteForm({
         </select>
         <p className="text-xs leading-5 text-muted">{t("team.roleHelp")}</p>
       </div>
+      {/*
+        Slack publishes a role-capability table; Figma, Linear and Descript show
+        nothing at the moment a role is assigned, which is why "I made someone
+        an admin by accident" is a named failure class. Static, next to the
+        select, and it states the rule the server enforces silently: an admin
+        cannot make anyone an owner.
+      */}
+      <RoleCapabilities />
       {parsed.length > 0 && (
         <div className="space-y-1 text-xs" aria-live="polite">
           <p className="text-muted">
@@ -133,9 +159,28 @@ export function InviteForm({
         </p>
       )}
       {seatsExceeded && !overLimit && (
-        <p role="alert" className="text-sm">
-          {t("team.error.WORKSPACE_SEAT_LIMIT")}
-        </p>
+        <div role="alert" className="space-y-2 text-sm">
+          <p>{t("team.error.WORKSPACE_SEAT_LIMIT")}</p>
+          {/*
+            F02.5 asks for a way to ASK for seats, not just to be told who can
+            add them. There is no seat-request endpoint, so this uses the one
+            channel that certainly exists rather than inventing an API. The
+            draft above is untouched either way.
+          */}
+          {!isOwner && ownerEmail && (
+            <p>
+              {t("team.seatRequest", { email: ownerEmail })}{" "}
+              <a
+                className="underline underline-offset-4"
+                href={`mailto:${encodeURIComponent(ownerEmail)}?subject=${encodeURIComponent(
+                  t("team.seatRequestAction"),
+                )}`}
+              >
+                {t("team.seatRequestAction")}
+              </a>
+            </p>
+          )}
+        </div>
       )}
       {error && <TeamError code={error} />}
       <button

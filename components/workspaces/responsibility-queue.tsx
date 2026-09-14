@@ -26,9 +26,14 @@ export function ResponsibilityQueue() {
       setError(cloudErrorCode(e));
     }
   }, [data.workspace.id]);
+  // A fresh `members` array arrives from every 30s poll even when nothing
+  // changed, so key the refetch on the membership itself.
+  const roster = data.members
+    .map((m) => `${m.userId}:${m.role}:${!!m.suspendedAt}`)
+    .join(",");
   useEffect(() => {
     void load();
-  }, [load, data.members]);
+  }, [load, roster]);
   if (!projects.length && !error) return null;
   return (
     <section className="space-y-4 rounded-xl border border-border p-5">
