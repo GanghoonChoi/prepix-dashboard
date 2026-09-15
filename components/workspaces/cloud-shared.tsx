@@ -74,9 +74,9 @@ const messages: Record<string, [string, string]> = {
     "공개 범위 변경은 소유자와 관리자만 할 수 있습니다. 프로젝트 이름과 보관은 계속 변경할 수 있습니다.",
     "Only workspace owners and admins can change visibility. You can still rename and archive this project.",
   ],
-  TEAM_PROJECTS_DISABLED: [
-    "이 환경에서는 팀 프로젝트를 아직 사용할 수 없습니다.",
-    "Team projects are not enabled in this environment.",
+  TEAM_ARCHIVE_DISABLED: [
+    "이 환경에서는 팀 아카이브를 아직 사용할 수 없습니다.",
+    "The team archive is not enabled in this environment.",
   ],
   TEAM_UPLOADS_UNAVAILABLE: [
     "새 업로드가 잠시 중단되어 있습니다. 기존 파일은 계속 확인할 수 있습니다.",
@@ -90,15 +90,15 @@ const messages: Record<string, [string, string]> = {
     "저장 용량이 부족합니다. 업로드 중인 파일도 용량에 포함됩니다.",
     "Storage is full. Pending uploads also reserve capacity.",
   ],
-  PROJECT_NOT_FOUND: [
-    "프로젝트를 찾을 수 없거나 접근 권한이 없습니다.",
-    "This project is unavailable or you no longer have access.",
+  FOLDER_NOT_FOUND: [
+    "폴더를 찾을 수 없습니다. 목록을 새로고침하세요.",
+    "That folder no longer exists. Refresh the list.",
   ],
   WORKSPACE_NOT_FOUND: [
     "워크스페이스를 찾을 수 없거나 참여가 종료되었습니다.",
     "This workspace is unavailable or your membership has ended.",
   ],
-  PROJECT_PERMISSION_DENIED: [
+  TEAM_PERMISSION_DENIED: [
     "이 작업을 할 권한이 없습니다. 팀 관리자에게 확인하세요.",
     "You do not have permission for this action. Contact a team administrator.",
   ],

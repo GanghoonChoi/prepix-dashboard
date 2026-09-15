@@ -11,17 +11,19 @@
  */
 const GONE = new Set([
   "WORKSPACE_NOT_FOUND",
-  "PROJECT_NOT_FOUND",
   "WORKSPACE_MEMBER_SUSPENDED",
   "WORKSPACES_DISABLED",
-  "TEAM_PROJECTS_DISABLED",
+  "TEAM_ARCHIVE_DISABLED",
   "WORKSPACE_MANAGEMENT_DISABLED",
   // The grant behind the content ended rather than the content itself. The
   // backend raises these while a privileged panel is already painted — an admin
-  // demoting someone, or removing them from one project — and leaving the rows
-  // under a banner shows data the viewer may no longer read.
+  // demoting someone, or a member losing the workspace — and leaving the rows
+  // under a banner shows data the viewer may no longer read. After D14 there
+  // are no per-project grants: losing the archive means losing the workspace,
+  // which answers WORKSPACE_NOT_FOUND, the same answer a reviewer gets so that
+  // a refusal never reveals whether the thing exists.
   "WORKSPACE_ADMIN_REQUIRED",
-  "PROJECT_PERMISSION_DENIED",
+  "TEAM_PERMISSION_DENIED",
   "ACCOUNT_UNAVAILABLE",
 ]);
 // Keep identical to REVOKED in prepix/apps/desktop/src/renderer/src/pages/

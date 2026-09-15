@@ -54,7 +54,7 @@ export default function Page() {
       description={data.workspace.name}
     >
       {!data.canManage || !data.managementEnabled ? (
-        <CloudError code="PROJECT_PERMISSION_DENIED" />
+        <CloudError code="WORKSPACE_ADMIN_REQUIRED" />
       ) : (
         <>
           {error && <CloudError code={error} retry={() => load()} />}
