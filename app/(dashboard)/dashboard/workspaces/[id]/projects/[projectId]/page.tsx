@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   ArrowLeft,
   Download,
+  ExternalLink,
   File,
   FolderClosed,
   FolderPlus,
@@ -46,6 +47,7 @@ import {
   transferProgress,
   type Transfer,
 } from "@/lib/workspaces/queue";
+import { buildAppOpenUrl } from "@/lib/workspaces/app-link";
 import {
   TeamShell,
   SpaceBadge,
@@ -105,6 +107,19 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const resume = useRef<Asset | undefined>(undefined);
   const alive = useRef(true);
+  // F06.1: a custom scheme gives the browser no reliable "it opened" signal,
+  // so this never claims success — it fires the link, then reveals a fallback
+  // on a fixed timer. No focus/blur guess: the OS's own "open Prepix?" prompt
+  // blurs the page too, and cancelling the fallback on that would strand
+  // someone who declined it or doesn't have the app with no way back.
+  const [appFallback, setAppFallback] = useState(false);
+  const appFallbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (appFallbackTimer.current) clearTimeout(appFallbackTimer.current);
+    },
+    [],
+  );
   const commit = useCallback((next: Transfer[]) => {
     queue.current = next;
     setTransfers(next);
@@ -358,6 +373,18 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
     "Cancel this upload? Uploaded parts will be cleaned up before the storage reservation is released. Cleanup may take several minutes.",
   );
   const personal = !!team && isPersonal(team.workspace);
+  // F06.2: workspace + project ids only — no token, no path, no locale. The
+  // ids the route already validated as this project either are UUIDs or the
+  // link stays absent; a malformed id never reaches the OS as a broken link.
+  const appLink = data ? buildAppOpenUrl({ workspaceId: id, projectId }) : null;
+  const downloadAppUrl = `https://www.prepix.ai${lang === "en" ? "" : "/ko"}/download`;
+  function openInApp() {
+    if (!appLink) return;
+    setAppFallback(false);
+    window.location.href = appLink;
+    if (appFallbackTimer.current) clearTimeout(appFallbackTimer.current);
+    appFallbackTimer.current = setTimeout(() => setAppFallback(true), 1500);
+  }
   const folder = data?.folders.find((f) => f.id === folderId);
   const files =
     data?.assets.filter((a) =>
@@ -412,46 +439,78 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
           <ArrowLeft size={16} strokeWidth={1.5} />
           {c("프로젝트 목록", "All projects")}
         </Link>
-        {data?.canManage && (
+        {(appLink || data?.canManage) && (
           <div className="flex flex-wrap gap-2">
-            {!personal && (
-              <button
-                className={secondaryClass}
-                onClick={() => setShowAccess(!showAccess)}
-                aria-expanded={showAccess}
-              >
-                <LockKeyhole size={16} strokeWidth={1.5} />
-                {c("프로젝트 접근 관리", "Project access")}
+            {appLink && (
+              <button className={secondaryClass} onClick={openInApp}>
+                <ExternalLink size={16} strokeWidth={1.5} />
+                {c("앱에서 열기", "Open in app")}
               </button>
             )}
-            <button
-              className={secondaryClass}
-              disabled={queueBusy || !!busy}
-              onClick={() =>
-                setConfirm({
-                  label: data.project.archivedAt
-                    ? c(
-                        "이 프로젝트를 다시 활성화할까요?",
-                        "Restore this project?",
-                      )
-                    : c(
-                        "프로젝트를 보관할까요? 원본 다운로드는 유지되고 새 업로드와 수정은 중단됩니다.",
-                        "Archive this project? Downloads remain available; uploads and edits will stop.",
-                      ),
-                  run: () =>
-                    cloudService.updateProject(id, projectId, {
-                      archived: !data.project.archivedAt,
-                    }),
-                })
-              }
-            >
-              {data.project.archivedAt
-                ? c("보관 해제", "Restore project")
-                : c("프로젝트 보관", "Archive project")}
-            </button>
+            {data?.canManage && (
+              <>
+                {!personal && (
+                  <button
+                    className={secondaryClass}
+                    onClick={() => setShowAccess(!showAccess)}
+                    aria-expanded={showAccess}
+                  >
+                    <LockKeyhole size={16} strokeWidth={1.5} />
+                    {c("프로젝트 접근 관리", "Project access")}
+                  </button>
+                )}
+                <button
+                  className={secondaryClass}
+                  disabled={queueBusy || !!busy}
+                  onClick={() =>
+                    setConfirm({
+                      label: data.project.archivedAt
+                        ? c(
+                            "이 프로젝트를 다시 활성화할까요?",
+                            "Restore this project?",
+                          )
+                        : c(
+                            "프로젝트를 보관할까요? 원본 다운로드는 유지되고 새 업로드와 수정은 중단됩니다.",
+                            "Archive this project? Downloads remain available; uploads and edits will stop.",
+                          ),
+                      run: () =>
+                        cloudService.updateProject(id, projectId, {
+                          archived: !data.project.archivedAt,
+                        }),
+                    })
+                  }
+                >
+                  {data.project.archivedAt
+                    ? c("보관 해제", "Restore project")
+                    : c("프로젝트 보관", "Archive project")}
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
+      {appFallback && appLink && (
+        <div
+          role="status"
+          className="space-y-3 rounded-lg border border-border bg-surface p-4 text-sm leading-6"
+        >
+          <p>
+            {c(
+              "앱이 열리지 않았나요? Prepix 앱을 설치한 뒤 이 페이지로 돌아오면 같은 프로젝트를 다시 열 수 있습니다.",
+              "App didn't open? Install Prepix, then come back to this page to open the same project again.",
+            )}
+          </p>
+          <a
+            className={secondaryClass}
+            href={downloadAppUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Download size={16} strokeWidth={1.5} />
+            {c("Prepix 앱 다운로드", "Download the Prepix app")}
+          </a>
+        </div>
+      )}
       {error && (
         <CloudError
           code={error}

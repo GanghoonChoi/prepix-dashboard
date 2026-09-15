@@ -145,7 +145,8 @@ export type MemberImpact = {
 export type TeamActivity = {
   events: {
     id: string;
-    actorEmail: string;
+    /** Null for a system action — a background sweep has no acting user. */
+    actorEmail: string | null;
     actorName: string | null;
     targetEmail: string | null;
     projectName: string | null;

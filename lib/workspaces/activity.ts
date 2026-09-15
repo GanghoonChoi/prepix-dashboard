@@ -16,6 +16,11 @@ const labels: Record<string, [string, string]> = {
   "ownership.cancelled": ["소유권 이전 취소", "Ownership transfer cancelled"],
   "ownership.declined": ["소유권 이전 거절", "Ownership transfer declined"],
   "workspace.created": ["워크스페이스 생성", "Workspace created"],
+  // A background sweep, not a person — the row renders with no actor.
+  "asset.purged": [
+    "보관 기한이 지나 원본 삭제",
+    "Original removed after its retention period",
+  ],
   "onboarding.completed": ["팀 시작 설정 완료", "Team setup completed"],
   "member.removed": ["멤버 접근 종료", "Member removed"],
   "member.role_changed": ["멤버 역할 변경", "Member role changed"],

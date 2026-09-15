@@ -72,7 +72,13 @@ export default function Page() {
                   {activityLabel(row.action, lang)}
                 </p>
                 <p className="break-all text-xs text-muted">
-                  {row.actorName || row.actorEmail} ·{" "}
+                  {/* No actor means the system acted. Falling through to an
+                      empty string would print a bare separator and read as a
+                      rendering bug rather than a fact about the entry. */}
+                  {row.actorName ||
+                    row.actorEmail ||
+                    (lang === "ko" ? "시스템" : "System")}{" "}
+                  ·{" "}
                   {new Date(row.createdAt).toLocaleString(lang)}
                 </p>
                 {row.detail.userId && (
