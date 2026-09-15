@@ -26,7 +26,7 @@ export const team = {
     "team.previewTerms":
       "This preview includes {seats} member seats. Reviewers do not use seats. Creating a workspace does not charge you.",
     "team.previewScope":
-      "Start with team setup and invitations. Team projects appear when enabled for your workspace. Team AI allowances and billing are not available yet. Your personal plan continues to apply.",
+      "Start with team setup and invitations. A team archive appears when enabled for your workspace. Team AI allowances and billing are not available yet. Your personal plan continues to apply.",
     "team.remaining": "You can create {count} more.",
     "team.creating": "Creating workspace…",
     "team.inviteTitle": "Invite your team",
@@ -81,7 +81,7 @@ export const team = {
     "team.open": "Open workspace",
     "team.cloudTitle": "Cloud media is coming next",
     "team.cloudDesc":
-      "Upload and project sharing will be added in the next release. Continue editing local projects in the desktop app.",
+      "Upload and a shared team archive will be added in the next release. Continue editing local projects in the desktop app.",
     "team.acceptTitle": "You have a team invitation",
     "team.acceptDesc":
       "Review the workspace and role before joining. Joining does not change your personal subscription.",
@@ -193,10 +193,10 @@ export const team = {
       "These are separate figures on purpose. An unaccepted invitation holds a seat until it is accepted, revoked or expires, so a single total would hide it — read all four before you change anything about seats.",
     "team.capsTitle": "What each role can do",
     "team.capsHint":
-      "A role is the ceiling on what someone can do; project access is granted separately. An admin cannot promote anyone — themselves included — to owner.",
+      "A role is the ceiling on what someone can do. An admin cannot promote anyone — themselves included — to owner.",
     "team.caps.billing": "Billing, seats, ownership, deleting the team",
     "team.caps.people": "Invite, change roles, suspend, remove",
-    "team.caps.projects": "Create projects, upload originals",
+    "team.caps.projects": "Upload and download originals",
     "team.caps.publish": "Edit in the app, publish a version",
     "team.caps.comment": "Comment on a review",
     "team.caps.seat": "Uses a paid seat",
@@ -239,7 +239,7 @@ export const team = {
     "team.previewTerms":
       "미리보기에는 멤버 {seats}석이 포함됩니다. 검토자는 좌석을 사용하지 않으며, 워크스페이스를 만들어도 결제되지 않습니다.",
     "team.previewScope":
-      "팀 구성과 초대부터 시작합니다. 활성화된 환경에서는 팀 프로젝트를 사용할 수 있습니다. 팀 AI 한도와 팀 결제는 아직 제공하지 않으며, 개인 플랜은 그대로 유지됩니다.",
+      "팀 구성과 초대부터 시작합니다. 활성화된 환경에서는 팀 아카이브를 사용할 수 있습니다. 팀 AI 한도와 팀 결제는 아직 제공하지 않으며, 개인 플랜은 그대로 유지됩니다.",
     "team.remaining": "{count}개를 더 만들 수 있습니다.",
     "team.creating": "워크스페이스를 만드는 중…",
     "team.inviteTitle": "함께할 팀원을 초대하세요",
@@ -294,7 +294,7 @@ export const team = {
     "team.open": "워크스페이스 열기",
     "team.cloudTitle": "클라우드 영상은 다음 단계에서",
     "team.cloudDesc":
-      "업로드와 프로젝트 공유는 다음 출시에서 연결됩니다. 데스크톱 앱에서 로컬 프로젝트 편집을 계속할 수 있습니다.",
+      "업로드와 팀 아카이브 공유는 다음 출시에서 연결됩니다. 데스크톱 앱에서 로컬 프로젝트 편집을 계속할 수 있습니다.",
     "team.acceptTitle": "팀 초대를 받았습니다",
     "team.acceptDesc":
       "참여할 워크스페이스와 역할을 확인하세요. 참여해도 개인 구독은 변경되지 않습니다.",
@@ -405,10 +405,10 @@ export const team = {
       "일부러 숫자를 나눠 둡니다. 수락하지 않은 초대도 수락·취소·만료될 때까지 좌석을 잡고 있어서 합계 하나로는 보이지 않습니다. 좌석을 손대기 전에 네 숫자를 모두 확인하세요.",
     "team.capsTitle": "역할별로 할 수 있는 일",
     "team.capsHint":
-      "역할은 할 수 있는 일의 상한입니다. 프로젝트 접근 권한은 따로 부여합니다. 관리자는 자기 자신을 포함해 누구도 소유자로 올릴 수 없습니다.",
+      "역할은 할 수 있는 일의 상한입니다. 관리자는 자기 자신을 포함해 누구도 소유자로 올릴 수 없습니다.",
     "team.caps.billing": "결제·좌석·소유권 이전·팀 삭제",
     "team.caps.people": "초대·역할 변경·참여 정지·제거",
-    "team.caps.projects": "프로젝트 만들기·원본 업로드",
+    "team.caps.projects": "원본 업로드·다운로드",
     "team.caps.publish": "앱에서 편집·버전 발행",
     "team.caps.comment": "리뷰 코멘트",
     "team.caps.seat": "유료 좌석 사용",

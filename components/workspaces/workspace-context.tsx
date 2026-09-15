@@ -157,7 +157,7 @@ export function WorkspaceNav() {
   const links = [
     ["", "홈", "Home"],
     ...(personal ? [] : [["/members", "멤버", "Members"]]),
-    ...(cloudEnabled ? [["/projects", "프로젝트", "Projects"]] : []),
+    ...(cloudEnabled ? [["/media", "아카이브", "Archive"]] : []),
     ["/plan", "플랜과 사용량", "Plan and usage"],
     ...(data.managementEnabled
       ? [

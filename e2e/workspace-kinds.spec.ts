@@ -292,29 +292,19 @@ test("the space is named where files land, and cancelling an upload asks the sam
     ).json()
   ).data.workspace;
 
-  await page.goto(`/dashboard/workspaces/${team.id}/projects?locale=ko`);
+  // D14 removes the cloud "team project" — a workspace is one team video
+  // archive, so there is no project to create first. The archive is the
+  // upload surface itself.
+  await page.goto(`/dashboard/workspaces/${team.id}/media?locale=ko`);
   await login(page, email);
 
-  // ---- 3. project creation names the space it creates into --------------
-  await expect(
-    page.locator('form [data-space="team"]')
-  ).toContainText(`Landing ${suffix}`);
-  await expect(page.locator('form [data-space="team"]')).toContainText(
+  // ---- 3. the archive names the space it uploads into --------------------
+  await expect(page.locator('[data-space="team"]')).toContainText(
+    `Landing ${suffix}`,
+  );
+  await expect(page.locator('[data-space="team"]')).toContainText(
     "여기서 하는 일은 이 팀에게 보입니다",
   );
-  await page.getByLabel("새 프로젝트", { exact: true }).fill("Landing test");
-  await page
-    .getByRole("button", { name: "프로젝트 만들기", exact: true })
-    .click();
-  await page.getByRole("link", { name: /Landing test/ }).click();
-  await expect(
-    page.getByRole("heading", { name: "Landing test", level: 1 })
-  ).toBeVisible();
-
-  // ---- 3b. and so does the upload surface itself ------------------------
-  await expect(
-    page.locator('[data-space="team"]').last()
-  ).toContainText(`Landing ${suffix}`);
   await page.screenshot({
     path: testInfo.outputPath("upload-space-named.png"),
     fullPage: true,

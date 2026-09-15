@@ -231,7 +231,9 @@ const CAP = {
 const GRID: [string, string, string, string, string][] = [
   ["team.caps.billing", CAP.yes, CAP.no, CAP.no, CAP.no],
   ["team.caps.people", CAP.yes, CAP.notOwner, CAP.no, CAP.no],
-  ["team.caps.projects", CAP.yes, CAP.yes, CAP.scoped, CAP.no],
+  // Editors reach the whole archive unconditionally (D14 removes the
+  // per-project grant this used to need); reviewers still never reach it.
+  ["team.caps.projects", CAP.yes, CAP.yes, CAP.yes, CAP.no],
   ["team.caps.publish", CAP.yes, CAP.yes, CAP.scoped, CAP.no],
   ["team.caps.comment", CAP.yes, CAP.yes, CAP.scoped, CAP.scoped],
   ["team.caps.seat", CAP.yes, CAP.yes, CAP.yes, CAP.no],

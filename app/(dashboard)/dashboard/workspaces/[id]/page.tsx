@@ -11,7 +11,6 @@ import {
 import { isPersonal, seatFigures } from "@/lib/workspaces/kind";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import { MembersContent } from "@/components/workspaces/members-content";
-import { ResponsibilityQueue } from "@/components/workspaces/responsibility-queue";
 export default function Page() {
   const context = useWorkspace();
   const { lang, t } = useI18n();
@@ -34,8 +33,8 @@ export default function Page() {
           ? t("team.personalDesc")
           : workspace.description ||
             c(
-              "팀의 프로젝트와 멤버를 한곳에서 관리하세요.",
-              "Manage your team's projects and people in one place.",
+              "팀의 아카이브와 멤버를 한곳에서 관리하세요.",
+              "Manage your team's archive and people in one place.",
             )
       }
     >
@@ -103,18 +102,18 @@ export default function Page() {
           ...(cloudEnabled
             ? [
                 [
-                  "/projects",
+                  "/media",
                   personal
-                    ? c("내 프로젝트", "Your projects")
-                    : c("팀 프로젝트", "Team projects"),
+                    ? c("내 아카이브", "Your archive")
+                    : c("팀 아카이브", "Team archive"),
                   personal
                     ? c(
-                        "나만 접근하는 원본과 프로젝트입니다.",
-                        "Originals and projects only you can reach.",
+                        "나만 접근하는 원본을 보관합니다.",
+                        "Store originals only you can reach.",
                       )
                     : c(
-                        "팀 원본을 모으고 프로젝트 접근 권한을 정합니다.",
-                        "Collect team files and manage project access.",
+                        "팀 원본을 한곳에 모아 보관합니다.",
+                        "Store team originals in one place.",
                       ),
                   FolderClosed,
                 ],
@@ -158,9 +157,6 @@ export default function Page() {
           );
         })}
       </div>
-      {!personal && data.canManage && data.managementEnabled && (
-        <ResponsibilityQueue />
-      )}
       {personal && (
         // The only route from personal to team is an explicit, named one.
         <Link className={secondaryClass} href="/dashboard/workspaces/new">

@@ -29,7 +29,7 @@ export default function Page() {
     let live = true;
     if (cloudEnabled && data.role !== "reviewer")
       void cloudService
-        .overview(data.workspace.id)
+        .archive(data.workspace.id)
         .then((r) => {
           if (live) setStorage(r.storage);
         })

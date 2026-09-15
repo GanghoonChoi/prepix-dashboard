@@ -1,6 +1,5 @@
 "use client";
 import { use, useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import {
   ArrowLeft,
   Download,
@@ -8,20 +7,18 @@ import {
   File,
   FolderClosed,
   FolderPlus,
-  LockKeyhole,
   Pause,
   Play,
   RotateCcw,
   Trash2,
   Upload,
-  Users,
   X,
 } from "lucide-react";
 import {
   cloudService,
   type Asset,
-  type ProjectDetail,
-  type ProjectVisibility,
+  type ArchiveDetail,
+  type Folder,
 } from "@/lib/api/services/cloud.service";
 import {
   workspaceService,
@@ -64,28 +61,38 @@ import {
   cloudMessage,
   StorageMeter,
 } from "@/components/workspaces/cloud-shared";
-export default function ProjectPage({
+/**
+ * The team archive (D14). A workspace is one team video archive — assets and
+ * folders belong to it directly, with no project layer and no per-project ACL
+ * in between. Everyone who can reach this page sees the whole archive; the
+ * `can*` verdicts below come straight from the server (workspace role), never
+ * re-derived from a role string here. Reviewers do not reach the archive at
+ * all — the server answers with an error for them, rendered like any other.
+ */
+export default function MediaPage({
   params,
 }: {
-  params: Promise<{ id: string; projectId: string }>;
+  params: Promise<{ id: string }>;
 }) {
-  const { id, projectId } = use(params);
-  return <Content key={`${id}/${projectId}`} id={id} projectId={projectId} />;
+  const { id } = use(params);
+  return <Content key={id} id={id} />;
 }
-function Content({ id, projectId }: { id: string; projectId: string }) {
+function Content({ id }: { id: string }) {
   const { lang } = useI18n();
   const c = (ko: string, en: string) => (lang === "ko" ? ko : en);
-  const [data, setData] = useState<ProjectDetail | null>(null);
+  const [data, setData] = useState<ArchiveDetail | null>(null);
   const [team, setTeam] = useState<WorkspaceDetail | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
   const [notice, setNotice] = useState("");
-  const [folderId, setFolderId] = useState<string>();
+  // The current folder as a breadcrumb stack of the folder rows already seen,
+  // rather than looked up in the response — the archive is fetched one folder
+  // at a time (`?folderId=`), so a response only ever carries that folder's
+  // own children, never its own name or parent.
+  const [path, setPath] = useState<Folder[]>([]);
   const [trash, setTrash] = useState(false);
   const [folderName, setFolderName] = useState("");
   const [showFolder, setShowFolder] = useState(false);
-  const [showAccess, setShowAccess] = useState(false);
-  const [manager, setManager] = useState("");
   const [editing, setEditing] = useState<Asset | null>(null);
   const [editName, setEditName] = useState("");
   const [editFolder, setEditFolder] = useState("");
@@ -93,6 +100,7 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
     label: string;
     run: () => Promise<unknown>;
   } | null>(null);
+  const folderId = path.length ? path[path.length - 1].id : undefined;
   // One row per file (F04.3). Everything that cannot live in state — the File
   // handle, the abort, the digest we already paid for — is keyed by the row id.
   const [transfers, setTransfers] = useState<Transfer[]>([]);
@@ -132,7 +140,7 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
   );
   const load = useCallback(async () => {
     try {
-      const next = await cloudService.project(id, projectId);
+      const next = await cloudService.archive(id, { folderId });
       if (alive.current) {
         setData(next);
         // Every role uploads, so the "which space am I in" stamp cannot depend
@@ -143,15 +151,15 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
       if (alive.current) {
         const code = cloudErrorCode(e);
         setError(code);
-        // A failed refresh keeps the project on screen and the queue running.
-        // Only a code that says the project is gone tears it down (§5.1).
+        // A failed refresh keeps the archive on screen and the queue running.
+        // Only a code that says the archive is gone tears it down (§5.1).
         if (contentGone(code)) {
           setData(null);
           for (const abort of controllers.current.values()) abort.abort();
         }
       }
     }
-  }, [id, projectId]);
+  }, [id, folderId]);
   useEffect(() => {
     alive.current = true;
     void load();
@@ -176,9 +184,6 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
     }, 5000);
     return () => clearInterval(timer);
   }, [pending, load]);
-  // `canManage` is also true for an editor who manages this project, but the
-  // server gates a visibility change on the workspace role, so mirror that.
-  const adminActor = !!team && ["owner", "admin"].includes(team.role);
   const summary = queueSummary(transfers);
   const queueBusy = summary.running + summary.waiting > 0;
   useEffect(() => {
@@ -201,6 +206,23 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
       setError(cloudErrorCode(e));
     } finally {
       setBusy("");
+    }
+  }
+  async function loadMore() {
+    const cursor = data?.nextCursor;
+    if (!cursor || busy) return;
+    setBusy("more");
+    setError("");
+    try {
+      const more = await cloudService.archive(id, { folderId, cursor });
+      if (alive.current)
+        setData((prev) =>
+          prev ? { ...more, assets: [...prev.assets, ...more.assets] } : more,
+        );
+    } catch (e) {
+      if (alive.current) setError(cloudErrorCode(e));
+    } finally {
+      if (alive.current) setBusy("");
     }
   }
   /**
@@ -234,7 +256,6 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
           await uploadFile({
             file,
             workspaceId: id,
-            projectId,
             folderId: destinations.current.get(entry.id),
             resume: resumeAssets.current.get(entry.id),
             // Reuse the digest we already computed for this exact File object,
@@ -275,7 +296,7 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
     } finally {
       pumping.current = false;
     }
-  }, [id, projectId, update, load]);
+  }, [id, update, load]);
   /**
    * A rejected file is marked in the queue, not a verdict on the selection.
    * Dropping 40 clips with one 0-byte sidecar uploads the other 39 and names
@@ -318,9 +339,7 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
    *
    * The queue row and the asset row cancel the same server-side upload, but
    * only the asset row asked first — so the same destructive call had a gate on
-   * one route and none on the other. That is the Linear shape exactly: a
-   * documented confirmation on the manual flow, and an automated or recovery
-   * path that walks straight past it. Both doors now ask the same question, in
+   * one route and none on the other. Both doors now ask the same question, in
    * the same dialog, with the same copy.
    *
    * A queued row that never reached the server has no asset to destroy, so
@@ -341,7 +360,7 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
     if (!entry.assetId) return;
     // Completed files stay; only the file in flight is cancelled (F04.3).
     try {
-      await cloudService.cancel(id, projectId, entry.assetId);
+      await cloudService.cancel(id, entry.assetId);
     } catch {
       /* the asset row keeps its own cancel button for a retry */
     }
@@ -352,7 +371,7 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
   }
   async function download(asset: Asset) {
     await action(asset.id, async () => {
-      const result = await cloudService.download(id, projectId, asset.id);
+      const result = await cloudService.download(id, asset.id);
       const link = document.createElement("a");
       link.href = result.url;
       link.rel = "noopener noreferrer";
@@ -373,10 +392,10 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
     "Cancel this upload? Uploaded parts will be cleaned up before the storage reservation is released. Cleanup may take several minutes.",
   );
   const personal = !!team && isPersonal(team.workspace);
-  // F06.2: workspace + project ids only — no token, no path, no locale. The
-  // ids the route already validated as this project either are UUIDs or the
-  // link stays absent; a malformed id never reaches the OS as a broken link.
-  const appLink = data ? buildAppOpenUrl({ workspaceId: id, projectId }) : null;
+  // F06.2: the workspace id only — D14 removes the cloud project, so there is
+  // nothing left to name but the archive's workspace. No token, no path, no
+  // locale.
+  const appLink = data ? buildAppOpenUrl({ workspaceId: id }) : null;
   const downloadAppUrl = `https://www.prepix.ai${lang === "en" ? "" : "/ko"}/download`;
   function openInApp() {
     if (!appLink) return;
@@ -385,11 +404,11 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
     if (appFallbackTimer.current) clearTimeout(appFallbackTimer.current);
     appFallbackTimer.current = setTimeout(() => setAppFallback(true), 1500);
   }
-  const folder = data?.folders.find((f) => f.id === folderId);
+  const current = path[path.length - 1];
+  const subfolders =
+    data?.folders.filter((f) => f.parentId === (folderId ?? null)) ?? [];
   const files =
-    data?.assets.filter((a) =>
-      trash ? !!a.trashedAt : !a.trashedAt && a.folderId === (folderId ?? null),
-    ) ?? [];
+    data?.assets.filter((a) => (trash ? !!a.trashedAt : !a.trashedAt)) ?? [];
   const canUpload =
     !!data?.canEdit && !!data.capabilities.uploadsEnabled && !trash;
   /**
@@ -425,70 +444,20 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
                   c("취소됨 · 용량 예약 해제", "Cancelled · reservation released");
   return (
     <TeamShell
-      title={data?.project.name ?? c("팀 프로젝트", "Team project")}
+      title={personal ? c("내 아카이브", "Your archive") : c("팀 아카이브", "Team archive")}
       description={c(
         "팀 원본을 안전하게 보관하고, 필요한 파일을 내려받아 앱에서 편집하세요.",
         "Store team originals and download the files you need to edit in the app.",
       )}
     >
-      <div className="flex flex-wrap justify-between gap-3">
-        <Link
-          className={secondaryClass}
-          href={`/dashboard/workspaces/${id}/projects`}
-        >
-          <ArrowLeft size={16} strokeWidth={1.5} />
-          {c("프로젝트 목록", "All projects")}
-        </Link>
-        {(appLink || data?.canManage) && (
-          <div className="flex flex-wrap gap-2">
-            {appLink && (
-              <button className={secondaryClass} onClick={openInApp}>
-                <ExternalLink size={16} strokeWidth={1.5} />
-                {c("앱에서 열기", "Open in app")}
-              </button>
-            )}
-            {data?.canManage && (
-              <>
-                {!personal && (
-                  <button
-                    className={secondaryClass}
-                    onClick={() => setShowAccess(!showAccess)}
-                    aria-expanded={showAccess}
-                  >
-                    <LockKeyhole size={16} strokeWidth={1.5} />
-                    {c("프로젝트 접근 관리", "Project access")}
-                  </button>
-                )}
-                <button
-                  className={secondaryClass}
-                  disabled={queueBusy || !!busy}
-                  onClick={() =>
-                    setConfirm({
-                      label: data.project.archivedAt
-                        ? c(
-                            "이 프로젝트를 다시 활성화할까요?",
-                            "Restore this project?",
-                          )
-                        : c(
-                            "프로젝트를 보관할까요? 원본 다운로드는 유지되고 새 업로드와 수정은 중단됩니다.",
-                            "Archive this project? Downloads remain available; uploads and edits will stop.",
-                          ),
-                      run: () =>
-                        cloudService.updateProject(id, projectId, {
-                          archived: !data.project.archivedAt,
-                        }),
-                    })
-                  }
-                >
-                  {data.project.archivedAt
-                    ? c("보관 해제", "Restore project")
-                    : c("프로젝트 보관", "Archive project")}
-                </button>
-              </>
-            )}
-          </div>
-        )}
-      </div>
+      {appLink && (
+        <div className="flex flex-wrap justify-end gap-2">
+          <button className={secondaryClass} onClick={openInApp}>
+            <ExternalLink size={16} strokeWidth={1.5} />
+            {c("앱에서 열기", "Open in app")}
+          </button>
+        </div>
+      )}
       {appFallback && appLink && (
         <div
           role="status"
@@ -496,8 +465,8 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
         >
           <p>
             {c(
-              "앱이 열리지 않았나요? Prepix 앱을 설치한 뒤 이 페이지로 돌아오면 같은 프로젝트를 다시 열 수 있습니다.",
-              "App didn't open? Install Prepix, then come back to this page to open the same project again.",
+              "앱이 열리지 않았나요? Prepix 앱을 설치한 뒤 이 페이지로 돌아오면 같은 워크스페이스를 다시 열 수 있습니다.",
+              "App didn't open? Install Prepix, then come back to this page to open the same workspace again.",
             )}
           </p>
           <a
@@ -559,231 +528,7 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
       )}
       {data && (
         <>
-          {data.project.archivedAt && (
-            <p className="rounded-lg border border-border p-4 text-sm">
-              {c(
-                "보관된 프로젝트입니다. 파일은 다운로드할 수 있습니다.",
-                "This project is archived. Files remain downloadable.",
-              )}
-            </p>
-          )}
-          {!personal && data.project.visibility && (
-            <p className="flex items-center gap-2 text-xs text-muted">
-              {data.project.visibility === "team" ? (
-                <Users size={14} strokeWidth={1.5} />
-              ) : (
-                <LockKeyhole size={14} strokeWidth={1.5} />
-              )}
-              {data.project.visibility === "team"
-                ? c(
-                    "팀 전체가 이 프로젝트를 볼 수 있습니다. 업로드와 원본 다운로드는 멤버별 권한을 따릅니다.",
-                    "Everyone on the team can see this project. Upload and original download still follow per-member access.",
-                  )
-                : c(
-                    "지정 멤버만 이 프로젝트를 볼 수 있습니다.",
-                    "Only chosen members can see this project.",
-                  )}
-            </p>
-          )}
           <StorageMeter storage={data.storage} />
-          {showAccess && data.canManage && team && !personal && (
-            <section className="space-y-4 rounded-xl border border-border p-5">
-              <h2 className="font-medium">
-                {c("프로젝트 참여자", "Project members")}
-              </h2>
-              <p className="text-sm leading-6 text-muted">
-                {c(
-                  "소유자와 관리자는 모든 프로젝트에 접근합니다. 그 외 멤버는 아래 권한이 필요합니다. 하위 폴더와 파일에도 같은 권한을 적용합니다.",
-                  "Owners and admins can access every project. Other members need an explicit grant below. Folders and files inherit these permissions.",
-                )}
-              </p>
-              {data.project.visibility && (
-                <div className="space-y-3 rounded-lg border border-border p-4">
-                  <label
-                    htmlFor="project-visibility"
-                    className="block text-sm"
-                  >
-                    {c("공개 범위", "Visibility")}
-                  </label>
-                  {/*
-                    Creating with a choice is open to editors, but CHANGING it
-                    is an ACL change and the server allows it to owners and
-                    admins only. Show the reason and who can fix it (§5.1)
-                    rather than a control that will be refused.
-                  */}
-                  {adminActor ? (
-                    <select
-                      id="project-visibility"
-                      className={`${inputClass} sm:max-w-64`}
-                      value={data.project.visibility}
-                      disabled={!!busy}
-                      onChange={(e) =>
-                        void action("visibility", () =>
-                          cloudService.updateProject(id, projectId, {
-                            visibility: e.target.value as ProjectVisibility,
-                          }),
-                        )
-                      }
-                    >
-                      <option value="restricted">
-                        {c("지정 멤버만", "Chosen members only")}
-                      </option>
-                      <option value="team">
-                        {c("팀 전체", "Everyone on the team")}
-                      </option>
-                    </select>
-                  ) : (
-                    <p className="text-sm">
-                      {data.project.visibility === "team"
-                        ? c("팀 전체", "Everyone on the team")
-                        : c("지정 멤버만", "Chosen members only")}
-                    </p>
-                  )}
-                  <p className="text-xs leading-5 text-muted">
-                    {adminActor
-                      ? c(
-                          "공개 범위는 이 프로젝트를 볼 수 있는 사람만 정합니다. 업로드와 원본 다운로드 권한은 아래에서 멤버별로 유지됩니다.",
-                          "Visibility only decides who can see this project. Upload and original download stay per-member below.",
-                        )
-                      : c(
-                          "공개 범위 변경은 소유자와 관리자만 할 수 있습니다.",
-                          "Only workspace owners and admins can change visibility.",
-                        )}
-                  </p>
-                </div>
-              )}
-              {team.canManage && team.managementEnabled && (
-                <div className="space-y-3 rounded-lg border border-border p-4">
-                  <p className="text-sm">
-                    {c("프로젝트 담당자", "Project manager")}:{" "}
-                    {team.members.find(
-                      (m) => m.userId === data.project.managerId,
-                    )?.email || c("미배정", "Unassigned")}
-                  </p>
-                  <p className="text-xs leading-5 text-muted">
-                    {c(
-                      "새 담당자는 이 프로젝트의 편집 및 관리 권한을 받습니다. 이전 담당자의 편집 접근은 아래에서 별도로 변경할 수 있습니다.",
-                      "The new manager receives edit and management access. Change the previous manager's remaining project access separately below.",
-                    )}
-                  </p>
-                  <div className="flex flex-wrap gap-3">
-                    <select
-                      className={`${inputClass} sm:max-w-64`}
-                      aria-label={c(
-                        "새 프로젝트 담당자",
-                        "New project manager",
-                      )}
-                      value={manager}
-                      disabled={!!busy}
-                      onChange={(e) => setManager(e.target.value)}
-                    >
-                      <option value="">
-                        {c("담당자 선택", "Select a manager")}
-                      </option>
-                      {team.members
-                        .filter(
-                          (m) =>
-                            !m.suspendedAt &&
-                            m.role !== "reviewer" &&
-                            m.userId !== data.project.managerId,
-                        )
-                        .map((m) => (
-                          <option key={m.userId} value={m.userId}>
-                            {m.name || m.email}
-                          </option>
-                        ))}
-                    </select>
-                    <button
-                      className={secondaryClass}
-                      disabled={!!busy || !manager}
-                      onClick={() =>
-                        action("manager", async () => {
-                          await workspaceService.assign(id, projectId, manager);
-                          setManager("");
-                        })
-                      }
-                    >
-                      {c("담당자 변경", "Change manager")}
-                    </button>
-                  </div>
-                </div>
-              )}
-              <ul className="divide-y divide-border">
-                {team.members.map((member) => {
-                  const fixed =
-                    ["owner", "admin"].includes(member.role) ||
-                    (member.userId ===
-                      (data.project.managerId === undefined
-                        ? data.project.createdBy
-                        : data.project.managerId) &&
-                      member.userId === data.currentUserId);
-                  const current =
-                    data.members.find((m) => m.userId === member.userId)
-                      ?.access ?? "none";
-                  return (
-                    <li
-                      key={member.userId}
-                      className="flex flex-wrap items-center justify-between gap-3 py-3"
-                    >
-                      <div className="min-w-0">
-                        <p className="break-all text-sm">{member.email}</p>
-                        <p className="mt-1 text-xs text-muted">
-                          {member.suspendedAt
-                            ? c(
-                                "참여 정지 · 접근 불가",
-                                "Suspended · no access",
-                              )
-                            : fixed
-                              ? c("관리 권한 유지", "Management access")
-                              : c(
-                                  "명시적으로 허용한 작업만 가능",
-                                  "Only explicitly allowed actions",
-                                )}
-                        </p>
-                      </div>
-                      <select
-                        aria-label={`${member.email} ${c("프로젝트 권한", "project access")}`}
-                        className={`${inputClass} sm:max-w-48`}
-                        value={
-                          member.suspendedAt
-                            ? "none"
-                            : fixed
-                              ? "editor"
-                              : current
-                        }
-                        disabled={!!member.suspendedAt || fixed || !!busy}
-                        onChange={(e) => {
-                          void action(member.userId, () =>
-                            cloudService.grant(
-                              id,
-                              projectId,
-                              member.userId,
-                              e.target.value,
-                            ),
-                          );
-                        }}
-                      >
-                        <option value="none">
-                          {c("접근 없음", "No access")}
-                        </option>
-                        <option value="viewer">
-                          {c("파일 목록 보기", "View file list")}
-                        </option>
-                        <option value="downloader">
-                          {c("보기와 다운로드", "View and download")}
-                        </option>
-                        {member.role !== "reviewer" && (
-                          <option value="editor">
-                            {c("업로드와 파일 관리", "Upload and manage files")}
-                          </option>
-                        )}
-                      </select>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          )}
           <section
             className="space-y-5"
             onDragOver={(e) => {
@@ -808,22 +553,22 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
                   className={secondaryClass}
                   onClick={() => {
                     setTrash(false);
-                    setFolderId(undefined);
+                    setPath([]);
                   }}
                 >
                   {c("모든 파일", "All files")}
                 </button>
-                {folder && !trash && (
+                {current && !trash && (
                   <>
                     <button
                       className={secondaryClass}
-                      onClick={() => setFolderId(folder.parentId ?? undefined)}
+                      onClick={() => setPath(path.slice(0, -1))}
                       aria-label={c("상위 폴더", "Parent folder")}
                     >
                       <ArrowLeft size={16} strokeWidth={1.5} />
                     </button>
                     <span className="max-w-60 break-all font-medium">
-                      {folder.name}
+                      {current.name}
                     </span>
                   </>
                 )}
@@ -894,12 +639,7 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
                 onSubmit={(e) => {
                   e.preventDefault();
                   void action("folder", async () => {
-                    await cloudService.folder(
-                      id,
-                      projectId,
-                      folderName,
-                      folderId,
-                    );
+                    await cloudService.folder(id, folderName, folderId);
                     setFolderName("");
                     setShowFolder(false);
                   });
@@ -1023,7 +763,7 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
                 onSubmit={(e) => {
                   e.preventDefault();
                   void action("edit", async () => {
-                    await cloudService.update(id, projectId, editing.id, {
+                    await cloudService.update(id, editing.id, {
                       name: editName,
                       folderId: editFolder || null,
                     });
@@ -1072,19 +812,17 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
             )}
             <ul className="divide-y divide-border rounded-xl border border-border">
               {!trash &&
-                data.folders
-                  .filter((f) => f.parentId === (folderId ?? null))
-                  .map((f) => (
-                    <li key={f.id}>
-                      <button
-                        className="flex min-h-16 w-full items-center gap-3 p-5 text-left text-sm transition-colors hover:bg-surface"
-                        onClick={() => setFolderId(f.id)}
-                      >
-                        <FolderClosed size={20} strokeWidth={1.5} />
-                        <span className="break-all">{f.name}</span>
-                      </button>
-                    </li>
-                  ))}
+                subfolders.map((f) => (
+                  <li key={f.id}>
+                    <button
+                      className="flex min-h-16 w-full items-center gap-3 p-5 text-left text-sm transition-colors hover:bg-surface"
+                      onClick={() => setPath([...path, f])}
+                    >
+                      <FolderClosed size={20} strokeWidth={1.5} />
+                      <span className="break-all">{f.name}</span>
+                    </button>
+                  </li>
+                ))}
               {files.map((asset) => {
                 const ready = asset.state === "ready";
                 const active =
@@ -1126,10 +864,7 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
                                   {previewFailureIsSpace(asset.failure) && (
                                     <button
                                       className="ml-2 underline underline-offset-4"
-                                      onClick={() => {
-                                        setTrash(true);
-                                        setFolderId(undefined);
-                                      }}
+                                      onClick={() => setTrash(true)}
                                     >
                                       {c(
                                         "저장공간 정리하기",
@@ -1179,7 +914,7 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
                                   `Move ${asset.name} to trash? Team members will no longer be able to download it.`,
                                 ),
                                 run: () =>
-                                  cloudService.update(id, projectId, asset.id, {
+                                  cloudService.update(id, asset.id, {
                                     trashed: true,
                                   }),
                               })
@@ -1201,12 +936,7 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
                                 `Permanently delete ${asset.name}? The original cannot be recovered. Capacity is released after storage cleanup finishes.`,
                               ),
                               run: () =>
-                                cloudService.purge(
-                                  id,
-                                  projectId,
-                                  asset.id,
-                                  asset.name,
-                                ),
+                                cloudService.purge(id, asset.id, asset.name),
                             })
                           }
                         >
@@ -1222,7 +952,7 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
                           }
                           onClick={() => {
                             void action(asset.id, () =>
-                              cloudService.update(id, projectId, asset.id, {
+                              cloudService.update(id, asset.id, {
                                 trashed: false,
                               }),
                             );
@@ -1261,8 +991,7 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
                             onClick={() =>
                               setConfirm({
                                 label: cancelUploadLabel,
-                                run: () =>
-                                  cloudService.cancel(id, projectId, asset.id),
+                                run: () => cloudService.cancel(id, asset.id),
                               })
                             }
                           >
@@ -1273,44 +1002,42 @@ function Content({ id, projectId }: { id: string; projectId: string }) {
                   </li>
                 );
               })}
-              {!files.length &&
-                (trash ||
-                  !data.folders.some(
-                    (f) => f.parentId === (folderId ?? null),
-                  )) && (
-                  <li className="space-y-3 p-10 text-center">
-                    <Upload
-                      className="mx-auto text-muted"
-                      size={28}
-                      strokeWidth={1.5}
-                    />
-                    <h3 className="font-medium">
-                      {trash
-                        ? c("휴지통이 비어 있습니다", "Trash is empty")
-                        : c(
-                            "첫 원본을 올려보세요",
-                            "Upload your first original",
-                          )}
-                    </h3>
-                    <p className="text-sm leading-6 text-muted">
-                      {trash
+              {!files.length && (trash || !subfolders.length) && (
+                <li className="space-y-3 p-10 text-center">
+                  <Upload
+                    className="mx-auto text-muted"
+                    size={28}
+                    strokeWidth={1.5}
+                  />
+                  <h3 className="font-medium">
+                    {trash
+                      ? c("휴지통이 비어 있습니다", "Trash is empty")
+                      : c("첫 원본을 올려보세요", "Upload your first original")}
+                  </h3>
+                  <p className="text-sm leading-6 text-muted">
+                    {trash
+                      ? c(
+                          "휴지통 파일은 저장 용량에 포함됩니다.",
+                          "Trashed files still count toward storage.",
+                        )
+                      : data.canEdit
                         ? c(
-                            "휴지통 파일은 저장 용량에 포함됩니다.",
-                            "Trashed files still count toward storage.",
+                            "파일을 이 영역에 놓거나 원본 업로드를 선택하세요.",
+                            "Drop files here or choose Upload originals.",
                           )
-                        : data.canEdit
-                          ? c(
-                              "파일을 이 영역에 놓거나 원본 업로드를 선택하세요.",
-                              "Drop files here or choose Upload originals.",
-                            )
-                          : c(
-                              "프로젝트에 원본이 추가되면 여기에 표시됩니다.",
-                              "Originals added to this project will appear here.",
-                            )}
-                    </p>
-                  </li>
-                )}
+                        : c(
+                            "아카이브에 원본이 추가되면 여기에 표시됩니다.",
+                            "Originals added to this archive will appear here.",
+                          )}
+                  </p>
+                </li>
+              )}
             </ul>
+            {data.nextCursor && (
+              <button className={secondaryClass} onClick={() => void loadMore()}>
+                {c("더 불러오기", "Load more")}
+              </button>
+            )}
             <p className="text-xs leading-5 text-muted">
               {c(
                 `파일당 최대 ${bytes(data.capabilities.maxFileBytes)}. 모든 형식을 보관할 수 있으며 앱 편집 지원은 형식에 따라 다릅니다. 업로드만으로 AI 분석을 시작하지 않습니다.`,

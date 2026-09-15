@@ -373,8 +373,8 @@ export default function Page() {
           >
             <p className="text-sm leading-6 text-muted">
               {c(
-                `담당 프로젝트 ${impact?.projects.length ?? 0}개는 미배정으로 남기고, 진행 중 업로드 ${impact?.pendingUploads ?? 0}개를 취소합니다.`,
-                `${impact?.projects.length ?? 0} projects will become unassigned and ${impact?.pendingUploads ?? 0} pending uploads will be cancelled.`,
+                `진행 중 업로드 ${impact?.pendingUploads ?? 0}개를 취소합니다.`,
+                `${impact?.pendingUploads ?? 0} pending uploads will be cancelled.`,
               )}
             </p>
             <label className="block space-y-2 text-sm">

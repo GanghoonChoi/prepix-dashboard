@@ -38,7 +38,6 @@ export function MemberActions({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [impact, setImpact] = useState<MemberImpact | null>(null);
-  const [successor, setSuccessor] = useState("");
   const trigger = useRef<HTMLButtonElement>(null);
   const close = () => {
     setEdit(false);
@@ -61,7 +60,6 @@ export function MemberActions({
           setRole(member.role as InviteRole);
           setError("");
           setImpact(null);
-          setSuccessor("");
         }}
       >
         {c("멤버 관리", "Manage member")}
@@ -112,12 +110,12 @@ export function MemberActions({
                 )
               : role === "reactivate"
                 ? c(
-                    "좌석 여유를 확인한 뒤 기존 프로젝트 접근 권한을 다시 활성화합니다. 취소된 업로드와 이전 담당 지정은 복원하지 않습니다.",
-                    "Reactivation checks seat capacity and restores retained project access. Cancelled uploads and previous assignments are not restored.",
+                    "좌석 여유를 확인한 뒤 참여를 다시 활성화합니다. 취소된 업로드는 복원하지 않습니다.",
+                    "Reactivation checks seat capacity and restores membership. Cancelled uploads are not restored.",
                   )
                 : c(
-                    "역할은 가능한 작업의 상한입니다. 프로젝트 접근 권한은 프로젝트에서 따로 관리합니다.",
-                    "The role limits allowed actions. Project access is managed separately.",
+                    "역할은 가능한 작업의 상한입니다.",
+                    "The role limits allowed actions.",
                   )}
           </p>
           {offboard && team?.managementEnabled && !impact && (
@@ -138,59 +136,16 @@ export function MemberActions({
                 }
               }}
             >
-              {c("담당 작업과 영향 확인", "Review responsibilities and impact")}
+              {c("영향 확인", "Review impact")}
             </button>
           )}
           {offboard && impact && (
-            <div className="space-y-3 text-sm">
-              <p className="tabular-nums">
-                {c(
-                  `담당 프로젝트 ${impact.projects.length}개 · 진행 중 업로드 ${impact.pendingUploads}개`,
-                  `${impact.projects.length} assigned projects · ${impact.pendingUploads} pending uploads`,
-                )}
-              </p>
-              {!!impact.projects.length && (
-                <ul className="space-y-1 text-muted">
-                  {impact.projects.map((p) => (
-                    <li key={p.id}>{p.name}</li>
-                  ))}
-                </ul>
+            <p className="tabular-nums text-sm">
+              {c(
+                `진행 중 업로드 ${impact.pendingUploads}개를 취소합니다.`,
+                `${impact.pendingUploads} pending uploads will be cancelled.`,
               )}
-              <label className="block space-y-2">
-                <span>{c("프로젝트 인수자", "Project successor")}</span>
-                <select
-                  className={inputClass}
-                  disabled={busy}
-                  value={successor}
-                  onChange={(e) => setSuccessor(e.target.value)}
-                >
-                  <option value="">
-                    {c(
-                      "지금 지정하지 않음 · 관리자가 나중에 배정",
-                      "Leave unassigned for an administrator",
-                    )}
-                  </option>
-                  {team?.members
-                    .filter(
-                      (m) =>
-                        m.userId !== member.userId &&
-                        !m.suspendedAt &&
-                        m.role !== "reviewer",
-                    )
-                    .map((m) => (
-                      <option key={m.userId} value={m.userId}>
-                        {m.name || m.email}
-                      </option>
-                    ))}
-                </select>
-              </label>
-              <p className="text-xs leading-5 text-muted">
-                {c(
-                  "인수자는 위 프로젝트의 편집 및 관리 권한을 받습니다. 확정할 때 최신 담당 작업에 적용합니다.",
-                  "The successor receives edit and management access to these projects. The latest assignments are used when you confirm.",
-                )}
-              </p>
-            </div>
+            </p>
           )}
           <div className="flex flex-wrap gap-2">
             <button
@@ -208,7 +163,6 @@ export function MemberActions({
                     workspaceId,
                     member.userId,
                     role,
-                    offboard ? successor || undefined : undefined,
                   );
                   await onChange();
                   close();

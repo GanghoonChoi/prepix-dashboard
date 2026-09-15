@@ -34,23 +34,23 @@ export function CloudEntry({ workspaceId }: { workspaceId: string }) {
         <h2 className="text-sm font-medium">
           {enabled
             ? lang === "ko"
-              ? "팀 프로젝트와 클라우드"
-              : "Team projects and cloud"
+              ? "팀 아카이브"
+              : "Team archive"
             : t("team.cloudTitle")}
         </h2>
         <p className="text-sm leading-6 text-muted">
           {enabled
             ? lang === "ko"
-              ? "프로젝트별로 함께할 멤버를 정하고, 팀 파일과 저장 용량을 관리하세요."
-              : "Choose the people for each project and manage team files and storage."
+              ? "팀 원본을 한곳에 모아 보관하고, 필요한 파일을 내려받아 앱에서 편집하세요."
+              : "Store team originals in one place and download the files you need to edit in the app."
             : t("team.cloudDesc")}
         </p>
         {enabled && (
           <Link
             className={primaryClass}
-            href={`/dashboard/workspaces/${workspaceId}/projects`}
+            href={`/dashboard/workspaces/${workspaceId}/media`}
           >
-            {lang === "ko" ? "팀 프로젝트 열기" : "Open team projects"}
+            {lang === "ko" ? "아카이브 열기" : "Open the archive"}
           </Link>
         )}
       </div>

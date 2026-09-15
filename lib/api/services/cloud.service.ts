@@ -6,29 +6,16 @@ export type CloudCapabilities = {
   partSize: number;
   billingEnabled: boolean;
 };
-/**
- * Who can SEE the project. `team` lets every active member open it without an
- * explicit grant; `restricted` requires one. It confers view only — editing and
- * original download stay per-member grants either way, so nothing in the UI may
- * present this as widening them.
- */
-export type ProjectVisibility = "team" | "restricted";
-export type Project = {
-  id: string;
-  workspaceId: string;
-  name: string;
-  /** Optional only for servers older than the field; treat absent as unknown. */
-  visibility?: ProjectVisibility;
-  createdBy: string;
-  managerId?: string | null;
-  archivedAt: string | null;
-  createdAt: string;
-};
 export type StorageUsage = { used: number; reserved: number; limit: number };
+export type Folder = { id: string; parentId: string | null; name: string };
+/**
+ * D14: assets and folders belong to the workspace directly — there is no
+ * cloud "team project" any more. `folderId: null` is the archive root.
+ */
 export type Asset = {
   id: string;
   name: string;
-  projectId: string;
+  workspaceId: string;
   folderId: string | null;
   createdBy: string;
   size: number;
@@ -64,72 +51,47 @@ export type Asset = {
   uploadExpiresAt: string;
   trashedAt: string | null;
 };
-export type ProjectDetail = {
-  project: Project;
+/**
+ * One workspace is one team video archive (D14). Permission verdicts are
+ * computed server-side from the workspace role — render from these booleans,
+ * never re-derive permission from a role string in the browser. Reviewers do
+ * not reach the archive at all, so a reviewer's request answers with an error
+ * rather than this shape.
+ */
+export type ArchiveDetail = {
   currentUserId: string;
   canManage: boolean;
   canEdit: boolean;
   canDownload: boolean;
   canPurge: boolean;
-  members: {
-    userId: string;
-    email: string;
-    name: string | null;
-    access: string;
-  }[];
-  folders: { id: string; parentId: string | null; name: string }[];
+  folders: Folder[];
   assets: Asset[];
+  nextCursor: string | null;
   capabilities: CloudCapabilities;
   storage: StorageUsage;
-};
-export type CloudOverview = {
-  projects: Project[];
-  canCreate: boolean;
-  capabilities: CloudCapabilities;
-  storage: StorageUsage;
-  plan: {
-    status: "preview";
-    billingEnabled: false;
-    seats: { used: number; reserved: number; limit: number };
-  };
 };
 const get = async <T>(path: string) =>
   (await apiClient.get<{ data: T }>(path, { timeout: 15_000 })).data.data;
 const post = async <T = unknown>(path: string, body?: unknown) =>
   (await apiClient.post<{ data: T }>(path, body, { timeout: 30_000 })).data
     .data;
-const base = (w: string, p?: string) =>
-  `/workspaces/${encodeURIComponent(w)}/projects${p ? `/${encodeURIComponent(p)}` : ""}`;
+const base = (w: string) => `/workspaces/${encodeURIComponent(w)}`;
 export const cloudService = {
   capabilities: (w?: string) =>
     get<CloudCapabilities>(
-      w
-        ? `/workspaces/${encodeURIComponent(w)}/cloud-capabilities`
-        : "/workspaces/capabilities/cloud",
+      w ? `${base(w)}/cloud-capabilities` : "/workspaces/capabilities/cloud",
     ),
-  overview: (w: string) => get<CloudOverview>(base(w)),
-  // Creating with a choice is open to editors (F03.1 puts 공개 범위 on the
-  // create screen); CHANGING it later is owner/admin only — see updateProject.
-  create: (w: string, name: string, visibility: ProjectVisibility) =>
-    post<Project>(base(w), { name, visibility }),
-  project: (w: string, p: string) => get<ProjectDetail>(base(w, p)),
-  updateProject: (
-    w: string,
-    p: string,
-    input: {
-      name?: string;
-      archived?: boolean;
-      /** Owner/admin only; the server answers WORKSPACE_ADMIN_REQUIRED. */
-      visibility?: ProjectVisibility;
-    },
-  ) => post<Project>(base(w, p), input),
-  grant: (w: string, p: string, userId: string, access: string) =>
-    post(`${base(w, p)}/members`, { userId, access }),
-  folder: (w: string, p: string, name: string, parentId?: string) =>
-    post(`${base(w, p)}/folders`, { name, parentId }),
+  archive: (w: string, params?: { folderId?: string; cursor?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.folderId) query.set("folderId", params.folderId);
+    if (params?.cursor) query.set("cursor", params.cursor);
+    const qs = query.toString();
+    return get<ArchiveDetail>(`${base(w)}/archive${qs ? `?${qs}` : ""}`);
+  },
+  folder: (w: string, name: string, parentId?: string) =>
+    post<Folder>(`${base(w)}/folders`, { name, parentId }),
   begin: (
     w: string,
-    p: string,
     input: {
       id: string;
       name: string;
@@ -137,35 +99,33 @@ export const cloudService = {
       sha256: string;
       folderId?: string;
     },
-  ) => post<{ asset: Asset; partSize: number }>(`${base(w, p)}/uploads`, input),
-  upload: (w: string, p: string, id: string) =>
+  ) => post<{ asset: Asset; partSize: number }>(`${base(w)}/uploads`, input),
+  upload: (w: string, id: string) =>
     get<{
       asset: Asset;
       partSize: number;
       needsCompletion: boolean;
       parts: { number: number; size: number; etag: string }[];
-    }>(`${base(w, p)}/uploads/${id}`),
-  part: (w: string, p: string, id: string, number: number, checksum: string) =>
-    post<{ url: string; headers: Record<string, string> }>(
-      `${base(w, p)}/uploads/${id}/part`,
-      { number, checksum },
-    ),
-  complete: (w: string, p: string, id: string) =>
-    post<Asset>(`${base(w, p)}/uploads/${id}/complete`),
-  cancel: (w: string, p: string, id: string) =>
-    post(`${base(w, p)}/uploads/${id}/cancel`),
+    }>(`${base(w)}/uploads/${id}`),
+  part: (w: string, id: string, number: number, checksum: string) =>
+    post<{ url: string }>(`${base(w)}/uploads/${id}/part`, {
+      number,
+      checksum,
+    }),
+  complete: (w: string, id: string) =>
+    post<Asset>(`${base(w)}/uploads/${id}/complete`),
+  cancel: (w: string, id: string) => post(`${base(w)}/uploads/${id}/cancel`),
   update: (
     w: string,
-    p: string,
     id: string,
     input: { name?: string; folderId?: string | null; trashed?: boolean },
-  ) => post<Asset>(`${base(w, p)}/assets/${id}`, input),
-  download: (w: string, p: string, id: string) =>
+  ) => post<Asset>(`${base(w)}/assets/${id}`, input),
+  download: (w: string, id: string) =>
     post<{ url: string; sha256: string; size: number; name: string }>(
-      `${base(w, p)}/assets/${id}/download`,
+      `${base(w)}/assets/${id}/download`,
     ),
-  purge: (w: string, p: string, id: string, name: string) =>
-    post(`${base(w, p)}/assets/${id}/delete`, { name }),
+  purge: (w: string, id: string, name: string) =>
+    post(`${base(w)}/assets/${id}/delete`, { name }),
   activity: (w: string) =>
     get<
       {
@@ -175,5 +135,5 @@ export const cloudService = {
         detail: Record<string, string>;
         createdAt: string;
       }[]
-    >(`/workspaces/${w}/activity`),
+    >(`${base(w)}/activity`),
 };

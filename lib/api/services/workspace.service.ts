@@ -138,7 +138,6 @@ export type Challenge = {
   googleAvailable: boolean;
 };
 export type MemberImpact = {
-  projects: { id: string; name: string; archivedAt: string | null }[];
   pendingUploads: number;
   approvalResponsibilitiesEnabled: boolean;
 };
@@ -201,16 +200,6 @@ export const workspaceService = {
         `/workspaces/${e(id)}/members/${e(userId)}/impact`,
       )
     ).data.data,
-  management: async (id: string) =>
-    (
-      await teamClient.get<{
-        data: { unassignedProjects: { id: string; name: string }[] };
-      }>(`/workspaces/${e(id)}/management`)
-    ).data.data,
-  assign: async (id: string, projectId: string, targetId: string) =>
-    teamClient.post(`/workspaces/${e(id)}/project-managers/${e(projectId)}`, {
-      targetId,
-    }),
   activity: async (id: string, cursor?: string) =>
     (
       await teamClient.get<{ data: TeamActivity }>(

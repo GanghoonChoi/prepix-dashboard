@@ -89,7 +89,7 @@ export function bytes(value: number) {
 }
 const put = (
   url: string,
-  headers: Record<string, string>,
+  checksum: string,
   body: Blob,
   signal: AbortSignal,
   progress: (n: number) => void,
@@ -99,8 +99,7 @@ const put = (
     const request = new XMLHttpRequest();
     request.open("PUT", url);
     request.timeout = 10 * 60_000;
-    for (const [key, value] of Object.entries(headers))
-      request.setRequestHeader(key, value);
+    request.setRequestHeader("x-amz-checksum-sha256", checksum);
     const abort = () => request.abort();
     const finish = (error?: Error) => {
       signal.removeEventListener("abort", abort);
@@ -123,7 +122,6 @@ const put = (
 export async function uploadFile(input: {
   file: File;
   workspaceId: string;
-  projectId: string;
   folderId?: string;
   resume?: Asset;
   /**
@@ -140,7 +138,7 @@ export async function uploadFile(input: {
   onCreated: (asset: Asset) => void;
   onDigest?: (digest: string) => void;
 }) {
-  const { file, workspaceId: w, projectId: p, signal, onProgress } = input;
+  const { file, workspaceId: w, signal, onProgress } = input;
   const digest =
     input.digest ??
     (await fileDigestOffThread(file, signal, (n) => onProgress("hashing", n)));
@@ -159,20 +157,20 @@ export async function uploadFile(input: {
   // server-side pending uploads are the source of truth; no token/URL persists.
   let result: Awaited<ReturnType<typeof cloudService.begin>>;
   try {
-    result = await cloudService.begin(w, p, body);
+    result = await cloudService.begin(w, body);
   } catch (error) {
     if ((error as { response?: unknown }).response || signal.aborted)
       throw error;
-    result = await cloudService.begin(w, p, body);
+    result = await cloudService.begin(w, body);
   }
   input.onCreated(result.asset);
   signal.throwIfAborted();
   if (result.asset.state !== "uploading") return result.asset;
-  const status = await cloudService.upload(w, p, id);
+  const status = await cloudService.upload(w, id);
   if (status.needsCompletion) {
     signal.throwIfAborted();
     onProgress("verifying", file.size);
-    return cloudService.complete(w, p, id);
+    return cloudService.complete(w, id);
   }
   // The part size drives the loop counter, so a server that answers 0 — or
   // something small enough to demand millions of parts — hangs the tab rather
@@ -197,13 +195,13 @@ export async function uploadFile(input: {
     if (completed.get(number) === chunk.size) continue;
     const digest = sha256(new Uint8Array(await chunk.arrayBuffer()));
     const checksum = btoa(String.fromCharCode(...digest));
-    const part = await cloudService.part(w, p, id, number, checksum);
-    await put(part.url, part.headers, chunk, signal, (n) =>
+    const part = await cloudService.part(w, id, number, checksum);
+    await put(part.url, checksum, chunk, signal, (n) =>
       onProgress("uploading", Math.min(file.size, sent + n)),
     );
     sent += chunk.size;
   }
   signal.throwIfAborted();
   onProgress("verifying", file.size);
-  return cloudService.complete(w, p, id);
+  return cloudService.complete(w, id);
 }

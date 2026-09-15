@@ -85,7 +85,6 @@ test("a stored original with a lost completion response is finalized without upl
   const result = await uploadFile({
     file,
     workspaceId: "team",
-    projectId: "project",
     resume: asset,
     signal: new AbortController().signal,
     onCreated: () => {},
@@ -125,7 +124,6 @@ test("an unusable part size fails instead of looping forever", async (t) => {
       uploadFile({
         file,
         workspaceId: "team",
-        projectId: "project",
         resume: asset,
         signal: new AbortController().signal,
         onCreated: () => {},
@@ -152,7 +150,6 @@ test("an unusable part size fails instead of looping forever", async (t) => {
     uploadFile({
       file: huge,
       workspaceId: "team",
-      projectId: "project",
       resume: { ...asset, size: huge.size },
       digest: asset.sha256,
       signal: new AbortController().signal,
@@ -190,7 +187,6 @@ test("resuming reuses the digest already computed for the same file", async (t) 
   await uploadFile({
     file,
     workspaceId: "team",
-    projectId: "project",
     resume: asset,
     digest,
     signal: new AbortController().signal,
