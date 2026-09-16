@@ -16,6 +16,7 @@ import { Dialog } from "@/components/dialog";
 import { useToast } from "@/components/toast";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useI18n } from "@/lib/i18n/context";
+import { legalUrl } from "@/lib/i18n/config";
 
 export default function PlanPage() {
   const { t, lang } = useI18n();
@@ -161,7 +162,8 @@ export default function PlanPage() {
     currentSub?.manageable === true &&
     ["active", "trialing", "past_due"].includes(status);
   // Gated on the backend's eligibility flag (paid, non-terminal, within the
-  // 14-day window) so we never show a refund action that would only 4xx.
+  // 7-day window, credits unused) so we never show a refund action that would
+  // only 4xx.
   const canRefund = currentSub?.refundEligible === true;
   const hasAnnual = plans.some((p) => p.prices.some((pr) => pr.interval === "year"));
 
@@ -364,6 +366,31 @@ export default function PlanPage() {
               );
             })}
           </div>
+
+          {/* Paddle requires the buyer to accept the terms and the refund policy
+              before purchase, and a refund dispute is decided against whichever
+              policy we can show they saw. Links, in the viewer's language. */}
+          <p className="mt-6 text-center text-[11px] text-muted">
+            {t("plan.purchaseConsent")}{" "}
+            <a
+              href={legalUrl(lang, "terms-of-service")}
+              target="_blank"
+              rel="noreferrer"
+              className="underline underline-offset-2 hover:text-foreground"
+            >
+              {t("plan.termsLink")}
+            </a>
+            {t("plan.consentSeparator")}
+            <a
+              href={legalUrl(lang, "refund-policy")}
+              target="_blank"
+              rel="noreferrer"
+              className="underline underline-offset-2 hover:text-foreground"
+            >
+              {t("plan.refundPolicyLink")}
+            </a>
+            {t("plan.consentSuffix")}
+          </p>
         </section>
       )}
 

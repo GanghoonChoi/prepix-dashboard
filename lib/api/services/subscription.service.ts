@@ -35,7 +35,8 @@ export interface CurrentSubscription {
   paddleSubscriptionId?: string | null;
   cancelledAt?: string | null;
   // Whether the self-serve refund button should be offered (backend re-verifies
-  // the real 14-day window on submit — this is only the UX gate).
+  // the real 7-day window and the unused-credits condition on submit — this is
+  // only the UX gate).
   refundEligible: boolean;
 }
 
