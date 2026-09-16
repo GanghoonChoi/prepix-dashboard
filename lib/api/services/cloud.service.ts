@@ -108,7 +108,7 @@ export const cloudService = {
       parts: { number: number; size: number; etag: string }[];
     }>(`${base(w)}/uploads/${id}`),
   part: (w: string, id: string, number: number, checksum: string) =>
-    post<{ url: string }>(`${base(w)}/uploads/${id}/part`, {
+    post<{ url: string; headers: Record<string, string> }>(`${base(w)}/uploads/${id}/part`, {
       number,
       checksum,
     }),

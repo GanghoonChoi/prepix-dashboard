@@ -87,9 +87,12 @@ export function bytes(value: number) {
   const i = Math.min(3, Math.floor(Math.log10(value) / 3));
   return `${(value / 1000 ** i).toLocaleString(undefined, { maximumFractionDigits: 1 })} ${["B", "KB", "MB", "GB"][i]}`;
 }
+// Send the headers the server signed and no others. Only the server knows
+// which the provider takes — R2 answers an unsupported `x-amz-checksum-sha256`
+// with 501, and every header here also has to survive the CORS preflight.
 const put = (
   url: string,
-  checksum: string,
+  headers: Record<string, string>,
   body: Blob,
   signal: AbortSignal,
   progress: (n: number) => void,
@@ -99,7 +102,8 @@ const put = (
     const request = new XMLHttpRequest();
     request.open("PUT", url);
     request.timeout = 10 * 60_000;
-    request.setRequestHeader("x-amz-checksum-sha256", checksum);
+    for (const [name, value] of Object.entries(headers))
+      request.setRequestHeader(name, value);
     const abort = () => request.abort();
     const finish = (error?: Error) => {
       signal.removeEventListener("abort", abort);
@@ -196,7 +200,7 @@ export async function uploadFile(input: {
     const digest = sha256(new Uint8Array(await chunk.arrayBuffer()));
     const checksum = btoa(String.fromCharCode(...digest));
     const part = await cloudService.part(w, id, number, checksum);
-    await put(part.url, checksum, chunk, signal, (n) =>
+    await put(part.url, part.headers, chunk, signal, (n) =>
       onProgress("uploading", Math.min(file.size, sent + n)),
     );
     sent += chunk.size;
