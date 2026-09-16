@@ -12,6 +12,7 @@ import { auth } from "./strings/auth";
 import { pricing } from "./strings/pricing";
 import { misc } from "./strings/misc";
 import { connect } from "./strings/connect";
+import { refund } from "./strings/refund";
 
 import { team } from './strings/team';
 
@@ -27,6 +28,7 @@ const namespaces = [
   pricing,
   misc,
   connect,
+  refund,
 ];
 
 function merge(lang: Lang): Record<string, string> {

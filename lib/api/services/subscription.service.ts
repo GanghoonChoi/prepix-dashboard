@@ -34,10 +34,25 @@ export interface CurrentSubscription {
   currentPeriodEnd?: string | null;
   paddleSubscriptionId?: string | null;
   cancelledAt?: string | null;
-  // Whether the self-serve refund button should be offered (backend re-verifies
-  // the real 7-day window and the unused-credits condition on submit — this is
-  // only the UX gate).
+  // Whether the immediate refund button should be offered (backend re-verifies
+  // on submit — this is only the UX gate). Equivalent to refund.action ===
+  // "self-serve"; kept because it is the older, narrower question.
   refundEligible: boolean;
+  // Which of the policy's three bands this payment falls in, and therefore
+  // which affordance to render. The rate is what the policy grants for an
+  // UNUSED payment; a used one comes back as "none" with reason "used".
+  refund: {
+    // self-serve      refund it now
+    // request-review  we file it and a person decides
+    // contact-support inside 14 days, no change-of-mind refund, fault claims ok
+    // pending         one is already filed — show its state, not a button
+    // none            render nothing
+    action: "self-serve" | "request-review" | "contact-support" | "pending" | "none";
+    rate: "full" | "half" | "none";
+    daysElapsed: number | null;
+    reason?: string;
+    pendingThreadId: string | null;
+  };
 }
 
 export interface CheckoutResult {
@@ -92,5 +107,63 @@ export const subscriptionService = {
   refund: async (): Promise<{ message: string }> => {
     const response = await apiClient.post("/subscriptions/refund");
     return response.data.data;
+  },
+
+  // Files the request and notifies the team — no money moves here. Used for
+  // the 50% band, annual plans, and anything else a person has to size.
+  requestRefundReview: async (
+    note?: string,
+  ): Promise<{
+    threadId: string;
+    rate: string;
+    daysElapsed: number;
+    alreadyFiled: boolean;
+    message: string;
+  }> => {
+    const response = await apiClient.post("/subscriptions/refund/review", { note });
+    return response.data.data;
+  },
+};
+
+// --- Refund request threads -------------------------------------------------
+// A refund request is filed as a feedback thread, so its status and our reply
+// come back through the feedback API. The dashboard has no feedback surface of
+// its own, and a request whose outcome you can only read in the desktop app is
+// a request the web user thinks vanished — so the plan page renders the one
+// thread that matters to it.
+
+export interface RefundThreadMessage {
+  id: string;
+  author: "user" | "team";
+  authorName?: string;
+  body: string;
+  createdAt: string;
+  readAt?: string;
+}
+
+export interface RefundThread {
+  id: string;
+  kind: string;
+  status: "open" | "answered" | "closed";
+  createdAt: string;
+  lastMessageAt: string;
+  unread: number;
+  messages: RefundThreadMessage[];
+}
+
+export const refundThreadService = {
+  // The threads endpoint returns every kind; the plan page wants the refund one.
+  forRefund: async (threadId: string): Promise<RefundThread | null> => {
+    const response = await apiClient.get("/feedback/threads");
+    const threads: RefundThread[] = response.data.data ?? [];
+    return threads.find((th) => th.id === threadId) ?? null;
+  },
+
+  reply: async (threadId: string, body: string): Promise<void> => {
+    await apiClient.post(`/feedback/threads/${threadId}/messages`, { body });
+  },
+
+  markRead: async (threadId: string): Promise<void> => {
+    await apiClient.post(`/feedback/threads/${threadId}/read`);
   },
 };

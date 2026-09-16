@@ -55,14 +55,39 @@ export const plan: Record<Lang, Record<string, string>> = {
       "Are you sure? You'll keep access to your paid features until the end of your billing period.",
     "plan.keepPlan": "Keep plan",
     "plan.cancelling": "Cancelling...",
+    "plan.purchaseNotice":
+      "If you don't use the paid service after payment, we refund 100% through day 7 and 50% of the amount actually paid between day 8 and day 14. Once paid credits or paid-only features have been used, no change-of-mind refund is available. Refunds are calculated on the amount actually paid after any discount. Statutory rights and Paddle's own refund policy still apply.",
     "plan.purchaseConsent": "By subscribing you agree to our",
     "plan.termsLink": "Terms of Service",
     "plan.consentSeparator": " and ",
     "plan.refundPolicyLink": "Refund Policy",
     "plan.consentSuffix": ".",
+    "plan.refundPending": "Refund request under review",
+    "plan.reviewAlreadyFiledToast": "We already have your request — we'll reply shortly.",
+    "plan.refundContactSupport": "Refund help",
+    "plan.supportModalTitle": "Refund help",
+    "plan.supportModalBodyWindowClosed":
+      "The company refund period for this payment has passed, so we can't process it from here. Rights under applicable law, refunds for parts not supplied, and refunds for service faults still apply — send us the details and we'll look at it.",
+    "plan.supportModalBodyUsed":
+      "This payment's paid service has been used, so a change-of-mind refund isn't available. If credits were deducted by a fault, the service wasn't what we described, or something else went wrong, send us the details and we'll look at it.",
+    "plan.supportModalBodyPreviousPolicy":
+      "This payment is covered by the refund policy that applied when you made it, so we check it by hand rather than from here. Send us the details and we'll apply the terms you bought under.",
+    "plan.supportModalContact":
+      "You can also email support@prepix.ai with your payment date or Paddle transaction number.",
+    "plan.supportNotePlaceholder": "What happened, and what you'd like us to do",
+    "plan.requestRefundReview": "Request a refund review",
+    "plan.reviewModalTitle": "Request a refund review",
+    "plan.reviewModalBody":
+      "Unused payments are refunded at 50% between day 8 and day 14. Our team checks your payment date and usage, then replies — usually within 3 business days. The rate is set by the date you send this, not the date we get to it.",
+    "plan.reviewDayCount": "Day {days} since your payment.",
+    "plan.reviewNoteLabel": "Anything we should know (optional)",
+    "plan.reviewNotePlaceholder": "e.g. what went wrong, or what you expected",
+    "plan.reviewSubmit": "Send request",
+    "plan.reviewSubmitting": "Sending…",
+    "plan.reviewFiledToast": "Request received. We'll reply in the app shortly.",
     "plan.refundModalTitle": "Request a refund",
     "plan.refundModalBody":
-      "We'll refund your most recent payment in full and cancel your subscription immediately. Refunds are available within 7 days of the payment, while your credits are still unused, and once per account.",
+      "We'll refund your most recent payment in full and cancel your subscription immediately. Full refunds are available through day 7, while the credits that payment bought are still unused.",
     "plan.processing": "Processing...",
     "plan.refundAndCancel": "Refund & cancel",
   },
@@ -115,14 +140,39 @@ export const plan: Record<Lang, Record<string, string>> = {
       "정말 해지할까요? 결제 주기가 끝날 때까지는 유료 기능을 계속 이용할 수 있어요.",
     "plan.keepPlan": "유지하기",
     "plan.cancelling": "해지 중...",
+    "plan.purchaseNotice":
+      "결제 후 유료서비스를 사용하지 않은 경우, 7일차까지는 전액을, 8일차부터 14일차까지는 실제 결제금액의 50%를 환불합니다. 유료 크레딧 또는 유료 전용 기능을 정상적으로 사용한 경우에는 단순 변심 환불이 제공되지 않습니다. 환불금액은 할인 후 실제 결제금액을 기준으로 합니다. 관계 법령과 Paddle 정책에 따른 별도 환불 권리는 적용됩니다.",
     "plan.purchaseConsent": "구독하시면",
     "plan.termsLink": "이용약관",
     "plan.consentSeparator": " 및 ",
     "plan.refundPolicyLink": "환불 정책",
     "plan.consentSuffix": "에 동의하는 것으로 봅니다.",
+    "plan.refundPending": "환불 요청 검토 중",
+    "plan.reviewAlreadyFiledToast": "이미 접수된 요청이 있어요. 곧 답변드릴게요.",
+    "plan.refundContactSupport": "환불 문의",
+    "plan.supportModalTitle": "환불 문의",
+    "plan.supportModalBodyWindowClosed":
+      "이 결제의 회사 환불 기간이 지나 이 화면에서 바로 처리해 드릴 수는 없어요. 다만 관계 법령에 따른 권리, 아직 제공되지 않은 부분의 환불, 서비스 오류로 인한 환불은 그대로 적용됩니다. 내용을 남겨주시면 확인해 드릴게요.",
+    "plan.supportModalBodyUsed":
+      "이 결제의 유료서비스를 사용하셔서 단순 변심 환불은 제공되지 않아요. 다만 오류로 크레딧이 잘못 차감됐거나, 안내와 다르게 제공됐거나, 다른 문제가 있었다면 내용을 남겨주시면 확인해 드릴게요.",
+    "plan.supportModalBodyPreviousPolicy":
+      "이 결제에는 결제 당시의 환불정책이 적용돼서, 이 화면이 아니라 담당자가 직접 확인해 드려요. 내용을 남겨주시면 결제하실 때의 기준으로 처리해 드릴게요.",
+    "plan.supportModalContact":
+      "support@prepix.ai로 결제일 또는 Paddle 거래번호를 보내주셔도 됩니다.",
+    "plan.supportNotePlaceholder": "어떤 일이 있었는지, 어떻게 처리되기를 원하시는지",
+    "plan.requestRefundReview": "환불 검토 요청",
+    "plan.reviewModalTitle": "환불 검토 요청",
+    "plan.reviewModalBody":
+      "미사용 결제는 8일차부터 14일차까지 실제 결제금액의 50%가 환불 대상입니다. 고객지원팀이 결제일과 이용 내역을 확인한 뒤 처리하며, 보통 3영업일 이내에 결과를 안내드립니다. 환불률은 요청을 보내신 날짜를 기준으로 정해지며, 저희가 확인한 날짜로 바뀌지 않습니다.",
+    "plan.reviewDayCount": "결제 후 {days}일차입니다.",
+    "plan.reviewNoteLabel": "전달할 내용이 있다면 적어주세요 (선택)",
+    "plan.reviewNotePlaceholder": "예: 어떤 문제가 있었는지, 무엇을 기대하셨는지",
+    "plan.reviewSubmit": "요청 보내기",
+    "plan.reviewSubmitting": "보내는 중…",
+    "plan.reviewFiledToast": "요청이 접수됐어요. 곧 앱에서 답변드릴게요.",
     "plan.refundModalTitle": "환불 요청",
     "plan.refundModalBody":
-      "가장 최근 결제를 전액 환불하고 구독을 즉시 해지해 드려요. 환불은 결제 후 7일 이내, 크레딧을 아직 사용하지 않았을 때 가능하며, 계정당 한 번만 가능합니다.",
+      "가장 최근 결제를 전액 환불하고 구독을 즉시 해지해 드려요. 전액 환불은 결제 후 7일차까지, 해당 결제로 받은 크레딧을 아직 사용하지 않았을 때 가능합니다.",
     "plan.processing": "처리 중...",
     "plan.refundAndCancel": "환불 및 해지",
   },

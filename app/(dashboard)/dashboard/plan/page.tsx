@@ -16,6 +16,7 @@ import { Dialog } from "@/components/dialog";
 import { useToast } from "@/components/toast";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useI18n } from "@/lib/i18n/context";
+import { RefundRequestCard } from "@/components/dashboard/refund-request-card";
 import { legalUrl } from "@/lib/i18n/config";
 
 export default function PlanPage() {
@@ -31,6 +32,9 @@ export default function PlanPage() {
   const [justUpgraded, setJustUpgraded] = useState(false);
   const cancelModal = useOverlayState();
   const refundModal = useOverlayState();
+  const reviewModal = useOverlayState();
+  const supportModal = useOverlayState();
+  const [reviewNote, setReviewNote] = useState("");
 
   const loadData = () => {
     setLoading(true);
@@ -141,6 +145,37 @@ export default function PlanPage() {
     setActionLoading(false);
   };
 
+  // The half-refund band and anything else a person has to size. Files the
+  // request and notifies the team; nothing is refunded here, so the toast must
+  // not read like it was — a customer who thinks the money is on its way and
+  // then waits two days is the one who calls their bank.
+  const submitSupportRequest = async () => {
+    await fileRefundRequest(supportModal);
+  };
+
+  const submitRefundReview = async () => {
+    await fileRefundRequest(reviewModal);
+  };
+
+  const fileRefundRequest = async (modal: { close: () => void }) => {
+    setActionLoading(true);
+    try {
+      const res = await subscriptionService.requestRefundReview(
+        reviewNote.trim() || undefined,
+      );
+      modal.close();
+      setReviewNote("");
+      toast(res?.alreadyFiled ? t("plan.reviewAlreadyFiledToast") : t("plan.reviewFiledToast"));
+      // Refreshes into the pending state, so the control the user just used is
+      // gone by the time the toast fades.
+      await refreshCurrent();
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string } } };
+      toast(axiosErr.response?.data?.message || t("plan.refundFailed"), "error");
+    }
+    setActionLoading(false);
+  };
+
   const currentPlan = currentSub?.plan || "free";
   const status = currentSub?.status ?? "active";
   const statusMeta = PLAN_STATUS_META[status];
@@ -161,10 +196,23 @@ export default function PlanPage() {
   const canCancel =
     currentSub?.manageable === true &&
     ["active", "trialing", "past_due"].includes(status);
-  // Gated on the backend's eligibility flag (paid, non-terminal, within the
-  // 7-day window, credits unused) so we never show a refund action that would
-  // only 4xx.
-  const canRefund = currentSub?.refundEligible === true;
+  // Three affordances, not one, because the policy has three bands: refund now,
+  // ask us to review, or nothing here. The backend decides which — rendering a
+  // button whose request would only 4xx is how people end up at their bank
+  // instead of at us.
+  const refundOffer = currentSub?.refund;
+  const canRefund = refundOffer?.action === "self-serve";
+  const canRequestReview = refundOffer?.action === "request-review";
+  // A payment we can't judge automatically still has a person behind it, and a
+  // statutory right or a service fault is refundable whatever the band says.
+  // Showing nothing here is how someone concludes there is no way to reach us
+  // and calls their bank instead — so these reasons get a route, not silence.
+  // The other reasons (no subscription, nothing charged) have no payment to
+  // talk about, and a refund link on those is just confusing.
+  const needsSupport = refundOffer?.action === "contact-support";
+  // A filed request replaces every control: the question this person has is
+  // "did it go through", and another button answers the wrong one.
+  const refundPending = refundOffer?.action === "pending";
   const hasAnnual = plans.some((p) => p.prices.some((pr) => pr.interval === "year"));
 
   const priceLabel = (plan: CatalogPlan) => {
@@ -253,7 +301,7 @@ export default function PlanPage() {
               </p>
             )}
           </div>
-          {(canCancel || canRefund) && (
+          {(canCancel || canRefund || canRequestReview || needsSupport || refundPending) && (
             <div className="flex flex-col items-end gap-1.5">
               {canCancel && (
                 <button
@@ -271,9 +319,37 @@ export default function PlanPage() {
                   {t("plan.requestRefund")}
                 </button>
               )}
+              {canRequestReview && (
+                <button
+                  onClick={() => reviewModal.open()}
+                  className="text-xs text-muted hover:text-foreground transition-colors"
+                >
+                  {t("plan.requestRefundReview")}
+                </button>
+              )}
+              {needsSupport && (
+                <button
+                  onClick={() => supportModal.open()}
+                  className="text-xs text-muted hover:text-foreground transition-colors"
+                >
+                  {t("plan.refundContactSupport")}
+                </button>
+              )}
+              {refundPending && (
+                <span className="text-xs text-muted">{t("plan.refundPending")}</span>
+              )}
             </div>
           )}
         </div>
+      )}
+
+      {/* A filed refund request, with our reply. Sits above the plan cards
+          because "what happened to my refund" outranks "what else could I buy". */}
+      {refundPending && refundOffer?.pendingThreadId && (
+        <RefundRequestCard
+          threadId={refundOffer.pendingThreadId}
+          onResolved={refreshCurrent}
+        />
       )}
 
       {/* Plan cards */}
@@ -370,7 +446,10 @@ export default function PlanPage() {
           {/* Paddle requires the buyer to accept the terms and the refund policy
               before purchase, and a refund dispute is decided against whichever
               policy we can show they saw. Links, in the viewer's language. */}
-          <p className="mt-6 text-center text-[11px] text-muted">
+          <p className="mx-auto mt-6 max-w-2xl text-center text-[11px] leading-relaxed text-muted">
+            {t("plan.purchaseNotice")}
+          </p>
+          <p className="mt-2 text-center text-[11px] text-muted">
             {t("plan.purchaseConsent")}{" "}
             <a
               href={legalUrl(lang, "terms-of-service")}
@@ -403,6 +482,70 @@ export default function PlanPage() {
           <Button variant="outline" size="sm" onPress={() => cancelModal.close()} isDisabled={actionLoading}>{t("plan.keepPlan")}</Button>
           <Button variant="danger" size="sm" onPress={confirmCancel} isDisabled={actionLoading}>
             {actionLoading ? t("plan.cancelling") : t("plan.cancelSubscription")}
+          </Button>
+        </div>
+      </Dialog>
+
+      {/* Out-of-band refunds. Same submission as the review request — the
+          backend files it with the facts either way and a person decides —
+          but the copy must not promise a rate, because none applies here. */}
+      <Dialog state={supportModal} title={t("plan.supportModalTitle")}>
+        <p className="text-sm text-muted">
+          {refundOffer?.reason === "used"
+            ? t("plan.supportModalBodyUsed")
+            : refundOffer?.reason === "previous-policy"
+              ? t("plan.supportModalBodyPreviousPolicy")
+              : t("plan.supportModalBodyWindowClosed")}
+        </p>
+        <label className="mt-4 block">
+          <span className="text-xs text-muted">{t("plan.reviewNoteLabel")}</span>
+          <textarea
+            value={reviewNote}
+            onChange={(e) => setReviewNote(e.target.value)}
+            rows={3}
+            maxLength={1000}
+            placeholder={t("plan.supportNotePlaceholder")}
+            className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-foreground/20"
+          />
+        </label>
+        <p className="mt-3 text-xs text-muted">{t("plan.supportModalContact")}</p>
+        <div className="mt-6 flex justify-end gap-3">
+          <Button variant="outline" size="sm" onPress={() => supportModal.close()} isDisabled={actionLoading}>
+            {t("common.cancel")}
+          </Button>
+          <Button variant="primary" size="sm" onPress={submitSupportRequest} isDisabled={actionLoading}>
+            {actionLoading ? t("plan.reviewSubmitting") : t("plan.reviewSubmit")}
+          </Button>
+        </div>
+      </Dialog>
+
+      {/* Review-request modal — the 50% band and anything a person has to size.
+          States plainly that this is a request, and that the rate is decided on
+          the request date, not the day we get to it. */}
+      <Dialog state={reviewModal} title={t("plan.reviewModalTitle")}>
+        <p className="text-sm text-muted">{t("plan.reviewModalBody")}</p>
+        {refundOffer?.daysElapsed != null && (
+          <p className="mt-2 text-xs text-muted">
+            {t("plan.reviewDayCount", { days: String(refundOffer.daysElapsed) })}
+          </p>
+        )}
+        <label className="mt-4 block">
+          <span className="text-xs text-muted">{t("plan.reviewNoteLabel")}</span>
+          <textarea
+            value={reviewNote}
+            onChange={(e) => setReviewNote(e.target.value)}
+            rows={3}
+            maxLength={1000}
+            placeholder={t("plan.reviewNotePlaceholder")}
+            className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-foreground/20"
+          />
+        </label>
+        <div className="mt-6 flex justify-end gap-3">
+          <Button variant="outline" size="sm" onPress={() => reviewModal.close()} isDisabled={actionLoading}>
+            {t("common.cancel")}
+          </Button>
+          <Button variant="primary" size="sm" onPress={submitRefundReview} isDisabled={actionLoading}>
+            {actionLoading ? t("plan.reviewSubmitting") : t("plan.reviewSubmit")}
           </Button>
         </div>
       </Dialog>
