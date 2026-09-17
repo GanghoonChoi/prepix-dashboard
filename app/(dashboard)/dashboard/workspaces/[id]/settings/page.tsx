@@ -154,18 +154,20 @@ export default function Page() {
               >
                 {c("변경 저장", "Save changes")}
               </button>
-              <button
-                type="button"
-                className={secondaryClass}
-                disabled={busy}
-                onClick={async () => {
-                  await reload();
-                  setDraft(null);
-                  setError("");
-                }}
-              >
-                {c("최신 정보 불러오기", "Load latest details")}
-              </button>
+              {(draft || conflicted) && (
+                <button
+                  type="button"
+                  className={secondaryClass}
+                  disabled={busy}
+                  onClick={async () => {
+                    await reload();
+                    setDraft(null);
+                    setError("");
+                  }}
+                >
+                  {c("최신 정보 불러오기", "Load latest details")}
+                </button>
+              )}
             </div>
           )}
         </form>
@@ -185,8 +187,8 @@ export default function Page() {
         </p>
         <p className="text-sm leading-6 text-muted">
           {c(
-            "새 소유자는 팀 설정과 향후 결제를 관리합니다. 이전 소유자는 관리자로 남습니다. 팀 자료와 개인 구독은 그대로 유지되며 상대방이 본인 확인 후 수락해야 완료됩니다.",
-            "The new owner manages the team and future billing. The previous owner remains an admin. Team files and personal subscriptions are preserved. The recipient must verify their identity and accept to complete the transfer.",
+            "이전 소유자는 관리자로 남습니다. 상대방이 본인 확인 후 수락해야 완료됩니다.",
+            "The previous owner remains an admin. It completes once the recipient verifies and accepts.",
           )}
         </p>
         {pending && (
@@ -276,8 +278,8 @@ export default function Page() {
             </label>
             <p className="text-xs leading-5 text-muted">
               {c(
-                "요청은 팀 홈과 설정에 표시되며 7일 동안 유효합니다. 검토자가 수락할 때는 빈 좌석 1개가 필요합니다.",
-                "The request appears on the team home and settings for 7 days. A reviewer needs one available seat when accepting.",
+                "7일 동안 유효합니다. 검토자가 수락하려면 빈 좌석 1개가 필요합니다.",
+                "Valid for 7 days. A reviewer needs one free seat to accept.",
               )}
             </p>
             <button

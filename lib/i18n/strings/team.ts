@@ -5,8 +5,6 @@ export const team = {
     "team.loading": "Loading workspace…",
     "team.retry": "Try again",
     "team.indexTitle": "A shared space for your team",
-    "team.indexDesc":
-      "Create a workspace, invite your team, and keep your team membership in one place.",
     "team.create": "Create workspace",
     "team.personal": "Continue with personal account",
     "team.myTeams": "Your workspaces",
@@ -215,8 +213,6 @@ export const team = {
     "team.loading": "워크스페이스를 불러오는 중…",
     "team.retry": "다시 시도",
     "team.indexTitle": "팀이 함께하는 작업 공간",
-    "team.indexDesc":
-      "워크스페이스를 만들고 팀원을 초대해, 한곳에서 팀 구성을 관리하세요.",
     "team.create": "워크스페이스 만들기",
     "team.personal": "개인 계정으로 계속",
     "team.myTeams": "내 워크스페이스",

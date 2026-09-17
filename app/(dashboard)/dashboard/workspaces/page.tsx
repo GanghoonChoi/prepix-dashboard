@@ -64,7 +64,7 @@ export default function WorkspacesPage() {
     }
   }
   return (
-    <TeamShell title={t("team.indexTitle")} description={t("team.indexDesc")}>
+    <TeamShell title={t("team.indexTitle")}>
       {status === "loading" ? (
         <TeamLoading />
       ) : status === "unreachable" ? (
@@ -151,11 +151,6 @@ export default function WorkspacesPage() {
           )}
         </>
       )}
-      <div>
-        <Link href="/dashboard" className={secondaryClass}>
-          {t("team.personal")}
-        </Link>
-      </div>
     </TeamShell>
   );
 }

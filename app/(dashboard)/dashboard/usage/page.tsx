@@ -96,14 +96,23 @@ export default function UsagePage() {
         ) : (
           <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border lg:grid-cols-4">
             {[
-              { label: t("usage.total"), value: Number(videos?.total ?? 0) },
+              // `videos.total` is the plan's monthly allowance, and the server
+              // sends -1 for "no limit". Printed through formatCount that read
+              // "-1" on every Pro account.
+              { label: t("usage.total"), value: Number(videos?.total ?? 0), allowance: true },
               { label: t("usage.thisMonth"), value: Number(videos?.thisMonth ?? 0) },
               { label: t("usage.completed"), value: Number(videos?.completed ?? 0) },
               { label: t("usage.processing"), value: Number(videos?.processing ?? 0) },
             ].map((item) => (
               <div key={item.label} className="bg-surface px-5 py-4">
                 <p className="text-[11px] font-medium uppercase tracking-widest text-muted">{item.label}</p>
-                <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">{formatCount(item.value)}</p>
+                <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">
+                  {item.allowance && item.value < 0
+                    ? lang === "ko"
+                      ? "무제한"
+                      : "Unlimited"
+                    : formatCount(item.value)}
+                </p>
               </div>
             ))}
           </div>

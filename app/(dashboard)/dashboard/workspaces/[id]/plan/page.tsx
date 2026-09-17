@@ -43,7 +43,6 @@ export default function Page() {
   return (
     <TeamShell
       title={c("플랜과 사용량", "Plan and usage")}
-      description={personal ? t("team.kind.personal") : data.workspace.name}
     >
       {!personal && (
         <section className="space-y-4 rounded-xl border border-border p-6">
@@ -55,8 +54,8 @@ export default function Page() {
           </h2>
           <p className="max-w-2xl text-sm leading-6 text-muted">
             {c(
-              "팀 요금과 결제 시작일은 아직 정해지지 않았습니다. 팀 사용으로 청구되거나 개인 구독이 변경되지 않습니다. 실제 결제를 시작하기 전에 소유자가 요금과 적용일을 확인하게 됩니다.",
-              "Team pricing and billing dates are not set. Team use does not create a charge or change personal subscriptions. The owner will review pricing and effective dates before billing starts.",
+              "아직 청구되지 않습니다. 결제를 시작하기 전에 소유자가 요금과 적용일을 먼저 확인합니다.",
+              "Nothing is being charged. The owner reviews pricing and dates before billing starts.",
             )}
           </p>
         </section>
@@ -91,8 +90,8 @@ export default function Page() {
       {!personal && (
       <p className="text-sm leading-6 text-muted">
         {c(
-          "멤버 제거는 구독 좌석 수량을 자동으로 줄이지 않습니다. 업로드 중인 파일과 휴지통 파일도 저장 용량에 포함됩니다. 팀 AI 사용량과 자동 결제는 아직 제공하지 않습니다.",
-          "Removing a member does not automatically reduce subscription quantity. Pending uploads and trashed files count toward storage. Team AI allowances and automated billing are not available yet.",
+          "멤버를 빼도 좌석 수량은 줄지 않습니다. 업로드 중인 파일과 휴지통 파일도 저장 용량에 포함됩니다.",
+          "Removing a member does not reduce seat quantity. Pending uploads and trashed files count toward storage.",
         )}
       </p>
       )}
