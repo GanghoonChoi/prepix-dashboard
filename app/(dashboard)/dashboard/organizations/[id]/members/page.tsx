@@ -10,7 +10,10 @@ import {
 } from "@/lib/api/services/organization.service";
 import { workspaceError } from "@/lib/workspaces/onboarding";
 import { RowMenu, RowMenuItem } from "@/components/workspaces/row-menu";
-import { MembersTable } from "@/components/workspaces/members-table";
+import {
+  MembersTable,
+  type MemberRow,
+} from "@/components/workspaces/members-table";
 import {
   TeamShell,
   TeamError,
@@ -227,6 +230,9 @@ function Content({ id }: { id: string }) {
       </Dialog>
       <MembersTable
         title={c("멤버", "Members")}
+        // Members only. The table also lists people who have been invited and
+        // have not answered, and counting them here would overstate the team.
+        count={data.members.length}
         description={c(
           "조직에 사람들을 초대하고 역할을 관리하세요.",
           "Invite people to the organisation and manage their roles.",
@@ -251,7 +257,7 @@ function Content({ id }: { id: string }) {
               )
             : undefined
         }
-        rows={data.members.map((member) => {
+        rows={data.members.map((member): MemberRow => {
           // Only the owner moves anybody in or out of billing, so an admin
           // sees those rows as text rather than a control the server would
           // refuse. Your own row is text too: you do not demote yourself by
@@ -300,7 +306,85 @@ function Content({ id }: { id: string }) {
               </RowMenu>
             ),
           };
-        })}
+        })
+        /**
+         * Invitations sit in the same table as members, below them.
+         *
+         * They were nowhere at all: you invited somebody, the modal said the
+         * mail went, and then they appeared on no screen — not a member,
+         * because they had not accepted, and not anything else. A separate
+         * "pending" panel would have been a second roster to read; one list
+         * answers "who is in this team, and who is on the way".
+         */
+        .concat(
+          (data.invitations ?? []).map((invitation): MemberRow => ({
+            id: invitation.id,
+            name: null,
+            email: invitation.email,
+            role: invitation.role ?? "member",
+            roleLabel: roleLabel(
+              (invitation.role ?? "member") as OrganizationRole,
+            ),
+            detail:
+              invitation.deliveryStatus === "failed"
+                ? c("메일 발송 실패", "Delivery failed")
+                : new Date(invitation.expiresAt) < new Date()
+                  ? c("초대 만료됨", "Invitation expired")
+                  : c(
+                      `초대함 · ${new Date(invitation.expiresAt).toLocaleDateString(lang)} 만료`,
+                      `Invited · expires ${new Date(invitation.expiresAt).toLocaleDateString(lang)}`,
+                    ),
+            // A role dropdown on somebody who has not joined would be editing
+            // a promise. Change it by revoking and inviting again.
+            locked: true,
+            menu: data.canManage ? (
+              <RowMenu>
+                <RowMenuItem
+                  disabled={!!busy}
+                  onClick={() =>
+                    void act(invitation.id, async () => {
+                      const result =
+                        await organizationService.resendInvitation(
+                          id,
+                          invitation.id,
+                          lang,
+                        );
+                      setNotice(
+                        result.status === "invited"
+                          ? c(
+                              `${invitation.email} 로 다시 보냈습니다.`,
+                              `Sent again to ${invitation.email}.`,
+                            )
+                          : result.status === "retry_later"
+                            ? c(
+                                "방금 보냈습니다. 1분 뒤에 다시 시도하세요.",
+                                "Just sent. Try again in a minute.",
+                              )
+                            : c(
+                                "다시 보내지 못했습니다.",
+                                "Could not send it again.",
+                              ),
+                      );
+                    })
+                  }
+                >
+                  {c("초대 다시 보내기", "Resend invitation")}
+                </RowMenuItem>
+                <RowMenuItem
+                  tone="danger"
+                  disabled={!!busy}
+                  onClick={() =>
+                    void act(invitation.id, () =>
+                      organizationService.revokeInvitation(id, invitation.id),
+                    )
+                  }
+                >
+                  {c("초대 취소", "Revoke invitation")}
+                </RowMenuItem>
+              </RowMenu>
+            ) : undefined,
+          })),
+        )}
       />
     </TeamShell>
   );

@@ -55,7 +55,29 @@ export type OrganizationDetail = {
     perWorkspaceLimit: number;
   };
   members: OrganizationMember[];
+  /**
+   * Sent, not yet taken up. Expired ones are INCLUDED: they are exactly the
+   * rows somebody needs to act on, and hiding them turns "why has Minji not
+   * joined?" into a question the screen cannot answer.
+   *
+   * OPTIONAL, like every other field here that arrived after a server did.
+   * The dashboard ships ahead of the API often enough that a required field
+   * is a white screen: a preview pointed at production read `undefined.map`
+   * and took the whole page down, which is exactly how this rule got written
+   * for the other fields.
+   */
+  invitations?: OrganizationInvitation[];
   workspaces: OrganizationWorkspace[];
+};
+
+export type OrganizationInvitation = {
+  id: string;
+  email: string;
+  role: Exclude<OrganizationRole, "owner"> | null;
+  workspaceId: string;
+  deliveryStatus: "sending" | "sent" | "failed";
+  expiresAt: string;
+  lastSentAt: string;
 };
 
 const e = encodeURIComponent;
@@ -100,6 +122,18 @@ export const organizationService = {
       | { status: "workspace_required" }
       | { status: "delivery_failed"; invitationId: string }
     >(`/organizations/${e(id)}/members`, { email, role, lang }),
+  resendInvitation: (id: string, invitationId: string, lang: string) =>
+    post<
+      | { status: "invited"; hasAccount: boolean }
+      | { status: "retry_later" }
+      | { status: "already_member" }
+      | { status: "revoked" }
+      | { status: "delivery_failed" }
+    >(`/organizations/${e(id)}/invitations/${e(invitationId)}/resend`, { lang }),
+  revokeInvitation: (id: string, invitationId: string) =>
+    post<{ status: "revoked" }>(
+      `/organizations/${e(id)}/invitations/${e(invitationId)}/revoke`,
+    ),
   changeMember: async (
     id: string,
     userId: string,

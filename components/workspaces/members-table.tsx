@@ -38,6 +38,7 @@ export function MembersTable({
   roleFilters,
   onInvite,
   inviteLabel,
+  count,
   footnote,
   busy,
 }: {
@@ -48,6 +49,13 @@ export function MembersTable({
   roleFilters: { value: string; label: string }[];
   onInvite?: () => void;
   inviteLabel?: string;
+  /**
+   * The number in the pill. Defaults to the row count, which is right until
+   * the table also carries invitations — then "멤버 5" would be counting three
+   * members and two people who have not answered yet, and the one figure an
+   * admin reads off this screen would be wrong.
+   */
+  count?: number;
   footnote?: string;
   busy?: boolean;
 }) {
@@ -73,7 +81,7 @@ export function MembersTable({
           <h2 className="flex items-center gap-2 text-xl font-semibold tracking-tight">
             {title}
             <span className="rounded-full bg-foreground/[0.06] px-2 py-0.5 text-xs font-medium tabular-nums text-muted">
-              {rows.length}
+              {count ?? rows.length}
             </span>
           </h2>
           {description && (
