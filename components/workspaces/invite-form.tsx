@@ -41,7 +41,7 @@ export function InviteForm({
   ownerEmail?: string;
   onChange: () => Promise<void>;
 }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [raw, setRaw] = useState("");
   const [role, setRole] = useState<InviteRole>("editor");
   const [busy, setBusy] = useState(false);
@@ -67,7 +67,8 @@ export function InviteForm({
       const { results } = await workspaceService.invite(
         workspaceId,
         ready.map((row) => row.email),
-        role
+        role,
+        lang
       );
       setResults([
         ...results,

@@ -74,16 +74,32 @@ export const organizationService = {
   detail: (id: string) => get<OrganizationDetail>(`/organizations/${e(id)}`),
   rename: (id: string, name: string) =>
     post<{ status: "updated" }>(`/organizations/${e(id)}/settings`, { name }),
-  addMember: (
+  /**
+   * Invite somebody into the organisation.
+   *
+   * It used to be `addMember`, and it had no answer for the commonest case:
+   * an address with no Prepix account came back `no_account` and nothing was
+   * sent. Now there is one path — a row, a token and an email — and whether
+   * they already have an account only changes what the email tells them.
+   *
+   * `lang` is the INVITER's language, used for the mail the recipient reads.
+   * Nobody has told us theirs, and the person choosing their teammate usually
+   * knows.
+   */
+  inviteMember: (
     id: string,
     email: string,
     role: Exclude<OrganizationRole, "owner">,
+    lang: string,
   ) =>
     post<
-      | { status: "added"; joinedWorkspace: boolean }
-      | { status: "no_account" }
+      | { status: "invited"; invitationId: string; hasAccount: boolean }
       | { status: "already_member" }
-    >(`/organizations/${e(id)}/members`, { email, role }),
+      | { status: "already_invited" }
+      | { status: "invalid_email" }
+      | { status: "workspace_required" }
+      | { status: "delivery_failed"; invitationId: string }
+    >(`/organizations/${e(id)}/members`, { email, role, lang }),
   changeMember: async (
     id: string,
     userId: string,

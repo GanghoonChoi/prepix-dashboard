@@ -9,7 +9,7 @@ import { ToastProvider, useToast } from "@/components/toast";
 import { userService, type Profile } from "@/lib/api/services/user.service";
 import { VerifyEmailNotice } from "@/components/workspaces/verify-email";
 import { clearSignedIn } from "@/lib/account-hint";
-import { loginHref } from "@/lib/auth-entry";
+import { loginHref, signupHref } from "@/lib/auth-entry";
 
 // Paddle's eventCallback is registered in the layout effect, which lives ABOVE
 // ToastProvider — so it can't call useToast directly. It dispatches a window
@@ -53,7 +53,22 @@ export default function DashboardLayout({
       // browser cannot open.
       clearSignedIn();
       const returnTo = window.location.pathname + window.location.search;
-      window.location.replace(loginHref({ returnTo }));
+      /**
+       * An invitation link is the one route here that a person without an
+       * account is SUPPOSED to arrive at, so it is the one route that must not
+       * bounce them to a sign-in form they cannot pass. The email told them to
+       * sign up; sending them to /login after that is the step where an invited
+       * teammate quietly gives up.
+       *
+       * Both screens carry `returnTo` on to the other, so somebody who does
+       * have an account is one link away and lands back here either way.
+       */
+      const invited = window.location.pathname.startsWith(
+        "/dashboard/invitations/",
+      );
+      window.location.replace(
+        invited ? signupHref({ returnTo }) : loginHref({ returnTo }),
+      );
       return;
     }
     // Token confirmed synchronously from localStorage on mount — flip the render gate.

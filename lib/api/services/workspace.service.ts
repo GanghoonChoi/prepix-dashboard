@@ -253,11 +253,18 @@ export const workspaceService = {
       .data,
   complete: async (id: string) =>
     teamClient.post(`/workspaces/${e(id)}/complete-onboarding`),
-  invite: async (id: string, emails: string[], role: InviteRole) =>
+  /** `lang` is the INVITER's language — the only signal we have for the mail
+   *  the recipient reads. */
+  invite: async (
+    id: string,
+    emails: string[],
+    role: InviteRole,
+    lang: string,
+  ) =>
     (
       await teamClient.post<{ data: { results: InviteResult[] } }>(
         `/workspaces/${e(id)}/invitations`,
-        { emails, role },
+        { emails, role, lang },
       )
     ).data.data,
   resend: async (id: string, invitationId: string) =>

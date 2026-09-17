@@ -123,32 +123,51 @@ function Content({ id }: { id: string }) {
             const email = inviteEmail.trim();
             if (!email) return;
             void act("invite", async () => {
-              const result = await organizationService.addMember(
+              const result = await organizationService.inviteMember(
                 id,
                 email,
                 inviteRole,
+                lang,
               );
-              // Three outcomes, three sentences. "Added" that silently did
-              // nothing is the worst of them.
+              // Six answers, six sentences. The one that used to be here —
+              // "added" for something that had silently done nothing — is the
+              // reason this screen could not be trusted.
               setNotice(
-                result.status === "added"
-                  ? result.joinedWorkspace
+                result.status === "invited"
+                  ? result.hasAccount
                     ? c(
-                        `${email} 추가됨 · 아카이브에도 들어갔습니다`,
-                        `${email} added, and joined the archive`,
+                        `${email} 님에게 초대 메일을 보냈습니다. 수락하면 팀에 들어옵니다.`,
+                        `Invitation sent to ${email}. They join once they accept.`,
                       )
-                    : c(`${email} 추가됨`, `${email} added`)
-                  : result.status === "already_member"
-                    ? c("이미 이 조직의 멤버입니다.", "Already a member.")
                     : c(
-                        "아직 가입하지 않은 이메일입니다. 워크스페이스 초대를 보내면 메일로 안내됩니다.",
-                        "No account yet. A workspace invitation will email them.",
-                      ),
+                        `${email} 님에게 초대 메일을 보냈습니다. 아직 Prepix 계정이 없어, 이 주소로 가입한 뒤 팀에 들어옵니다.`,
+                        `Invitation sent to ${email}. They have no Prepix account yet, so they will sign up with this address and then join.`,
+                      )
+                  : result.status === "already_member"
+                    ? c("이미 이 팀의 멤버입니다.", "Already a member of this team.")
+                    : result.status === "already_invited"
+                      ? c(
+                          "이미 보낸 초대가 아직 유효합니다. 다시 보내려면 멤버 목록에서 재발송하세요.",
+                          "An invitation is already open. Resend it from the list if it did not arrive.",
+                        )
+                      : result.status === "invalid_email"
+                        ? c("이메일 주소를 확인하세요.", "Check the email address.")
+                        : result.status === "workspace_required"
+                          ? c(
+                              "이 조직에 워크스페이스가 여러 개라 어디로 초대할지 정해야 합니다.",
+                              "This organisation has more than one workspace, so the invitation needs a team.",
+                            )
+                          : c(
+                              // Never silent. The inviter is the only person
+                              // who can notice that a teammate got nothing.
+                              `초대는 만들었지만 ${email} 로 메일이 가지 않았습니다. 주소를 확인하고 다시 보내세요.`,
+                              `The invitation was created but the email to ${email} did not go out. Check the address and resend.`,
+                            ),
               );
-              // Only a success closes it. The other two answers are about the
-              // address still in the field, and closing would take away the
-              // thing the sentence is talking about.
-              if (result.status === "added") {
+              // Only a delivered invitation closes the modal. Every other
+              // answer is about the address still in the field, and closing
+              // would take away the thing the sentence is talking about.
+              if (result.status === "invited") {
                 setInviteEmail("");
                 invite.close();
               }
