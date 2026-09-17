@@ -41,7 +41,11 @@ export default function OrganizationMembersPage({
   return <Content key={id} id={id} />;
 }
 
-const ASSIGNABLE: Exclude<OrganizationRole, "owner">[] = ["admin", "member"];
+const ASSIGNABLE: Exclude<OrganizationRole, "owner">[] = [
+  "admin",
+  "editor",
+  "reviewer",
+];
 
 function Content({ id }: { id: string }) {
   const { lang } = useI18n();
@@ -65,7 +69,7 @@ function Content({ id }: { id: string }) {
   const invite = useOverlayState();
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] =
-    useState<Exclude<OrganizationRole, "owner">>("member");
+    useState<Exclude<OrganizationRole, "owner">>("editor");
 
   const load = useCallback(async () => {
     try {
@@ -104,7 +108,8 @@ function Content({ id }: { id: string }) {
       ({
         owner: c("소유자", "Owner"),
         admin: c("관리자", "Admin"),
-        member: c("멤버", "Member"),
+        editor: c("편집자", "Editor"),
+        reviewer: c("검토자", "Reviewer"),
       })[role],
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [lang],
@@ -266,8 +271,9 @@ function Content({ id }: { id: string }) {
           summary of intent: MANAGES = owner|admin gates invite, role changes
           and rename; SEES_BILLING = owner gates the billing screen; the owner
           row is immutable and ownership moves through transfer, which asks for
-          a password; and an organisation admin lands as an admin of the
-          archive while everyone else lands as an editor.
+          a password; reviewers never reach the archive and hold no seat. The
+          row that used to explain a translation between two vocabularies is
+          gone with the translation.
 
           A permissions table that is merely plausible is worse than none —
           people plan around it, and the first refusal that disagrees with it
@@ -276,7 +282,9 @@ function Content({ id }: { id: string }) {
         roleGuide={
           <RoleGuide
             title={c("역할별 권한", "What each role can do")}
-            columns={(["owner", "admin", "member"] as OrganizationRole[]).map(
+            columns={(
+              ["owner", "admin", "editor", "reviewer"] as OrganizationRole[]
+            ).map(
               (role) => ({ key: role, label: roleLabel(role) }),
             )}
             rows={[
@@ -285,35 +293,39 @@ function Content({ id }: { id: string }) {
                   "멤버 초대 · 역할 변경 · 내보내기",
                   "Invite, change roles, remove",
                 ),
-                values: [true, true, false],
+                values: [true, true, false, false],
               },
               {
-                label: c("조직 이름 변경", "Rename the organisation"),
-                values: [true, true, false],
+                label: c("팀 이름 변경", "Rename the team"),
+                values: [true, true, false, false],
               },
               {
                 label: c("결제 정보 보기", "See billing"),
-                values: [true, false, false],
+                values: [true, false, false, false],
                 note: c(
                   "관리자는 결제를 보지 못합니다. 팀을 운영하는 것과 카드를 쥐는 것은 다른 일입니다.",
                   "An admin runs the team without being handed the card.",
                 ),
               },
               {
-                label: c("아카이브에서의 역할", "Role in the archive"),
-                values: [
-                  c("소유자", "Owner"),
-                  c("관리자", "Admin"),
-                  c("편집자", "Editor"),
-                ],
+                label: c(
+                  "아카이브 원본 업로드 · 다운로드",
+                  "Upload and download originals",
+                ),
+                values: [true, true, true, false],
                 note: c(
-                  "초대를 수락할 때 이 역할로 아카이브에 들어갑니다.",
-                  "This is the role they arrive with when they accept.",
+                  "검토자는 아카이브에 접근하지 않습니다.",
+                  "A reviewer does not reach the archive at all.",
                 ),
               },
               {
+                label: c("좌석 사용", "Uses a paid seat"),
+                values: [true, true, true, false],
+                note: c("검토자는 좌석을 쓰지 않습니다.", "Reviewers are free."),
+              },
+              {
                 label: c("소유권", "Ownership"),
-                values: [true, false, false],
+                values: [true, false, false, false],
                 note: c(
                   "소유자는 역할 변경이나 내보내기로 바꿀 수 없습니다. 소유권 이전은 비밀번호 확인을 거칩니다.",
                   "The owner cannot be demoted or removed here; transfer asks for a password.",
@@ -419,9 +431,9 @@ function Content({ id }: { id: string }) {
             name: null,
             badge: c("초대됨", "Invited"),
             email: invitation.email,
-            role: invitation.role ?? "member",
+            role: invitation.role ?? "editor",
             roleLabel: roleLabel(
-              (invitation.role ?? "member") as OrganizationRole,
+              (invitation.role ?? "editor") as OrganizationRole,
             ),
             detail:
               invitation.deliveryStatus === "failed"

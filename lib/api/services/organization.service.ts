@@ -1,12 +1,16 @@
 import { apiClient } from "../client";
 
 /**
- * Three roles. `billing` was a fourth, copied from the reference products, and
- * it opened a screen with no money on it — nothing is billed to an
- * organisation yet. The line it protected (an admin runs the team without
- * being handed the card) is carried by the owner/admin split on its own.
+ * ONE set of roles, because an organisation and a workspace are the same thing
+ * today.
+ *
+ * There used to be two vocabularies with an invented translation between them,
+ * which described one person twice — and quietly lost `reviewer` on the way:
+ * it was not in the mapping, so once the sidebar sent 멤버 to the organisation
+ * screen there was no way left to invite one. A role the product defines, free
+ * of charge, that no screen could hand out.
  */
-export type OrganizationRole = "owner" | "admin" | "member";
+export type OrganizationRole = "owner" | "admin" | "editor" | "reviewer";
 
 export type OrganizationRow = {
   id: string;
