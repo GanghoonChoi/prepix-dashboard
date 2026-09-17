@@ -256,7 +256,9 @@ export function WorkspaceSwitcher({ onClose }: { onClose?: () => void }) {
                 })}
               </ul>
                 <div className="border-t border-border p-1">
-                  {orgs.map((org) => (
+                  {orgs
+                    .filter((org) => org.workspaceIds.length !== 1)
+                    .map((org) => (
                     <Link
                       key={org.id}
                       href={`/dashboard/organizations/${org.id}`}
@@ -268,7 +270,7 @@ export function WorkspaceSwitcher({ onClose }: { onClose?: () => void }) {
                         {ko ? `${org.name} 조직 설정` : `${org.name} settings`}
                       </span>
                     </Link>
-                  ))}
+                    ))}
                   <Link
                     href="/dashboard/workspaces"
                     onClick={pick}
@@ -294,6 +296,11 @@ export function WorkspaceSwitcher({ onClose }: { onClose?: () => void }) {
               cloudEnabled,
               managementEnabled: current.managementEnabled !== false,
               canManage: current.role === "owner" || current.role === "admin",
+              soleOrganizationId: orgs.find(
+                (org) =>
+                  org.workspaceIds.length === 1 &&
+                  org.workspaceIds[0] === current.id,
+              )?.id,
             }).map((link) => {
               const active = navActive(
                 path,

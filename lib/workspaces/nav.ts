@@ -22,6 +22,12 @@ export function workspaceLinks(
     cloudEnabled: boolean;
     managementEnabled: boolean;
     canManage: boolean;
+    /**
+     * Set when this workspace's organisation holds only this workspace, in
+     * which case members and billing belong to the same team and are shown
+     * here rather than behind a second settings screen.
+     */
+    soleOrganizationId?: string;
   },
 ): NavLink[] {
   const base = `/dashboard/workspaces/${workspace.id}`;
@@ -44,12 +50,33 @@ export function workspaceLinks(
     ];
   }
 
+  // One archive, one team. The reference products split members and billing
+  // off to the layer above because their middle layer multiplies; ours does
+  // not (D14), so while an organisation holds exactly one workspace the two
+  // are the same thing and the nav says so once. A second workspace makes the
+  // distinction real again and the entries move back up on their own.
+  const sole = options.soleOrganizationId;
   return [
     { href: base, ko: "개요", en: "Overview" },
     ...(options.cloudEnabled
       ? [{ href: `${base}/media`, ko: "아카이브", en: "Archive" }]
       : []),
-    { href: `${base}/members`, ko: "멤버", en: "Members" },
+    {
+      href: sole
+        ? `/dashboard/organizations/${sole}`
+        : `${base}/members`,
+      ko: "멤버",
+      en: "Members",
+    },
+    ...(sole
+      ? [
+          {
+            href: `/dashboard/organizations/${sole}/billing`,
+            ko: "결제",
+            en: "Billing",
+          },
+        ]
+      : []),
     { href: `${base}/plan`, ko: "플랜과 사용량", en: "Plan and usage" },
     ...(options.managementEnabled
       ? [

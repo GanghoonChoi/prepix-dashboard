@@ -9,6 +9,11 @@ export type OrganizationRow = {
   seatLimit: number;
   role: OrganizationRole;
   createdAt: string;
+  /**
+   * Which workspaces it holds. With exactly one, the organisation and the
+   * workspace are the same thing to this reader and the UI says so once.
+   */
+  workspaceIds: string[];
 };
 
 export type OrganizationMember = {
