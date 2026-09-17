@@ -99,7 +99,10 @@ export function MembersTable({
           <input
             className={`${inputClass.replace("w-full", "w-full sm:w-72")} pl-9`}
             aria-label={c("검색", "Search")}
-            placeholder={c("이름 또는 이메일로 검색", "Search by name or email")}
+            placeholder={c(
+              "이름 또는 이메일로 검색",
+              "Search by name or email",
+            )}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
@@ -119,61 +122,68 @@ export function MembersTable({
         </select>
       </div>
 
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-border text-left text-xs text-muted">
-            <th scope="col" className="py-3 pr-4 font-normal">
-              {c("이름", "Name")}
-            </th>
-            <th scope="col" className="py-3 pr-4 font-normal">
-              {c("이메일", "Email")}
-            </th>
-            <th scope="col" className="py-3 pr-4 font-normal">
-              {c("역할", "Role")}
-            </th>
-            <th scope="col" className="w-12 py-3">
-              <span className="sr-only">{c("작업", "Actions")}</span>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {visible.map((row) => (
-            <tr key={row.id} className="border-b border-border">
-              <td className="py-3 pr-4">
-                <span className="font-medium">
-                  {row.name || row.email.split("@")[0]}
-                </span>
-              </td>
-              <td className="break-all py-3 pr-4 text-muted">{row.email}</td>
-              <td className="py-3 pr-4">
-                {row.locked || !row.roleOptions || !row.onRole ? (
-                  <span className="text-muted">{row.roleLabel}</span>
-                ) : (
-                  <select
-                    className="min-h-9 rounded-lg border border-border bg-transparent px-2.5 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-foreground/40"
-                    aria-label={c("역할", "Role")}
-                    value={row.role}
-                    disabled={busy}
-                    onChange={(event) => row.onRole?.(event.target.value)}
-                  >
-                    {row.roleOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                )}
-                {row.detail && (
-                  <span className="mt-0.5 block text-xs tabular-nums text-muted">
-                    {row.detail}
-                  </span>
-                )}
-              </td>
-              <td className="py-3 text-right">{row.menu}</td>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[34rem] text-sm">
+          <thead>
+            <tr className="border-b border-border text-left text-xs text-muted">
+              <th scope="col" className="py-3 pr-4 font-normal">
+                {c("이름", "Name")}
+              </th>
+              <th scope="col" className="py-3 pr-4 font-normal">
+                {c("이메일", "Email")}
+              </th>
+              <th scope="col" className="py-3 pr-4 font-normal">
+                {c("역할", "Role")}
+              </th>
+              <th scope="col" className="w-12 py-3">
+                <span className="sr-only">{c("작업", "Actions")}</span>
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {visible.map((row) => (
+              <tr
+                key={row.id}
+                className="border-b border-border transition-colors hover:bg-foreground/[0.02]"
+              >
+                <td className="py-3.5 pr-4">
+                  <span className="font-medium">
+                    {row.name || row.email.split("@")[0]}
+                  </span>
+                </td>
+                <td className="break-all py-3.5 pr-4 text-muted">
+                  {row.email}
+                </td>
+                <td className="py-3.5 pr-4">
+                  {row.locked || !row.roleOptions || !row.onRole ? (
+                    <span className="text-muted">{row.roleLabel}</span>
+                  ) : (
+                    <select
+                      className="min-h-9 rounded-lg border border-border bg-transparent px-2.5 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-foreground/40"
+                      aria-label={c("역할", "Role")}
+                      value={row.role}
+                      disabled={busy}
+                      onChange={(event) => row.onRole?.(event.target.value)}
+                    >
+                      {row.roleOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                  {row.detail && (
+                    <span className="mt-0.5 block text-xs tabular-nums text-muted">
+                      {row.detail}
+                    </span>
+                  )}
+                </td>
+                <td className="py-3.5 text-right">{row.menu}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       {visible.length === 0 && (
         <p role="status" className="py-4 text-sm text-muted">
           {c("해당하는 사람이 없습니다.", "Nobody matches.")}

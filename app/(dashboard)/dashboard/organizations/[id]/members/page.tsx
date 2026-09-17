@@ -1,5 +1,7 @@
 "use client";
 import { use, useCallback, useEffect, useMemo, useState } from "react";
+import { useOverlayState } from "@heroui/react";
+import { Dialog } from "@/components/dialog";
 import { useI18n } from "@/lib/i18n/context";
 import {
   organizationService,
@@ -15,6 +17,7 @@ import {
   TeamLoading,
   inputClass,
   primaryClass,
+  secondaryClass,
 } from "@/components/workspaces/shared";
 
 /**
@@ -47,7 +50,10 @@ function Content({ id }: { id: string }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState("");
-  const [inviting, setInviting] = useState(false);
+  // The repo already has a modal with a focus trap, a scroll lock and an
+  // Escape handler. A second one built inline here would be a second set of
+  // those behaviours to keep correct.
+  const invite = useOverlayState();
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] =
     useState<Exclude<OrganizationRole, "owner">>("member");
@@ -107,11 +113,11 @@ function Content({ id }: { id: string }) {
   if (!data) return <TeamLoading />;
 
   return (
-    <TeamShell title={c("멤버", "Members")}>
+    <TeamShell>
       {error && <TeamError code={error} retry={load} />}
-      {inviting && data.canManage && (
+      <Dialog state={invite} title={c("멤버 초대", "Invite a member")}>
         <form
-          className="flex flex-wrap items-end gap-2 rounded-xl border border-border p-4"
+          className="space-y-4"
           onSubmit={(event) => {
             event.preventDefault();
             const email = inviteEmail.trim();
@@ -139,19 +145,23 @@ function Content({ id }: { id: string }) {
                         "No account yet. A workspace invitation will email them.",
                       ),
               );
+              // Only a success closes it. The other two answers are about the
+              // address still in the field, and closing would take away the
+              // thing the sentence is talking about.
               if (result.status === "added") {
                 setInviteEmail("");
-                setInviting(false);
+                invite.close();
               }
             });
           }}
         >
-          <label className="block flex-1 space-y-2 text-sm">
-            <span>{c("이메일", "Email")}</span>
+          <label className="block space-y-2 text-sm">
+            <span className="font-medium">{c("이메일", "Email")}</span>
             <input
               className={inputClass}
               type="email"
               required
+              autoFocus
               maxLength={254}
               placeholder="name@company.com"
               value={inviteEmail}
@@ -159,9 +169,9 @@ function Content({ id }: { id: string }) {
             />
           </label>
           <label className="block space-y-2 text-sm">
-            <span>{c("역할", "Role")}</span>
+            <span className="font-medium">{c("역할", "Role")}</span>
             <select
-              className={inputClass.replace("w-full", "w-40")}
+              className={inputClass}
               value={inviteRole}
               onChange={(event) =>
                 setInviteRole(
@@ -176,16 +186,26 @@ function Content({ id }: { id: string }) {
               ))}
             </select>
           </label>
-          <button className={primaryClass} disabled={!!busy}>
-            {c("추가", "Add")}
-          </button>
+          {notice && (
+            <p role="status" className="text-sm leading-6">
+              {notice}
+            </p>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              className={secondaryClass}
+              onClick={() => invite.close()}
+              disabled={!!busy}
+            >
+              {c("취소", "Cancel")}
+            </button>
+            <button className={primaryClass} disabled={!!busy}>
+              {c("초대", "Invite")}
+            </button>
+          </div>
         </form>
-      )}
-      {notice && (
-        <p role="status" className="text-sm">
-          {notice}
-        </p>
-      )}
+      </Dialog>
       <MembersTable
         title={c("멤버", "Members")}
         description={c(
@@ -194,7 +214,12 @@ function Content({ id }: { id: string }) {
         )}
         busy={!!busy}
         onInvite={
-          data.canManage ? () => setInviting((was) => !was) : undefined
+          data.canManage
+            ? () => {
+                setNotice("");
+                invite.open();
+              }
+            : undefined
         }
         roleFilters={(["owner", ...assignable] as OrganizationRole[]).map(
           (role) => ({ value: role, label: roleLabel(role) }),
@@ -258,7 +283,6 @@ function Content({ id }: { id: string }) {
           };
         })}
       />
-
     </TeamShell>
   );
 }

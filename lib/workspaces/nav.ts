@@ -21,7 +21,6 @@ export function workspaceLinks(
   options: {
     cloudEnabled: boolean;
     managementEnabled: boolean;
-    canManage: boolean;
     /**
      * Set when this workspace's organisation holds only this workspace, in
      * which case members and billing belong to the same team and are shown
@@ -80,13 +79,11 @@ export function workspaceLinks(
           },
         ]
       : [{ href: `${base}/plan`, ko: "플랜과 사용량", en: "Plan and usage" }]),
+    // No activity entry. The audit trail is still recorded and the page is
+    // still at `${base}/activity`, but nobody was going there on purpose and a
+    // nav is worth what its least-used row costs the rows above it.
     ...(options.managementEnabled
-      ? [
-          { href: `${base}/settings`, ko: "설정", en: "Settings" },
-          ...(options.canManage
-            ? [{ href: `${base}/activity`, ko: "활동 기록", en: "Activity" }]
-            : []),
-        ]
+      ? [{ href: `${base}/settings`, ko: "설정", en: "Settings" }]
       : []),
   ];
 }

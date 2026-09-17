@@ -87,9 +87,43 @@ export function WorkspaceSwitcher({ onClose }: { onClose?: () => void }) {
     };
   }, [open]);
 
-  const currentId = path.match(
-    /^\/dashboard\/workspaces\/([a-f0-9-]{36})(?:\/|$)/,
+  // The organisation is where members and billing live, so the menu needs a
+  // way into it. Loaded once: it changes when somebody is invited, not when
+  // the user walks around the dashboard.
+  const [orgs, setOrgs] = useState<OrganizationRow[]>([]);
+  useEffect(() => {
+    let alive = true;
+    const pull = () =>
+      void organizationService
+        .list()
+        .then((result) => {
+          if (alive) setOrgs(result.organizations);
+        })
+        .catch(() => {
+          // An account with no organisation is the normal case for anyone who
+          // has never been in a team; an unreachable probe looks the same and
+          // costs the link, not the menu.
+        });
+    pull();
+    window.addEventListener("workspaces:changed", pull);
+    return () => {
+      alive = false;
+      window.removeEventListener("workspaces:changed", pull);
+    };
+  }, []);
+
+  const orgOnPath = path.match(
+    /^\/dashboard\/organizations\/([a-f0-9-]{36})(?:\/|$)/,
   )?.[1];
+  // An organisation route belongs to the team whose pages sent you there —
+  // members and billing are reached from the workspace nav. Without this the
+  // switcher falls back to the personal space and the whole sidebar changes
+  // under someone who only clicked "멤버".
+  const currentId =
+    path.match(/^\/dashboard\/workspaces\/([a-f0-9-]{36})(?:\/|$)/)?.[1] ??
+    (orgOnPath
+      ? orgs.find((org) => org.id === orgOnPath)?.workspaceIds[0]
+      : undefined);
   // Off a workspace page (usage, plan, settings) there is no id in the URL.
   // Those pages belong to the personal space, so that is what the button names
   // — never a blank chooser.
@@ -122,31 +156,6 @@ export function WorkspaceSwitcher({ onClose }: { onClose?: () => void }) {
     };
   }, [spaceId]);
   const cloudEnabled = !!cloud && cloud.id === spaceId && cloud.enabled;
-
-  // The organisation is where members and billing live, so the menu needs a
-  // way into it. Loaded once: it changes when somebody is invited, not when
-  // the user walks around the dashboard.
-  const [orgs, setOrgs] = useState<OrganizationRow[]>([]);
-  useEffect(() => {
-    let alive = true;
-    const pull = () =>
-      void organizationService
-        .list()
-        .then((result) => {
-          if (alive) setOrgs(result.organizations);
-        })
-        .catch(() => {
-          // An account with no organisation is the normal case for anyone who
-          // has never been in a team; an unreachable probe looks the same and
-          // costs the link, not the menu.
-        });
-    pull();
-    window.addEventListener("workspaces:changed", pull);
-    return () => {
-      alive = false;
-      window.removeEventListener("workspaces:changed", pull);
-    };
-  }, []);
 
   const pick = () => {
     setOpen(false);
@@ -295,7 +304,6 @@ export function WorkspaceSwitcher({ onClose }: { onClose?: () => void }) {
             {workspaceLinks(current, {
               cloudEnabled,
               managementEnabled: current.managementEnabled !== false,
-              canManage: current.role === "owner" || current.role === "admin",
               soleOrganizationId: orgs.find(
                 (org) =>
                   org.workspaceIds.length === 1 &&

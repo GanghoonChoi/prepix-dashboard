@@ -16,7 +16,8 @@ export function TeamShell({
   description,
   children,
 }: {
-  title: string;
+  /** Omit when the page's first section already carries its own heading. */
+  title?: string;
   description?: string;
   children: ReactNode;
 }) {
@@ -25,6 +26,7 @@ export function TeamShell({
        pages, so a breadcrumb and a tab row here were the second and third
        copies of the same navigation. */
     <div className="mx-auto max-w-4xl space-y-8 text-foreground">
+      {title && (
       <header>
         <h1 className="text-balance text-2xl font-semibold tracking-tight sm:text-3xl">
           {title}
@@ -35,6 +37,7 @@ export function TeamShell({
           </p>
         )}
       </header>
+      )}
       {children}
     </div>
   );
@@ -63,12 +66,24 @@ export function TeamError({
     </div>
   );
 }
+/**
+ * A shape while the data arrives, not a sentence about waiting.
+ *
+ * A line of grey text on an empty page reads as a broken screen for the second
+ * it is up; blocks the size of what is coming read as the screen, arriving.
+ * The text stays for screen readers, which cannot see the shape.
+ */
 export function TeamLoading() {
   const { t } = useI18n();
   return (
-    <p role="status" className="py-8 text-sm text-muted">
-      {t("team.loading")}
-    </p>
+    <div className="space-y-4" aria-busy="true">
+      <p role="status" className="sr-only">
+        {t("team.loading")}
+      </p>
+      <div className="h-8 w-48 animate-pulse rounded-md bg-foreground/[0.06]" />
+      <div className="h-28 animate-pulse rounded-xl bg-foreground/[0.06]" />
+      <div className="h-44 animate-pulse rounded-xl bg-foreground/[0.06]" />
+    </div>
   );
 }
 
