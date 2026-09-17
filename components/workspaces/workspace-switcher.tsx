@@ -125,7 +125,7 @@ export function WorkspaceSwitcher({ onClose }: { onClose?: () => void }) {
   };
 
   return (
-    <div ref={root} className="relative border-b border-border px-3 py-3">
+    <div ref={root} className="border-b border-border px-3 py-3">
       {rows === null ? (
         <p className="px-2 py-2 text-sm text-muted">
           {ko ? "불러오는 중…" : "Loading…"}
@@ -138,30 +138,41 @@ export function WorkspaceSwitcher({ onClose }: { onClose?: () => void }) {
         </p>
       ) : (
         <>
-          <button
-            type="button"
-            onClick={() => setOpen((was) => !was)}
-            aria-haspopup="menu"
-            aria-expanded={open}
-            data-space={isPersonal(current) ? "personal" : "team"}
-            className="flex min-h-11 w-full items-center gap-2.5 rounded-md px-2 text-sm text-foreground transition-colors hover:bg-foreground/[0.06] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
-          >
-            <SpaceIcon
-              kind={isPersonal(current) ? "personal" : "team"}
-              size={16}
-            />
-            <span className="min-w-0 flex-1 truncate text-left font-medium">
-              {spaceName(current)}
-            </span>
-            <ChevronsUpDown size={14} strokeWidth={1.5} aria-hidden="true" />
-          </button>
-
-          {open && (
-            <div
-              role="menu"
-              className="absolute left-3 right-3 top-[calc(100%-0.25rem)] z-10 rounded-md border border-border bg-background p-1 shadow-lg"
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setOpen((was) => !was)}
+              aria-haspopup="menu"
+              aria-expanded={open}
+              data-space={isPersonal(current) ? "personal" : "team"}
+              className="flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2 text-sm text-foreground transition-colors hover:bg-foreground/[0.06] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground aria-expanded:bg-foreground/[0.06]"
             >
-              <ul className="max-h-[50vh] overflow-y-auto">
+              {/* A tile, not a bullet: at this size a bare outline icon reads
+                  as decoration next to the name, and this row is the identity
+                  of everything below it. */}
+              <span className="grid size-7 shrink-0 place-items-center rounded-md border border-border bg-surface">
+                <SpaceIcon
+                  kind={isPersonal(current) ? "personal" : "team"}
+                  size={15}
+                />
+              </span>
+              <span className="min-w-0 flex-1 truncate text-left font-medium">
+                {spaceName(current)}
+              </span>
+              <ChevronsUpDown
+                size={14}
+                strokeWidth={1.5}
+                aria-hidden="true"
+                className="shrink-0 text-muted"
+              />
+            </button>
+
+            {open && (
+              <div
+                role="menu"
+                className="absolute inset-x-0 top-[calc(100%+6px)] z-20 overflow-hidden rounded-lg border border-border bg-background shadow-lg"
+              >
+                <ul className="max-h-[50vh] overflow-y-auto p-1">
                 {rows.map((row, index) => {
                   const personal = isPersonal(row);
                   // One heading per kind, above the first row of that kind, so
@@ -177,7 +188,7 @@ export function WorkspaceSwitcher({ onClose }: { onClose?: () => void }) {
                   return (
                     <li key={row.id}>
                       {heading && (
-                        <p className="px-2 pb-1 pt-2 text-[11px] text-muted first:pt-1">
+                        <p className="px-2 pb-1 pt-3 text-[11px] font-medium uppercase tracking-wide text-muted first:pt-1">
                           {t(heading)}
                         </p>
                       )}
@@ -190,20 +201,22 @@ export function WorkspaceSwitcher({ onClose }: { onClose?: () => void }) {
                         className={`flex min-h-11 items-center gap-2.5 rounded-md px-2 text-sm transition-colors ${
                           row.id === current.id
                             ? "bg-foreground/[0.06] font-medium text-foreground"
-                            : "text-muted hover:text-foreground"
+                            : "text-foreground/80 hover:bg-foreground/[0.04] hover:text-foreground"
                         }`}
                       >
-                        <SpaceIcon
-                          kind={personal ? "personal" : "team"}
-                          size={16}
-                        />
+                        <span className="grid size-7 shrink-0 place-items-center rounded-md border border-border bg-surface">
+                          <SpaceIcon
+                            kind={personal ? "personal" : "team"}
+                            size={15}
+                          />
+                        </span>
                         <span className="min-w-0 flex-1 truncate">
                           {spaceName(row)}
                         </span>
                         {row.id === current.id && (
                           <Check
-                            size={14}
-                            strokeWidth={2}
+                            size={15}
+                            strokeWidth={2.25}
                             aria-hidden="true"
                             className="shrink-0"
                           />
@@ -213,18 +226,19 @@ export function WorkspaceSwitcher({ onClose }: { onClose?: () => void }) {
                   );
                 })}
               </ul>
-              <div className="mt-1 border-t border-border pt-1">
-                <Link
-                  href="/dashboard/workspaces"
-                  onClick={pick}
-                  role="menuitem"
-                  className="flex min-h-11 items-center rounded-md px-2 text-[13px] text-muted transition-colors hover:text-foreground"
-                >
-                  {ko ? "워크스페이스 관리" : "Manage workspaces"}
-                </Link>
+                <div className="border-t border-border p-1">
+                  <Link
+                    href="/dashboard/workspaces"
+                    onClick={pick}
+                    role="menuitem"
+                    className="flex min-h-11 items-center rounded-md px-2 text-[13px] text-muted transition-colors hover:bg-foreground/[0.04] hover:text-foreground"
+                  >
+                    {ko ? "워크스페이스 관리" : "Manage workspaces"}
+                  </Link>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* The nav for the space the button names. It used to be a row of
               tabs inside the page while this sidebar listed the ACCOUNT's
