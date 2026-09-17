@@ -79,10 +79,11 @@ export const organizationService = {
     email: string,
     role: Exclude<OrganizationRole, "owner">,
   ) =>
-    post<{ status: "added" | "no_account" | "already_member" }>(
-      `/organizations/${e(id)}/members`,
-      { email, role },
-    ),
+    post<
+      | { status: "added"; joinedWorkspace: boolean }
+      | { status: "no_account" }
+      | { status: "already_member" }
+    >(`/organizations/${e(id)}/members`, { email, role }),
   changeMember: async (
     id: string,
     userId: string,
