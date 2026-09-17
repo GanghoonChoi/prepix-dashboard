@@ -62,6 +62,7 @@ test("a personal workspace has no seat figures at all, not zeroed ones", () => {
 test("seats are separate figures and an unaccepted invitation is one of them", () => {
   assert.deepEqual(seatFigures(detail()), {
     limit: 10,
+    enforced: true,
     active: 3,
     invited: 2,
     suspended: 1,
@@ -91,7 +92,15 @@ test("revoking the invitations frees exactly the seats they were holding", () =>
         remaining: 7,
       })
     ),
-    { limit: 10, active: 3, invited: 0, suspended: 1, reviewers: 4, remaining: 7 }
+    {
+      limit: 10,
+      enforced: true,
+      active: 3,
+      invited: 0,
+      suspended: 1,
+      reviewers: 4,
+      remaining: 7,
+    }
   );
 });
 
@@ -100,6 +109,7 @@ test("a server older than D13 still yields real numbers, derived not guessed", (
   // reviewer counts come off the member list so this reports facts, not zeros.
   assert.deepEqual(seatFigures(detail({ used: 3, reserved: 2 })), {
     limit: 10,
+    enforced: true,
     active: 3,
     invited: 2,
     suspended: 1,

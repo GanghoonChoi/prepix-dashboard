@@ -33,6 +33,8 @@ export function personalFirst<T extends { type?: string }>(rows: readonly T[]) {
 
 export type SeatFigures = {
   limit: number;
+  /** Whether `limit` refuses anybody, or is reporting only. */
+  enforced: boolean;
   active: number;
   invited: number;
   suspended: number;
@@ -69,6 +71,9 @@ export function seatFigures(detail: {
   const invited = seats.pendingInvitations ?? seats.reserved ?? 0;
   return {
     limit,
+    // The server decides whether that limit refuses anybody; older responses
+    // that predate the field were always enforcing.
+    enforced: seats.enforced ?? true,
     active,
     invited,
     suspended:

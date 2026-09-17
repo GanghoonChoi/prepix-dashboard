@@ -310,7 +310,12 @@ export function SeatBreakdown({ detail }: { detail: WorkspaceDetail }) {
       [
         ["team.seatActive", figures.active],
         ["team.seatInvited", figures.invited],
-        ["team.seatRemaining", figures.remaining],
+        // "Seats left" only means something while the limit refuses people.
+        // Unenforced it floors at zero and stays there while the team keeps
+        // growing, which reads as a wall that is not there.
+        ...(figures.enforced
+          ? ([["team.seatRemaining", figures.remaining]] as [string, number][])
+          : []),
       ],
     ],
     [

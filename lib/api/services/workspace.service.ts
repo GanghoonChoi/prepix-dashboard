@@ -111,6 +111,8 @@ export type WorkspaceDetail = {
  */
 export type Seats = {
   limit?: number;
+  /** Whether `limit` refuses anybody. Absent on responses that predate it. */
+  enforced?: boolean;
   activeMembers?: number;
   pendingInvitations?: number;
   suspendedMembers?: number;
