@@ -38,6 +38,17 @@ export type OrganizationDetail = {
    */
   canManageBilling: boolean;
   currentUserId: string;
+  /**
+   * The one cost this layer genuinely incurs today, so the only figure the
+   * billing screen may state as fact. `limit` is the per-workspace cap times
+   * the number of workspaces, which is how the bytes actually behave.
+   */
+  storage: {
+    used: number;
+    reserved: number;
+    limit: number;
+    perWorkspaceLimit: number;
+  };
   members: OrganizationMember[];
   workspaces: OrganizationWorkspace[];
 };
@@ -58,6 +69,15 @@ export const organizationService = {
   detail: (id: string) => get<OrganizationDetail>(`/organizations/${e(id)}`),
   rename: (id: string, name: string) =>
     post<{ status: "updated" }>(`/organizations/${e(id)}/settings`, { name }),
+  addMember: (
+    id: string,
+    email: string,
+    role: Exclude<OrganizationRole, "owner">,
+  ) =>
+    post<{ status: "added" | "no_account" | "already_member" }>(
+      `/organizations/${e(id)}/members`,
+      { email, role },
+    ),
   changeMember: async (
     id: string,
     userId: string,
