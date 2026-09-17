@@ -11,6 +11,10 @@ import {
 import { isPersonal, personalFirst } from "@/lib/workspaces/kind";
 import { workspaceLinks, navActive } from "@/lib/workspaces/nav";
 import { cloudService } from "@/lib/api/services/cloud.service";
+import {
+  organizationService,
+  type OrganizationRow,
+} from "@/lib/api/services/organization.service";
 import { SpaceIcon, useSpaceName } from "./shared";
 
 /**
@@ -118,6 +122,31 @@ export function WorkspaceSwitcher({ onClose }: { onClose?: () => void }) {
     };
   }, [spaceId]);
   const cloudEnabled = !!cloud && cloud.id === spaceId && cloud.enabled;
+
+  // The organisation is where members and billing live, so the menu needs a
+  // way into it. Loaded once: it changes when somebody is invited, not when
+  // the user walks around the dashboard.
+  const [orgs, setOrgs] = useState<OrganizationRow[]>([]);
+  useEffect(() => {
+    let alive = true;
+    const pull = () =>
+      void organizationService
+        .list()
+        .then((result) => {
+          if (alive) setOrgs(result.organizations);
+        })
+        .catch(() => {
+          // An account with no organisation is the normal case for anyone who
+          // has never been in a team; an unreachable probe looks the same and
+          // costs the link, not the menu.
+        });
+    pull();
+    window.addEventListener("workspaces:changed", pull);
+    return () => {
+      alive = false;
+      window.removeEventListener("workspaces:changed", pull);
+    };
+  }, []);
 
   const pick = () => {
     setOpen(false);
@@ -227,6 +256,19 @@ export function WorkspaceSwitcher({ onClose }: { onClose?: () => void }) {
                 })}
               </ul>
                 <div className="border-t border-border p-1">
+                  {orgs.map((org) => (
+                    <Link
+                      key={org.id}
+                      href={`/dashboard/organizations/${org.id}`}
+                      onClick={pick}
+                      role="menuitem"
+                      className="flex min-h-11 items-center gap-2 rounded-md px-2 text-[13px] text-muted transition-colors hover:bg-foreground/[0.04] hover:text-foreground"
+                    >
+                      <span className="min-w-0 truncate">
+                        {ko ? `${org.name} 조직 설정` : `${org.name} settings`}
+                      </span>
+                    </Link>
+                  ))}
                   <Link
                     href="/dashboard/workspaces"
                     onClick={pick}
