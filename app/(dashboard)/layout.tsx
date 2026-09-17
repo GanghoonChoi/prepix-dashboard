@@ -55,19 +55,27 @@ export default function DashboardLayout({
       const returnTo = window.location.pathname + window.location.search;
       /**
        * An invitation link is the one route here that a person without an
-       * account is SUPPOSED to arrive at, so it is the one route that must not
-       * bounce them to a sign-in form they cannot pass. The email told them to
-       * sign up; sending them to /login after that is the step where an invited
-       * teammate quietly gives up.
+       * account is SUPPOSED to arrive at, so it must not bounce them to a
+       * sign-in form they cannot pass. But it must not do the reverse either:
+       * this used to send EVERY unauthenticated invitee to sign-up, so an
+       * email that correctly said "초대 수락하기" to somebody who already has
+       * an account landed them on a registration form. The two halves of one
+       * invitation told them different things.
        *
-       * Both screens carry `returnTo` on to the other, so somebody who does
-       * have an account is one link away and lands back here either way.
+       * The server knows which it is — it decided the wording of that same
+       * email — and says so with `?signup=1`. No flag means they have an
+       * account and belong on sign-in. Both screens carry `returnTo` on to the
+       * other, so a wrong guess would cost one click rather than the journey.
        */
       const invited = window.location.pathname.startsWith(
         "/dashboard/invitations/",
       );
+      const needsAccount =
+        new URLSearchParams(window.location.search).get("signup") === "1";
       window.location.replace(
-        invited ? signupHref({ returnTo }) : loginHref({ returnTo }),
+        invited && needsAccount
+          ? signupHref({ returnTo })
+          : loginHref({ returnTo }),
       );
       return;
     }
