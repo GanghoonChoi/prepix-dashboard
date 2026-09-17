@@ -63,7 +63,7 @@ export function workspaceLinks(
       : []),
     {
       href: sole
-        ? `/dashboard/organizations/${sole}`
+        ? `/dashboard/organizations/${sole}/members`
         : `${base}/members`,
       ko: "멤버",
       en: "Members",
