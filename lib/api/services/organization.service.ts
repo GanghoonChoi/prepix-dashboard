@@ -120,6 +120,7 @@ export const organizationService = {
       | { status: "already_invited" }
       | { status: "invalid_email" }
       | { status: "workspace_required" }
+      | { status: "no_workspace" }
       | { status: "delivery_failed"; invitationId: string }
     >(`/organizations/${e(id)}/members`, { email, role, lang }),
   resendInvitation: (id: string, invitationId: string, lang: string) =>

@@ -160,12 +160,37 @@ function Content({ id }: { id: string }) {
                               "이 조직에 워크스페이스가 여러 개라 어디로 초대할지 정해야 합니다.",
                               "This organisation has more than one workspace, so the invitation needs a team.",
                             )
-                          : c(
-                              // Never silent. The inviter is the only person
-                              // who can notice that a teammate got nothing.
-                              `초대는 만들었지만 ${email} 로 메일이 가지 않았습니다. 주소를 확인하고 다시 보내세요.`,
-                              `The invitation was created but the email to ${email} did not go out. Check the address and resend.`,
-                            ),
+                          : result.status === "no_workspace"
+                            ? c(
+                                "이 조직에 워크스페이스가 없습니다. 먼저 팀을 만드세요.",
+                                "This organisation has no workspace yet. Create a team first.",
+                              )
+                            : result.status === "delivery_failed"
+                              ? c(
+                                  // Never silent. The inviter is the only
+                                  // person who can notice a teammate got
+                                  // nothing.
+                                  `초대는 만들었지만 ${email} 로 메일이 가지 않았습니다. 주소를 확인하고 다시 보내세요.`,
+                                  `The invitation was created but the email to ${email} did not go out. Check the address and resend.`,
+                                )
+                              : c(
+                                  // An answer we do not have a sentence for.
+                                  // A catch-all that ASSERTS a specific
+                                  // failure is worse than one that admits it
+                                  // does not know: this branch used to claim
+                                  // "the mail did not go out" for a server
+                                  // that had neither created anything nor
+                                  // tried to send, which sent somebody
+                                  // checking an address that was never the
+                                  // problem.
+                                  // Cast because the union is exhaustive at
+                                  // compile time and this branch exists for
+                                  // RUNTIME: a server on a different version
+                                  // is the normal state of this app, not an
+                                  // impossible one.
+                                  `초대를 처리하지 못했습니다 (${(result as { status: string }).status}). 잠시 후 다시 시도하세요.`,
+                                  `The invitation could not be completed (${(result as { status: string }).status}). Try again shortly.`,
+                                ),
               );
               // Only a delivered invitation closes the modal. Every other
               // answer is about the address still in the field, and closing
