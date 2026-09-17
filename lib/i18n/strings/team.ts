@@ -4,7 +4,7 @@ export const team = {
     "team.preview": "Team preview",
     "team.loading": "Loading workspace…",
     "team.retry": "Try again",
-    "team.indexTitle": "A shared space for your team",
+    "team.indexTitle": "Workspaces",
     "team.create": "Create workspace",
     "team.personal": "Continue with personal account",
     "team.myTeams": "Your workspaces",
@@ -173,7 +173,6 @@ export const team = {
     "team.makeTeam": "Create a team",
     "team.personalNoMembers":
       "A personal space has no members, no roles and no invitations. To work with someone, create a team and invite them there.",
-    "team.here": "You are in",
     "team.hereTeam": "Anything you do here is visible to this team.",
     "team.herePersonal": "Anything you do here is visible only to you.",
     "team.seatActive": "Active members",
@@ -212,7 +211,7 @@ export const team = {
     "team.preview": "팀 미리보기",
     "team.loading": "워크스페이스를 불러오는 중…",
     "team.retry": "다시 시도",
-    "team.indexTitle": "팀이 함께하는 작업 공간",
+    "team.indexTitle": "워크스페이스",
     "team.create": "워크스페이스 만들기",
     "team.personal": "개인 계정으로 계속",
     "team.myTeams": "내 워크스페이스",
@@ -379,7 +378,6 @@ export const team = {
     "team.makeTeam": "팀 만들기",
     "team.personalNoMembers":
       "개인 공간에는 멤버도, 역할도, 초대도 없습니다. 누군가와 함께 일하려면 팀을 만들고 그곳으로 초대하세요.",
-    "team.here": "현재 위치",
     "team.hereTeam": "여기서 하는 일은 이 팀에게 보입니다.",
     "team.herePersonal": "여기서 하는 일은 나에게만 보입니다.",
     "team.seatActive": "참여 중인 멤버",

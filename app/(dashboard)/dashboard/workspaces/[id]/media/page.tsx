@@ -9,7 +9,6 @@ import {
   FolderPlus,
   Pause,
   Play,
-  RotateCcw,
   Trash2,
   Upload,
   X,
@@ -54,6 +53,7 @@ import {
   primaryClass,
   secondaryClass,
 } from "@/components/workspaces/shared";
+import { RowMenu, RowMenuItem } from "@/components/workspaces/row-menu";
 import {
   CloudError,
   CloudProgress,
@@ -441,19 +441,18 @@ function Content({ id }: { id: string }) {
                   )
                 : // `cancelled` is finished, so saying capacity is still held
                   // is simply wrong.
-                  c("취소됨 · 용량 예약 해제", "Cancelled · reservation released");
+                  c(
+                    "취소됨 · 용량 예약 해제",
+                    "Cancelled · reservation released",
+                  );
   return (
     <TeamShell
-      title={personal ? c("내 아카이브", "Your archive") : c("팀 아카이브", "Team archive")}
+      title={
+        personal
+          ? c("내 아카이브", "Your archive")
+          : c("팀 아카이브", "Team archive")
+      }
     >
-      {appLink && (
-        <div className="flex flex-wrap justify-end gap-2">
-          <button className={secondaryClass} onClick={openInApp}>
-            <ExternalLink size={16} strokeWidth={1.5} />
-            {c("앱에서 열기", "Open in app")}
-          </button>
-        </div>
-      )}
       {appFallback && appLink && (
         <div
           role="status"
@@ -535,16 +534,16 @@ function Content({ id }: { id: string }) {
               if (canUpload) enqueue(Array.from(e.dataTransfer.files));
             }}
           >
-            {/*
-              Upload is the durable action on this page, so the space it lands
-              in is named next to the button, not only in the switcher.
-            */}
-            {team && <SpaceBadge workspace={team.workspace} />}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <nav
                 aria-label={c("폴더 경로", "Folder path")}
                 className="flex flex-wrap items-center gap-2 text-sm"
               >
+                {/*
+                  Upload is the durable action on this page, so the space it
+                  lands in is named beside it, not only in the switcher.
+                */}
+                {team && <SpaceBadge workspace={team.workspace} />}
                 <button
                   className={secondaryClass}
                   onClick={() => {
@@ -571,6 +570,12 @@ function Content({ id }: { id: string }) {
                 {trash && <span>{c("휴지통", "Trash")}</span>}
               </nav>
               <div className="flex flex-wrap gap-2">
+                {appLink && (
+                  <button className={secondaryClass} onClick={openInApp}>
+                    <ExternalLink size={16} strokeWidth={1.5} />
+                    {c("앱에서 열기", "Open in app")}
+                  </button>
+                )}
                 {data.canEdit && (
                   <button
                     className={secondaryClass}
@@ -674,10 +679,15 @@ function Content({ id }: { id: string }) {
                     ]
                       .filter(([count]) => count > 0)
                       .map(([count, label]) =>
-                        lang === "ko" ? `${label} ${count}` : `${count} ${label}`,
+                        lang === "ko"
+                          ? `${label} ${count}`
+                          : `${count} ${label}`,
                       )
                       .join(" · ") ||
-                      c(`전송 ${summary.total}개`, `${summary.total} transfers`)}
+                      c(
+                        `전송 ${summary.total}개`,
+                        `${summary.total} transfers`,
+                      )}
                   </p>
                   {transfers.some((entry) => isSettled(entry.state)) && (
                     <button className={secondaryClass} onClick={clearSettled}>
@@ -737,7 +747,10 @@ function Content({ id }: { id: string }) {
                               : entry.state === "uploading"
                                 ? c("업로드 중", "Uploading")
                                 : entry.state === "verifying"
-                                  ? c("전송 완료 확인 중", "Finalizing transfer")
+                                  ? c(
+                                      "전송 완료 확인 중",
+                                      "Finalizing transfer",
+                                    )
                                   : entry.state === "done"
                                     ? c(
                                         "전송 완료 · 검증 후 다운로드 가능",
@@ -748,7 +761,10 @@ function Content({ id }: { id: string }) {
                                       : entry.state === "cancelled"
                                         ? c("취소됨", "Cancelled")
                                         : entry.state === "invalid"
-                                          ? c("업로드할 수 없음", "Cannot upload")
+                                          ? c(
+                                              "업로드할 수 없음",
+                                              "Cannot upload",
+                                            )
                                           : c("실패", "Failed")}{" "}
                           · {bytes(shown.value)} / {bytes(entry.total)}
                         </p>
@@ -842,7 +858,7 @@ function Content({ id }: { id: string }) {
                      which is the number this archive is built for. */
                   <li
                     key={asset.id}
-                    className="flex flex-wrap items-center gap-x-4 gap-y-3 px-5 py-3"
+                    className="flex items-center gap-x-3 px-5 py-3 transition-colors hover:bg-foreground/[0.02]"
                   >
                     <div className="flex min-w-0 flex-1 items-start gap-3">
                       <File
@@ -888,126 +904,130 @@ function Content({ id }: { id: string }) {
                         )}
                       </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    {/* One row, one visible action. Five buttons per file
+                        turned a fifty-file archive into a wall of chrome and
+                        made the one thing people come here for — the original
+                        — no easier to reach than "영구 삭제". Download stays
+                        out front; the rest sit behind the same kebab the
+                        members table uses. */}
+                    <div className="flex shrink-0 items-center gap-1">
                       {active && data.canDownload && (
                         <button
-                          className={secondaryClass}
+                          className="grid size-9 place-items-center rounded-md text-muted transition-colors hover:bg-foreground/[0.06] hover:text-foreground disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
                           disabled={!!busy}
+                          title={c("원본 다운로드", "Download original")}
+                          aria-label={c("원본 다운로드", "Download original")}
                           onClick={() => {
                             void download(asset);
                           }}
                         >
                           <Download size={16} strokeWidth={1.5} />
-                          {c("원본 다운로드", "Download original")}
                         </button>
                       )}
-                      {data.canEdit && ready && !trash && (
-                        <>
-                          <button
-                            className={secondaryClass}
-                            disabled={!!busy}
+                      <RowMenu label={c("파일 작업", "File actions")}>
+                        {data.canEdit && ready && !trash && (
+                          <>
+                            <RowMenuItem
+                              disabled={!!busy}
+                              onClick={() => {
+                                setEditing(asset);
+                                setEditName(asset.name);
+                                setEditFolder(asset.folderId ?? "");
+                              }}
+                            >
+                              {c("이름과 폴더 변경", "Rename or move")}
+                            </RowMenuItem>
+                            <RowMenuItem
+                              tone="danger"
+                              disabled={!!busy}
+                              onClick={() =>
+                                setConfirm({
+                                  label: c(
+                                    `${asset.name} 파일을 휴지통으로 옮길까요? 팀원의 다운로드가 중단됩니다.`,
+                                    `Move ${asset.name} to trash? Team members will no longer be able to download it.`,
+                                  ),
+                                  run: () =>
+                                    cloudService.update(id, asset.id, {
+                                      trashed: true,
+                                    }),
+                                })
+                              }
+                            >
+                              {c("휴지통으로", "Move to trash")}
+                            </RowMenuItem>
+                          </>
+                        )}
+                        {data.canEdit && ready && trash && (
+                          <RowMenuItem
+                            disabled={
+                              !!busy ||
+                              new Date(asset.expiresAt).getTime() <= Date.now()
+                            }
                             onClick={() => {
-                              setEditing(asset);
-                              setEditName(asset.name);
-                              setEditFolder(asset.folderId ?? "");
+                              void action(asset.id, () =>
+                                cloudService.update(id, asset.id, {
+                                  trashed: false,
+                                }),
+                              );
                             }}
                           >
-                            {c("이름과 폴더 변경", "Rename or move")}
-                          </button>
-                          <button
-                            className={secondaryClass}
+                            {c("복구", "Restore")}
+                          </RowMenuItem>
+                        )}
+                        {data.canPurge && ready && trash && (
+                          <RowMenuItem
+                            tone="danger"
                             disabled={!!busy}
                             onClick={() =>
                               setConfirm({
                                 label: c(
-                                  `${asset.name} 파일을 휴지통으로 옮길까요? 팀원의 다운로드가 중단됩니다.`,
-                                  `Move ${asset.name} to trash? Team members will no longer be able to download it.`,
+                                  `${asset.name} 파일을 영구 삭제할까요? 원본을 복구할 수 없습니다. 저장소 정리가 끝난 뒤 용량이 반환됩니다.`,
+                                  `Permanently delete ${asset.name}? The original cannot be recovered. Capacity is released after storage cleanup finishes.`,
                                 ),
                                 run: () =>
-                                  cloudService.update(id, asset.id, {
-                                    trashed: true,
-                                  }),
+                                  cloudService.purge(id, asset.id, asset.name),
                               })
                             }
                           >
-                            <Trash2 size={16} strokeWidth={1.5} />
-                            {c("휴지통으로", "Move to trash")}
-                          </button>
-                        </>
-                      )}
-                      {data.canPurge && ready && trash && (
-                        <button
-                          className={secondaryClass}
-                          disabled={!!busy}
-                          onClick={() =>
-                            setConfirm({
-                              label: c(
-                                `${asset.name} 파일을 영구 삭제할까요? 원본을 복구할 수 없습니다. 저장소 정리가 끝난 뒤 용량이 반환됩니다.`,
-                                `Permanently delete ${asset.name}? The original cannot be recovered. Capacity is released after storage cleanup finishes.`,
-                              ),
-                              run: () =>
-                                cloudService.purge(id, asset.id, asset.name),
-                            })
-                          }
-                        >
-                          {c("영구 삭제", "Delete permanently")}
-                        </button>
-                      )}
-                      {data.canEdit && ready && trash && (
-                        <button
-                          className={secondaryClass}
-                          disabled={
-                            !!busy ||
-                            new Date(asset.expiresAt).getTime() <= Date.now()
-                          }
-                          onClick={() => {
-                            void action(asset.id, () =>
-                              cloudService.update(id, asset.id, {
-                                trashed: false,
-                              }),
-                            );
-                          }}
-                        >
-                          <RotateCcw size={16} strokeWidth={1.5} />
-                          {c("복구", "Restore")}
-                        </button>
-                      )}
-                      {asset.state === "uploading" &&
-                        data.canEdit &&
-                        asset.createdBy === data.currentUserId &&
-                        new Date(asset.uploadExpiresAt).getTime() >
-                          Date.now() && (
-                          <button
-                            className={secondaryClass}
-                            disabled={!canUpload}
-                            onClick={() => {
-                              resume.current = asset;
-                              fileInput.current?.click();
-                            }}
-                          >
-                            {c(
-                              "같은 파일로 이어 올리기",
-                              "Select original to resume",
-                            )}
-                          </button>
+                            {c("영구 삭제", "Delete permanently")}
+                          </RowMenuItem>
                         )}
-                      {data.canEdit &&
-                        ["uploading", "quarantined", "verifying"].includes(
-                          asset.state,
-                        ) && (
-                          <button
-                            className={secondaryClass}
-                            disabled={!!busy}
-                            onClick={() =>
-                              setConfirm({
-                                label: cancelUploadLabel,
-                                run: () => cloudService.cancel(id, asset.id),
-                              })
-                            }
-                          >
-                            {c("업로드 취소", "Cancel upload")}
-                          </button>
-                        )}
+                        {asset.state === "uploading" &&
+                          data.canEdit &&
+                          asset.createdBy === data.currentUserId &&
+                          new Date(asset.uploadExpiresAt).getTime() >
+                            Date.now() && (
+                            <RowMenuItem
+                              disabled={!canUpload}
+                              onClick={() => {
+                                resume.current = asset;
+                                fileInput.current?.click();
+                              }}
+                            >
+                              {c(
+                                "같은 파일로 이어 올리기",
+                                "Select original to resume",
+                              )}
+                            </RowMenuItem>
+                          )}
+                        {data.canEdit &&
+                          ["uploading", "quarantined", "verifying"].includes(
+                            asset.state,
+                          ) && (
+                            <RowMenuItem
+                              tone="danger"
+                              disabled={!!busy}
+                              onClick={() =>
+                                setConfirm({
+                                  label: cancelUploadLabel,
+                                  run: () => cloudService.cancel(id, asset.id),
+                                })
+                              }
+                            >
+                              {c("업로드 취소", "Cancel upload")}
+                            </RowMenuItem>
+                          )}
+                      </RowMenu>
                     </div>
                   </li>
                 );
@@ -1044,7 +1064,10 @@ function Content({ id }: { id: string }) {
               )}
             </ul>
             {data.nextCursor && (
-              <button className={secondaryClass} onClick={() => void loadMore()}>
+              <button
+                className={secondaryClass}
+                onClick={() => void loadMore()}
+              >
                 {c("더 불러오기", "Load more")}
               </button>
             )}

@@ -100,9 +100,11 @@ test("a personal space reads as yours, offers no invite affordance anywhere, and
   await expect(
     page.getByRole("button", { name: "워크스페이스 탈퇴" })
   ).toHaveCount(0);
-  // …and it still says which space you are looking at.
+  // …and it still says which space you are looking at. The badge is a pill
+  // now rather than a band of prose, so what it must carry is the NAME — the
+  // "현재 위치" label went with the sentence.
   await expect(main.locator('[data-space="personal"]').first()).toContainText(
-    "현재 위치"
+    "개인 공간"
   );
 
   // Seats belong to a team, so the personal plan page shows none.

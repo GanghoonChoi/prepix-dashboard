@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Children, useEffect, useRef, useState, type ReactNode } from "react";
 import { MoreVertical } from "lucide-react";
 import { useI18n } from "@/lib/i18n/context";
 
@@ -11,7 +11,10 @@ import { useI18n } from "@/lib/i18n/context";
  * Both reference products put them behind this.
  *
  * Render nothing when there is nothing to offer: an always-present kebab that
- * opens onto an empty menu is a promise the row cannot keep.
+ * opens onto an empty menu is a promise the row cannot keep. Callers pass
+ * conditional children (`{canEdit && <RowMenuItem …>}`), so that verdict is
+ * made HERE, from what actually survived — a caller that has to compute
+ * "would any of these render" a second time gets it wrong eventually.
  */
 export function RowMenu({
   label,
@@ -24,6 +27,9 @@ export function RowMenu({
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
+  // `toArray` drops null/undefined/false, which is exactly the shape a row of
+  // permission-gated items collapses to when the viewer may do nothing.
+  const items = Children.toArray(children).length;
 
   useEffect(() => {
     if (!open) return;
@@ -43,6 +49,7 @@ export function RowMenu({
     };
   }, [open]);
 
+  if (!items) return null;
   return (
     <div ref={root} className="relative inline-block text-left">
       <button

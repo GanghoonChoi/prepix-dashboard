@@ -2,7 +2,11 @@
 import { Building2, UserRound } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
 import { useI18n } from "@/lib/i18n/context";
-import { isPersonal, seatFigures, type WorkspaceKind } from "@/lib/workspaces/kind";
+import {
+  isPersonal,
+  seatFigures,
+  type WorkspaceKind,
+} from "@/lib/workspaces/kind";
 import type { WorkspaceDetail } from "@/lib/api/services/workspace.service";
 
 export const inputClass =
@@ -27,16 +31,16 @@ export function TeamShell({
        copies of the same navigation. */
     <div className="mx-auto max-w-4xl space-y-8 text-foreground">
       {title && (
-      <header>
-        <h1 className="text-balance text-2xl font-semibold tracking-tight sm:text-3xl">
-          {title}
-        </h1>
-        {description && (
-          <p className="mt-3 max-w-2xl text-pretty text-sm leading-6 text-muted">
-            {description}
-          </p>
-        )}
-      </header>
+        <header>
+          <h1 className="text-balance text-2xl font-semibold tracking-tight sm:text-3xl">
+            {title}
+          </h1>
+          {description && (
+            <p className="mt-3 max-w-2xl text-pretty text-sm leading-6 text-muted">
+              {description}
+            </p>
+          )}
+        </header>
       )}
       {children}
     </div>
@@ -125,7 +129,9 @@ export function ConfirmDialog({
       if (event.key !== "Tab" || !node) return;
       const focusable = [...node.querySelectorAll<HTMLElement>(selector)];
       if (!focusable.length) return;
-      const edge = event.shiftKey ? focusable[0] : focusable[focusable.length - 1];
+      const edge = event.shiftKey
+        ? focusable[0]
+        : focusable[focusable.length - 1];
       if (document.activeElement !== edge) return;
       event.preventDefault();
       (event.shiftKey ? focusable[focusable.length - 1] : focusable[0]).focus();
@@ -196,23 +202,23 @@ export function SpaceBadge({
   const { t } = useI18n();
   const personal = isPersonal(workspace);
   const spaceName = useSpaceName();
+  // A band of prose across the page was not what made this work — naming the
+  // space next to the action is. So it is a pill now: the icon, the name and
+  // the kind, and the sentence explaining what a team is went with the band.
   return (
-    <p
+    <span
       data-space={personal ? "personal" : "team"}
-      className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-border bg-surface px-3 py-2.5 text-sm"
+      title={t(personal ? "team.herePersonal" : "team.hereTeam")}
+      className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-surface py-1 pl-2 pr-3 text-xs"
     >
-      <SpaceIcon kind={personal ? "personal" : "team"} size={16} />
-      <span className="text-muted">{t("team.here")}</span>
-      <span className="min-w-0 break-words font-medium">
+      <SpaceIcon kind={personal ? "personal" : "team"} size={14} />
+      <span className="min-w-0 truncate font-medium">
         {spaceName(workspace)}
       </span>
-      <span className="text-muted">
-        · {t(personal ? "team.kind.personal" : "team.kind.team")}
+      <span className="shrink-0 text-muted">
+        {t(personal ? "team.kind.personal" : "team.kind.team")}
       </span>
-      <span className="text-xs leading-5 text-muted">
-        {t(personal ? "team.herePersonal" : "team.hereTeam")}
-      </span>
-    </p>
+    </span>
   );
 }
 

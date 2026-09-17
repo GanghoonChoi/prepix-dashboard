@@ -180,9 +180,6 @@ function Spaces({
           {personal.map((workspace) => (
             <SpaceCard key={workspace.id} workspace={workspace} />
           ))}
-          <p className="text-xs leading-5 text-muted">
-            {t("team.personalDesc")}
-          </p>
         </section>
       )}
       <section className="space-y-3">
@@ -226,17 +223,17 @@ function SpaceCard({
       <SpaceIcon kind={personal ? "personal" : "team"} />
       <div className="min-w-0 flex-1">
         <p className="truncate font-medium">{spaceName(workspace)}</p>
+        {/*
+          A personal space has no role to report — there is nobody to have a
+          role relative to — so it says what it is instead. What is NOT here
+          any more is "워크스페이스 열기": a row that is a link does not also
+          need a sentence saying it opens when clicked.
+        */}
         <p className="mt-1 text-sm text-muted">
-          {/*
-            A personal space has no role to report — there is nobody to have a
-            role relative to — so it says what it is instead.
-          */}
-          {personal ? t("team.kind.personal") : t(`team.role.${workspace.role}`)}{" "}
-          ·{" "}
           {personal
-            ? t("team.openPersonal")
+            ? t("team.kind.personal")
             : workspace.onboardingCompletedAt
-              ? t("team.open")
+              ? t(`team.role.${workspace.role}`)
               : t("team.continueSetup")}
         </p>
       </div>
