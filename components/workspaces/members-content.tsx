@@ -211,6 +211,10 @@ export function MembersContent({ id }: { id: string }) {
                 return {
                   id: invite.id,
                   name: null,
+                  // Says what the row IS. Without it an invitation sits in the
+                  // same shape and weight as a member and nothing on the line
+                  // says this person has not answered.
+                  badge: t(`team.status.${status}`),
                   email: invite.email,
                   role: invite.role,
                   roleLabel: t(`team.role.${invite.role}`),

@@ -51,7 +51,16 @@ function Content({ id }: { id: string }) {
   const c = (ko: string, en: string) => (lang === "ko" ? ko : en);
   const [data, setData] = useState<OrganizationDetail | null>(null);
   const [error, setError] = useState("");
+  /**
+   * Two places a result can be announced, because they have different
+   * lifetimes. `notice` is on the page and outlives the modal — it is where a
+   * SUCCESS goes, since success closes the modal and a message written into a
+   * closing component is a message nobody reads. `formNotice` is inside the
+   * modal, for the answers that keep the field so the sentence can talk about
+   * the address still sitting in it.
+   */
   const [notice, setNotice] = useState("");
+  const [formNotice, setFormNotice] = useState("");
   const [busy, setBusy] = useState("");
   // The repo already has a modal with a focus trap, a scroll lock and an
   // Escape handler. A second one built inline here would be a second set of
@@ -83,7 +92,6 @@ function Content({ id }: { id: string }) {
     if (busy) return;
     setBusy(key);
     setError("");
-    setNotice("");
     try {
       await run();
       await load();
@@ -135,7 +143,7 @@ function Content({ id }: { id: string }) {
               // Six answers, six sentences. The one that used to be here —
               // "added" for something that had silently done nothing — is the
               // reason this screen could not be trusted.
-              setNotice(
+              const message =
                 result.status === "invited"
                   ? result.hasAccount
                     ? c(
@@ -190,14 +198,18 @@ function Content({ id }: { id: string }) {
                                   // impossible one.
                                   `초대를 처리하지 못했습니다 (${(result as { status: string }).status}). 잠시 후 다시 시도하세요.`,
                                   `The invitation could not be completed (${(result as { status: string }).status}). Try again shortly.`,
-                                ),
-              );
+                                );
               // Only a delivered invitation closes the modal. Every other
               // answer is about the address still in the field, and closing
-              // would take away the thing the sentence is talking about.
+              // would take away the thing the sentence is talking about — so
+              // it stays in the modal, and the success goes to the page.
               if (result.status === "invited") {
+                setFormNotice("");
+                setNotice(message);
                 setInviteEmail("");
                 invite.close();
+              } else {
+                setFormNotice(message);
               }
             });
           }}
@@ -233,9 +245,9 @@ function Content({ id }: { id: string }) {
               ))}
             </select>
           </label>
-          {notice && (
+          {formNotice && (
             <p role="status" className="text-sm leading-6">
-              {notice}
+              {formNotice}
             </p>
           )}
           <div className="flex justify-end gap-2 pt-2">
@@ -255,6 +267,8 @@ function Content({ id }: { id: string }) {
       </Dialog>
       <MembersTable
         title={c("멤버", "Members")}
+        notice={notice}
+        onDismissNotice={() => setNotice("")}
         // Members only. The table also lists people who have been invited and
         // have not answered, and counting them here would overstate the team.
         count={data.members.length}
@@ -266,7 +280,7 @@ function Content({ id }: { id: string }) {
         onInvite={
           data.canManage
             ? () => {
-                setNotice("");
+                setFormNotice("");
                 invite.open();
               }
             : undefined
@@ -345,6 +359,7 @@ function Content({ id }: { id: string }) {
           (data.invitations ?? []).map((invitation): MemberRow => ({
             id: invitation.id,
             name: null,
+            badge: c("초대됨", "Invited"),
             email: invitation.email,
             role: invitation.role ?? "member",
             roleLabel: roleLabel(
@@ -399,9 +414,15 @@ function Content({ id }: { id: string }) {
                   tone="danger"
                   disabled={!!busy}
                   onClick={() =>
-                    void act(invitation.id, () =>
-                      organizationService.revokeInvitation(id, invitation.id),
-                    )
+                    void act(invitation.id, async () => {
+                      await organizationService.revokeInvitation(id, invitation.id);
+                      setNotice(
+                        c(
+                          `${invitation.email} 초대를 취소했습니다.`,
+                          `Invitation to ${invitation.email} revoked.`,
+                        ),
+                      );
+                    })
                   }
                 >
                   {c("초대 취소", "Revoke invitation")}

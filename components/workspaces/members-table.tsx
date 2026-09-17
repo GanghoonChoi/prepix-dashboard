@@ -22,6 +22,13 @@ export type MemberRow = {
   roleLabel: string;
   /** A second line under the role — "초대함 · 9/23 만료" and the like. */
   detail?: string;
+  /**
+   * A short word in place of the name, for a row that is not a person yet.
+   * An invitation has no name, and `—` made it look like a member whose
+   * profile happened to be blank — same shape, same weight, nothing saying
+   * "this one has not answered".
+   */
+  badge?: string;
   /** True when this row's role is read-only: the owner, yourself, or a role
    *  the caller is not allowed to touch. Renders as text, not a dead control. */
   locked: boolean;
@@ -38,6 +45,8 @@ export function MembersTable({
   roleFilters,
   onInvite,
   inviteLabel,
+  notice,
+  onDismissNotice,
   count,
   footnote,
   busy,
@@ -49,6 +58,14 @@ export function MembersTable({
   roleFilters: { value: string; label: string }[];
   onInvite?: () => void;
   inviteLabel?: string;
+  /**
+   * What just happened, announced on the PAGE. Every action here used to write
+   * its result into the invite modal — which closes on success, so the one
+   * outcome worth confirming was the one nobody could see, and resend and
+   * revoke said nothing at all.
+   */
+  notice?: string;
+  onDismissNotice?: () => void;
   /**
    * The number in the pill. Defaults to the row count, which is right until
    * the table also carries invitations — then "멤버 5" would be counting three
@@ -95,6 +112,25 @@ export function MembersTable({
           </button>
         )}
       </div>
+
+      {notice && (
+        <div
+          role="status"
+          className="flex items-start justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3 text-sm leading-6"
+        >
+          <p>{notice}</p>
+          {onDismissNotice && (
+            <button
+              type="button"
+              aria-label={c("닫기", "Dismiss")}
+              onClick={onDismissNotice}
+              className="shrink-0 rounded-md px-2 text-muted transition-colors hover:text-foreground"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2">
         <div className="relative">
@@ -161,7 +197,11 @@ export function MembersTable({
                       on an INVITATION row: nobody has joined yet, so we cannot
                       know what they are called, and "spa9ettimaker+test" sat
                       in the 이름 column looking like an answer. */}
-                  {row.name ? (
+                  {row.badge ? (
+                    <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs text-muted">
+                      {row.badge}
+                    </span>
+                  ) : row.name ? (
                     <span className="font-medium">{row.name}</span>
                   ) : (
                     <span aria-hidden="true" className="text-muted">
