@@ -14,8 +14,6 @@ export const team = {
     "team.pendingDesc":
       "Open the invitation in your email to review and join the workspace.",
     "team.newTitle": "Name your workspace",
-    "team.newDesc":
-      "Use your company, studio, or team name. You can invite people in the next step.",
     "team.name": "Workspace name",
     "team.nameHint":
       "Up to 80 characters. A unique address is created automatically.",
@@ -24,9 +22,7 @@ export const team = {
     "team.step2": "2. Invite team",
     "team.step3": "3. Ready",
     "team.previewTerms":
-      "This preview includes {seats} member seats. Reviewers do not use seats. Creating a workspace does not charge you.",
-    "team.previewScope":
-      "Start with team setup and invitations. A team archive appears when enabled for your workspace. Team AI allowances and billing are not available yet. Your personal plan continues to apply.",
+      "{seats} member seats. Reviewers are free, and creating a workspace does not charge you.",
     "team.remaining": "You can create {count} more.",
     "team.creating": "Creating workspace…",
     "team.inviteTitle": "Invite your team",
@@ -41,7 +37,7 @@ export const team = {
     "team.role.editor": "Editor",
     "team.role.reviewer": "Reviewer",
     "team.roleHelp":
-      "Admins manage invitations. Editors use member seats. Reviewers do not use a seat. Only the owner can invite admins.",
+      "Editors use a seat. Reviewers do not. Only the owner can invite admins.",
     "team.send": "Send invitations",
     "team.sending": "Sending invitations…",
     "team.validCount": "{count} valid addresses",
@@ -170,7 +166,7 @@ export const team = {
     "team.kind.team": "Team",
     "team.personalTitle": "Your personal space",
     "team.personalDesc":
-      "Only you can see this space. Nobody can be invited into it, it holds no seats, and it cannot be deleted or handed to anyone else.",
+      "Only you. No members, no seats.",
     "team.personalOne":
       "This is your space. Create a team when you want to work with other people — your personal space stays exactly as it is.",
     "team.personalNoTeams": "You are not in a team yet.",
@@ -190,7 +186,7 @@ export const team = {
     "team.seatHolds": "Holds a seat",
     "team.seatFree": "Holds no seat",
     "team.seatSplit":
-      "These are separate figures on purpose. An unaccepted invitation holds a seat until it is accepted, revoked or expires, so a single total would hide it — read all four before you change anything about seats.",
+      "An unaccepted invitation holds a seat.",
     "team.capsTitle": "What each role can do",
     "team.capsHint":
       "A role is the ceiling on what someone can do. An admin cannot promote anyone — themselves included — to owner.",
@@ -206,7 +202,7 @@ export const team = {
     "team.caps.notOwner": "Not the owner",
     "team.startPersonalTitle": "Your personal space is ready",
     "team.startPersonalBody":
-      "It was made with your account and nobody else can see it. You can create a team whenever you need one — that is a separate space, and this one stays yours.",
+      "Nobody else can see it. A team is a separate space you can make any time.",
     "team.startTeamName": "Team name",
     "team.startTeamHint":
       "Use your company, studio or team name. You can invite people in the next step.",
@@ -228,8 +224,6 @@ export const team = {
     "team.pendingDesc":
       "이메일로 받은 초대 링크에서 내용을 확인하고 참여하세요.",
     "team.newTitle": "워크스페이스 이름을 정하세요",
-    "team.newDesc":
-      "회사, 스튜디오 또는 팀 이름을 사용하세요. 다음 단계에서 팀원을 초대할 수 있습니다.",
     "team.name": "워크스페이스 이름",
     "team.nameHint": "최대 80자. 고유한 주소가 자동으로 만들어집니다.",
     "team.placeholder": "예: 스튜디오 팀",
@@ -237,9 +231,7 @@ export const team = {
     "team.step2": "2. 팀원 초대",
     "team.step3": "3. 완료",
     "team.previewTerms":
-      "미리보기에는 멤버 {seats}석이 포함됩니다. 검토자는 좌석을 사용하지 않으며, 워크스페이스를 만들어도 결제되지 않습니다.",
-    "team.previewScope":
-      "팀 구성과 초대부터 시작합니다. 활성화된 환경에서는 팀 아카이브를 사용할 수 있습니다. 팀 AI 한도와 팀 결제는 아직 제공하지 않으며, 개인 플랜은 그대로 유지됩니다.",
+      "멤버 {seats}석. 검토자는 무료이고, 만들어도 결제되지 않습니다.",
     "team.remaining": "{count}개를 더 만들 수 있습니다.",
     "team.creating": "워크스페이스를 만드는 중…",
     "team.inviteTitle": "함께할 팀원을 초대하세요",
@@ -254,7 +246,7 @@ export const team = {
     "team.role.editor": "편집자",
     "team.role.reviewer": "검토자",
     "team.roleHelp":
-      "관리자는 초대를 관리합니다. 편집자는 멤버 좌석을 사용하고, 검토자는 좌석을 사용하지 않습니다. 관리자 초대는 소유자만 가능합니다.",
+      "편집자는 좌석을 쓰고 검토자는 쓰지 않습니다. 관리자 초대는 소유자만 가능합니다.",
     "team.send": "초대 보내기",
     "team.sending": "초대를 보내는 중…",
     "team.validCount": "유효한 주소 {count}개",
@@ -382,7 +374,7 @@ export const team = {
     "team.kind.team": "팀",
     "team.personalTitle": "내 개인 공간",
     "team.personalDesc":
-      "나만 보는 공간입니다. 이 공간에는 누구도 초대할 수 없고, 좌석을 쓰지 않으며, 삭제하거나 다른 사람에게 넘길 수 없습니다.",
+      "나만 보는 공간입니다. 멤버도 좌석도 없습니다.",
     "team.personalOne":
       "여기가 내 공간입니다. 다른 사람과 함께 일할 때 팀을 만드세요. 개인 공간은 그대로 남습니다.",
     "team.personalNoTeams": "아직 참여한 팀이 없습니다.",
@@ -402,7 +394,7 @@ export const team = {
     "team.seatHolds": "좌석을 차지함",
     "team.seatFree": "좌석을 차지하지 않음",
     "team.seatSplit":
-      "일부러 숫자를 나눠 둡니다. 수락하지 않은 초대도 수락·취소·만료될 때까지 좌석을 잡고 있어서 합계 하나로는 보이지 않습니다. 좌석을 손대기 전에 네 숫자를 모두 확인하세요.",
+      "수락 전 초대도 좌석을 잡습니다.",
     "team.capsTitle": "역할별로 할 수 있는 일",
     "team.capsHint":
       "역할은 할 수 있는 일의 상한입니다. 관리자는 자기 자신을 포함해 누구도 소유자로 올릴 수 없습니다.",
@@ -418,7 +410,7 @@ export const team = {
     "team.caps.notOwner": "소유자 제외",
     "team.startPersonalTitle": "개인 공간이 준비되었습니다",
     "team.startPersonalBody":
-      "계정 정보로 만들어 두었고 다른 사람에게는 보이지 않습니다. 팀이 필요해지면 언제든 만들 수 있습니다. 팀은 별도의 공간이고, 이 공간은 그대로 내 것입니다.",
+      "다른 사람에게는 보이지 않습니다. 팀은 별도의 공간이고 언제든 만들 수 있습니다.",
     "team.startTeamName": "팀 이름",
     "team.startTeamHint":
       "회사, 스튜디오 또는 팀 이름을 사용하세요. 다음 단계에서 팀원을 초대할 수 있습니다.",

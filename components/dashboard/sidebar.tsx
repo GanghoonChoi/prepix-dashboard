@@ -2,20 +2,11 @@
 
 import { WorkspaceSwitcher } from "@/components/workspaces/workspace-switcher";
 import { useWorkspaceCapabilities } from "@/components/workspaces/capabilities";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { useI18n } from "@/lib/i18n/context";
 import { legalUrl } from "@/lib/i18n/config";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { Lockup } from "@/components/brand";
 import type { Profile } from "@/lib/api/services/user.service";
-
-const NAV_ITEMS = [
-  { key: "nav.overview", href: "/dashboard" },
-  { key: "nav.usage", href: "/dashboard/usage" },
-  { key: "nav.plan", href: "/dashboard/plan" },
-  { key: "nav.settings", href: "/dashboard/settings" },
-];
 
 export function Sidebar({
   profile,
@@ -31,7 +22,6 @@ export function Sidebar({
   // entry where it was so a blip does not remove the way back to it; the list
   // page behind it explains and offers a retry.
   const showTeams = !!capabilities?.enabled || status === "unreachable";
-  const pathname = usePathname();
   const { t, lang } = useI18n();
   const displayName = profile?.username || profile?.email || "User";
 
@@ -43,42 +33,7 @@ export function Sidebar({
       </div>
 
       {showTeams && <WorkspaceSwitcher onClose={onClose} />}
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-3">
-        <div className="space-y-0.5">
-          {showTeams && (
-            <Link
-              href="/dashboard/workspaces"
-              onClick={onClose}
-              className={`block min-h-11 rounded-md px-3 py-3 text-[13px] transition-colors ${pathname.startsWith("/dashboard/workspaces") ? "font-medium text-foreground bg-foreground/[0.06]" : "text-muted hover:text-foreground"}`}
-            >
-              {t("team.title")}
-            </Link>
-          )}
-          {showTeams && (
-            <p className="px-3 pb-2 pt-4 text-[11px] text-muted">
-              {lang === "ko" ? "개인 계정" : "Personal account"}
-            </p>
-          )}
-          {NAV_ITEMS.map((item) => {
-            const active = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={onClose}
-                className={`block min-h-11 rounded-md px-3 py-3 text-[13px] transition-colors ${
-                  active
-                    ? "font-medium text-foreground bg-foreground/[0.06]"
-                    : "text-muted hover:text-foreground"
-                }`}
-              >
-                {t(item.key)}
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
+      <div className="flex-1" />
 
       {/* Footer */}
       <div className="border-t border-border px-3 py-3">

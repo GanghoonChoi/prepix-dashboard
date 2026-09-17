@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Users } from "lucide-react";
 import { useWorkspace } from "./workspace-context";
 import { MemberActions } from "@/components/workspaces/member-actions";
 import { useI18n } from "@/lib/i18n/context";
@@ -58,18 +57,26 @@ export function MembersContent({ id }: { id: string }) {
     }
   }
   const setup = data?.canManage && !data.workspace.onboardingCompletedAt;
-  const rows = data?.invitations.filter((invite) => !invite.acceptedAt) ?? [];
+  const hit = (text: string) =>
+    !query || text.toLowerCase().includes(query.trim().toLowerCase());
+  // Pending invitations sit in the same table as members, so they answer to
+  // the same search box — and to a status filter that can single them out.
+  const visibleInvites = (data?.invitations ?? []).filter(
+    (invite) =>
+      !invite.acceptedAt &&
+      hit(invite.email) &&
+      (filter === "all" || filter === "invited"),
+  );
   const visibleMembers = (data?.members ?? [])
     .filter(
       (member) =>
-        (!query ||
-          `${member.name ?? ""} ${member.email}`
-            .toLowerCase()
-            .includes(query.trim().toLowerCase())) &&
+        hit(`${member.name ?? ""} ${member.email}`) &&
         (filter === "all" ||
           (filter === "suspended"
             ? !!member.suspendedAt
-            : !member.suspendedAt)),
+            : filter === "active"
+              ? !member.suspendedAt
+              : false)),
     )
     .sort(
       (a, b) =>
@@ -83,13 +90,9 @@ export function MembersContent({ id }: { id: string }) {
       title={
         setup ? (data?.workspace.name ?? t("team.title")) : t("team.members")
       }
-      description={
-        setup
-          ? t("team.inviteDesc")
-          : lang === "ko"
-            ? "멤버의 역할과 참여 상태, 대기 중인 초대를 관리하세요."
-            : "Manage member roles, membership status and pending invitations."
-      }
+      /* Only first-run setup needs a line of orientation. Once the table is
+         on screen it says what this page is better than a sentence can. */
+      description={setup ? t("team.inviteDesc") : undefined}
     >
       {error && <TeamError code={error} retry={load} />}
       {!data && !error && <TeamLoading />}
@@ -114,11 +117,13 @@ export function MembersContent({ id }: { id: string }) {
           */}
           <SeatBreakdown detail={data} />
           {data.canManage && (
-            <section className="space-y-5 rounded-xl border border-border p-5 sm:p-6">
-              <h2 className="flex items-center gap-2 font-medium">
-                <Users size={20} strokeWidth={1.5} aria-hidden="true" />
-                {t("team.inviteTitle")}
-              </h2>
+            <details
+              open={setup}
+              className="space-y-4 rounded-xl border border-border p-5"
+            >
+              <summary className="cursor-pointer text-sm font-medium">
+                {lang === "ko" ? "팀원 초대" : "Invite people"}
+              </summary>
               <InviteForm
                 key={id}
                 workspaceId={id}
@@ -141,7 +146,7 @@ export function MembersContent({ id }: { id: string }) {
                 }
                 onChange={load}
               />
-            </section>
+            </details>
           )}
           {setup && (
             <button
@@ -160,202 +165,244 @@ export function MembersContent({ id }: { id: string }) {
               )}
             </button>
           )}
+          {/*
+            One table, not two lists. A pending invitation is a person holding
+            a seat; splitting them into "members" and "invitations" is why the
+            seat figures needed a paragraph to explain themselves. Notion,
+            Linear and Slack all show the invited alongside the joined, with a
+            status column doing the separating.
+          */}
           <section className="space-y-3">
-            <h2 className="font-medium">
-              {t("team.members")}{" "}
-              <span className="ml-2 text-sm font-normal tabular-nums text-muted">
-                {data.members.length}
-              </span>
-            </h2>
-            <div className="flex flex-wrap gap-3">
-              <input
-                className={`${inputClass} sm:max-w-xs`}
-                aria-label={lang === "ko" ? "멤버 검색" : "Search members"}
-                placeholder={
-                  lang === "ko"
-                    ? "이름 또는 이메일 검색"
-                    : "Search by name or email"
-                }
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
-              <select
-                className={`${inputClass} sm:max-w-40`}
-                aria-label={lang === "ko" ? "멤버 상태" : "Member status"}
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-              >
-                <option value="all">
-                  {lang === "ko" ? "전체 멤버" : "All members"}
-                </option>
-                <option value="active">
-                  {lang === "ko" ? "참여 중" : "Active"}
-                </option>
-                <option value="suspended">
-                  {lang === "ko" ? "참여 정지" : "Suspended"}
-                </option>
-              </select>
+            <div className="flex flex-wrap items-baseline justify-between gap-3">
+              <h2 className="font-medium">
+                {lang === "ko" ? "멤버와 초대" : "Members and invitations"}{" "}
+                <span className="ml-1 text-sm font-normal tabular-nums text-muted">
+                  {visibleMembers.length + visibleInvites.length}
+                </span>
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                <input
+                  className={`${inputClass.replace("w-full", "w-full sm:w-56")}`}
+                  aria-label={lang === "ko" ? "멤버 검색" : "Search members"}
+                  placeholder={
+                    lang === "ko" ? "이름 또는 이메일" : "Name or email"
+                  }
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+                <select
+                  className={`${inputClass.replace("w-full", "w-full sm:w-36")}`}
+                  aria-label={lang === "ko" ? "상태" : "Status"}
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value)}
+                >
+                  <option value="all">{lang === "ko" ? "전체" : "All"}</option>
+                  <option value="active">
+                    {lang === "ko" ? "참여 중" : "Active"}
+                  </option>
+                  <option value="invited">
+                    {lang === "ko" ? "초대함" : "Invited"}
+                  </option>
+                  <option value="suspended">
+                    {lang === "ko" ? "참여 정지" : "Suspended"}
+                  </option>
+                </select>
+              </div>
             </div>
-            {visibleMembers.length === 0 && (
-              <p role="status" className="py-4 text-sm text-muted">
-                {lang === "ko"
-                  ? "검색 조건에 맞는 멤버가 없습니다."
-                  : "No members match your search."}
+            {notice && (
+              <p role="status" className="text-sm">
+                {notice}
               </p>
             )}
-            <ul className="divide-y divide-border rounded-xl border border-border px-5">
-              {visibleMembers.map((member) => (
-                <li
-                  key={member.userId}
-                  className="flex flex-wrap items-center justify-between gap-3 py-4"
-                >
-                  <div className="min-w-0">
-                    <p className="break-all text-sm font-medium">
-                      {member.name || member.email}
-                    </p>
-                    {member.name && (
-                      <p className="mt-1 break-all text-xs text-muted">
-                        {member.email}
-                      </p>
-                    )}
-                  </div>
-                  <span className="text-xs text-muted">
-                    {t(`team.role.${member.role}`)}
-                    {member.suspendedAt &&
-                      ` · ${lang === "ko" ? "참여 정지" : "Suspended"}`}
-                  </span>
-                  {data.canManage &&
-                    data.canManageMembers &&
-                    member.userId !== data.currentUserId && (
-                      <MemberActions
-                        workspaceId={id}
-                        member={member}
-                        actorRole={data.role}
-                        team={data}
-                        onChange={load}
-                      />
-                    )}
-                </li>
-              ))}
-            </ul>
-          </section>
-          {data.canManage && (
-            <section className="space-y-3">
-              <h2 className="font-medium">{t("team.invitations")}</h2>
-              {notice && (
-                <p role="status" className="text-sm">
-                  {notice}
-                </p>
-              )}
-              {!rows.length ? (
-                <p className="text-sm text-muted">{t("team.noInvitations")}</p>
-              ) : (
-                <ul className="divide-y divide-border rounded-xl border border-border px-5">
-                  {rows.map((invite) => {
-                    const status = invitationStatus(invite, now);
-                    const canManage =
-                      invite.role !== "admin" || data.role === "owner";
-                    const cooling =
-                      invite.deliveryStatus !== "failed" &&
-                      now - new Date(invite.lastSentAt).getTime() < 60_000;
-                    return (
-                      <li key={invite.id} className="space-y-3 py-4">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <p className="break-all text-sm font-medium">
+            {visibleMembers.length + visibleInvites.length === 0 ? (
+              <p role="status" className="py-4 text-sm text-muted">
+                {lang === "ko" ? "해당하는 사람이 없습니다." : "Nobody matches."}
+              </p>
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-border">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left text-xs text-muted">
+                      <th scope="col" className="px-5 py-3 font-normal">
+                        {lang === "ko" ? "사용자" : "User"}
+                      </th>
+                      <th scope="col" className="px-5 py-3 font-normal">
+                        {t("team.role")}
+                      </th>
+                      <th scope="col" className="px-5 py-3 font-normal">
+                        {lang === "ko" ? "상태" : "Status"}
+                      </th>
+                      <th scope="col" className="px-5 py-3">
+                        <span className="sr-only">
+                          {lang === "ko" ? "작업" : "Actions"}
+                        </span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {visibleMembers.map((member) => (
+                      <tr key={member.userId}>
+                        <td className="px-5 py-3">
+                          <p className="break-all font-medium">
+                            {member.name || member.email}
+                          </p>
+                          {member.name && (
+                            <p className="break-all text-xs text-muted">
+                              {member.email}
+                            </p>
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap px-5 py-3 text-muted">
+                          {t(`team.role.${member.role}`)}
+                        </td>
+                        <td className="whitespace-nowrap px-5 py-3 text-muted">
+                          {member.suspendedAt
+                            ? lang === "ko"
+                              ? "참여 정지"
+                              : "Suspended"
+                            : lang === "ko"
+                              ? "참여 중"
+                              : "Active"}
+                        </td>
+                        <td className="px-5 py-3 text-right">
+                          {data.canManage &&
+                            data.canManageMembers &&
+                            member.userId !== data.currentUserId && (
+                              <MemberActions
+                                workspaceId={id}
+                                member={member}
+                                actorRole={data.role}
+                                team={data}
+                                onChange={load}
+                              />
+                            )}
+                        </td>
+                      </tr>
+                    ))}
+                    {visibleInvites.map((invite) => {
+                      const status = invitationStatus(invite, now);
+                      const canManage =
+                        invite.role !== "admin" || data.role === "owner";
+                      const cooling =
+                        invite.deliveryStatus !== "failed" &&
+                        now - new Date(invite.lastSentAt).getTime() < 60_000;
+                      return (
+                        <tr key={invite.id}>
+                          <td className="px-5 py-3">
+                            <p className="break-all font-medium">
                               {invite.email}
                             </p>
-                            <p className="mt-1 text-xs leading-5 text-muted">
-                              {t(`team.role.${invite.role}`)} ·{" "}
-                              {t(`team.status.${status}`)}
-                            </p>
-                            <p className="text-xs leading-5 text-muted">
-                              {t("team.expires", {
-                                date: new Date(
-                                  invite.expiresAt,
-                                ).toLocaleDateString(lang),
-                              })}
-                            </p>
-                          </div>
-                          {canManage && (
-                            <div className="flex flex-wrap gap-2">
-                              {/*
-                                Revoking releases the seat, so resending would
-                                silently re-reserve it (F02.4). A revoked
-                                invitation is re-sent by inviting again.
-                              */}
-                              {status !== "revoked" && (
-                              <button
-                                className={secondaryClass}
-                                disabled={!!busy || cooling}
-                                title={
-                                  cooling ? t("team.waitResend") : undefined
-                                }
-                                onClick={() =>
-                                  action(invite.id, async () => {
-                                    const result =
-                                      await workspaceService.resend(
+                          </td>
+                          <td className="whitespace-nowrap px-5 py-3 text-muted">
+                            {t(`team.role.${invite.role}`)}
+                          </td>
+                          <td className="whitespace-nowrap px-5 py-3 text-muted">
+                            {t(`team.status.${status}`)}
+                            {status === "pending" && (
+                              <span className="block text-xs tabular-nums">
+                                {t("team.expires", {
+                                  date: new Date(
+                                    invite.expiresAt,
+                                  ).toLocaleDateString(lang),
+                                })}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-5 py-3 text-right">
+                            {canManage && data.canManage && (
+                              <div className="flex justify-end gap-2">
+                                {/*
+                                  Revoking releases the seat, so resending would
+                                  silently re-reserve it (F02.4). A revoked
+                                  invitation is re-sent by inviting again.
+                                */}
+                                {status !== "revoked" && (
+                                  <button
+                                    className={secondaryClass}
+                                    disabled={!!busy || cooling}
+                                    title={
+                                      cooling ? t("team.waitResend") : undefined
+                                    }
+                                    onClick={() =>
+                                      action(invite.id, async () => {
+                                        const result =
+                                          await workspaceService.resend(
+                                            id,
+                                            invite.id,
+                                          );
+                                        setNotice(
+                                          `${invite.email} · ${t(
+                                            `team.status.${result.status}`,
+                                          )}`,
+                                        );
+                                      })
+                                    }
+                                  >
+                                    {t("team.resend")}
+                                  </button>
+                                )}
+                                {status !== "revoked" &&
+                                  status !== "expired" && (
+                                    <button
+                                      className={secondaryClass}
+                                      disabled={!!busy}
+                                      onClick={() => setRevokeId(invite.id)}
+                                    >
+                                      {t("team.revoke")}
+                                    </button>
+                                  )}
+                              </div>
+                            )}
+                            {revokeId === invite.id && (
+                              <div
+                                role="alertdialog"
+                                aria-label={t("team.revoke")}
+                                className="mt-2 flex flex-wrap items-center justify-end gap-2 rounded-lg bg-surface p-3 text-left"
+                              >
+                                <p className="text-sm">
+                                  {t("team.revokeConfirm")}
+                                </p>
+                                <button
+                                  className={primaryClass}
+                                  disabled={!!busy}
+                                  onClick={() =>
+                                    action(invite.id, async () => {
+                                      await workspaceService.revoke(
                                         id,
                                         invite.id,
                                       );
-                                    setNotice(
-                                      `${invite.email} · ${t(
-                                        `team.status.${result.status}`,
-                                      )}`,
-                                    );
-                                  })
-                                }
-                              >
-                                {t("team.resend")}
-                              </button>
-                              )}
-                              {status !== "revoked" && status !== "expired" && (
-                                <button
-                                  className={secondaryClass}
-                                  disabled={!!busy}
-                                  onClick={() => setRevokeId(invite.id)}
+                                      setRevokeId("");
+                                    })
+                                  }
                                 >
                                   {t("team.revoke")}
                                 </button>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                        {revokeId === invite.id && (
-                          <div className="flex flex-wrap items-center gap-3 rounded-lg bg-surface p-3">
-                            <p className="text-sm">{t("team.revokeConfirm")}</p>
-                            <button
-                              className={primaryClass}
-                              disabled={!!busy}
-                              onClick={() =>
-                                action(invite.id, async () => {
-                                  await workspaceService.revoke(id, invite.id);
-                                  setRevokeId("");
-                                })
-                              }
-                            >
-                              {t("team.revoke")}
-                            </button>
-                            <button
-                              className={secondaryClass}
-                              onClick={() => setRevokeId("")}
-                            >
-                              {t("team.cancel")}
-                            </button>
-                          </div>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </section>
-          )}
+                                <button
+                                  className={secondaryClass}
+                                  onClick={() => setRevokeId("")}
+                                >
+                                  {t("team.cancel")}
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
         </>
       )}
-      <Link href="/dashboard" className={secondaryClass}>
-        {t("team.personal")}
-      </Link>
+      {/* An escape hatch for the first run, when this screen is a step in
+          creating a team. Afterwards the switcher is how you leave. */}
+      {setup && (
+        <Link href="/dashboard" className={secondaryClass}>
+          {t("team.personal")}
+        </Link>
+      )}
     </TeamShell>
   );
 }

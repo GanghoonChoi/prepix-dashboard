@@ -1,6 +1,4 @@
 "use client";
-import { WorkspaceNav } from "./workspace-context";
-import Link from "next/link";
 import { Building2, UserRound } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
 import { useI18n } from "@/lib/i18n/context";
@@ -22,19 +20,12 @@ export function TeamShell({
   description?: string;
   children: ReactNode;
 }) {
-  const { t } = useI18n();
   return (
+    /* The sidebar switcher names the space and the sidebar nav lists its
+       pages, so a breadcrumb and a tab row here were the second and third
+       copies of the same navigation. */
     <div className="mx-auto max-w-4xl space-y-8 text-foreground">
-      <Link
-        href="/dashboard/workspaces"
-        className="inline-flex min-h-11 items-center text-sm text-muted underline-offset-4 hover:underline"
-      >
-        {t("team.title")}
-      </Link>
       <header>
-        <p className="mb-3 text-xs font-medium text-muted">
-          {t("team.preview")}
-        </p>
         <h1 className="text-balance text-2xl font-semibold tracking-tight sm:text-3xl">
           {title}
         </h1>
@@ -44,7 +35,6 @@ export function TeamShell({
           </p>
         )}
       </header>
-      <WorkspaceNav />
       {children}
     </div>
   );
@@ -242,9 +232,18 @@ const GRID: [string, string, string, string, string][] = [
 export function RoleCapabilities() {
   const { t } = useI18n();
   return (
-    <section className="space-y-3 rounded-lg border border-border p-4">
-      <h3 className="text-sm font-medium">{t("team.capsTitle")}</h3>
-      <div className="overflow-x-auto">
+    /*
+      Still here, still next to the select — "I made someone an admin by
+      accident" is the failure this prevents. Closed by default because six
+      rows of reference sat between the role picker and the submit button, and
+      the person inviting a second editor has read them already. `roleHelp`
+      under the select keeps the rule that matters while this is shut.
+    */
+    <details className="rounded-lg border border-border p-4">
+      <summary className="cursor-pointer text-sm font-medium">
+        {t("team.capsTitle")}
+      </summary>
+      <div className="mt-3 overflow-x-auto">
         <table className="w-full min-w-120 border-collapse text-xs">
           <thead>
             <tr className="border-b border-border text-muted">
@@ -284,8 +283,8 @@ export function RoleCapabilities() {
           </tbody>
         </table>
       </div>
-      <p className="text-xs leading-5 text-muted">{t("team.capsHint")}</p>
-    </section>
+      <p className="mt-3 text-xs leading-5 text-muted">{t("team.capsHint")}</p>
+    </details>
   );
 }
 

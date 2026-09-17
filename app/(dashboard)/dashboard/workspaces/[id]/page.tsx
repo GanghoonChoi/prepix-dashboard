@@ -4,7 +4,6 @@ import { FolderClosed, Users, Settings, ArrowUpRight } from "lucide-react";
 import { useI18n } from "@/lib/i18n/context";
 import {
   TeamShell,
-  SpaceBadge,
   primaryClass,
   secondaryClass,
 } from "@/components/workspaces/shared";
@@ -28,21 +27,16 @@ export default function Page() {
   return (
     <TeamShell
       title={personal ? t("team.personalTitle") : workspace.name}
-      description={
-        personal
-          ? t("team.personalDesc")
-          : workspace.description ||
-            c(
-              "팀의 아카이브와 멤버를 한곳에서 관리하세요.",
-              "Manage your team's archive and people in one place.",
-            )
-      }
+      /* The team's own description if it wrote one; otherwise nothing. The
+         sidebar nav already lists what lives in here, so the fallback was a
+         sentence describing the menu beside it. */
+      description={personal ? t("team.personalDesc") : workspace.description}
     >
       {/*
-        The current space, on the page itself and not only in the switcher —
-        this is the home of every consequential action below it.
+        No SpaceBadge here. It guards the surfaces where naming the wrong space
+        costs something — invite, upload, settings — and this page only reads.
+        The sidebar switcher names the space directly above this heading.
       */}
-      <SpaceBadge workspace={workspace} />
       {!personal && data.pendingTransfer && (
         <div
           role="status"

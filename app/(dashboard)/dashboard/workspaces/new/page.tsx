@@ -44,7 +44,7 @@ export default function NewWorkspacePage() {
     }
   }
   return (
-    <TeamShell title={t("team.newTitle")} description={t("team.newDesc")}>
+    <TeamShell title={t("team.newTitle")}>
       <ol
         aria-label={t("team.create")}
         className="flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted"
@@ -83,17 +83,14 @@ export default function NewWorkspacePage() {
               {t("team.nameHint")}
             </p>
           </div>
-          <div className="space-y-3 rounded-xl border border-border bg-surface p-5 text-sm leading-6">
-            <p>
-              {t("team.previewTerms", { seats: capabilities.previewSeats })}
-            </p>
-            <p className="text-muted">{t("team.previewScope")}</p>
-            {typeof capabilities.remainingCreations === "number" && (
-              <p className="text-xs text-muted">
-                {t("team.remaining", { count: capabilities.remainingCreations })}
-              </p>
-            )}
-          </div>
+          {/* One field does not need a panel of terms beside it. What a person
+              weighs here is the seat count and whether this costs money; the
+              rest described features that do not exist yet. */}
+          <p className="text-xs leading-5 text-muted">
+            {t("team.previewTerms", { seats: capabilities.previewSeats })}
+            {typeof capabilities.remainingCreations === "number" &&
+              ` · ${t("team.remaining", { count: capabilities.remainingCreations })}`}
+          </p>
           {error && <TeamError code={error} />}
           <div className="flex flex-wrap gap-3">
             <button

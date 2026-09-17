@@ -193,11 +193,15 @@ export function StorageMeter({ storage }: { storage: StorageUsage }) {
         value={storage.used + storage.reserved}
         max={storage.limit}
       />
-      <p className="text-xs leading-5 text-muted tabular-nums">
-        {lang === "ko"
-          ? `저장 ${bytes(storage.used)} · 업로드 예약 ${bytes(storage.reserved)}`
-          : `${bytes(storage.used)} stored · ${bytes(storage.reserved)} reserved for uploads`}
-      </p>
+      {/* The split only matters while something is in flight. Printing
+          "reserved 0 B" on every visit spends a line to say nothing. */}
+      {storage.reserved > 0 && (
+        <p className="text-xs leading-5 text-muted tabular-nums">
+          {lang === "ko"
+            ? `${bytes(storage.used)} 저장 · ${bytes(storage.reserved)} 업로드 중`
+            : `${bytes(storage.used)} stored · ${bytes(storage.reserved)} uploading`}
+        </p>
+      )}
     </div>
   );
 }

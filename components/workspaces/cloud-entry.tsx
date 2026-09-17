@@ -38,13 +38,12 @@ export function CloudEntry({ workspaceId }: { workspaceId: string }) {
               : "Team archive"
             : t("team.cloudTitle")}
         </h2>
-        <p className="text-sm leading-6 text-muted">
-          {enabled
-            ? lang === "ko"
-              ? "팀 원본을 한곳에 모아 보관하고, 필요한 파일을 내려받아 앱에서 편집하세요."
-              : "Store team originals in one place and download the files you need to edit in the app."
-            : t("team.cloudDesc")}
-        </p>
+        {/* Only the disabled card has something to say. Enabled, the title
+            and the button already say it, and a sentence between them is a
+            sentence the reader steps over on the way to the click. */}
+        {!enabled && (
+          <p className="text-sm leading-6 text-muted">{t("team.cloudDesc")}</p>
+        )}
         {enabled && (
           <Link
             className={primaryClass}

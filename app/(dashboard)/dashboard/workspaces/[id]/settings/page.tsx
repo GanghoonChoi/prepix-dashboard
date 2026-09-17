@@ -83,8 +83,9 @@ export default function Page() {
     );
   return (
     <TeamShell
+      /* The switcher and the badge below both name the space already; a third
+         copy under the title is furniture. */
       title={c("워크스페이스 설정", "Workspace settings")}
-      description={personal ? t("team.kind.personal") : data.workspace.name}
     >
       <SpaceBadge workspace={data.workspace} />
       {error && <CloudError code={error} />}

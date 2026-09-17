@@ -445,10 +445,6 @@ function Content({ id }: { id: string }) {
   return (
     <TeamShell
       title={personal ? c("내 아카이브", "Your archive") : c("팀 아카이브", "Team archive")}
-      description={c(
-        "팀 원본을 안전하게 보관하고, 필요한 파일을 내려받아 앱에서 편집하세요.",
-        "Store team originals and download the files you need to edit in the app.",
-      )}
     >
       {appLink && (
         <div className="flex flex-wrap justify-end gap-2">
@@ -667,11 +663,21 @@ function Content({ id }: { id: string }) {
                 className="space-y-4 rounded-xl border border-border bg-surface p-5"
               >
                 <div className="flex flex-wrap items-center justify-between gap-3">
+                  {/* Five counters, four of them usually zero. Only what is
+                      actually happening earns a place on the line. */}
                   <p role="status" className="text-sm tabular-nums">
-                    {c(
-                      `전송 ${summary.total}개 · 완료 ${summary.done} · 진행 ${summary.running} · 대기 ${summary.waiting} · 실패 ${summary.failed}`,
-                      `${summary.total} transfers · ${summary.done} done · ${summary.running} running · ${summary.waiting} waiting · ${summary.failed} failed`,
-                    )}
+                    {[
+                      [summary.running, c("진행", "running")] as const,
+                      [summary.waiting, c("대기", "waiting")] as const,
+                      [summary.done, c("완료", "done")] as const,
+                      [summary.failed, c("실패", "failed")] as const,
+                    ]
+                      .filter(([count]) => count > 0)
+                      .map(([count, label]) =>
+                        lang === "ko" ? `${label} ${count}` : `${count} ${label}`,
+                      )
+                      .join(" · ") ||
+                      c(`전송 ${summary.total}개`, `${summary.total} transfers`)}
                   </p>
                   {transfers.some((entry) => isSettled(entry.state)) && (
                     <button className={secondaryClass} onClick={clearSettled}>
@@ -831,8 +837,14 @@ function Content({ id }: { id: string }) {
                   new Date(asset.expiresAt).getTime() > Date.now();
                 const preview = previewAxis(asset, lang);
                 return (
-                  <li key={asset.id} className="space-y-4 p-5">
-                    <div className="flex items-start gap-3">
+                  /* A row, not a card. Three stacked lines and a button bar
+                     per file reads fine at one file and is unusable at fifty,
+                     which is the number this archive is built for. */
+                  <li
+                    key={asset.id}
+                    className="flex flex-wrap items-center gap-x-4 gap-y-3 px-5 py-3"
+                  >
+                    <div className="flex min-w-0 flex-1 items-start gap-3">
                       <File
                         size={20}
                         strokeWidth={1.5}
@@ -844,13 +856,11 @@ function Content({ id }: { id: string }) {
                         </h3>
                         <p className="mt-1 text-xs leading-5 text-muted tabular-nums">
                           {bytes(asset.size)} · {stateLabel(asset)}
+                          {ready &&
+                            ` · ${c("보관 기한", "Expires")} ${new Date(
+                              asset.expiresAt,
+                            ).toLocaleDateString(lang)}`}
                         </p>
-                        {ready && (
-                          <p className="text-xs leading-5 text-muted">
-                            {c("보관 기한", "Expires")}{" "}
-                            {new Date(asset.expiresAt).toLocaleDateString(lang)}
-                          </p>
-                        )}
                         {preview && (
                           <p className="mt-1 text-xs leading-5">
                             {preview}
@@ -1038,10 +1048,15 @@ function Content({ id }: { id: string }) {
                 {c("더 불러오기", "Load more")}
               </button>
             )}
-            <p className="text-xs leading-5 text-muted">
+            {/* The only part of the old footnote a person acts on is the
+                limit. The rest — any format is accepted, uploading starts no
+                analysis — describes things that do not happen, and a caveat
+                about what the product will NOT do reads as reassurance the
+                first time and clutter every time after. */}
+            <p className="text-xs leading-5 text-muted tabular-nums">
               {c(
-                `파일당 최대 ${bytes(data.capabilities.maxFileBytes)}. 모든 형식을 보관할 수 있으며 앱 편집 지원은 형식에 따라 다릅니다. 업로드만으로 AI 분석을 시작하지 않습니다.`,
-                `Up to ${bytes(data.capabilities.maxFileBytes)} per file. Any file type can be stored; editing support varies. Uploading does not start AI analysis.`,
+                `파일당 최대 ${bytes(data.capabilities.maxFileBytes)}`,
+                `Up to ${bytes(data.capabilities.maxFileBytes)} per file`,
               )}
             </p>
           </section>
