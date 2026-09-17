@@ -155,9 +155,19 @@ export function MembersTable({
                 className="border-b border-border transition-colors hover:bg-foreground/[0.02]"
               >
                 <td className="py-3.5 pr-4">
-                  <span className="font-medium">
-                    {row.name || row.email.split("@")[0]}
-                  </span>
+                  {/* No name is no name. This used to print the email's
+                      local part here, which is harmless for a member whose
+                      address you can read in the next column and a small lie
+                      on an INVITATION row: nobody has joined yet, so we cannot
+                      know what they are called, and "spa9ettimaker+test" sat
+                      in the 이름 column looking like an answer. */}
+                  {row.name ? (
+                    <span className="font-medium">{row.name}</span>
+                  ) : (
+                    <span aria-hidden="true" className="text-muted">
+                      —
+                    </span>
+                  )}
                 </td>
                 <td className="break-all py-3.5 pr-4 text-muted">
                   {row.email}
