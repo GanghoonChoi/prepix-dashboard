@@ -1,6 +1,12 @@
 import { apiClient } from "../client";
 
-export type OrganizationRole = "owner" | "admin" | "billing" | "member";
+/**
+ * Three roles. `billing` was a fourth, copied from the reference products, and
+ * it opened a screen with no money on it — nothing is billed to an
+ * organisation yet. The line it protected (an admin runs the team without
+ * being handed the card) is carried by the owner/admin split on its own.
+ */
+export type OrganizationRole = "owner" | "admin" | "member";
 
 export type OrganizationRow = {
   id: string;
