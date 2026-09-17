@@ -11,10 +11,6 @@ import {
 import { isPersonal, personalFirst } from "@/lib/workspaces/kind";
 import { workspaceLinks, navActive } from "@/lib/workspaces/nav";
 import { cloudService } from "@/lib/api/services/cloud.service";
-import {
-  organizationService,
-  type OrganizationRow,
-} from "@/lib/api/services/organization.service";
 import { SpaceIcon, useSpaceName } from "./shared";
 
 /**
@@ -87,43 +83,13 @@ export function WorkspaceSwitcher({ onClose }: { onClose?: () => void }) {
     };
   }, [open]);
 
-  // The organisation is where members and billing live, so the menu needs a
-  // way into it. Loaded once: it changes when somebody is invited, not when
-  // the user walks around the dashboard.
-  const [orgs, setOrgs] = useState<OrganizationRow[]>([]);
-  useEffect(() => {
-    let alive = true;
-    const pull = () =>
-      void organizationService
-        .list()
-        .then((result) => {
-          if (alive) setOrgs(result.organizations);
-        })
-        .catch(() => {
-          // An account with no organisation is the normal case for anyone who
-          // has never been in a team; an unreachable probe looks the same and
-          // costs the link, not the menu.
-        });
-    pull();
-    window.addEventListener("workspaces:changed", pull);
-    return () => {
-      alive = false;
-      window.removeEventListener("workspaces:changed", pull);
-    };
-  }, []);
-
-  const orgOnPath = path.match(
-    /^\/dashboard\/organizations\/([a-f0-9-]{36})(?:\/|$)/,
+  // Every team page lives under /dashboard/workspaces/<id>, so the id in the
+  // URL is the whole answer. This used to also translate an organisation route
+  // back into the workspace beneath it, by way of a list fetched after mount —
+  // which is why the nav below changed shape a moment after the page painted.
+  const currentId = path.match(
+    /^\/dashboard\/workspaces\/([a-f0-9-]{36})(?:\/|$)/,
   )?.[1];
-  // An organisation route belongs to the team whose pages sent you there —
-  // members and billing are reached from the workspace nav. Without this the
-  // switcher falls back to the personal space and the whole sidebar changes
-  // under someone who only clicked "멤버".
-  const currentId =
-    path.match(/^\/dashboard\/workspaces\/([a-f0-9-]{36})(?:\/|$)/)?.[1] ??
-    (orgOnPath
-      ? orgs.find((org) => org.id === orgOnPath)?.workspaceIds[0]
-      : undefined);
   // Off a workspace page (usage, plan, settings) there is no id in the URL.
   // Those pages belong to the personal space, so that is what the button names
   // — never a blank chooser.
@@ -265,21 +231,6 @@ export function WorkspaceSwitcher({ onClose }: { onClose?: () => void }) {
                 })}
               </ul>
                 <div className="border-t border-border p-1">
-                  {orgs
-                    .filter((org) => org.workspaceIds.length !== 1)
-                    .map((org) => (
-                    <Link
-                      key={org.id}
-                      href={`/dashboard/organizations/${org.id}`}
-                      onClick={pick}
-                      role="menuitem"
-                      className="flex min-h-11 items-center gap-2 rounded-md px-2 text-[13px] text-muted transition-colors hover:bg-foreground/[0.04] hover:text-foreground"
-                    >
-                      <span className="min-w-0 truncate">
-                        {ko ? `${org.name} 조직 설정` : `${org.name} settings`}
-                      </span>
-                    </Link>
-                    ))}
                   <Link
                     href="/dashboard/workspaces"
                     onClick={pick}
@@ -304,9 +255,7 @@ export function WorkspaceSwitcher({ onClose }: { onClose?: () => void }) {
             {workspaceLinks(current, {
               cloudEnabled,
               managementEnabled: current.managementEnabled !== false,
-              organizationId: orgs.find((org) =>
-                org.workspaceIds.includes(current.id),
-              )?.id,
+              role: current.role,
             }).map((link) => {
               const active = navActive(
                 path,

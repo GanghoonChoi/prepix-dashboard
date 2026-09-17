@@ -54,7 +54,7 @@ test("team creation, per-address invitation recovery, authenticated acceptance, 
   await expect(signup).toHaveAttribute("href", /returnTo=/);
   await login(page, ownerEmail);
   await expect(
-    page.getByRole("heading", { name: "팀이 함께하는 작업 공간" })
+    page.getByRole("heading", { name: "워크스페이스", level: 1 })
   ).toBeVisible();
   // Creating a workspace is not this test's subject — invitation delivery,
   // recovery and acceptance are. Every account is provisioned one, so driving
@@ -103,9 +103,13 @@ test("team creation, per-address invitation recovery, authenticated acceptance, 
     page.getByText(/워크스페이스를 만들어도 결제되지 않습니다/)
   ).toBeVisible();
   await page.goto(workspaceUrl);
-  await expect(
-    page.getByRole("heading", { name: "함께할 팀원을 초대하세요" })
-  ).toBeVisible();
+  // First run lands on the invite step. The heading is the team's own name —
+  // it is their workspace, not a wizard — so the step marker is what says
+  // where in setup this is.
+  await expect(page.getByText("2. 팀원 초대")).toHaveAttribute(
+    "aria-current",
+    "step",
+  );
   // A transport failure leaves the form retryable with its exact draft intact.
   const inviteEndpoint = `${api}/v2/workspaces/${workspaceId}/invitations`;
   await page
@@ -134,18 +138,18 @@ test("team creation, per-address invitation recovery, authenticated acceptance, 
     path: testInfo.outputPath("owner-invitations.png"),
     fullPage: true,
   });
-  const failedRow = page
-    .getByRole("listitem")
-    .filter({ hasText: failEmail })
-    .filter({ has: page.getByRole("button", { name: "재발송", exact: true }) });
-  await failedRow.getByRole("button", { name: "재발송", exact: true }).click();
+  // Members and invitations share one table, and a row's actions live behind
+  // its kebab — the same affordance for a person and for a promise.
+  const failedRow = page.getByRole("row").filter({ hasText: failEmail });
+  await failedRow.getByRole("button", { name: "작업" }).click();
+  await page.getByRole("menuitem", { name: "재발송", exact: true }).click();
   await expect(page.getByRole("status")).toContainText("발송 실패");
-  await failedRow
+  await failedRow.getByRole("button", { name: "작업" }).click();
+  await page.getByRole("menuitem", { name: "초대 취소", exact: true }).click();
+  // Revoking asks once before it releases the seat.
+  await page
+    .getByRole("alertdialog")
     .getByRole("button", { name: "초대 취소", exact: true })
-    .click();
-  await failedRow
-    .getByRole("button", { name: "초대 취소", exact: true })
-    .last()
     .click();
   // Revoking gives the seat straight back, and it is visible in `invited` and
   // `remaining` moving together while `active` does not.
@@ -244,6 +248,8 @@ test("team creation, per-address invitation recovery, authenticated acceptance, 
   const detail = `${api}/v2/workspaces/${workspaceId}`;
   await page.goto(`${workspaceUrl}/members`);
   const draft = `keep-${suffix}@example.test`;
+  // Folded away once setup is done; the table's 초대 button is what opens it.
+  await page.getByRole("button", { name: "초대", exact: true }).click();
   await page.getByLabel("이메일 주소", { exact: true }).fill(draft);
   await page.route(detail, (route) => route.abort());
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
@@ -270,14 +276,19 @@ test("team creation, per-address invitation recovery, authenticated acceptance, 
   await expect(
     page.getByRole("button", { name: "다시 시도", exact: true })
   ).toBeVisible();
+  // The way back survives the blip: the switcher and its nav stay in the
+  // sidebar rather than the whole team entry vanishing over a 503.
   await expect(
-    page.getByRole("link", { name: "워크스페이스", exact: true }).first()
+    page.getByRole("navigation", { name: "워크스페이스 메뉴" })
   ).toBeVisible();
   await page.unroute(capabilities);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${workspaceUrl}/members`);
   await expectSeats(page, { active: 2, invited: 0, remaining: 8 });
+  // The members table scrolls inside its own box; the PAGE must not. An
+  // absolutely-positioned `sr-only` label in the table escaped that box's
+  // clip and dragged the document's scroll width out with it.
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth
@@ -334,7 +345,11 @@ test("an invited new user completes signup and returns directly to the invitatio
   }[];
   const invitation = messages.findLast((message) => message.to === email)!;
   await page.goto(invitation.inviteUrl);
-  await page.getByRole("link", { name: "계정 만들기", exact: true }).click();
+  // An invitation whose link says the recipient is new goes STRAIGHT to the
+  // form. It used to stop at /start for a "계정 만들기" link first; the server
+  // already decided which of sign-in or sign-up this person needs, and saying
+  // it twice was a hop that asked them to choose what had been chosen.
+  await expect(page).toHaveURL(/\/signup\?/);
   await expect(
     page.getByRole("heading", { name: "계정을 만들어 볼까요" })
   ).toBeVisible();
@@ -542,11 +557,15 @@ test("account pages stay reachable for an account with no workspace", async ({
     await expect(page.locator("main")).toBeVisible();
   }
   // And the list itself says the server is behind — it does not ask the user
-  // to repair it by creating one.
+  // to repair it by creating one. The wording moved (it used to explain the
+  // database invariant to the reader); what must hold is that the empty list
+  // is an alert offering a retry, not an empty state offering a fix.
   await page.goto("/dashboard/workspaces?locale=ko");
-  await expect(
-    page.locator('[role="alert"]:not(#__next-route-announcer__)').first()
-  ).toContainText("비어 있을 수 없습니다");
+  const empty = page
+    .locator('[role="alert"]:not(#__next-route-announcer__)')
+    .first();
+  await expect(empty).toContainText("준비하고 있습니다");
+  await expect(empty.getByRole("button", { name: "다시 시도" })).toBeVisible();
 });
 
 /**

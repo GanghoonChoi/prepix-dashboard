@@ -72,7 +72,18 @@ export default function WorkspacesPage() {
         // answer, so this offers a retry instead of the disabled copy.
         <TeamError code="WORKSPACES_UNREACHABLE" retry={retryCapabilities} />
       ) : !capabilities?.enabled ? (
-        <TeamError code="WORKSPACES_DISABLED" />
+        /*
+          A terminal answer needs a door. With the team product off the sidebar
+          drops the switcher — which is the only navigation it has — so this
+          page was a message with nothing to click on it and no way back to the
+          account's own pages.
+        */
+        <>
+          <TeamError code="WORKSPACES_DISABLED" />
+          <Link href="/dashboard" className={secondaryClass}>
+            {t("team.personal")}
+          </Link>
+        </>
       ) : (
         <>
           {error && <TeamError code={error} retry={load} />}
@@ -88,7 +99,6 @@ export default function WorkspacesPage() {
               {data.invitations.length > 0 && (
                 <section className="space-y-3 rounded-xl border border-border bg-surface p-6">
                   <h2 className="font-medium">{t("team.pending")}</h2>
-                  <p className="text-sm text-muted">{t("team.pendingDesc")}</p>
                   <ul className="divide-y divide-border">
                     {data.invitations.map((invite) => (
                       <li

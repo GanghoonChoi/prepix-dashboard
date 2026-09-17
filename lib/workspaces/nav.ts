@@ -22,18 +22,11 @@ export function workspaceLinks(
     cloudEnabled: boolean;
     managementEnabled: boolean;
     /**
-     * This workspace's organisation. Always present for a team, because one
-     * organisation holds exactly one workspace — the database enforces it
-     * (`workspaces_one_per_organization`).
-     *
-     * It used to be `soleOrganizationId`, set only when the organisation held
-     * a single workspace, with a fallback to per-workspace members and plan
-     * screens for the case where it held several. That case cannot occur:
-     * `create()` is the only writer of `organization_id` and mints a fresh
-     * organisation every time. The fallback was a second navigation maintained
-     * for a state nothing produces.
+     * This viewer's role. Only used to drop an entry that would open onto a
+     * refusal: a reviewer does not reach the archive at all, and a nav that
+     * offers it anyway contradicts the role table two clicks away.
      */
-    organizationId?: string;
+    role?: string;
   },
 ): NavLink[] {
   const base = `/dashboard/workspaces/${workspace.id}`;
@@ -56,36 +49,28 @@ export function workspaceLinks(
     ];
   }
 
-  // One archive, one team. The reference products split members and billing
-  // off to the layer above because their middle layer multiplies; ours does
-  // not (D14), so an organisation and a workspace are the same thing and the
-  // nav says so once. The `${base}/members` fallback below is for a workspace
-  // with no organisation at all — old data, never a second workspace.
-  const org = options.organizationId;
+  /*
+    Every entry belongs to the workspace, and that is the point.
+
+    An organisation and a workspace are the same thing — the database enforces
+    one workspace per organisation — but the client modelled them as two, so
+    멤버 and 플랜과 결제 pointed at /dashboard/organizations/<id>/… while the
+    equivalent workspace pages sat beside them unreachable. That is how the
+    product came to have two member screens with different invite forms, two
+    role tables that disagreed, and seat figures on the one nobody could reach.
+
+    It also made these hrefs depend on an organisation list fetched after
+    mount: before it landed the nav pointed at the workspace pages, after it
+    landed at the organisation ones, so the same sidebar entry opened a
+    different screen depending on a race.
+  */
   return [
     { href: base, ko: "개요", en: "Overview" },
-    ...(options.cloudEnabled
+    ...(options.cloudEnabled && options.role !== "reviewer"
       ? [{ href: `${base}/media`, ko: "아카이브", en: "Archive" }]
       : []),
-    {
-      href: org
-        ? `/dashboard/organizations/${org}/members`
-        : `${base}/members`,
-      ko: "멤버",
-      en: "Members",
-    },
-    // `결제` and `플랜과 사용량` were showing the same seats and the same
-    // storage from two routes. One organisation is one team, so there is one
-    // page that carries both.
-    ...(org
-      ? [
-          {
-            href: `/dashboard/organizations/${org}/billing`,
-            ko: "플랜과 결제",
-            en: "Plan and billing",
-          },
-        ]
-      : [{ href: `${base}/plan`, ko: "플랜과 사용량", en: "Plan and usage" }]),
+    { href: `${base}/members`, ko: "멤버", en: "Members" },
+    { href: `${base}/plan`, ko: "플랜과 결제", en: "Plan and billing" },
     // No activity entry. The audit trail is still recorded and the page is
     // still at `${base}/activity`, but nobody was going there on purpose and a
     // nav is worth what its least-used row costs the rows above it.

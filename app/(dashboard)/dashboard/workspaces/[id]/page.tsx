@@ -67,9 +67,17 @@ export default function Page() {
   const c = (ko: string, en: string) => (lang === "ko" ? ko : en);
   const personal = isPersonal(workspace);
   const seats = seatFigures(data);
-  // The invite-first setup run belongs to a team. A personal space is finished
-  // the moment it exists, so it never lands on a members screen.
-  if (!workspace.onboardingCompletedAt && data.canManage && !personal)
+  // The invite-first setup run belongs to a team, and to the person who made
+  // it. A personal space is finished the moment it exists; an admin invited
+  // into a half-set-up team is not mid-setup, they have just arrived, and
+  // sending them to the invite screen instead of the overview told them
+  // otherwise.
+  if (
+    !workspace.onboardingCompletedAt &&
+    data.canManage &&
+    !personal &&
+    workspace.createdBy === data.currentUserId
+  )
     return <MembersContent id={workspace.id} />;
 
   const stored = archive ? archive.storage.used + archive.storage.reserved : 0;
@@ -101,7 +109,7 @@ export default function Page() {
             String(data.members.length),
             seats?.invited
               ? c(`초대 ${seats.invited}건 대기`, `${seats.invited} invited`)
-              : t(`team.role.${data.role}`),
+              : "",
           ] as [string, string | null, string],
         ]),
     ...(archiveCells

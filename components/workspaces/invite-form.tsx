@@ -8,8 +8,8 @@ import {
   type Workspace,
 } from "@/lib/api/services/workspace.service";
 import { parseInviteEmails, workspaceError } from "@/lib/workspaces/onboarding";
+import { RoleGuide } from "./role-guide";
 import {
-  RoleCapabilities,
   SpaceBadge,
   TeamError,
   inputClass,
@@ -130,16 +130,15 @@ export function InviteForm({
           <option value="reviewer">{t("team.role.reviewer")}</option>
           {isOwner && <option value="admin">{t("team.role.admin")}</option>}
         </select>
-        <p className="text-xs leading-5 text-muted">{t("team.roleHelp")}</p>
+        {/* The full table is one click away, at the control that assigns the
+            role — "I made someone an admin by accident" is the failure this
+            prevents. Open by default it was six rows of reference between the
+            role picker and the submit button. */}
+        <p className="text-xs leading-5 text-muted">
+          {t("team.roleHelp")}
+          <RoleGuide />
+        </p>
       </div>
-      {/*
-        Slack publishes a role-capability table; Figma, Linear and Descript show
-        nothing at the moment a role is assigned, which is why "I made someone
-        an admin by accident" is a named failure class. Static, next to the
-        select, and it states the rule the server enforces silently: an admin
-        cannot make anyone an owner.
-      */}
-      <RoleCapabilities />
       {parsed.length > 0 && (
         <div className="space-y-1 text-xs" aria-live="polite">
           <p className="text-muted">

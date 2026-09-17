@@ -29,6 +29,11 @@ export function MembersContent({ id }: { id: string }) {
   const [busy, setBusy] = useState("");
   const [notice, setNotice] = useState("");
   const [revokeId, setRevokeId] = useState("");
+  // The invite form sits above the table, folded away once setup is done. The
+  // table's own 초대 button opens it — a `<summary>` is a real control but it
+  // does not look like the primary action on a members screen, and the screen
+  // this one replaced had a button.
+  const [inviting, setInviting] = useState(false);
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     void load();
@@ -56,7 +61,18 @@ export function MembersContent({ id }: { id: string }) {
       setBusy("");
     }
   }
-  const setup = data?.canManage && !data.workspace.onboardingCompletedAt;
+  /*
+    First-run setup, and only for the person doing the first run.
+
+    This was `canManage`, so an admin invited into a team whose owner had never
+    pressed "설정 완료" arrived at a 1-2-3 wizard for a team they had just
+    joined — and could finish somebody else's setup. The creator is who the
+    steps are addressed to.
+  */
+  const setup =
+    data?.canManage &&
+    !data.workspace.onboardingCompletedAt &&
+    data.workspace.createdBy === data.currentUserId;
   // Pending invitations sit in the same table as members; MembersTable owns
   // the searching and filtering across both.
   const visibleInvites = (data?.invitations ?? []).filter(
@@ -104,7 +120,8 @@ export function MembersContent({ id }: { id: string }) {
           <SeatBreakdown detail={data} />
           {data.canManage && (
             <details
-              open={setup}
+              open={setup || inviting}
+              onToggle={(event) => setInviting(event.currentTarget.open)}
               className="space-y-4 rounded-xl border border-border p-5"
             >
               <summary className="cursor-pointer text-sm font-medium">
@@ -160,59 +177,14 @@ export function MembersContent({ id }: { id: string }) {
           */}
           <MembersTable
             title={lang === "ko" ? "멤버와 초대" : "Members and invitations"}
-            description={
-              lang === "ko"
-                ? "역할과 참여 상태를 관리하세요. 수락 전 초대도 좌석을 잡습니다."
-                : "Manage roles and membership. Pending invitations hold a seat."
-            }
             busy={!!busy}
-            /*
-              The same question, one layer down, and the same answer shape.
-              These rows come from `RoleCapabilities`, which already states the
-              workspace rules — including the one the backend enforces and no
-              screen used to say out loud: an admin cannot make anyone an
-              owner.
-            */
-            roleGuide={
-              <RoleGuide
-                title={lang === "ko" ? "역할별 권한" : "What each role can do"}
-                columns={(["owner", "admin", "editor", "reviewer"] as const).map(
-                  (role) => ({ key: role, label: t(`team.role.${role}`) }),
-                )}
-                rows={[
-                  {
-                    label: t("team.caps.billing"),
-                    values: [true, false, false, false],
-                  },
-                  {
-                    label: t("team.caps.people"),
-                    values: [true, t("team.caps.notOwner"), false, false],
-                  },
-                  {
-                    label: t("team.caps.projects"),
-                    values: [true, true, true, false],
-                  },
-                  {
-                    label: t("team.caps.publish"),
-                    values: [true, true, t("team.caps.scoped"), false],
-                  },
-                  {
-                    label: t("team.caps.comment"),
-                    values: [
-                      true,
-                      true,
-                      t("team.caps.scoped"),
-                      t("team.caps.scoped"),
-                    ],
-                  },
-                  {
-                    label: t("team.caps.seat"),
-                    values: [true, true, true, false],
-                  },
-                ]}
-                footnote={t("team.capsHint")}
-              />
-            }
+            onInvite={data.canManage ? () => setInviting(true) : undefined}
+            inviteLabel={lang === "ko" ? "초대" : "Invite"}
+            // Members only: the table also carries people who have not
+            // answered, and counting them here would overstate the team.
+            count={visibleMembers.length}
+            // The one role table, at the column where the question arises.
+            roleGuide={<RoleGuide />}
             roleFilters={[
               { value: "owner", label: t("team.role.owner") },
               { value: "admin", label: t("team.role.admin") },
