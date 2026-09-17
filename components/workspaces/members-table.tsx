@@ -173,87 +173,98 @@ export function MembersTable({
         </select>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[34rem] text-sm">
-          <thead>
-            <tr className="border-b border-border text-left text-xs text-muted">
-              <th scope="col" className="py-3 pr-4 font-normal">
-                {c("이름", "Name")}
-              </th>
-              <th scope="col" className="py-3 pr-4 font-normal">
-                {c("이메일", "Email")}
-              </th>
-              <th scope="col" className="py-3 pr-4 font-normal">
-                {c("역할", "Role")}
-                {roleGuide}
-              </th>
-              <th scope="col" className="w-12 py-3">
-                <span className="sr-only">{c("작업", "Actions")}</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {visible.map((row) => (
-              <tr
-                key={row.id}
-                className="border-b border-border transition-colors hover:bg-foreground/[0.02]"
-              >
-                <td className="py-3.5 pr-4">
-                  {/* No name is no name. This used to print the email's
+      {visible.length === 0 ? (
+        <p role="status" className="py-6 text-sm text-muted">
+          {c("해당하는 사람이 없습니다.", "Nobody matches.")}
+        </p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[34rem] text-sm">
+            <thead>
+              <tr className="border-b border-border text-left text-xs text-muted">
+                <th scope="col" className="py-3 pr-4 font-normal">
+                  {c("이름", "Name")}
+                </th>
+                <th scope="col" className="py-3 pr-4 font-normal">
+                  {c("이메일", "Email")}
+                </th>
+                <th scope="col" className="py-3 pr-4 font-normal">
+                  {c("역할", "Role")}
+                  {roleGuide}
+                </th>
+                {/*
+                  `relative` is load-bearing. `sr-only` is `position: absolute`,
+                  and with no positioned ancestor its containing block is the
+                  document — so it is NOT clipped by the `overflow-x-auto`
+                  wrapper around this table. Sitting at the right edge of a
+                  544px table on a 390px phone, that one-pixel box pushed the
+                  DOCUMENT's scroll width out to meet it, and the whole page
+                  scrolled sideways while the table scrolled correctly inside
+                  its own box.
+                */}
+                <th scope="col" className="relative w-12 py-3">
+                  <span className="sr-only">{c("작업", "Actions")}</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((row) => (
+                <tr
+                  key={row.id}
+                  className="border-b border-border transition-colors hover:bg-foreground/[0.02]"
+                >
+                  <td className="py-3.5 pr-4">
+                    {/* No name is no name. This used to print the email's
                       local part here, which is harmless for a member whose
                       address you can read in the next column and a small lie
                       on an INVITATION row: nobody has joined yet, so we cannot
                       know what they are called, and "spa9ettimaker+test" sat
                       in the 이름 column looking like an answer. */}
-                  {row.badge ? (
-                    <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs text-muted">
-                      {row.badge}
-                    </span>
-                  ) : row.name ? (
-                    <span className="font-medium">{row.name}</span>
-                  ) : (
-                    <span aria-hidden="true" className="text-muted">
-                      —
-                    </span>
-                  )}
-                </td>
-                <td className="break-all py-3.5 pr-4 text-muted">
-                  {row.email}
-                </td>
-                <td className="py-3.5 pr-4">
-                  {row.locked || !row.roleOptions || !row.onRole ? (
-                    <span className="text-muted">{row.roleLabel}</span>
-                  ) : (
-                    <select
-                      className="min-h-9 rounded-lg border border-border bg-transparent px-2.5 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-foreground/40"
-                      aria-label={c("역할", "Role")}
-                      value={row.role}
-                      disabled={busy}
-                      onChange={(event) => row.onRole?.(event.target.value)}
-                    >
-                      {row.roleOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                  {row.detail && (
-                    <span className="mt-0.5 block text-xs tabular-nums text-muted">
-                      {row.detail}
-                    </span>
-                  )}
-                </td>
-                <td className="py-3.5 text-right">{row.menu}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {visible.length === 0 && (
-        <p role="status" className="py-4 text-sm text-muted">
-          {c("해당하는 사람이 없습니다.", "Nobody matches.")}
-        </p>
+                    {row.badge ? (
+                      <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs text-muted">
+                        {row.badge}
+                      </span>
+                    ) : row.name ? (
+                      <span className="font-medium">{row.name}</span>
+                    ) : (
+                      <span aria-hidden="true" className="text-muted">
+                        —
+                      </span>
+                    )}
+                  </td>
+                  <td className="break-all py-3.5 pr-4 text-muted">
+                    {row.email}
+                  </td>
+                  <td className="py-3.5 pr-4">
+                    {row.locked || !row.roleOptions || !row.onRole ? (
+                      <span className="text-muted">{row.roleLabel}</span>
+                    ) : (
+                      <select
+                        className="min-h-9 rounded-lg border border-border bg-transparent px-2.5 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-foreground/40"
+                        aria-label={c("역할", "Role")}
+                        value={row.role}
+                        disabled={busy}
+                        onChange={(event) => row.onRole?.(event.target.value)}
+                      >
+                        {row.roleOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    {row.detail && (
+                      <span className="mt-0.5 block text-xs tabular-nums text-muted">
+                        {row.detail}
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-3.5 text-right">{row.menu}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
       {footnote && <p className="text-xs leading-5 text-muted">{footnote}</p>}
     </section>
