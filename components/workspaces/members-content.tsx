@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useWorkspace } from "./workspace-context";
 import { MemberActions } from "@/components/workspaces/member-actions";
 import { MembersTable } from "@/components/workspaces/members-table";
+import { RoleGuide } from "@/components/workspaces/role-guide";
 import { RowMenu, RowMenuItem } from "@/components/workspaces/row-menu";
 import { useI18n } from "@/lib/i18n/context";
 import { workspaceService } from "@/lib/api/services/workspace.service";
@@ -165,6 +166,53 @@ export function MembersContent({ id }: { id: string }) {
                 : "Manage roles and membership. Pending invitations hold a seat."
             }
             busy={!!busy}
+            /*
+              The same question, one layer down, and the same answer shape.
+              These rows come from `RoleCapabilities`, which already states the
+              workspace rules — including the one the backend enforces and no
+              screen used to say out loud: an admin cannot make anyone an
+              owner.
+            */
+            roleGuide={
+              <RoleGuide
+                title={lang === "ko" ? "역할별 권한" : "What each role can do"}
+                columns={(["owner", "admin", "editor", "reviewer"] as const).map(
+                  (role) => ({ key: role, label: t(`team.role.${role}`) }),
+                )}
+                rows={[
+                  {
+                    label: t("team.caps.billing"),
+                    values: [true, false, false, false],
+                  },
+                  {
+                    label: t("team.caps.people"),
+                    values: [true, t("team.caps.notOwner"), false, false],
+                  },
+                  {
+                    label: t("team.caps.projects"),
+                    values: [true, true, true, false],
+                  },
+                  {
+                    label: t("team.caps.publish"),
+                    values: [true, true, t("team.caps.scoped"), false],
+                  },
+                  {
+                    label: t("team.caps.comment"),
+                    values: [
+                      true,
+                      true,
+                      t("team.caps.scoped"),
+                      t("team.caps.scoped"),
+                    ],
+                  },
+                  {
+                    label: t("team.caps.seat"),
+                    values: [true, true, true, false],
+                  },
+                ]}
+                footnote={t("team.capsHint")}
+              />
+            }
             roleFilters={[
               { value: "owner", label: t("team.role.owner") },
               { value: "admin", label: t("team.role.admin") },

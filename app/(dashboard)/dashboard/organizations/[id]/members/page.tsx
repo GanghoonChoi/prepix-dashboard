@@ -10,6 +10,7 @@ import {
 } from "@/lib/api/services/organization.service";
 import { workspaceError } from "@/lib/workspaces/onboarding";
 import { RowMenu, RowMenuItem } from "@/components/workspaces/row-menu";
+import { RoleGuide } from "@/components/workspaces/role-guide";
 import {
   MembersTable,
   type MemberRow,
@@ -267,6 +268,77 @@ function Content({ id }: { id: string }) {
       </Dialog>
       <MembersTable
         title={c("멤버", "Members")}
+        /*
+          Every row below is a rule `organizations.service.ts` enforces, not a
+          summary of intent: MANAGES = owner|admin gates invite, role changes
+          and rename; SEES_BILLING = owner|billing gates the billing screen;
+          only the owner moves anybody in or out of `billing`; the owner row is
+          immutable and ownership moves through transfer, which asks for a
+          password; and an organisation admin lands as an admin of the archive
+          while everyone else lands as an editor.
+
+          A permissions table that is merely plausible is worse than none —
+          people plan around it, and the first refusal that disagrees with it
+          costs the screen its credibility.
+        */
+        roleGuide={
+          <RoleGuide
+            title={c("역할별 권한", "What each role can do")}
+            columns={(["owner", "admin", "billing", "member"] as OrganizationRole[]).map(
+              (role) => ({ key: role, label: roleLabel(role) }),
+            )}
+            rows={[
+              {
+                label: c(
+                  "멤버 초대 · 역할 변경 · 내보내기",
+                  "Invite, change roles, remove",
+                ),
+                values: [true, true, false, false],
+              },
+              {
+                label: c("조직 이름 변경", "Rename the organisation"),
+                values: [true, true, false, false],
+              },
+              {
+                label: c("결제 정보 보기", "See billing"),
+                values: [true, false, true, false],
+                note: c(
+                  "관리자는 결제를 보지 못합니다. 팀을 운영하는 것과 카드를 쥐는 것은 다른 일입니다.",
+                  "An admin runs the team without being handed the card.",
+                ),
+              },
+              {
+                label: c("결제 담당자 지정 · 해제", "Grant or revoke billing"),
+                values: [true, false, false, false],
+              },
+              {
+                label: c("아카이브에서의 역할", "Role in the archive"),
+                values: [
+                  c("소유자", "Owner"),
+                  c("관리자", "Admin"),
+                  c("편집자", "Editor"),
+                  c("편집자", "Editor"),
+                ],
+                note: c(
+                  "초대를 수락할 때 이 역할로 아카이브에 들어갑니다.",
+                  "This is the role they arrive with when they accept.",
+                ),
+              },
+              {
+                label: c("소유권", "Ownership"),
+                values: [true, false, false, false],
+                note: c(
+                  "소유자는 역할 변경이나 내보내기로 바꿀 수 없습니다. 소유권 이전은 비밀번호 확인을 거칩니다.",
+                  "The owner cannot be demoted or removed here; transfer asks for a password.",
+                ),
+              },
+            ]}
+            footnote={c(
+              "조직에서 내보내면 이 조직의 모든 워크스페이스에서도 함께 빠집니다.",
+              "Removing somebody from the organisation removes them from every workspace under it.",
+            )}
+          />
+        }
         notice={notice}
         onDismissNotice={() => setNotice("")}
         // Members only. The table also lists people who have been invited and

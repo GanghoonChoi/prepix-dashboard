@@ -47,6 +47,7 @@ export function MembersTable({
   inviteLabel,
   notice,
   onDismissNotice,
+  roleGuide,
   count,
   footnote,
   busy,
@@ -66,6 +67,12 @@ export function MembersTable({
    */
   notice?: string;
   onDismissNotice?: () => void;
+  /**
+   * Sits in the 역할 column header. That is where somebody wonders what a role
+   * means, so that is where the answer is offered — rather than six rows of
+   * reference pushing the roster down the page on every visit.
+   */
+  roleGuide?: ReactNode;
   /**
    * The number in the pill. Defaults to the row count, which is right until
    * the table also carries invitations — then "멤버 5" would be counting three
@@ -178,6 +185,7 @@ export function MembersTable({
               </th>
               <th scope="col" className="py-3 pr-4 font-normal">
                 {c("역할", "Role")}
+                {roleGuide}
               </th>
               <th scope="col" className="w-12 py-3">
                 <span className="sr-only">{c("작업", "Actions")}</span>

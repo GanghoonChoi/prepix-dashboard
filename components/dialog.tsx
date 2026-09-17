@@ -9,10 +9,18 @@ const FOCUSABLE =
 export function Dialog({
   state,
   title,
+  size = "default",
   children,
 }: {
   state: UseOverlayStateReturn;
   title: string;
+  /**
+   * `wide` for content that compares things side by side. A role table has a
+   * column per role, and squeezing five columns into the default 28rem broke
+   * the headers onto two lines and pushed the last two columns out of sight —
+   * technically scrollable, invisibly so.
+   */
+  size?: "default" | "wide";
   children: React.ReactNode;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -81,7 +89,7 @@ export function Dialog({
           aria-modal="true"
           aria-labelledby={titleId}
           tabIndex={-1}
-          className="relative w-full max-w-md rounded-lg border border-border bg-background p-6 shadow-lg outline-none"
+          className={`relative w-full ${size === "wide" ? "max-w-2xl" : "max-w-md"} rounded-lg border border-border bg-background p-6 shadow-lg outline-none`}
           onClick={(e) => e.stopPropagation()}
         >
           <h3 id={titleId} className="text-lg font-semibold text-foreground">
