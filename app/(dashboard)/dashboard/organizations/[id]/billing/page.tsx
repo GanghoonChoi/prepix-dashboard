@@ -71,7 +71,7 @@ function Content({ id }: { id: string }) {
     // The server already refuses the numbers; this is the door matching the
     // lock. An admin runs the team without being handed the card.
     return (
-      <TeamShell title={c("결제", "Billing")}>
+      <TeamShell title={c("플랜과 결제", "Plan and billing")}>
         <p className="text-sm leading-6 text-muted">
           {c(
             "결제는 소유자와 결제 담당자만 볼 수 있습니다.",
@@ -88,7 +88,7 @@ function Content({ id }: { id: string }) {
     : 0;
 
   return (
-    <TeamShell title={c("결제", "Billing")}>
+    <TeamShell title={c("플랜과 결제", "Plan and billing")}>
       <div className="space-y-8">
         {/* ── 플랜 ───────────────────────────────────────────────── */}
         <Block

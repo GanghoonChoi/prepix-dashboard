@@ -6,6 +6,7 @@ import { Button } from "@heroui/react";
 import { Skeleton } from "@heroui/react";
 import { useOverlayState } from "@heroui/react";
 import { Dialog } from "@/components/dialog";
+import { Block } from "@/components/workspaces/shared";
 import { useToast } from "@/components/toast";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { userService, type Profile } from "@/lib/api/services/user.service";
@@ -82,12 +83,14 @@ export default function SettingsPage() {
   const inputClass = "w-full rounded-md border border-border bg-field-background px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-foreground/30";
 
   return (
-    <div className="max-w-3xl space-y-10">
-      <h1 className="text-2xl font-semibold tracking-tight text-foreground">{t("settings.title")}</h1>
+    // No width of its own: the layout owns the content column, and this page
+    // setting a narrower one made 설정 measurably different from every other
+    // page in the sidebar.
+    <div className="space-y-8">
+      <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">{t("settings.title")}</h1>
 
       {/* Account */}
-      <section className="space-y-4">
-        <h2 className="text-sm font-medium text-foreground">{t("settings.account")}</h2>
+      <Block title={t("settings.account")}>
         {loading ? (
           <Skeleton className="h-36 w-full rounded-lg" />
         ) : (
@@ -105,31 +108,21 @@ export default function SettingsPage() {
             />
           </div>
         )}
-      </section>
+      </Block>
 
-      {/* Preferences */}
-      <section className="space-y-4">
-        <h2 className="text-sm font-medium text-foreground">{t("settings.preferences")}</h2>
-        <div className="flex items-center justify-between rounded-lg border border-border px-5 py-4">
-          <div>
-            <p className="text-sm font-medium text-foreground">{t("settings.language")}</p>
-            <p className="text-xs text-muted">{t("settings.languageHint")}</p>
-          </div>
-          <LanguageSwitcher />
-        </div>
-      </section>
+      <Block
+        title={t("settings.language")}
+        description={t("settings.languageHint")}
+        actions={<LanguageSwitcher />}
+      />
 
-      {/* Danger */}
-      <section className="space-y-4">
-        <h2 className="text-sm font-medium text-foreground">{t("settings.dangerZone")}</h2>
-        <div className="flex items-center justify-between rounded-lg border border-border px-5 py-4">
-          <div>
-            <p className="text-sm font-medium text-foreground">{t("settings.deleteAccount")}</p>
-            <p className="text-xs text-muted">{t("settings.deleteAccountHint")}</p>
-          </div>
+      <Block
+        title={t("settings.deleteAccount")}
+        description={t("settings.deleteAccountHint")}
+        actions={
           <Button variant="danger-soft" size="sm" onPress={() => deleteModal.open()}>{t("common.delete")}</Button>
-        </div>
-      </section>
+        }
+      />
 
       {/* Modals */}
       <Dialog state={nameModal} title={t("settings.editName")}>
