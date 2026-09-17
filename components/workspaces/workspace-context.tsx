@@ -86,7 +86,7 @@ export function WorkspaceProvider({
     // "팀 미리보기" eyebrow and a tab rail — three pieces of chrome the loaded
     // page no longer has, so the screen rearranged itself on arrival.
     return (
-      <div className="mx-auto max-w-4xl text-foreground">
+      <div className="text-foreground">
         {error ? <CloudError code={error} retry={reload} /> : <TeamLoading />}
       </div>
     );
@@ -98,7 +98,7 @@ export function WorkspaceProvider({
         mounted.
       */}
       {error && (
-        <div className="mx-auto mb-6 max-w-4xl">
+        <div className="mb-6">
           <CloudError code={error} retry={reload} />
         </div>
       )}

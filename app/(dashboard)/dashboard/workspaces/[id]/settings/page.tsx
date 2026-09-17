@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n/context";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
+  Block,
   TeamShell,
   SpaceBadge,
   inputClass,
@@ -54,7 +55,8 @@ export default function Page() {
   // The draft normalizes `revision` to 0; compare against the same
   // normalization, or a response without the field reads as "someone else
   // changed this" forever and Save never enables again.
-  const conflicted = !!draft && draft.revision !== (data.workspace.revision ?? 0);
+  const conflicted =
+    !!draft && draft.revision !== (data.workspace.revision ?? 0);
   const pending = data.pendingTransfer;
   const confirming =
     confirm === "transfer"
@@ -94,335 +96,350 @@ export default function Page() {
           {notice}
         </p>
       )}
-      <section className="space-y-5 rounded-xl border border-border p-6">
-        <h2 className="font-medium">
-          {personal
-            ? c("공간 정보", "Space details")
-            : c("팀 정보", "Team details")}
-        </h2>
-        <form
-          className="space-y-4"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            await run(
-              async () => {
-                await workspaceService.settings(id, form);
-                setDraft(null);
-              },
-              c("팀 정보를 저장했습니다.", "Team details saved."),
-            );
-          }}
-        >
-          <label className="block space-y-2 text-sm">
-            <span>{c("워크스페이스 이름", "Workspace name")}</span>
-            <input
-              className={inputClass}
-              maxLength={80}
-              required
-              disabled={!data.canManage || busy}
-              value={form.name}
-              onChange={(e) => setDraft({ ...form, name: e.target.value })}
-            />
-          </label>
-          <label className="block space-y-2 text-sm">
-            <span>{c("소개", "Description")}</span>
-            <textarea
-              className={`${inputClass} min-h-24 resize-y`}
-              maxLength={500}
-              disabled={!data.canManage || busy}
-              value={form.description}
-              onChange={(e) =>
-                setDraft({ ...form, description: e.target.value })
-              }
-            />
-          </label>
-          {conflicted && (
-            <p role="status" className="text-sm text-muted">
-              {c(
-                "다른 관리자가 설정을 변경했습니다. 최신 정보 불러오기로 다시 시작하세요.",
-                "Another administrator updated the settings. Load the latest details before editing again.",
-              )}
-            </p>
-          )}
-          {data.canManage && (
-            <div className="flex flex-wrap gap-2">
-              <button
-                className={primaryClass}
-                disabled={
-                  busy || !draft || !form.name.trim() || conflicted
-                }
-              >
-                {c("변경 저장", "Save changes")}
-              </button>
-              {(draft || conflicted) && (
-                <button
-                  type="button"
-                  className={secondaryClass}
-                  disabled={busy}
-                  onClick={async () => {
-                    await reload();
-                    setDraft(null);
-                    setError("");
-                  }}
-                >
-                  {c("최신 정보 불러오기", "Load latest details")}
-                </button>
-              )}
-            </div>
-          )}
-        </form>
-        <p className="text-xs text-muted">
-          {c(
+      <div className="space-y-8">
+        <Block
+          title={
+            personal
+              ? c("공간 정보", "Space details")
+              : c("팀 정보", "Team details")
+          }
+          description={c(
             "워크스페이스 주소는 이름을 변경해도 유지됩니다.",
             "The workspace address stays the same when you rename it.",
           )}
-        </p>
-      </section>
-      {!personal && (
-      <section className="space-y-4 rounded-xl border border-border p-6">
-        <h2 className="font-medium">{c("소유권", "Ownership")}</h2>
-        <p className="text-sm">
-          {c("현재 소유자", "Current owner")}:{" "}
-          {data.members.find((m) => m.role === "owner")?.email}
-        </p>
-        <p className="text-sm leading-6 text-muted">
-          {c(
-            "이전 소유자는 관리자로 남습니다. 상대방이 본인 확인 후 수락해야 완료됩니다.",
-            "The previous owner remains an admin. It completes once the recipient verifies and accepts.",
-          )}
-        </p>
-        {pending && (
-          <div className="space-y-3 rounded-lg border border-border bg-surface p-4">
-            <p className="break-all text-sm">
-              {c("수락 대기", "Awaiting acceptance")}:{" "}
-              {data.members.find((m) => m.userId === pending.toUserId)?.email}
-            </p>
-            <p className="text-xs text-muted">
-              {c("요청 만료", "Expires")}:{" "}
-              {new Date(pending.expiresAt).toLocaleString(lang)}
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {pending.toUserId === data.currentUserId && (
-                <>
-                  <button
-                    className={primaryClass}
-                    disabled={busy || !!confirming}
-                    onClick={() => setConfirm("accept")}
-                  >
-                    {c("이전 내용 확인 후 수락", "Review and accept ownership")}
-                  </button>
-                  <button
-                    className={secondaryClass}
-                    disabled={busy || !!confirming}
-                    onClick={() =>
-                      run(
-                        () =>
-                          workspaceService.resolveTransfer(
-                            id,
-                            pending.id,
-                            "decline",
-                          ),
-                        c("이전 요청을 거절했습니다.", "Transfer declined."),
-                      )
-                    }
-                  >
-                    {c("거절", "Decline")}
-                  </button>
-                </>
-              )}
-              {data.role === "owner" && (
-                <button
-                  className={secondaryClass}
-                  disabled={busy || !!confirming}
-                  onClick={() =>
-                    run(
-                      () =>
-                        workspaceService.resolveTransfer(
-                          id,
-                          pending.id,
-                          "cancel",
-                        ),
-                      c("이전 요청을 취소했습니다.", "Transfer cancelled."),
-                    )
-                  }
-                >
-                  {c("이전 요청 취소", "Cancel transfer")}
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-        {data.role === "owner" && !pending && (
-          <div className="space-y-3">
-            <label className="block space-y-2 text-sm">
-              <span>{c("새 소유자", "New owner")}</span>
-              <select
-                className={inputClass}
-                disabled={!!confirming}
-                value={target}
-                onChange={(e) => setTarget(e.target.value)}
-              >
-                <option value="">
-                  {c("참여 중인 멤버 선택", "Choose an active member")}
-                </option>
-                {data.members
-                  .filter(
-                    (m) => m.userId !== data.currentUserId && !m.suspendedAt,
-                  )
-                  .map((m) => (
-                    <option key={m.userId} value={m.userId}>
-                      {m.email} · {t(`team.role.${m.role}`)}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            <p className="text-xs leading-5 text-muted">
-              {c(
-                "7일 동안 유효합니다. 검토자가 수락하려면 빈 좌석 1개가 필요합니다.",
-                "Valid for 7 days. A reviewer needs one free seat to accept.",
-              )}
-            </p>
-            <button
-              className={secondaryClass}
-              disabled={!target || !!confirming}
-              onClick={() => setConfirm("transfer")}
-            >
-              {c("소유권 이전 요청", "Request ownership transfer")}
-            </button>
-          </div>
-        )}
-        {confirm &&
-          ((confirm === "transfer" && !pending && data.role === "owner") ||
-            (confirm === "accept" &&
-              pending?.toUserId === data.currentUserId)) && (
-            <ReauthForm
-              key={`${confirm}:${target}:${pending?.id}`}
-              workspaceId={id}
-              purpose={
-                confirm === "transfer"
-                  ? `transfer:${target}`
-                  : `accept:${pending!.id}`
-              }
-              label={
-                confirm === "transfer"
-                  ? c("본인 확인 후 이전 요청", "Verify and request transfer")
-                  : c("본인 확인 후 소유권 수락", "Verify and accept ownership")
-              }
-              onCancel={() => setConfirm(null)}
-              onConfirm={async (credential) => {
-                if (confirm === "transfer")
-                  await workspaceService.transfer(id, target, credential);
-                else
-                  await workspaceService.resolveTransfer(
-                    id,
-                    pending!.id,
-                    "accept",
-                    credential,
-                  );
-                setConfirm(null);
-                setTarget("");
-                await reload();
-                setNotice(
-                  c(
-                    "소유권 이전 상태를 업데이트했습니다.",
-                    "Ownership transfer updated.",
-                  ),
-                );
-              }}
-            />
-          )}
-      </section>
-      )}
-      {!personal && (
-      <section className="space-y-4 rounded-xl border border-border p-6">
-        <h2 className="font-medium">{c("내 참여", "Your membership")}</h2>
-        <p className="text-sm leading-6 text-muted">
-          {data.role === "owner"
-            ? c(
-                "소유자는 소유권 이전을 완료한 뒤 탈퇴할 수 있습니다.",
-                "Owners must complete an ownership transfer before leaving.",
-              )
-            : c(
-                "탈퇴하면 팀 접근이 종료됩니다. 팀 자료와 기록은 남고, 다시 참여하려면 새 초대가 필요합니다. 개인 계정과 로컬 파일은 유지됩니다.",
-                "Leaving ends your team access. Team files and history remain, and a new invitation is required to rejoin. Your personal account and local files remain.",
-              )}
-        </p>
-        {data.role !== "owner" && !leave && (
-          <button
-            className={secondaryClass}
-            disabled={busy}
-            onClick={() =>
-              run(async () => {
-                setImpact(
-                  await workspaceService.impact(id, data.currentUserId!),
-                );
-                setLeave(true);
-              }, "")
-            }
-          >
-            {c("워크스페이스 탈퇴", "Leave workspace")}
-          </button>
-        )}
-        {leave && data.role !== "owner" && (
+        >
           <form
-            className="space-y-4 rounded-lg border border-border bg-surface p-4"
+            className="space-y-4"
             onSubmit={async (e) => {
               e.preventDefault();
-              await run(async () => {
-                await workspaceService.leave(id);
-                router.replace("/dashboard/workspaces");
-              }, "");
+              await run(
+                async () => {
+                  await workspaceService.settings(id, form);
+                  setDraft(null);
+                },
+                c("팀 정보를 저장했습니다.", "Team details saved."),
+              );
             }}
           >
-            <p className="text-sm leading-6 text-muted">
-              {c(
-                `진행 중 업로드 ${impact?.pendingUploads ?? 0}개를 취소합니다.`,
-                `${impact?.pendingUploads ?? 0} pending uploads will be cancelled.`,
-              )}
-            </p>
             <label className="block space-y-2 text-sm">
-              <span>
-                {c(
-                  `확인하려면 ‘${data.workspace.name}’ 입력`,
-                  `Type “${data.workspace.name}” to confirm`,
-                )}
-              </span>
+              <span>{c("워크스페이스 이름", "Workspace name")}</span>
               <input
                 className={inputClass}
+                maxLength={80}
                 required
-                value={leaveName}
-                disabled={busy}
-                onChange={(e) => setLeaveName(e.target.value)}
+                disabled={!data.canManage || busy}
+                value={form.name}
+                onChange={(e) => setDraft({ ...form, name: e.target.value })}
               />
             </label>
-            <div className="flex flex-wrap gap-2">
-              <button
-                className={primaryClass}
-                disabled={busy || leaveName !== data.workspace.name}
-              >
-                {c("탈퇴 확인", "Confirm leaving")}
-              </button>
-              <button
-                type="button"
-                className={secondaryClass}
-                disabled={busy}
-                onClick={() => {
-                  setLeave(false);
-                  setLeaveName("");
+            <label className="block space-y-2 text-sm">
+              <span>{c("소개", "Description")}</span>
+              <textarea
+                className={`${inputClass} min-h-24 resize-y`}
+                maxLength={500}
+                disabled={!data.canManage || busy}
+                value={form.description}
+                onChange={(e) =>
+                  setDraft({ ...form, description: e.target.value })
+                }
+              />
+            </label>
+            {conflicted && (
+              <p role="status" className="text-sm text-muted">
+                {c(
+                  "다른 관리자가 설정을 변경했습니다. 최신 정보 불러오기로 다시 시작하세요.",
+                  "Another administrator updated the settings. Load the latest details before editing again.",
+                )}
+              </p>
+            )}
+            {/* The save button appears when there is something to save. A
+              permanently greyed-out button is a control that has never once
+              been usable in the reader's experience of the page. */}
+            {data.canManage && (draft || conflicted) && (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className={primaryClass}
+                  disabled={busy || !draft || !form.name.trim() || conflicted}
+                >
+                  {c("변경 저장", "Save changes")}
+                </button>
+                {(draft || conflicted) && (
+                  <button
+                    type="button"
+                    className={secondaryClass}
+                    disabled={busy}
+                    onClick={async () => {
+                      await reload();
+                      setDraft(null);
+                      setError("");
+                    }}
+                  >
+                    {c("최신 정보 불러오기", "Load latest details")}
+                  </button>
+                )}
+              </div>
+            )}
+          </form>
+        </Block>
+        {!personal && (
+          <Block
+            title={c("소유권", "Ownership")}
+            description={c(
+              "이전 소유자는 관리자로 남습니다. 상대방이 본인 확인 후 수락해야 완료됩니다.",
+              "The previous owner remains an admin. It completes once the recipient verifies and accepts.",
+            )}
+          >
+            <p className="break-all text-sm">
+              {c("현재 소유자", "Current owner")}:{" "}
+              {data.members.find((m) => m.role === "owner")?.email}
+            </p>
+            {pending && (
+              <div className="space-y-3 rounded-lg border border-border bg-surface p-4">
+                <p className="break-all text-sm">
+                  {c("수락 대기", "Awaiting acceptance")}:{" "}
+                  {
+                    data.members.find((m) => m.userId === pending.toUserId)
+                      ?.email
+                  }
+                </p>
+                <p className="text-xs text-muted">
+                  {c("요청 만료", "Expires")}:{" "}
+                  {new Date(pending.expiresAt).toLocaleString(lang)}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {pending.toUserId === data.currentUserId && (
+                    <>
+                      <button
+                        className={primaryClass}
+                        disabled={busy || !!confirming}
+                        onClick={() => setConfirm("accept")}
+                      >
+                        {c(
+                          "이전 내용 확인 후 수락",
+                          "Review and accept ownership",
+                        )}
+                      </button>
+                      <button
+                        className={secondaryClass}
+                        disabled={busy || !!confirming}
+                        onClick={() =>
+                          run(
+                            () =>
+                              workspaceService.resolveTransfer(
+                                id,
+                                pending.id,
+                                "decline",
+                              ),
+                            c(
+                              "이전 요청을 거절했습니다.",
+                              "Transfer declined.",
+                            ),
+                          )
+                        }
+                      >
+                        {c("거절", "Decline")}
+                      </button>
+                    </>
+                  )}
+                  {data.role === "owner" && (
+                    <button
+                      className={secondaryClass}
+                      disabled={busy || !!confirming}
+                      onClick={() =>
+                        run(
+                          () =>
+                            workspaceService.resolveTransfer(
+                              id,
+                              pending.id,
+                              "cancel",
+                            ),
+                          c("이전 요청을 취소했습니다.", "Transfer cancelled."),
+                        )
+                      }
+                    >
+                      {c("이전 요청 취소", "Cancel transfer")}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+            {data.role === "owner" && !pending && (
+              <div className="space-y-3">
+                <label className="block space-y-2 text-sm">
+                  <span>{c("새 소유자", "New owner")}</span>
+                  <select
+                    className={inputClass}
+                    disabled={!!confirming}
+                    value={target}
+                    onChange={(e) => setTarget(e.target.value)}
+                  >
+                    <option value="">
+                      {c("참여 중인 멤버 선택", "Choose an active member")}
+                    </option>
+                    {data.members
+                      .filter(
+                        (m) =>
+                          m.userId !== data.currentUserId && !m.suspendedAt,
+                      )
+                      .map((m) => (
+                        <option key={m.userId} value={m.userId}>
+                          {m.email} · {t(`team.role.${m.role}`)}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <p className="text-xs leading-5 text-muted">
+                  {c(
+                    "7일 동안 유효합니다. 검토자가 수락하려면 빈 좌석 1개가 필요합니다.",
+                    "Valid for 7 days. A reviewer needs one free seat to accept.",
+                  )}
+                </p>
+                <button
+                  className={secondaryClass}
+                  disabled={!target || !!confirming}
+                  onClick={() => setConfirm("transfer")}
+                >
+                  {c("소유권 이전 요청", "Request ownership transfer")}
+                </button>
+              </div>
+            )}
+            {confirm &&
+              ((confirm === "transfer" && !pending && data.role === "owner") ||
+                (confirm === "accept" &&
+                  pending?.toUserId === data.currentUserId)) && (
+                <ReauthForm
+                  key={`${confirm}:${target}:${pending?.id}`}
+                  workspaceId={id}
+                  purpose={
+                    confirm === "transfer"
+                      ? `transfer:${target}`
+                      : `accept:${pending!.id}`
+                  }
+                  label={
+                    confirm === "transfer"
+                      ? c(
+                          "본인 확인 후 이전 요청",
+                          "Verify and request transfer",
+                        )
+                      : c(
+                          "본인 확인 후 소유권 수락",
+                          "Verify and accept ownership",
+                        )
+                  }
+                  onCancel={() => setConfirm(null)}
+                  onConfirm={async (credential) => {
+                    if (confirm === "transfer")
+                      await workspaceService.transfer(id, target, credential);
+                    else
+                      await workspaceService.resolveTransfer(
+                        id,
+                        pending!.id,
+                        "accept",
+                        credential,
+                      );
+                    setConfirm(null);
+                    setTarget("");
+                    await reload();
+                    setNotice(
+                      c(
+                        "소유권 이전 상태를 업데이트했습니다.",
+                        "Ownership transfer updated.",
+                      ),
+                    );
+                  }}
+                />
+              )}
+          </Block>
+        )}
+        {!personal && (
+          <Block
+            title={c("내 참여", "Your membership")}
+            description={
+              data.role === "owner"
+                ? c(
+                    "소유자는 소유권 이전을 완료한 뒤 탈퇴할 수 있습니다.",
+                    "Owners must complete an ownership transfer before leaving.",
+                  )
+                : c(
+                    "탈퇴하면 팀 접근이 종료됩니다. 팀 자료와 기록은 남고, 다시 참여하려면 새 초대가 필요합니다.",
+                    "Leaving ends your team access. Team files and history remain, and a new invitation is required to rejoin.",
+                  )
+            }
+            actions={
+              data.role !== "owner" && !leave ? (
+                <button
+                  className={secondaryClass}
+                  disabled={busy}
+                  onClick={() =>
+                    run(async () => {
+                      setImpact(
+                        await workspaceService.impact(id, data.currentUserId!),
+                      );
+                      setLeave(true);
+                    }, "")
+                  }
+                >
+                  {c("워크스페이스 탈퇴", "Leave workspace")}
+                </button>
+              ) : undefined
+            }
+          >
+            {leave && data.role !== "owner" && (
+              <form
+                className="space-y-4 rounded-lg border border-border bg-surface p-4"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  await run(async () => {
+                    await workspaceService.leave(id);
+                    router.replace("/dashboard/workspaces");
+                  }, "");
                 }}
               >
-                {c("취소", "Cancel")}
-              </button>
-            </div>
-          </form>
+                <p className="text-sm leading-6 text-muted">
+                  {c(
+                    `진행 중 업로드 ${impact?.pendingUploads ?? 0}개를 취소합니다.`,
+                    `${impact?.pendingUploads ?? 0} pending uploads will be cancelled.`,
+                  )}
+                </p>
+                <label className="block space-y-2 text-sm">
+                  <span>
+                    {c(
+                      `확인하려면 ‘${data.workspace.name}’ 입력`,
+                      `Type “${data.workspace.name}” to confirm`,
+                    )}
+                  </span>
+                  <input
+                    className={inputClass}
+                    required
+                    value={leaveName}
+                    disabled={busy}
+                    onChange={(e) => setLeaveName(e.target.value)}
+                  />
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className={primaryClass}
+                    disabled={busy || leaveName !== data.workspace.name}
+                  >
+                    {c("탈퇴 확인", "Confirm leaving")}
+                  </button>
+                  <button
+                    type="button"
+                    className={secondaryClass}
+                    disabled={busy}
+                    onClick={() => {
+                      setLeave(false);
+                      setLeaveName("");
+                    }}
+                  >
+                    {c("취소", "Cancel")}
+                  </button>
+                </div>
+              </form>
+            )}
+          </Block>
         )}
-      </section>
-      )}
-      {personal && (
-        <p className="max-w-2xl text-sm leading-6 text-muted">
-          {t("team.personalDesc")}
-        </p>
-      )}
+      </div>
     </TeamShell>
   );
 }

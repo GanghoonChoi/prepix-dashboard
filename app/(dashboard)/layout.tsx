@@ -157,7 +157,11 @@ export default function DashboardLayout({
           {/* Content */}
           <div className="lg:pl-[220px]">
             <DashboardHeader onMobileMenuToggle={() => setMobileOpen(!mobileOpen)} />
-            <main className="px-6 py-8 lg:px-10 lg:py-10">
+            {/* One content column for the whole dashboard. The workspace pages
+                carried `mx-auto max-w-4xl` themselves and the personal pages
+                carried nothing, so the app had two different measures
+                depending on which entry in the sidebar you clicked. */}
+            <main className="mx-auto max-w-4xl px-6 py-8 lg:px-10 lg:py-10">
               {/*
                 Every signed-in page, not just the team one: verification gates
                 accepting invitations, and `emailVerified` is now a real field

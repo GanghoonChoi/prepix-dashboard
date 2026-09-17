@@ -139,9 +139,10 @@ export default function DashboardPage() {
 
       {/* Quick actions */}
       <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+        {/* 플랜 and 설정 were rows here AND entries in the sidebar three
+            inches to the left. The app download is the one destination the
+            sidebar cannot reach. */}
         {[
-          { label: t("dashboard.upgradePlan"), href: "/dashboard/plan" },
-          { label: t("dashboard.settings"), href: "/dashboard/settings" },
           { label: t("dashboard.downloadDesktopApp"), href: downloadUrl(lang), external: true },
         ].map((item) => {
           const inner = (

@@ -92,7 +92,6 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const resolved = resolveStoredLang();
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (resolved && resolved !== DEFAULT_LANG) setLangState(resolved);
   }, []);
 

@@ -10,6 +10,7 @@ import {
 import { workspaceError } from "@/lib/workspaces/onboarding";
 import { bytes } from "@/lib/workspaces/upload";
 import {
+  Block,
   TeamShell,
   TeamError,
   TeamLoading,
@@ -34,36 +35,6 @@ export default function OrganizationBillingPage({
 }) {
   const { id } = use(params);
   return <Content key={id} id={id} />;
-}
-
-/** A titled block with its actions on the right, like the Console's. */
-function Block({
-  title,
-  description,
-  actions,
-  children,
-}: {
-  title: string;
-  description?: string;
-  actions?: React.ReactNode;
-  children?: React.ReactNode;
-}) {
-  return (
-    <section className="space-y-4 border-b border-border pb-8 last:border-b-0 last:pb-0">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="font-medium">{title}</h2>
-          {description && (
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-muted">
-              {description}
-            </p>
-          )}
-        </div>
-        {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
-      </div>
-      {children}
-    </section>
-  );
 }
 
 function Content({ id }: { id: string }) {

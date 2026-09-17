@@ -29,7 +29,7 @@ export function TeamShell({
     /* The sidebar switcher names the space and the sidebar nav lists its
        pages, so a breadcrumb and a tab row here were the second and third
        copies of the same navigation. */
-    <div className="mx-auto max-w-4xl space-y-8 text-foreground">
+    <div className="space-y-8 text-foreground">
       {title && (
         <header>
           <h1 className="text-balance text-2xl font-semibold tracking-tight sm:text-3xl">
@@ -44,6 +44,44 @@ export function TeamShell({
       )}
       {children}
     </div>
+  );
+}
+/**
+ * One settings section, the way the reference Console lays them out: the title
+ * and its one-line description on the left, the controls for it on the right,
+ * and a rule between sections rather than a border around each.
+ *
+ * Every section being a bordered card meant nothing on the page was
+ * emphasised — a border says "separate object", and spending it on all six
+ * sections spends it on none. Sections that hold a single sentence stop
+ * looking like objects at all.
+ */
+export function Block({
+  title,
+  description,
+  actions,
+  children,
+}: {
+  title: string;
+  description?: string;
+  actions?: ReactNode;
+  children?: ReactNode;
+}) {
+  return (
+    <section className="space-y-4 border-b border-border pb-8 last:border-b-0 last:pb-0">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="font-medium">{title}</h2>
+          {description && (
+            <p className="mt-1 max-w-2xl text-sm leading-6 text-muted">
+              {description}
+            </p>
+          )}
+        </div>
+        {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+      </div>
+      {children}
+    </section>
   );
 }
 export function TeamError({
