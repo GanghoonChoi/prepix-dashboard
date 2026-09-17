@@ -62,18 +62,25 @@ export function RowMenu({
       setOpen(false);
       trigger.current?.focus();
     };
-    // A fixed panel does not follow its row, so scrolling closes it rather
-    // than leaving it stranded over unrelated content.
-    const onScroll = () => setOpen(false);
+    /*
+      Only a resize closes it now.
+
+      It used to close on `scroll` with capture, because the panel was
+      `position: fixed` and would otherwise sit still while its row moved away.
+      That listener fires for EVERY scrolling element in the document — the
+      members table is wrapped in `overflow-x-auto`, and the browser's own
+      scroll-into-view counts — so the menu dismissed itself the instant
+      anything tried to reach it. Positioned in document coordinates it simply
+      travels with its row, and there is nothing to dismiss.
+    */
+    const onResize = () => setOpen(false);
     document.addEventListener("pointerdown", onPointer);
     document.addEventListener("keydown", onKey);
-    window.addEventListener("scroll", onScroll, true);
-    window.addEventListener("resize", onScroll);
+    window.addEventListener("resize", onResize);
     return () => {
       document.removeEventListener("pointerdown", onPointer);
       document.removeEventListener("keydown", onKey);
-      window.removeEventListener("scroll", onScroll, true);
-      window.removeEventListener("resize", onScroll);
+      window.removeEventListener("resize", onResize);
     };
   }, [open]);
 
@@ -91,8 +98,24 @@ export function RowMenu({
           // decides where the panel goes, and the position is wanted in the
           // same commit that renders it.
           const box = trigger.current?.getBoundingClientRect();
-          if (box)
-            setAt({ top: box.bottom + 4, right: window.innerWidth - box.right });
+          if (box) {
+            // Not an estimate: every RowMenuItem is `min-h-10` with no gap
+            // between them, inside a panel with `p-1`.
+            const height = items * 40 + 8;
+            const below = window.innerHeight - box.bottom;
+            // Flip above the row when the panel would not fit beneath it, so a
+            // kebab in the last rows does not open below the fold.
+            const flip = below < height + 4 && box.top > below;
+            setAt({
+              top: flip
+                ? box.top + window.scrollY - height - 4
+                : box.bottom + window.scrollY + 4,
+              // Document coordinates, so the panel travels with the page. The
+              // dashboard column never scrolls sideways; the table does, and
+              // the panel is deliberately outside it.
+              right: document.documentElement.clientWidth - box.right,
+            });
+          }
           setOpen((was) => !was);
         }}
         className="grid size-9 place-items-center rounded-md text-muted transition-colors hover:bg-foreground/[0.06] hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground aria-expanded:bg-foreground/[0.06]"
@@ -108,7 +131,7 @@ export function RowMenu({
             role="menu"
             onClick={() => setOpen(false)}
             style={{ top: at.top, right: at.right }}
-            className="fixed z-50 min-w-40 overflow-hidden rounded-lg border border-border bg-background p-1 shadow-lg"
+            className="absolute z-50 min-w-40 rounded-lg border border-border bg-background p-1 shadow-lg"
           >
             {children}
           </div>,
