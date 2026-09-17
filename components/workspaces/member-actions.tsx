@@ -1,5 +1,7 @@
 "use client";
-import { useRef, useState } from "react";
+import { useState } from "react";
+import { useOverlayState } from "@heroui/react";
+import { Dialog } from "@/components/dialog";
 import { useI18n } from "@/lib/i18n/context";
 import {
   workspaceService,
@@ -9,13 +11,28 @@ import {
   type MemberImpact,
 } from "@/lib/api/services/workspace.service";
 import { CloudError, cloudErrorCode } from "./cloud-shared";
-import {
-  RoleCapabilities,
-  inputClass,
-  primaryClass,
-  secondaryClass,
-} from "./shared";
+import { RoleTable } from "./role-guide";
+import { RowMenu, RowMenuItem } from "./row-menu";
+import { primaryClass, secondaryClass } from "./shared";
+
 type Action = InviteRole | "remove" | "suspend" | "reactivate";
+
+/**
+ * What an admin may do to one member, from the kebab at the end of their row.
+ *
+ * This used to be a "멤버 관리" button that expanded a panel INSIDE the row's
+ * action cell — a column the table sizes at `w-12`. The panel held a select, a
+ * six-row permissions grid with a 30rem minimum and three buttons, so opening
+ * it stretched the table past the viewport and stranded the controls in a
+ * horizontally scrolling last column. It read as broken because it was.
+ *
+ * Now the kebab offers the actions themselves — the same affordance the
+ * invitation rows already use — and each one opens a dialog that says what
+ * will happen before it happens. The select is gone: choosing the action from
+ * the menu IS choosing it, and a dropdown whose options are "편집자 / 검토자 /
+ * 참여 정지 / 팀에서 제거" was asking someone to pick a role and a removal
+ * from one list.
+ */
 export function MemberActions({
   workspaceId,
   member,
@@ -31,164 +48,162 @@ export function MemberActions({
 }) {
   const { lang } = useI18n();
   const c = (ko: string, en: string) => (lang === "ko" ? ko : en);
-  const [edit, setEdit] = useState(false);
-  const [role, setRole] = useState<Action>(
-    member.role === "owner" ? "admin" : member.role,
-  );
+  const confirm = useOverlayState();
+  const [action, setAction] = useState<Action | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [impact, setImpact] = useState<MemberImpact | null>(null);
-  const trigger = useRef<HTMLButtonElement>(null);
-  const close = () => {
-    setEdit(false);
-    trigger.current?.focus();
-  };
-  const offboard = role === "remove" || role === "suspend";
+
+  // The owner is untouchable from the side, and only the owner manages an
+  // admin — both enforced by the server (WORKSPACE_OWNER_PROTECTED /
+  // WORKSPACE_OWNER_REQUIRED), stated here so the menu never offers a refusal.
   if (
     member.role === "owner" ||
     (member.role === "admin" && actorRole !== "owner")
   )
     return null;
+
+  const managed = team?.managementEnabled;
+  const offboard = action === "remove" || action === "suspend";
+
+  const label = (value: Action) =>
+    ({
+      admin: c("관리자로 변경", "Change to admin"),
+      editor: c("편집자로 변경", "Change to editor"),
+      reviewer: c("검토자로 변경", "Change to reviewer"),
+      suspend: c("참여 정지", "Suspend"),
+      reactivate: c("참여 재개", "Reactivate"),
+      remove: c("팀에서 제거", "Remove from team"),
+    })[value];
+
+  function open(next: Action) {
+    setAction(next);
+    setError("");
+    setImpact(null);
+    confirm.open();
+    // Removal and suspension cancel work in flight. Fetch the count up front
+    // rather than behind a "영향 확인" button: the number is the reason the
+    // dialog exists, and one more click to see it is one more click nobody
+    // makes before confirming.
+    if (next === "remove" || next === "suspend")
+      void workspaceService
+        .impact(workspaceId, member.userId)
+        .then(setImpact)
+        .catch(() => {});
+  }
+
   return (
-    <div className="w-full">
-      <button
-        ref={trigger}
-        className={secondaryClass}
-        aria-expanded={edit}
-        onClick={() => {
-          setEdit(!edit);
-          setRole(member.role as InviteRole);
-          setError("");
-          setImpact(null);
-        }}
-      >
-        {c("멤버 관리", "Manage member")}
-      </button>
-      {edit && (
-        <div className="mt-3 space-y-4 rounded-lg border border-border bg-surface p-4">
-          {error && <CloudError code={error} />}
-          <label className="block space-y-2 text-sm">
-            <span>{c("변경할 작업", "Action")}</span>
-            <select
-              className={inputClass}
-              value={role}
-              disabled={busy}
-              onChange={(e) => {
-                setRole(e.target.value as Action);
-                setImpact(null);
-              }}
-            >
-              {actorRole === "owner" && (
-                <option value="admin">{c("관리자", "Admin")}</option>
-              )}
-              <option value="editor">{c("편집자", "Editor")}</option>
-              <option value="reviewer">{c("검토자", "Reviewer")}</option>
-              {team?.managementEnabled && (
-                <option value={member.suspendedAt ? "reactivate" : "suspend"}>
-                  {member.suspendedAt
-                    ? c("참여 재개", "Reactivate")
-                    : c("참여 정지", "Suspend")}
-                </option>
-              )}
-              <option value="remove">
-                {c("팀에서 제거", "Remove from team")}
-              </option>
-            </select>
-          </label>
-          {/*
-            The same grid the invite form shows, at the other place a role is
-            assigned. A role change is where "I made someone an admin by
-            accident" actually happens, so the comparison belongs here too —
-            including the rule that an admin can never reach owner.
-          */}
-          {!offboard && role !== "reactivate" && <RoleCapabilities />}
-          <p className="text-sm leading-6 text-muted">
-            {offboard
-              ? c(
-                  "팀 자료와 작업 기록은 남습니다. 진행 중 업로드는 취소하고 좌석을 반환합니다. 이미 내려받은 파일은 회수할 수 없으며 발급된 다운로드 링크는 최대 60초 동안 유효합니다.",
-                  "Team files and history remain. Pending uploads are cancelled and the seat is released. Downloaded files cannot be recalled; existing download links can remain valid for up to 60 seconds.",
-                )
-              : role === "reactivate"
-                ? c(
-                    "좌석 여유를 확인한 뒤 참여를 다시 활성화합니다. 취소된 업로드는 복원하지 않습니다.",
-                    "Reactivation checks seat capacity and restores membership. Cancelled uploads are not restored.",
-                  )
-                : c(
-                    "역할은 가능한 작업의 상한입니다.",
-                    "The role limits allowed actions.",
-                  )}
-          </p>
-          {offboard && team?.managementEnabled && !impact && (
-            <button
-              className={secondaryClass}
-              disabled={busy}
-              onClick={async () => {
-                setBusy(true);
-                setError("");
-                try {
-                  setImpact(
-                    await workspaceService.impact(workspaceId, member.userId),
-                  );
-                } catch (e) {
-                  setError(cloudErrorCode(e));
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            >
-              {c("영향 확인", "Review impact")}
-            </button>
-          )}
-          {offboard && impact && (
-            <p className="tabular-nums text-sm">
-              {c(
-                `진행 중 업로드 ${impact.pendingUploads}개를 취소합니다.`,
-                `${impact.pendingUploads} pending uploads will be cancelled.`,
-              )}
+    <>
+      <RowMenu>
+        {actorRole === "owner" && member.role !== "admin" && (
+          <RowMenuItem onClick={() => open("admin")}>
+            {label("admin")}
+          </RowMenuItem>
+        )}
+        {member.role !== "editor" && (
+          <RowMenuItem onClick={() => open("editor")}>
+            {label("editor")}
+          </RowMenuItem>
+        )}
+        {member.role !== "reviewer" && (
+          <RowMenuItem onClick={() => open("reviewer")}>
+            {label("reviewer")}
+          </RowMenuItem>
+        )}
+        {managed && (
+          <RowMenuItem
+            onClick={() => open(member.suspendedAt ? "reactivate" : "suspend")}
+          >
+            {label(member.suspendedAt ? "reactivate" : "suspend")}
+          </RowMenuItem>
+        )}
+        <RowMenuItem tone="danger" onClick={() => open("remove")}>
+          {label("remove")}
+        </RowMenuItem>
+      </RowMenu>
+
+      {action && (
+        <Dialog
+          state={confirm}
+          title={label(action)}
+          /* A role change carries the grid inline — this is one of the two
+             places a role is assigned, and "I made someone an admin by
+             accident" is the failure it exists to prevent. Offboarding does
+             not need it and stays narrow. */
+          size={offboard || action === "reactivate" ? "default" : "wide"}
+        >
+          <div className="space-y-4">
+            <p className="break-all text-sm leading-6">
+              {member.name ? `${member.name} · ${member.email}` : member.email}
             </p>
-          )}
-          <div className="flex flex-wrap gap-2">
-            <button
-              className={primaryClass}
-              disabled={
-                busy ||
-                role === member.role ||
-                (offboard && !!team?.managementEnabled && !impact)
-              }
-              onClick={async () => {
-                setBusy(true);
-                setError("");
-                try {
-                  await workspaceService.changeMember(
-                    workspaceId,
-                    member.userId,
-                    role,
-                  );
-                  await onChange();
-                  close();
-                } catch (e) {
-                  setError(cloudErrorCode(e));
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            >
-              {busy
-                ? c("변경 중…", "Updating…")
-                : offboard
-                  ? c("접근 종료 확인", "Confirm access removal")
-                  : c("변경 저장", "Save changes")}
-            </button>
-            <button
-              className={secondaryClass}
-              disabled={busy}
-              onClick={close}
-            >
-              {c("취소", "Cancel")}
-            </button>
+            {error && <CloudError code={error} />}
+            <p className="text-sm leading-6 text-muted">
+              {offboard
+                ? c(
+                    "팀 자료는 남습니다. 진행 중인 업로드는 취소되고 좌석은 반환됩니다.",
+                    "Team files remain. Pending uploads are cancelled and the seat is released.",
+                  )
+                : action === "reactivate"
+                  ? c(
+                      "빈 좌석이 있어야 참여를 다시 활성화할 수 있습니다.",
+                      "Reactivating needs a free seat.",
+                    )
+                  : c(
+                      "이 사람이 할 수 있는 일이 바뀝니다.",
+                      "This changes what they can do.",
+                    )}
+            </p>
+            {!offboard && action !== "reactivate" && <RoleTable />}
+            {offboard && impact && impact.pendingUploads > 0 && (
+              <p className="text-sm tabular-nums">
+                {c(
+                  `진행 중 업로드 ${impact.pendingUploads}개를 취소합니다.`,
+                  `${impact.pendingUploads} pending uploads will be cancelled.`,
+                )}
+              </p>
+            )}
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                className={secondaryClass}
+                disabled={busy}
+                onClick={() => confirm.close()}
+              >
+                {c("취소", "Cancel")}
+              </button>
+              <button
+                type="button"
+                className={primaryClass}
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  setError("");
+                  try {
+                    await workspaceService.changeMember(
+                      workspaceId,
+                      member.userId,
+                      action,
+                    );
+                    await onChange();
+                    confirm.close();
+                    setAction(null);
+                  } catch (e) {
+                    setError(cloudErrorCode(e));
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                {busy
+                  ? c("변경 중…", "Updating…")
+                  : offboard
+                    ? c("확인", "Confirm")
+                    : c("변경", "Change")}
+              </button>
+            </div>
           </div>
-        </div>
+        </Dialog>
       )}
-    </div>
+    </>
   );
 }

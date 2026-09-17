@@ -45,7 +45,7 @@ test("a personal space reads as yours, offers no invite affordance anywhere, and
   await page.goto("/dashboard/workspaces?locale=ko");
   await login(page, email);
   await expect(
-    page.getByRole("heading", { name: "팀이 함께하는 작업 공간" })
+    page.getByRole("heading", { name: "워크스페이스", level: 1 })
   ).toBeVisible();
 
   // ---- 1. the distinction is on screen, in both lists -------------------
@@ -60,7 +60,7 @@ test("a personal space reads as yours, offers no invite affordance anywhere, and
   await expect(personalCard).not.toContainText(email.split("@")[0]);
   await expect(main.locator('[data-space="team"]')).toHaveCount(0);
   // A one-workspace account is not an empty team list.
-  await expect(main.getByText(/여기가 내 공간입니다/)).toBeVisible();
+  await expect(main.getByText(/다른 사람과 함께 일할 때 팀을 만드세요/)).toBeVisible();
   // The sidebar switcher agrees, and marks the same kind. (The layout renders
   // a desktop and a mobile <aside>, so this takes the visible one.)
   await expect(
@@ -179,18 +179,28 @@ test("seat figures stay separate numbers and move independently, and the capabil
   await expect(figure("remaining")).toHaveText("9");
 
   // ---- 5. the role grid is at the point of assignment --------------------
-  const grid = page.getByRole("table", { name: undefined }).first();
-  await expect(page.getByText("역할별로 할 수 있는 일")).toBeVisible();
+  await page
+    .locator("form")
+    .getByRole("button", { name: "역할별 권한" })
+    .click();
+  const guide = page.getByRole("dialog");
+  const grid = guide.getByRole("table");
   await expect(
     grid.getByRole("columnheader", { name: "소유자", exact: true })
   ).toBeVisible();
+  // Only rules the backend actually enforces are allowed on this table; the
+  // rows that merely sounded plausible are gone.
   await expect(
-    grid.getByRole("rowheader", { name: /결제·좌석·소유권 이전·팀 삭제/ })
+    grid.getByRole("rowheader", { name: /소유권 이전 · 관리자 지정/ })
   ).toBeVisible();
+  await expect(
+    grid.getByRole("rowheader", { name: /팀 삭제/ })
+  ).toHaveCount(0);
   // The rule the server enforces silently and no screen used to state.
   await expect(
-    page.getByText(/관리자는 자기 자신을 포함해 누구도 소유자로 올릴 수 없습니다/)
+    guide.getByText(/관리자는 누구도 소유자로 지정할 수 없습니다/)
   ).toBeVisible();
+  await guide.getByRole("button", { name: "닫기" }).click();
   // The invite form names the space people are about to be let into.
   await expect(
     page.locator('form [data-space="team"]')
@@ -251,11 +261,20 @@ test("seat figures stay separate numbers and move independently, and the capabil
   await page.reload();
   await expect(figure("active")).toHaveText("2");
   await page
-    .getByRole("listitem")
+    .getByRole("row")
     .filter({ hasText: memberEmail })
-    .getByRole("button", { name: "멤버 관리", exact: true })
+    .getByRole("button", { name: "작업" })
     .click();
-  await expect(page.getByText("역할별로 할 수 있는 일").last()).toBeVisible();
+  await page.getByRole("menuitem", { name: "검토자로 변경" }).click();
+  const change = page.getByRole("dialog");
+  await expect(change).toContainText(memberEmail);
+  await expect(
+    change.getByRole("rowheader", { name: /소유권 이전 · 관리자 지정/ })
+  ).toBeVisible();
+  // Nothing has happened yet: a role change asks before it acts.
+  await expect(figure("reviewers")).toHaveText("0");
+  await change.getByRole("button", { name: "변경", exact: true }).click();
+  await expect(figure("reviewers")).toHaveText("1");
   expect(errors).toEqual([]);
 });
 
@@ -301,11 +320,11 @@ test("the space is named where files land, and cancelling an upload asks the sam
   await login(page, email);
 
   // ---- 3. the archive names the space it uploads into --------------------
-  await expect(page.locator('[data-space="team"]')).toContainText(
-    `Landing ${suffix}`,
-  );
-  await expect(page.locator('[data-space="team"]')).toContainText(
-    "여기서 하는 일은 이 팀에게 보입니다",
+  const badge = page.locator('main [data-space="team"]').first();
+  await expect(badge).toContainText(`Landing ${suffix}`);
+  await expect(badge).toHaveAttribute(
+    "title",
+    "여기서 하는 일은 이 팀에게 보입니다.",
   );
   await page.screenshot({
     path: testInfo.outputPath("upload-space-named.png"),

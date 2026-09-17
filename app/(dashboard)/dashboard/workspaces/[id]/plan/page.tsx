@@ -18,6 +18,21 @@ import {
   cloudErrorCode,
   StorageMeter,
 } from "@/components/workspaces/cloud-shared";
+
+/**
+ * Plan, seats, storage and billing — one screen.
+ *
+ * There used to be two: this one and `/dashboard/organizations/<id>/billing`,
+ * reached from the same sidebar entry depending on a race. They showed the
+ * same seats and the same storage from two different endpoints, and the
+ * organisation copy also refused itself to everybody except the owner, so
+ * three of the four roles clicked 플랜과 결제 and got a single sentence saying
+ * they may not look.
+ *
+ * Nothing here is refused now, because there is nothing to refuse: no balance,
+ * no payment method, no invoices. The one figure that is real — storage — is
+ * the one cost this actually incurs, and seats stay four separate numbers.
+ */
 export default function Page() {
   const { data, cloudEnabled } = useWorkspace()!;
   const { lang, t } = useI18n();
@@ -41,10 +56,15 @@ export default function Page() {
     };
   }, [cloudEnabled, data.workspace.id, data.role]);
   return (
-    <TeamShell
-      title={c("플랜과 사용량", "Plan and usage")}
-    >
-      {!personal && (
+    <TeamShell title={c("플랜과 결제", "Plan and billing")}>
+      {personal ? (
+        <section className="space-y-4 rounded-xl border border-border p-6">
+          <h2 className="font-medium">{t("team.kind.personal")}</h2>
+          <p className="max-w-2xl text-sm leading-6 text-muted">
+            {t("team.personalDesc")}
+          </p>
+        </section>
+      ) : (
         <section className="space-y-4 rounded-xl border border-border p-6">
           <p className="text-xs text-muted">
             {c("현재 팀 플랜", "Current team plan")}
@@ -52,12 +72,18 @@ export default function Page() {
           <h2 className="text-2xl font-medium">
             {c("팀 프리뷰", "Team preview")}
           </h2>
+          {/* One sentence, not two empty sections. A "결제 수단" block and an
+              "청구서 내역" block both saying there is nothing yet spend two
+              headings to say the same thing once. */}
           <p className="max-w-2xl text-sm leading-6 text-muted">
             {c(
-              "아직 청구되지 않습니다. 결제를 시작하기 전에 소유자가 요금과 적용일을 먼저 확인합니다.",
-              "Nothing is being charged. The owner reviews pricing and dates before billing starts.",
+              "아직 청구되지 않습니다. 결제 수단과 청구서는 팀 결제가 연결된 뒤에 생깁니다.",
+              "Nothing is being charged. A payment method and invoices arrive once team billing is connected.",
             )}
           </p>
+          <Link href="/dashboard/plan" className={secondaryClass}>
+            {c("내 플랜 보기", "View my plan")}
+          </Link>
         </section>
       )}
       {/*
@@ -73,28 +99,12 @@ export default function Page() {
             className={secondaryClass}
             href={`/dashboard/workspaces/${data.workspace.id}/members`}
           >
-            {c("멤버와 좌석 관리", "Manage members and seats")}
+            {c("멤버 관리", "Manage members")}
           </Link>
         </>
       )}
-      {personal && (
-        <section className="space-y-4 rounded-xl border border-border p-6">
-          <h2 className="font-medium">{t("team.kind.personal")}</h2>
-          <p className="max-w-2xl text-sm leading-6 text-muted">
-            {t("team.personalDesc")}
-          </p>
-        </section>
-      )}
       {error && <CloudError code={error} />}
       {storage && <StorageMeter storage={storage} />}
-      {!personal && (
-      <p className="text-sm leading-6 text-muted">
-        {c(
-          "멤버를 빼도 좌석 수량은 줄지 않습니다. 업로드 중인 파일과 휴지통 파일도 저장 용량에 포함됩니다.",
-          "Removing a member does not reduce seat quantity. Pending uploads and trashed files count toward storage.",
-        )}
-      </p>
-      )}
     </TeamShell>
   );
 }

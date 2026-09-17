@@ -103,90 +103,109 @@ export default function Page() {
               ? c("공간 정보", "Space details")
               : c("팀 정보", "Team details")
           }
-          description={c(
-            "워크스페이스 주소는 이름을 변경해도 유지됩니다.",
-            "The workspace address stays the same when you rename it.",
-          )}
         >
-          <form
-            className="space-y-4"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              await run(
-                async () => {
-                  await workspaceService.settings(id, form);
-                  setDraft(null);
-                },
-                c("팀 정보를 저장했습니다.", "Team details saved."),
-              );
-            }}
-          >
-            <label className="block space-y-2 text-sm">
-              <span>{c("워크스페이스 이름", "Workspace name")}</span>
-              <input
-                className={inputClass}
-                maxLength={80}
-                required
-                disabled={!data.canManage || busy}
-                value={form.name}
-                onChange={(e) => setDraft({ ...form, name: e.target.value })}
-              />
-            </label>
-            <label className="block space-y-2 text-sm">
-              <span>{c("소개", "Description")}</span>
-              <textarea
-                className={`${inputClass} min-h-24 resize-y`}
-                maxLength={500}
-                disabled={!data.canManage || busy}
-                value={form.description}
-                onChange={(e) =>
-                  setDraft({ ...form, description: e.target.value })
-                }
-              />
-            </label>
-            {conflicted && (
-              <p role="status" className="text-sm text-muted">
-                {c(
-                  "다른 관리자가 설정을 변경했습니다. 최신 정보 불러오기로 다시 시작하세요.",
-                  "Another administrator updated the settings. Load the latest details before editing again.",
-                )}
-              </p>
-            )}
-            {/* The save button appears when there is something to save. A
+          {!data.canManage ? (
+            <dl className="space-y-4 text-sm">
+              <div>
+                <dt className="text-xs text-muted">
+                  {c("워크스페이스 이름", "Workspace name")}
+                </dt>
+                <dd className="mt-1 break-words font-medium">
+                  {data.workspace.name}
+                </dd>
+              </div>
+              {data.workspace.description && (
+                <div>
+                  <dt className="text-xs text-muted">
+                    {c("소개", "Description")}
+                  </dt>
+                  <dd className="mt-1 whitespace-pre-wrap break-words leading-6">
+                    {data.workspace.description}
+                  </dd>
+                </div>
+              )}
+            </dl>
+          ) : (
+            <form
+              className="space-y-4"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                await run(
+                  async () => {
+                    await workspaceService.settings(id, form);
+                    setDraft(null);
+                  },
+                  c("팀 정보를 저장했습니다.", "Team details saved."),
+                );
+              }}
+            >
+              <label className="block space-y-2 text-sm">
+                <span>{c("워크스페이스 이름", "Workspace name")}</span>
+                <input
+                  className={inputClass}
+                  maxLength={80}
+                  required
+                  disabled={!data.canManage || busy}
+                  value={form.name}
+                  onChange={(e) => setDraft({ ...form, name: e.target.value })}
+                />
+              </label>
+              <label className="block space-y-2 text-sm">
+                <span>{c("소개", "Description")}</span>
+                <textarea
+                  className={`${inputClass} min-h-24 resize-y`}
+                  maxLength={500}
+                  disabled={!data.canManage || busy}
+                  value={form.description}
+                  onChange={(e) =>
+                    setDraft({ ...form, description: e.target.value })
+                  }
+                />
+              </label>
+              {conflicted && (
+                <p role="status" className="text-sm text-muted">
+                  {c(
+                    "다른 관리자가 설정을 변경했습니다. 최신 정보 불러오기로 다시 시작하세요.",
+                    "Another administrator updated the settings. Load the latest details before editing again.",
+                  )}
+                </p>
+              )}
+              {/* The save button appears when there is something to save. A
               permanently greyed-out button is a control that has never once
               been usable in the reader's experience of the page. */}
-            {data.canManage && (draft || conflicted) && (
-              <div className="flex flex-wrap gap-2">
-                <button
-                  className={primaryClass}
-                  disabled={busy || !draft || !form.name.trim() || conflicted}
-                >
-                  {c("변경 저장", "Save changes")}
-                </button>
-                {(draft || conflicted) && (
+              {data.canManage && (draft || conflicted) && (
+                <div className="flex flex-wrap gap-2">
                   <button
-                    type="button"
-                    className={secondaryClass}
-                    disabled={busy}
-                    onClick={async () => {
-                      await reload();
-                      setDraft(null);
-                      setError("");
-                    }}
+                    className={primaryClass}
+                    disabled={busy || !draft || !form.name.trim() || conflicted}
                   >
-                    {c("최신 정보 불러오기", "Load latest details")}
+                    {c("변경 저장", "Save changes")}
                   </button>
-                )}
-              </div>
-            )}
-          </form>
+                  {(draft || conflicted) && (
+                    <button
+                      type="button"
+                      className={secondaryClass}
+                      disabled={busy}
+                      onClick={async () => {
+                        await reload();
+                        setDraft(null);
+                        setError("");
+                      }}
+                    >
+                      {c("최신 정보 불러오기", "Load latest details")}
+                    </button>
+                  )}
+                </div>
+              )}
+            </form>
+          )}
         </Block>
         {!personal && (
           <Block
             title={c("소유권", "Ownership")}
             description={c(
-              "이전 소유자는 관리자로 남습니다. 상대방이 본인 확인 후 수락해야 완료됩니다.",
-              "The previous owner remains an admin. It completes once the recipient verifies and accepts.",
+              "상대방이 수락하면 완료되고, 이전 소유자는 관리자로 남습니다.",
+              "It completes when the recipient accepts; you stay on as an admin.",
             )}
           >
             <p className="break-all text-sm">
@@ -288,12 +307,6 @@ export default function Page() {
                       ))}
                   </select>
                 </label>
-                <p className="text-xs leading-5 text-muted">
-                  {c(
-                    "7일 동안 유효합니다. 검토자가 수락하려면 빈 좌석 1개가 필요합니다.",
-                    "Valid for 7 days. A reviewer needs one free seat to accept.",
-                  )}
-                </p>
                 <button
                   className={secondaryClass}
                   disabled={!target || !!confirming}
@@ -361,8 +374,8 @@ export default function Page() {
                     "Owners must complete an ownership transfer before leaving.",
                   )
                 : c(
-                    "탈퇴하면 팀 접근이 종료됩니다. 팀 자료와 기록은 남고, 다시 참여하려면 새 초대가 필요합니다.",
-                    "Leaving ends your team access. Team files and history remain, and a new invitation is required to rejoin.",
+                    "팀 자료는 남습니다. 다시 참여하려면 새 초대가 필요합니다.",
+                    "Team files remain. Rejoining needs a new invitation.",
                   )
             }
             actions={
