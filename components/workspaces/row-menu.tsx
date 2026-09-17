@@ -1,5 +1,12 @@
 "use client";
-import { Children, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  Children,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { createPortal } from "react-dom";
 import { MoreVertical } from "lucide-react";
 import { useI18n } from "@/lib/i18n/context";
 
@@ -15,6 +22,14 @@ import { useI18n } from "@/lib/i18n/context";
  * conditional children (`{canEdit && <RowMenuItem …>}`), so that verdict is
  * made HERE, from what actually survived — a caller that has to compute
  * "would any of these render" a second time gets it wrong eventually.
+ *
+ * The panel is PORTALLED to the body, and that is not tidiness. The members
+ * table wraps itself in `overflow-x-auto` so a narrow window scrolls the table
+ * instead of the page — and `overflow-x: auto` computes `overflow-y` to `auto`
+ * as well, so an absolutely-positioned panel inside it is clipped at the
+ * table's edge. The menu opened, drew a few pixels below the row, and was cut
+ * off: it read as a button that does nothing, and the actions behind it read
+ * as unimplemented.
  */
 export function RowMenu({
   label,
@@ -25,8 +40,11 @@ export function RowMenu({
 }) {
   const { lang } = useI18n();
   const [open, setOpen] = useState(false);
+  const [at, setAt] = useState<{ top: number; right: number } | null>(null);
   const root = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
+
   // `toArray` drops null/undefined/false, which is exactly the shape a row of
   // permission-gated items collapses to when the viewer may do nothing.
   const items = Children.toArray(children).length;
@@ -34,18 +52,28 @@ export function RowMenu({
   useEffect(() => {
     if (!open) return;
     const onPointer = (event: PointerEvent) => {
-      if (!root.current?.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      // The panel is no longer inside `root`, so both have to be asked.
+      if (!root.current?.contains(target) && !panel.current?.contains(target))
+        setOpen(false);
     };
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       setOpen(false);
       trigger.current?.focus();
     };
+    // A fixed panel does not follow its row, so scrolling closes it rather
+    // than leaving it stranded over unrelated content.
+    const onScroll = () => setOpen(false);
     document.addEventListener("pointerdown", onPointer);
     document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScroll, true);
+    window.addEventListener("resize", onScroll);
     return () => {
       document.removeEventListener("pointerdown", onPointer);
       document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScroll, true);
+      window.removeEventListener("resize", onScroll);
     };
   }, [open]);
 
@@ -58,20 +86,34 @@ export function RowMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={label ?? (lang === "ko" ? "작업" : "Actions")}
-        onClick={() => setOpen((was) => !was)}
+        onClick={() => {
+          // Measured here rather than in an effect: opening is the event that
+          // decides where the panel goes, and the position is wanted in the
+          // same commit that renders it.
+          const box = trigger.current?.getBoundingClientRect();
+          if (box)
+            setAt({ top: box.bottom + 4, right: window.innerWidth - box.right });
+          setOpen((was) => !was);
+        }}
         className="grid size-9 place-items-center rounded-md text-muted transition-colors hover:bg-foreground/[0.06] hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground aria-expanded:bg-foreground/[0.06]"
       >
         <MoreVertical size={16} strokeWidth={1.5} aria-hidden="true" />
       </button>
-      {open && (
-        <div
-          role="menu"
-          onClick={() => setOpen(false)}
-          className="absolute right-0 top-[calc(100%+4px)] z-20 min-w-40 overflow-hidden rounded-lg border border-border bg-background p-1 shadow-lg"
-        >
-          {children}
-        </div>
-      )}
+      {open &&
+        at &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={panel}
+            role="menu"
+            onClick={() => setOpen(false)}
+            style={{ top: at.top, right: at.right }}
+            className="fixed z-50 min-w-40 overflow-hidden rounded-lg border border-border bg-background p-1 shadow-lg"
+          >
+            {children}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
