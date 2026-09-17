@@ -81,9 +81,27 @@ test("a rejected file does not cancel the batch and the rest still upload", asyn
     await expect(
       panel.getByRole("listitem").filter({ hasText: name })
     ).toContainText("전송 완료", { timeout: 30_000 });
-  await expect(page.getByRole("heading", { name: "a.mov" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "b.mov" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "sidecar.xml" })).toHaveCount(0);
+  // They landed in the archive itself, not just in the transfer panel. Rows in
+  // a table, not headings: fifty files used to emit fifty <h3>s into the
+  // document outline, one per file name.
+  const rows = page.getByRole("row");
+  await expect(rows.filter({ hasText: "a.mov" })).toHaveCount(1);
+  await expect(rows.filter({ hasText: "b.mov" })).toHaveCount(1);
+  // The 0-byte file was refused before it ever reached the server.
+  await expect(rows.filter({ hasText: "sidecar.xml" })).toHaveCount(0);
+
+  // The same archive, the other way round. The view choice is the viewer's, so
+  // it has to survive a reload.
+  await page.getByRole("radio", { name: "그리드" }).click();
+  await expect(page.getByRole("figure").filter({ hasText: "a.mov" })).toHaveCount(
+    1,
+  );
+  await page.reload();
+  await expect(page.getByRole("radio", { name: "그리드" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
+  await page.getByRole("radio", { name: "리스트" }).click();
   expect(errors).toEqual([]);
 });
 

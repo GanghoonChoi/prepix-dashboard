@@ -19,8 +19,11 @@ export function Dialog({
    * column per role, and squeezing five columns into the default 28rem broke
    * the headers onto two lines and pushed the last two columns out of sight —
    * technically scrollable, invisibly so.
+   *
+   * `player` for video. A 16:9 frame in 28rem is a postage stamp, and the
+   * point of opening a clip is seeing it.
    */
-  size?: "default" | "wide";
+  size?: "default" | "wide" | "player";
   children: React.ReactNode;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -89,7 +92,13 @@ export function Dialog({
           aria-modal="true"
           aria-labelledby={titleId}
           tabIndex={-1}
-          className={`relative w-full ${size === "wide" ? "max-w-2xl" : "max-w-md"} rounded-lg border border-border bg-background p-6 shadow-lg outline-none`}
+          className={`relative w-full ${
+            size === "player"
+              ? "max-w-5xl"
+              : size === "wide"
+                ? "max-w-2xl"
+                : "max-w-md"
+          } rounded-lg border border-border bg-background p-6 shadow-lg outline-none`}
           onClick={(e) => e.stopPropagation()}
         >
           <h3 id={titleId} className="text-lg font-semibold text-foreground">

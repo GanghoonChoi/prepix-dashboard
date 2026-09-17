@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { previewAxis, previewFailureIsSpace } from "./asset-state";
+import {
+  previewAxis,
+  previewFailureIsSpace,
+  storageLabel,
+} from "./asset-state";
 import type { Asset } from "../api/services/cloud.service";
 
 const row = (previewState?: Asset["previewState"]) =>
@@ -48,4 +52,51 @@ test("only a storage-shaped failure offers the cleanup path", () => {
   assert.equal(previewFailureIsSpace("TEAM_STORAGE_QUOTA_EXCEEDED"), true);
   assert.equal(previewFailureIsSpace("TRANSCODE_UNSUPPORTED"), false);
   assert.equal(previewFailureIsSpace(null), false);
+});
+
+const stored = (over: Partial<Asset> = {}) =>
+  ({
+    state: "ready",
+    trashedAt: null,
+    expiresAt: "2099-01-01T00:00:00.000Z",
+    uploadExpiresAt: "2099-01-01T00:00:00.000Z",
+    ...over,
+  }) as Asset;
+
+test("trash wins over every other storage verdict", () => {
+  // A trashed file is still `ready` and still unexpired; saying 보관됨 about it
+  // is the one answer that would send somebody looking in the wrong place.
+  assert.equal(
+    storageLabel(stored({ trashedAt: "2026-01-01T00:00:00.000Z" }), "ko"),
+    "휴지통",
+  );
+});
+
+test("retention and upload windows are different clocks", () => {
+  const past = "2020-01-01T00:00:00.000Z";
+  assert.equal(storageLabel(stored({ expiresAt: past }), "ko"), "보관 기한 만료");
+  assert.equal(storageLabel(stored({ expiresAt: past }), "en"), "Expired");
+  // An upload that ran out of time is not an expired original — it never
+  // became one.
+  assert.equal(
+    storageLabel(stored({ state: "uploading", uploadExpiresAt: past }), "ko"),
+    "업로드 만료",
+  );
+  assert.equal(
+    storageLabel(stored({ state: "uploading" }), "ko"),
+    "이어 올리기 대기",
+  );
+});
+
+test("cancelling still holds capacity; cancelled does not", () => {
+  assert.match(storageLabel(stored({ state: "cancelling" }), "ko"), /유지/);
+  assert.match(storageLabel(stored({ state: "cancelled" }), "ko"), /해제/);
+});
+
+test("a quarantined original says download is blocked, not that a preview failed", () => {
+  assert.equal(
+    storageLabel(stored({ state: "quarantined" }), "en"),
+    "Verification failed · download blocked",
+  );
+  assert.equal(previewAxis({ previewState: "stored" }, "en"), null);
 });

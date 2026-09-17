@@ -42,3 +42,56 @@ export function previewAxis(
 export function previewFailureIsSpace(failure: string | null) {
   return !!failure && /SPACE|STORAGE|QUOTA|FULL/i.test(failure);
 }
+
+/**
+ * The STORAGE axis, and only that.
+ *
+ * F04.6 separates storage from preview and from app compatibility, so this
+ * never folds a preview problem into a storage verdict — `previewAxis` above
+ * carries that. It lived inside the archive page until the grid needed the
+ * same sentence the list was already printing.
+ *
+ * `cancelled` is finished, so saying capacity is still held would simply be
+ * wrong; `cancelling` is not finished, so saying it is released would be too.
+ */
+export function storageLabel(
+  asset: Pick<
+    Asset,
+    "state" | "trashedAt" | "expiresAt" | "uploadExpiresAt"
+  >,
+  lang: string,
+  now = Date.now(),
+): string {
+  const ko = lang === "ko";
+  if (asset.trashedAt) return ko ? "휴지통" : "Trash";
+  switch (asset.state) {
+    case "ready":
+      return new Date(asset.expiresAt).getTime() <= now
+        ? ko
+          ? "보관 기한 만료"
+          : "Expired"
+        : ko
+          ? "보관됨"
+          : "Stored";
+    case "uploading":
+      return new Date(asset.uploadExpiresAt).getTime() <= now
+        ? ko
+          ? "업로드 만료"
+          : "Upload expired"
+        : ko
+          ? "이어 올리기 대기"
+          : "Ready to resume";
+    case "verifying":
+      return ko ? "원본 검증 중" : "Verifying original";
+    case "quarantined":
+      return ko
+        ? "검증 실패 · 다운로드 차단"
+        : "Verification failed · download blocked";
+    case "cancelling":
+      return ko
+        ? "취소 정리 중 · 용량 예약 유지"
+        : "Cancelling · storage still reserved";
+    default:
+      return ko ? "취소됨 · 용량 예약 해제" : "Cancelled · reservation released";
+  }
+}
