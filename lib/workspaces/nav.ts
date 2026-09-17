@@ -22,11 +22,18 @@ export function workspaceLinks(
     cloudEnabled: boolean;
     managementEnabled: boolean;
     /**
-     * Set when this workspace's organisation holds only this workspace, in
-     * which case members and billing belong to the same team and are shown
-     * here rather than behind a second settings screen.
+     * This workspace's organisation. Always present for a team, because one
+     * organisation holds exactly one workspace — the database enforces it
+     * (`workspaces_one_per_organization`).
+     *
+     * It used to be `soleOrganizationId`, set only when the organisation held
+     * a single workspace, with a fallback to per-workspace members and plan
+     * screens for the case where it held several. That case cannot occur:
+     * `create()` is the only writer of `organization_id` and mints a fresh
+     * organisation every time. The fallback was a second navigation maintained
+     * for a state nothing produces.
      */
-    soleOrganizationId?: string;
+    organizationId?: string;
   },
 ): NavLink[] {
   const base = `/dashboard/workspaces/${workspace.id}`;
@@ -51,29 +58,29 @@ export function workspaceLinks(
 
   // One archive, one team. The reference products split members and billing
   // off to the layer above because their middle layer multiplies; ours does
-  // not (D14), so while an organisation holds exactly one workspace the two
-  // are the same thing and the nav says so once. A second workspace makes the
-  // distinction real again and the entries move back up on their own.
-  const sole = options.soleOrganizationId;
+  // not (D14), so an organisation and a workspace are the same thing and the
+  // nav says so once. The `${base}/members` fallback below is for a workspace
+  // with no organisation at all — old data, never a second workspace.
+  const org = options.organizationId;
   return [
     { href: base, ko: "개요", en: "Overview" },
     ...(options.cloudEnabled
       ? [{ href: `${base}/media`, ko: "아카이브", en: "Archive" }]
       : []),
     {
-      href: sole
-        ? `/dashboard/organizations/${sole}/members`
+      href: org
+        ? `/dashboard/organizations/${org}/members`
         : `${base}/members`,
       ko: "멤버",
       en: "Members",
     },
     // `결제` and `플랜과 사용량` were showing the same seats and the same
-    // storage from two routes. Collapsed, the organisation's billing page is
-    // the one that also carries the plan; split, the workspace keeps its own.
-    ...(sole
+    // storage from two routes. One organisation is one team, so there is one
+    // page that carries both.
+    ...(org
       ? [
           {
-            href: `/dashboard/organizations/${sole}/billing`,
+            href: `/dashboard/organizations/${org}/billing`,
             ko: "플랜과 결제",
             en: "Plan and billing",
           },

@@ -162,18 +162,13 @@ function Content({ id }: { id: string }) {
                         )
                       : result.status === "invalid_email"
                         ? c("이메일 주소를 확인하세요.", "Check the email address.")
-                        : result.status === "workspace_required"
+                        : result.status === "no_workspace"
                           ? c(
-                              "이 조직에 워크스페이스가 여러 개라 어디로 초대할지 정해야 합니다.",
-                              "This organisation has more than one workspace, so the invitation needs a team.",
+                              "이 팀에 아카이브가 없습니다. 먼저 팀을 만드세요.",
+                              "This team has no archive yet. Create a team first.",
                             )
-                          : result.status === "no_workspace"
-                            ? c(
-                                "이 조직에 워크스페이스가 없습니다. 먼저 팀을 만드세요.",
-                                "This organisation has no workspace yet. Create a team first.",
-                              )
-                            : result.status === "delivery_failed"
-                              ? c(
+                          : result.status === "delivery_failed"
+                                ? c(
                                   // Never silent. The inviter is the only
                                   // person who can notice a teammate got
                                   // nothing.

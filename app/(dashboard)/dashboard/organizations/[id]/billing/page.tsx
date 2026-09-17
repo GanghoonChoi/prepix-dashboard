@@ -81,7 +81,7 @@ function Content({ id }: { id: string }) {
       </TeamShell>
     );
 
-  const { storage, workspaces: spaces } = data;
+  const { storage } = data;
   const total = storage.used + storage.reserved;
   const percent = storage.limit
     ? Math.min(100, Math.round((total / storage.limit) * 100))
@@ -132,9 +132,12 @@ function Content({ id }: { id: string }) {
               {c(`${bytes(total)} 사용됨`, `${bytes(total)} used`)}
             </p>
             <p className="text-sm text-muted tabular-nums">
+              {/* One team, one archive, one limit. This used to read
+                  "워크스페이스 1개 · 각 300 GB" — a count that is always 1 and
+                  a per-thing figure for a thing there is one of. */}
               {c(
-                `워크스페이스 ${spaces.length}개 · 각 ${bytes(storage.perWorkspaceLimit)}`,
-                `${spaces.length} workspaces · ${bytes(storage.perWorkspaceLimit)} each`,
+                `한도 ${bytes(storage.perWorkspaceLimit)}`,
+                `${bytes(storage.perWorkspaceLimit)} limit`,
               )}
             </p>
             <div className="flex items-center gap-3">

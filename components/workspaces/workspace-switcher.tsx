@@ -304,10 +304,8 @@ export function WorkspaceSwitcher({ onClose }: { onClose?: () => void }) {
             {workspaceLinks(current, {
               cloudEnabled,
               managementEnabled: current.managementEnabled !== false,
-              soleOrganizationId: orgs.find(
-                (org) =>
-                  org.workspaceIds.length === 1 &&
-                  org.workspaceIds[0] === current.id,
+              organizationId: orgs.find((org) =>
+                org.workspaceIds.includes(current.id),
               )?.id,
             }).map((link) => {
               const active = navActive(
