@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { WorkspaceCapabilities } from "@/components/workspaces/capabilities";
+import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
 import { LoadingScreen } from "@/components/loading-screen";
@@ -34,6 +35,17 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  /**
+   * The one page the verification banner must not appear on.
+   *
+   * It tells an unverified account that verifying will let them accept a team
+   * invitation — and on the invitation page itself that is false. The emailed
+   * token IS proof of the address, which is exactly why `claimable()` on the
+   * server does not ask for verification. The banner sat above a working
+   * Accept button saying the button would not work yet.
+   */
+  const onInvitationPage =
+    usePathname()?.startsWith("/dashboard/invitations/") ?? false;
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   // "checking" until we've confirmed a token client-side. We render only a
@@ -191,7 +203,7 @@ export default function DashboardLayout({
                 rather than something inferred from a team-only response.
                 Strictly `=== false` — an older server omits it entirely.
               */}
-              {profile?.emailVerified === false && (
+              {profile?.emailVerified === false && !onInvitationPage && (
                 <div className="mb-8">
                   <VerifyEmailNotice />
                 </div>

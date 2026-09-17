@@ -82,7 +82,17 @@ export default function LoginPage() {
       go(safeReturnTo());
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
-      setError(axiosErr.response?.data?.message || t("auth.loginFailed"));
+      // The server distinguishes "wrong password" from "this account has no
+      // password because it signs in with Google". Passing the raw code
+      // through would show it to the person; this is the sentence that gets
+      // them in, and the reset link they would otherwise reach for declines
+      // for this account too.
+      const code = axiosErr.response?.data?.message;
+      setError(
+        code === "GOOGLE_ACCOUNT_NO_PASSWORD"
+          ? t("auth.googleAccountNoPassword")
+          : code || t("auth.loginFailed"),
+      );
       setIsLoading(false);
     }
   };

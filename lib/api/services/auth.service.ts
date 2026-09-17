@@ -30,6 +30,17 @@ export interface RegisterResponse {
 }
 
 export const authService = {
+  /**
+   * Whether an address can still be registered, asked BEFORE the form spends
+   * three more steps on it. `usesGoogle` is what lets the answer point at a
+   * door rather than just refusing.
+   */
+  emailAvailable: async (email: string) =>
+    (
+      await apiClient.post<{
+        data: { available: boolean; usesGoogle: boolean };
+      }>("/auth/email/available", { email })
+    ).data.data,
   login: async (data: LoginRequest): Promise<LoginResponse> => {
     const response = await apiClient.post("/auth/email/login", data);
     return response.data.data;

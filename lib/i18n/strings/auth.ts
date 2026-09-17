@@ -31,6 +31,12 @@ export const auth: Record<Lang, Record<string, string>> = {
     "auth.noAccountPrompt": "Don't have an account? ",
     "auth.createOne": "Create one",
     "auth.loginFailed": "Login failed. Please check your credentials.",
+    "auth.googleAccountNoPassword":
+      "This account signs in with Google. Use the Google button below — it has no password to reset.",
+    "auth.emailTaken": "This address already has an account. Sign in instead.",
+    "auth.emailTakenGoogle":
+      "This address already has an account that signs in with Google. Sign in with Google instead.",
+    "auth.emailChecking": "Checking…",
     "auth.signingYouIn": "Signing you in",
     "auth.pleaseWait": "Please wait...",
     "auth.forgotPassword": "Forgot password?",
@@ -124,6 +130,12 @@ export const auth: Record<Lang, Record<string, string>> = {
     "auth.noAccountPrompt": "Prepix가 처음이세요? ",
     "auth.createOne": "계정 만들기",
     "auth.loginFailed": "로그인에 실패했어요. 이메일과 비밀번호를 확인해 주세요.",
+    "auth.googleAccountNoPassword":
+      "이 계정은 Google로 로그인합니다. 아래 Google 버튼을 사용하세요. 재설정할 비밀번호가 없습니다.",
+    "auth.emailTaken": "이미 가입된 이메일이에요. 로그인해 주세요.",
+    "auth.emailTakenGoogle":
+      "이미 가입된 이메일이고 Google로 로그인합니다. Google로 로그인해 주세요.",
+    "auth.emailChecking": "확인 중…",
     "auth.signingYouIn": "로그인하는 중이에요",
     "auth.pleaseWait": "잠시만 기다려 주세요...",
     "auth.forgotPassword": "비밀번호를 잊으셨나요?",

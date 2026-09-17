@@ -108,6 +108,34 @@ export default function SignupPage() {
     e.preventDefault();
     setError("");
 
+    /*
+      The address is checked HERE, at the step that asks for it.
+      It used to be checked by `register()` at the very end, so somebody who
+      already had an account chose a username, typed a password twice, watched
+      a setup screen — and was then told the address was taken. Everything
+      after this step is wasted work for them, so nothing after this step
+      should happen.
+
+      A failed check does NOT block the form. The address is verified again by
+      registration, which is the only judgement that counts; refusing to let
+      someone continue because we could not reach an advisory endpoint would
+      turn a network blip into a wall.
+    */
+    if (step === 1) {
+      setIsLoading(true);
+      try {
+        const { available, usesGoogle } = await authService.emailAvailable(email);
+        if (!available) {
+          setError(t(usesGoogle ? "auth.emailTakenGoogle" : "auth.emailTaken"));
+          setIsLoading(false);
+          return;
+        }
+      } catch {
+        // Advisory only — registration still refuses a taken address.
+      }
+      setIsLoading(false);
+    }
+
     if (step === 3) {
       if (password !== confirmPassword) { setError(t("auth.passwordsMismatch")); return; }
       if (password.length < 8) { setError(t("auth.passwordMinLength")); return; }
