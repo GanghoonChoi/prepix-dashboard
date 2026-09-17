@@ -68,16 +68,18 @@ export function workspaceLinks(
       ko: "멤버",
       en: "Members",
     },
+    // `결제` and `플랜과 사용량` were showing the same seats and the same
+    // storage from two routes. Collapsed, the organisation's billing page is
+    // the one that also carries the plan; split, the workspace keeps its own.
     ...(sole
       ? [
           {
             href: `/dashboard/organizations/${sole}/billing`,
-            ko: "결제",
-            en: "Billing",
+            ko: "플랜과 결제",
+            en: "Plan and billing",
           },
         ]
-      : []),
-    { href: `${base}/plan`, ko: "플랜과 사용량", en: "Plan and usage" },
+      : [{ href: `${base}/plan`, ko: "플랜과 사용량", en: "Plan and usage" }]),
     ...(options.managementEnabled
       ? [
           { href: `${base}/settings`, ko: "설정", en: "Settings" },

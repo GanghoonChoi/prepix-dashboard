@@ -51,7 +51,6 @@ export default function Page() {
   return (
     <TeamShell
       title={lang === "ko" ? "활동 기록" : "Activity"}
-      description={data.workspace.name}
     >
       {!data.canManage || !data.managementEnabled ? (
         <CloudError code="WORKSPACE_ADMIN_REQUIRED" />
