@@ -28,11 +28,21 @@ export function TransferPanel({
   const { transfers, summary } = queue;
   if (!transfers.length) return null;
 
+  /*
+    The two passes are numbered because the bar crosses its halfway mark when
+    the second one starts.
+
+    `uploadFile` hashes the whole file before it sends a byte — the server
+    needs the sha256 to create the asset row — so one transfer reads the file
+    twice, and the bar now spans both. Reading from disk is far quicker than
+    sending over a network, so it reaches half fast and then slows right down;
+    the numbers say why instead of leaving that looking like a stall.
+  */
   const stateLabel = (state: Transfer["state"]) =>
     ({
       queued: c("대기 중", "Waiting"),
-      hashing: c("파일 확인 중", "Checking file"),
-      uploading: c("업로드 중", "Uploading"),
+      hashing: c("1단계 · 파일 확인 중", "Step 1 · Checking file"),
+      uploading: c("2단계 · 업로드 중", "Step 2 · Uploading"),
       verifying: c("전송 완료 확인 중", "Finalizing transfer"),
       done: c(
         "전송 완료 · 검증 후 다운로드 가능",
@@ -115,7 +125,9 @@ export function TransferPanel({
                 label={`${entry.name} ${c("전송 진행률", "transfer progress")}`}
               />
               <p className="text-xs leading-5 text-muted tabular-nums">
-                {stateLabel(entry.state)} · {bytes(shown.value)} /{" "}
+                {/* `moved` — the bytes of the pass it is IN. `shown.value`
+                    spans both passes and would read as "125 MB / 100 MB". */}
+                {stateLabel(entry.state)} · {bytes(shown.moved)} /{" "}
                 {bytes(entry.total)}
               </p>
               {entry.error && (

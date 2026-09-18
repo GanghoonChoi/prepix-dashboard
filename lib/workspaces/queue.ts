@@ -100,10 +100,43 @@ export function queueSummary(transfers: Transfer[]) {
 }
 
 /** Bytes the row has actually moved, for its own progress bar. */
+/**
+ * One transfer, one bar.
+ *
+ * `uploadFile` reads the file twice — the whole thing is hashed before a byte
+ * is sent, because the server needs the digest to create the asset row — so
+ * feeding one bar from `hashed` and then from `sent` ran it 0→100, reset it,
+ * and ran it 0→100 again. That reads as the file being uploaded twice, which
+ * is what it was reported as.
+ *
+ * So `value`/`max` span BOTH passes and only ever move forward. `moved` is the
+ * bytes of the current pass, for the counter under the bar: "25 MB / 100 MB"
+ * while sending, never "125 MB / 100 MB".
+ */
 export function transferProgress(transfer: Transfer) {
-  return transfer.state === "hashing"
-    ? { value: transfer.hashed, max: transfer.total }
-    : transfer.state === "queued"
-      ? { value: 0, max: transfer.total }
-      : { value: transfer.state === "done" ? transfer.total : transfer.sent, max: transfer.total };
+  const max = transfer.total * 2;
+  // Nothing has been read yet, and for `invalid` nothing ever will be.
+  if (transfer.state === "queued" || transfer.state === "invalid")
+    return { value: 0, max, moved: 0 };
+  if (transfer.state === "hashing")
+    return { value: transfer.hashed, max, moved: transfer.hashed };
+  // Past the hash by definition — and a resume reuses the digest it already
+  // has, so `hashed` may never fill again in this pass. Count the read as
+  // done, or such a transfer could never reach 100%.
+  if (
+    transfer.state === "uploading" ||
+    transfer.state === "verifying" ||
+    transfer.state === "done"
+  ) {
+    const sent = transfer.state === "done" ? transfer.total : transfer.sent;
+    return { value: transfer.total + sent, max, moved: sent };
+  }
+  // Stopped somewhere: paused, failed or cancelled. Report how far it actually
+  // got rather than assuming it finished reading — a transfer that died ten
+  // bytes into the hash is not half done.
+  return {
+    value: transfer.hashed + transfer.sent,
+    max,
+    moved: transfer.sent || transfer.hashed,
+  };
 }
