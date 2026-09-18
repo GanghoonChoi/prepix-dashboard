@@ -72,6 +72,10 @@ test("a rejected file does not cancel the batch and the rest still upload", asyn
 
   const panel = page.getByRole("region", { name: "전송 패널" });
   await expect(panel.getByRole("listitem")).toHaveCount(3);
+  // One transfer reads the file twice — the digest has to exist before the
+  // first byte is sent — so the bar fills 0→100, resets, and fills again. The
+  // steps are numbered because without that it reads as uploading twice.
+  await expect(panel).toContainText(/[12]단계 ·/);
   // The 0-byte file is marked in place, not a verdict on the selection.
   await expect(
     panel.getByRole("listitem").filter({ hasText: "sidecar.xml" })
@@ -81,6 +85,9 @@ test("a rejected file does not cancel the batch and the rest still upload", asyn
     await expect(
       panel.getByRole("listitem").filter({ hasText: name })
     ).toContainText("전송 완료", { timeout: 30_000 });
+  // Both passes are named, and neither claims to be the other.
+  const labels = await panel.allInnerTexts();
+  expect(labels.join(" ")).not.toContain("1단계 · 업로드");
   // They landed in the archive itself, not just in the transfer panel. Rows in
   // a table, not headings: fifty files used to emit fifty <h3>s into the
   // document outline, one per file name.
