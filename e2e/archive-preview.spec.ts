@@ -126,7 +126,11 @@ test("a playable original opens in the player, an undecodable one says so", asyn
   await expect(
     player.getByRole("button", { name: "원본 다운로드" }),
   ).toBeVisible();
-  await page.keyboard.press("Escape");
+  // Closed by something a person can SEE. Escape and a backdrop click both
+  // worked before this button existed, and neither is visible — the player
+  // fills its panel, so on a small window there is barely any backdrop left to
+  // click either. It looked like a video you could not get out of.
+  await player.getByRole("button", { name: "닫기" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
   // ---- the poster the viewer paid for by watching ----------------------

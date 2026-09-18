@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useId, useRef } from "react";
+import { X } from "lucide-react";
 import type { UseOverlayStateReturn } from "@heroui/react";
+import { useI18n } from "@/lib/i18n/context";
 
 const FOCUSABLE =
   'a[href],button:not([disabled]),textarea:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])';
@@ -28,6 +30,8 @@ export function Dialog({
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
+  const { lang } = useI18n();
+  const closeLabel = lang === "ko" ? "닫기" : "Close";
 
   useEffect(() => {
     if (!state.isOpen) return;
@@ -101,10 +105,37 @@ export function Dialog({
           } rounded-lg border border-border bg-background p-6 shadow-lg outline-none`}
           onClick={(e) => e.stopPropagation()}
         >
-          <h3 id={titleId} className="text-lg font-semibold text-foreground">
+          {/* `pr-10` keeps a long title from running under the close button. */}
+          <h3
+            id={titleId}
+            className="pr-10 text-lg font-semibold text-foreground"
+          >
             {title}
           </h3>
           <div className="mt-4">{children}</div>
+          {/*
+            The way out, guaranteed.
+
+            Escape and a backdrop click always worked, but neither is visible —
+            and every dialog so far happened to carry its own 취소 or 닫기, so
+            nothing here did. Then the player arrived: its content is a video
+            that fills the panel, it had no cancel button of its own, and on a
+            small window it leaves almost no backdrop to click. There was no
+            way out anyone could SEE.
+
+            Last in the DOM on purpose. The panel focuses its first focusable
+            element on open, and a close button placed first would take that
+            from the field people came to type in.
+          */}
+          <button
+            type="button"
+            onClick={() => state.close()}
+            aria-label={closeLabel}
+            title={closeLabel}
+            className="absolute right-4 top-4 grid size-9 place-items-center rounded-md text-muted transition-colors hover:bg-foreground/[0.06] hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
+          >
+            <X size={18} strokeWidth={1.5} aria-hidden="true" />
+          </button>
         </div>
       </div>
     </div>

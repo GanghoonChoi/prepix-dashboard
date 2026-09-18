@@ -121,17 +121,11 @@ export function RoleGuide() {
       >
         <HelpCircle size={14} strokeWidth={1.75} aria-hidden="true" />
       </button>
+      {/* No 닫기 of its own: this is a reference table with nothing to
+          confirm or cancel, and the dialog itself now carries a close. Two
+          controls that do the same thing is one too many. */}
       <Dialog state={guide} title={title} size="wide">
         <RoleTable />
-        <div className="mt-6 flex justify-end">
-          <button
-            type="button"
-            onClick={guide.close}
-            className="inline-flex min-h-11 items-center justify-center rounded-md border border-border px-4 text-sm transition-colors hover:bg-surface"
-          >
-            {t("team.caps.close")}
-          </button>
-        </div>
       </Dialog>
     </>
   );
