@@ -7,6 +7,7 @@ import { authService } from "@/lib/api/services/auth.service";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useI18n } from "@/lib/i18n/context";
 import { loginHref } from "@/lib/auth-entry";
+import { Turnstile } from "@/components/auth/turnstile";
 
 export default function ForgotPasswordPage() {
   const { t, lang } = useI18n();
@@ -15,21 +16,35 @@ export default function ForgotPasswordPage() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  /*
+   * This form is Turnstile-gated because it is the bigger of the two mail
+   * paths: a scripted reset request mails a link to whatever address it is
+   * handed, and four weeks of sending was 82% exactly that.
+   */
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileReset, setTurnstileReset] = useState(0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
     try {
-      await authService.requestPasswordReset(email);
+      await authService.requestPasswordReset(email, turnstileToken ?? undefined);
       setIsSubmitted(true);
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { message?: string } } };
-      // The backend returns a generic 200 even when the email is unknown,
-      // so anything reaching here is a transport-level error.
+      const axiosErr = err as {
+        response?: { status?: number; data?: { message?: string } };
+      };
+      // The backend returns a generic 200 even when the email is unknown, so
+      // anything reaching here is transport-level — or the guard, which is the
+      // one case the reader can act on.
       setError(
-        axiosErr.response?.data?.message || t("auth.resetLinkSendFailed"),
+        axiosErr.response?.status === 403
+          ? t("auth.verificationFailed")
+          : axiosErr.response?.data?.message || t("auth.resetLinkSendFailed"),
       );
+      // The token left with the request and is spent either way.
+      setTurnstileReset((n) => n + 1);
     } finally {
       setIsLoading(false);
     }
@@ -96,6 +111,7 @@ export default function ForgotPasswordPage() {
               {error}
             </div>
           )}
+          <Turnstile onToken={setTurnstileToken} resetKey={turnstileReset} />
           <Button
             type="submit"
             variant="primary"
