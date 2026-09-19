@@ -8,6 +8,7 @@ import confetti from "canvas-confetti";
 import { LoadingScreen } from "@/components/loading-screen";
 import { PasswordRequirements } from "@/components/auth/password-requirements";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
+import { Turnstile } from "@/components/auth/turnstile";
 import { authService } from "@/lib/api/services/auth.service";
 import { markSignedIn } from "@/lib/account-hint";
 import { loginHref } from "@/lib/auth-entry";
@@ -38,6 +39,13 @@ export default function SignupPage() {
   const [step, setStep] = useState(1);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  /*
+   * Turnstile. Mounted on the last step only — it is the step that submits,
+   * and a challenge solved on step 1 can expire before someone finishes the
+   * other three.
+   */
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileReset, setTurnstileReset] = useState(0);
   const [isSettingUp, setIsSettingUp] = useState(false);
   const [authDestination, setAuthDestination] = useState("/dashboard");
   const [email, setEmail] = useState("");
@@ -152,7 +160,12 @@ export default function SignupPage() {
       */
       setIsSettingUp(true);
       try {
-        await authService.register({ email, password, username: username || undefined });
+        await authService.register({
+          email,
+          password,
+          username: username || undefined,
+          turnstileToken: turnstileToken ?? undefined,
+        });
         const loginData = await authService.login({ email, password });
         localStorage.setItem("accessToken", loginData.accessToken);
         localStorage.setItem("refreshToken", loginData.refreshToken);
@@ -172,8 +185,16 @@ export default function SignupPage() {
         go(readReturnTo(firstRunHref(lang)));
         return;
       } catch (err: unknown) {
-        const axiosErr = err as { response?: { data?: { message?: string } } };
-        setError(axiosErr.response?.data?.message || t("auth.registrationFailed"));
+        const axiosErr = err as {
+          response?: { status?: number; data?: { message?: string } };
+        };
+        setError(
+          axiosErr.response?.status === 403
+            ? t("auth.verificationFailed")
+            : axiosErr.response?.data?.message || t("auth.registrationFailed"),
+        );
+        // Spent with the request, whatever the reason for the failure.
+        setTurnstileReset((n) => n + 1);
         setIsSettingUp(false);
         setIsLoading(false);
         return;
@@ -290,6 +311,14 @@ export default function SignupPage() {
             </div>
           )}
         </div>
+
+        {step === TOTAL_STEPS && (
+          <Turnstile
+            action="signup"
+            onToken={setTurnstileToken}
+            resetKey={turnstileReset}
+          />
+        )}
 
         <div className="flex gap-3">
           {step > 1 && (

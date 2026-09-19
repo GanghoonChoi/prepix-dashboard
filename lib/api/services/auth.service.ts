@@ -10,6 +10,8 @@ export interface RegisterRequest {
   email: string;
   password: string;
   username?: string;
+  /** Cloudflare Turnstile. Omitted when no site key is configured. */
+  turnstileToken?: string;
 }
 
 export interface LoginResponse {
@@ -61,9 +63,13 @@ export const authService = {
     return response.data.data;
   },
 
-  requestPasswordReset: async (email: string): Promise<{ success: true }> => {
+  requestPasswordReset: async (
+    email: string,
+    turnstileToken?: string,
+  ): Promise<{ success: true }> => {
     const response = await apiClient.post("/auth/password-reset/request", {
       email,
+      ...(turnstileToken ? { turnstileToken } : {}),
     });
     return response.data.data;
   },

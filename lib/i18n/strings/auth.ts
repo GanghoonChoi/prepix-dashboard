@@ -75,6 +75,7 @@ export const auth: Record<Lang, Record<string, string>> = {
     "auth.didntReceiveEmailPrefix": "Didn't receive the email? Check your spam folder, or ",
     "auth.tryAgain": "try again",
     "auth.resetLinkSendFailed": "Couldn't send the reset link. Please try again.",
+    "auth.verificationFailed": "Couldn't verify you're human. Please try again.",
     "auth.sending": "Sending...",
     "auth.sendResetLink": "Send reset link",
 
@@ -174,6 +175,7 @@ export const auth: Record<Lang, Record<string, string>> = {
     "auth.didntReceiveEmailPrefix": "이메일을 받지 못하셨나요? 스팸함을 확인하시거나 ",
     "auth.tryAgain": "다시 시도해 주세요",
     "auth.resetLinkSendFailed": "재설정 링크를 보내지 못했어요. 다시 시도해 주세요.",
+    "auth.verificationFailed": "사람 확인에 실패했어요. 다시 시도해 주세요.",
     "auth.sending": "보내는 중...",
     "auth.sendResetLink": "재설정 링크 보내기",
 
