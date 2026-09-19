@@ -111,7 +111,11 @@ export default function ForgotPasswordPage() {
               {error}
             </div>
           )}
-          <Turnstile onToken={setTurnstileToken} resetKey={turnstileReset} />
+          <Turnstile
+            action="password-reset"
+            onToken={setTurnstileToken}
+            resetKey={turnstileReset}
+          />
           <Button
             type="submit"
             variant="primary"

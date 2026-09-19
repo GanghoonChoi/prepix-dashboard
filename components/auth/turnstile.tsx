@@ -26,6 +26,7 @@ interface TurnstileApi {
     element: HTMLElement,
     options: {
       sitekey: string;
+      action: string;
       callback: (token: string) => void;
       "expired-callback": () => void;
       "error-callback": () => void;
@@ -68,9 +69,16 @@ export const TURNSTILE_SITE_KEY =
   process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
 
 export function Turnstile({
+  action,
   onToken,
   resetKey = 0,
 }: {
+  /**
+   * Which form this is, echoed back by siteverify and checked there.
+   * One sitekey serves every widget on the account, so without it a token
+   * solved on any other form would also open this one.
+   */
+  action: string;
   /** Called with the token, or `null` when it expires or errors. */
   onToken: (token: string | null) => void;
   /** Change this to discard the current token and challenge again. */
@@ -99,6 +107,7 @@ export function Turnstile({
         if (cancelled || !window.turnstile) return;
         widgetId.current = window.turnstile.render(element, {
           sitekey: TURNSTILE_SITE_KEY,
+          action,
           callback: (token) => latestOnToken.current(token),
           "expired-callback": () => latestOnToken.current(null),
           "error-callback": () => latestOnToken.current(null),
@@ -121,6 +130,9 @@ export function Turnstile({
         widgetId.current = null;
       }
     };
+    // `action` is a literal at every call site, so re-running on it would
+    // only ever discard a solved challenge.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

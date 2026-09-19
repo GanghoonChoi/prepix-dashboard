@@ -313,7 +313,11 @@ export default function SignupPage() {
         </div>
 
         {step === TOTAL_STEPS && (
-          <Turnstile onToken={setTurnstileToken} resetKey={turnstileReset} />
+          <Turnstile
+            action="signup"
+            onToken={setTurnstileToken}
+            resetKey={turnstileReset}
+          />
         )}
 
         <div className="flex gap-3">
