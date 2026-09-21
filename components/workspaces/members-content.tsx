@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useOverlayState } from "@heroui/react";
 import Link from "next/link";
+import { Dialog } from "@/components/dialog";
 import { useWorkspace } from "./workspace-context";
 import { MemberActions } from "@/components/workspaces/member-actions";
 import { MembersTable } from "@/components/workspaces/members-table";
@@ -29,11 +31,15 @@ export function MembersContent({ id }: { id: string }) {
   const [busy, setBusy] = useState("");
   const [notice, setNotice] = useState("");
   const [revokeId, setRevokeId] = useState("");
-  // The invite form sits above the table, folded away once setup is done. The
-  // table's own 초대 button opens it — a `<summary>` is a real control but it
-  // does not look like the primary action on a members screen, and the screen
-  // this one replaced had a button.
-  const [inviting, setInviting] = useState(false);
+  /*
+    Inviting is a modal, not a panel on the page.
+
+    It was a `<details>` above the table, which cost the table its place: with a
+    seat panel and an expanded invite form stacked on top, the roster started
+    roughly a thousand pixels down and the first screen of a MEMBERS page had
+    no members on it. A modal costs nothing until it is opened.
+  */
+  const inviteDialog = useOverlayState();
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     void load();
@@ -89,9 +95,13 @@ export function MembersContent({ id }: { id: string }) {
     );
   return (
     <TeamShell
-      title={
-        setup ? (data?.workspace.name ?? t("team.title")) : t("team.members")
-      }
+      /*
+        No page title outside first-run setup. The table carries its own
+        heading, so a 멤버 above 멤버와 초대 was the same word twice and a line
+        the roster paid for in position. During setup the team's name is the
+        orientation, so it stays.
+      */
+      title={setup ? (data?.workspace.name ?? t("team.title")) : undefined}
       /* Only first-run setup needs a line of orientation. Once the table is
          on screen it says what this page is better than a sentence can. */
       description={setup ? t("team.inviteDesc") : undefined}
@@ -112,21 +122,13 @@ export function MembersContent({ id }: { id: string }) {
               <li>{t("team.step3")}</li>
             </ol>
           )}
-          {/*
-            Four figures, never one total. `team.seatCount` used to print
-            "3 joined + 2 invited / 10", which still reads as one sum and hid
-            suspended members entirely.
-          */}
-          <SeatBreakdown detail={data} />
           {data.canManage && (
-            <details
-              open={setup || inviting}
-              onToggle={(event) => setInviting(event.currentTarget.open)}
-              className="space-y-4 rounded-xl border border-border p-5"
+            <Dialog
+              state={inviteDialog}
+              title={lang === "ko" ? "팀원 초대" : "Invite people"}
             >
-              <summary className="cursor-pointer text-sm font-medium">
-                {lang === "ko" ? "팀원 초대" : "Invite people"}
-              </summary>
+              {/* Stays open after sending: the form answers per address, and
+                  closing would take those answers away with it. */}
               <InviteForm
                 key={id}
                 workspaceId={id}
@@ -137,19 +139,19 @@ export function MembersContent({ id }: { id: string }) {
                 )}
                 pendingEmails={data.invitations
                   .filter(
-                    (invite) =>
-                      !invite.acceptedAt &&
-                      !invite.revokedAt &&
-                      new Date(invite.expiresAt).getTime() > now,
+                    (row) =>
+                      !row.acceptedAt &&
+                      !row.revokedAt &&
+                      new Date(row.expiresAt).getTime() > now,
                   )
-                  .map((invite) => invite.email)}
+                  .map((row) => row.email)}
                 availableSeats={seatFigures(data)?.remaining ?? 0}
                 ownerEmail={
                   data.members.find((member) => member.role === "owner")?.email
                 }
                 onChange={load}
               />
-            </details>
+            </Dialog>
           )}
           {setup && (
             <button
@@ -178,7 +180,10 @@ export function MembersContent({ id }: { id: string }) {
           <MembersTable
             title={lang === "ko" ? "멤버와 초대" : "Members and invitations"}
             busy={!!busy}
-            onInvite={data.canManage ? () => setInviting(true) : undefined}
+            onInvite={data.canManage ? inviteDialog.open : undefined}
+            // Four figures on one line, never a total (D02). The panel form
+            // lives on 플랜과 결제, where seats are the subject.
+            meta={<SeatBreakdown detail={data} compact />}
             inviteLabel={lang === "ko" ? "초대" : "Invite"}
             // Members only: the table also carries people who have not
             // answered, and counting them here would overstate the team.

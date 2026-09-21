@@ -179,11 +179,14 @@ test("seat figures stay separate numbers and move independently, and the capabil
   await expect(figure("remaining")).toHaveText("9");
 
   // ---- 5. the role grid is at the point of assignment --------------------
-  await page
-    .locator("form")
-    .getByRole("button", { name: "역할별 권한" })
-    .click();
-  const guide = page.getByRole("dialog");
+  // Inviting is a modal now — a panel on the page pushed the roster off the
+  // first screen of a members page.
+  await page.getByRole("button", { name: "초대", exact: true }).click();
+  const inviteDialog = page.getByRole("dialog");
+  await expect(inviteDialog.getByLabel("이메일 주소")).toBeVisible();
+  await inviteDialog.getByRole("button", { name: "역할별 권한" }).click();
+  // The guide stacks over the invite modal; assert against the newer one.
+  const guide = page.getByRole("dialog").last();
   const grid = guide.getByRole("table");
   await expect(
     grid.getByRole("columnheader", { name: "소유자", exact: true })
@@ -200,7 +203,7 @@ test("seat figures stay separate numbers and move independently, and the capabil
   await expect(
     guide.getByText(/관리자는 누구도 소유자로 지정할 수 없습니다/)
   ).toBeVisible();
-  await guide.getByRole("button", { name: "닫기" }).click();
+  await guide.getByRole("button", { name: "닫기" }).first().click();
   // The invite form names the space people are about to be let into.
   await expect(
     page.locator('form [data-space="team"]')

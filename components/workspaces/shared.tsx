@@ -270,7 +270,22 @@ export function SpaceBadge({
  * is deliberately no summed figure on this component — adding one back is the
  * regression.
  */
-export function SeatBreakdown({ detail }: { detail: WorkspaceDetail }) {
+export function SeatBreakdown({
+  detail,
+  compact,
+}: {
+  detail: WorkspaceDetail;
+  /**
+   * One line instead of a panel, for a screen whose subject is the roster.
+   *
+   * The members screen is where people come to see members, and a 200px box of
+   * seat figures above the table pushed the table itself off the first screen.
+   * The same numbers still appear separately — never summed, which is the
+   * whole guardrail — they just stop being furniture. The full panel stays on
+   * 플랜과 결제, where seats ARE the subject.
+   */
+  compact?: boolean;
+}) {
   const { t } = useI18n();
   const figures = seatFigures(detail);
   // Personal workspaces are outside seat accounting, so there is nothing here —
@@ -298,6 +313,26 @@ export function SeatBreakdown({ detail }: { detail: WorkspaceDetail }) {
       ],
     ],
   ];
+  if (compact)
+    return (
+      <p
+        data-seats="split"
+        className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-xs leading-5 text-muted"
+      >
+        {groups.flatMap(([, rows]) => rows).map(([label, value]) => (
+          <span key={label} className="whitespace-nowrap">
+            {t(label)}{" "}
+            <span
+              data-seat={label.slice("team.seat".length).toLowerCase()}
+              className="font-medium tabular-nums text-foreground"
+            >
+              {value}
+            </span>
+          </span>
+        ))}
+      </p>
+    );
+
   return (
     <section
       data-seats="split"
