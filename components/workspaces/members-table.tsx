@@ -51,6 +51,7 @@ export function MembersTable({
   count,
   footnote,
   busy,
+  meta,
 }: {
   title: string;
   description?: string;
@@ -82,6 +83,12 @@ export function MembersTable({
   count?: number;
   footnote?: string;
   busy?: boolean;
+  /**
+   * A line under the heading for figures that belong to this roster — seats,
+   * today. Here rather than stacked above the table, because a panel between
+   * the page title and the table is a panel the table pays for in position.
+   */
+  meta?: ReactNode;
 }) {
   const { lang } = useI18n();
   const c = (ko: string, en: string) => (lang === "ko" ? ko : en);
@@ -111,6 +118,7 @@ export function MembersTable({
           {description && (
             <p className="mt-1 text-sm text-muted">{description}</p>
           )}
+          {meta && <div className="mt-2">{meta}</div>}
         </div>
         {onInvite && (
           <button className={primaryClass} onClick={onInvite}>

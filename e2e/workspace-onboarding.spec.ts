@@ -112,6 +112,8 @@ test("team creation, per-address invitation recovery, authenticated acceptance, 
   );
   // A transport failure leaves the form retryable with its exact draft intact.
   const inviteEndpoint = `${api}/v2/workspaces/${workspaceId}/invitations`;
+  // The form lives in a modal now, opened by the roster's own 초대 button.
+  await page.getByRole("button", { name: "초대", exact: true }).click();
   await page
     .getByLabel("이메일 주소", { exact: true })
     .fill(
@@ -248,7 +250,7 @@ test("team creation, per-address invitation recovery, authenticated acceptance, 
   const detail = `${api}/v2/workspaces/${workspaceId}`;
   await page.goto(`${workspaceUrl}/members`);
   const draft = `keep-${suffix}@example.test`;
-  // Folded away once setup is done; the table's 초대 button is what opens it.
+  // Behind the roster's 초대 button, which is the only way in now.
   await page.getByRole("button", { name: "초대", exact: true }).click();
   await page.getByLabel("이메일 주소", { exact: true }).fill(draft);
   await page.route(detail, (route) => route.abort());
