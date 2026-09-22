@@ -68,13 +68,18 @@ export default function PlanPage() {
     setActionLoading(true);
     try {
       const result = await subscriptionService.checkout(planId);
-      // Open the in-page Paddle overlay against the SERVER-CREATED transaction
-      // (client-side transaction creation via `items` is blocked for this
-      // vendor). Customer, plan and any launch discount are already baked into
-      // the transaction server-side. On completion the layout's eventCallback
-      // reloads the page. If Paddle.js isn't ready, fall back to the hosted
-      // checkout page (which opens the same transaction by id).
-      if (result.transactionId && window.Paddle && window.__paddleReady) {
+      // Only Paddle has an in-page overlay, and it is opened against the
+      // SERVER-CREATED transaction (client-side creation via `items` is blocked
+      // for this vendor). Every other processor hosts its own checkout page, so
+      // the id below belongs to them and handing it to Paddle.js would only
+      // raise an error — hence the provider gate. On completion the layout's
+      // eventCallback reloads the page.
+      if (
+        result.provider === "paddle" &&
+        result.transactionId &&
+        window.Paddle &&
+        window.__paddleReady
+      ) {
         window.Paddle.Checkout.open({
           transactionId: result.transactionId,
           settings: {
@@ -85,7 +90,9 @@ export default function PlanPage() {
           },
         });
       } else if (result.checkoutUrl) {
-        // Full-page navigation to a hosted checkout — not React state.
+        // The normal path for Creem and Lemon Squeezy, and Paddle's fallback
+        // when its script has not loaded. Full-page navigation to a hosted
+        // checkout — not React state.
         // eslint-disable-next-line react-hooks/immutability
         window.location.href = result.checkoutUrl;
       } else {
