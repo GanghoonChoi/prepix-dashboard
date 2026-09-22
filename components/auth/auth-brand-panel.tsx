@@ -17,6 +17,9 @@ export function AuthBrandPanel() {
         </Link>
       </div>
 
+      {/*
+        The testimonial is off (2026-09-22). Its strings stay in lib/i18n/strings/auth.ts;
+        to bring it back, uncomment this block.
       <div className="space-y-6">
         <blockquote className="text-lg font-medium leading-relaxed text-foreground">
           &quot;{t("auth.testimonialQuote")}&quot;
@@ -26,6 +29,7 @@ export function AuthBrandPanel() {
           <p className="text-xs text-muted">{t("auth.testimonialRole")}</p>
         </div>
       </div>
+      */}
 
       <div className="space-y-3">
         <div className="flex gap-4 text-xs text-muted">
