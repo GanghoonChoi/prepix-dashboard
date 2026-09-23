@@ -59,7 +59,7 @@ export interface CheckoutResult {
   // Which merchant of record this checkout belongs to. Only "paddle" has an
   // in-page overlay; the others host their own page, so the client follows
   // checkoutUrl instead of handing the id to Paddle.js.
-  provider: "paddle" | "creem" | "lemonsqueezy";
+  provider: "paddle" | "creem" | "lemonsqueezy" | "tosspayments";
   // Server-created Paddle transaction the overlay opens (client-side creation
   // is blocked for this vendor, so the backend always pre-creates it), or the
   // hosted checkout's id for the other providers.
