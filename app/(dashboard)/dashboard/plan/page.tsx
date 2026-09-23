@@ -7,7 +7,6 @@ import { Check } from "lucide-react";
 import {
   subscriptionService,
   type CatalogPlan,
-  type BillingInterval,
   type CurrentSubscription,
 } from "@/lib/api/services/subscription.service";
 import { PLAN_NAMES, PLAN_COPY, PLAN_STATUS_META, formatPrice } from "@/lib/constants/data";
@@ -28,7 +27,6 @@ export default function PlanPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [currentSub, setCurrentSub] = useState<CurrentSubscription | null>(null);
   const [plans, setPlans] = useState<CatalogPlan[]>([]);
-  const [interval, setBillingInterval] = useState<BillingInterval>("month");
   const [justUpgraded, setJustUpgraded] = useState(false);
   const cancelModal = useOverlayState();
   const refundModal = useOverlayState();
@@ -69,7 +67,7 @@ export default function PlanPage() {
   const handleUpgrade = async (planId: string) => {
     setActionLoading(true);
     try {
-      const result = await subscriptionService.checkout(planId, interval);
+      const result = await subscriptionService.checkout(planId);
       // Open the in-page Paddle overlay against the SERVER-CREATED transaction
       // (client-side transaction creation via `items` is blocked for this
       // vendor). Customer, plan and any launch discount are already baked into
@@ -213,12 +211,11 @@ export default function PlanPage() {
   // A filed request replaces every control: the question this person has is
   // "did it go through", and another button answers the wrong one.
   const refundPending = refundOffer?.action === "pending";
-  const hasAnnual = plans.some((p) => p.prices.some((pr) => pr.interval === "year"));
 
   const priceLabel = (plan: CatalogPlan) => {
     if (plan.status === "coming_soon")
       return { big: t("plan.comingSoon"), strike: null as string | null, sub: null as string | null };
-    const price = plan.prices.find((p) => p.interval === interval) ?? plan.prices[0];
+    const price = plan.prices.find((p) => p.interval === "month") ?? plan.prices[0];
     if (!price) return { big: formatPrice("KRW", 0), strike: null, sub: t("plan.freeForever") };
 
     const pct = price.launchDiscountPercent ?? 0;
@@ -248,11 +245,6 @@ export default function PlanPage() {
     }
     return { label: t("plan.get", { name: plan.displayName }), disabled: false, onPress: () => handleUpgrade(plan.id) };
   };
-
-  const toggleClass = (active: boolean) =>
-    `rounded px-3 py-1.5 text-sm font-medium transition-colors ${
-      active ? "bg-foreground text-background" : "text-muted hover:text-foreground"
-    }`;
 
   return (
     <div className="space-y-10">
@@ -355,19 +347,7 @@ export default function PlanPage() {
       {/* Plan cards */}
       {!loading && !loadError && (
         <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-medium text-foreground">{t("plan.availablePlans")}</h2>
-            {hasAnnual && (
-              <div className="inline-flex rounded-md border border-border p-0.5">
-                <button className={toggleClass(interval === "month")} onClick={() => setBillingInterval("month")}>
-                  {t("plan.monthly")}
-                </button>
-                <button className={toggleClass(interval === "year")} onClick={() => setBillingInterval("year")}>
-                  {t("plan.annual")}
-                </button>
-              </div>
-            )}
-          </div>
+          <h2 className="text-sm font-medium text-foreground">{t("plan.availablePlans")}</h2>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {plans.map((plan) => {
