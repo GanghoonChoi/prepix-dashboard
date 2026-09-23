@@ -223,7 +223,15 @@ export default function PlanPage() {
     if (plan.status === "coming_soon")
       return { big: t("plan.comingSoon"), strike: null as string | null, sub: null as string | null };
     const price = plan.prices.find((p) => p.interval === "month") ?? plan.prices[0];
-    if (!price) return { big: formatPrice("KRW", 0), strike: null, sub: t("plan.freeForever") };
+    // The catalog only carries prices for the processor that would take THIS
+    // buyer's money, so a paid tier can come back with none — that is a
+    // misconfiguration, not a free plan, and rendering it as ₩0 quotes a price
+    // we will never honour.
+    if (!price) {
+      return plan.id === "free"
+        ? { big: formatPrice("KRW", 0), strike: null, sub: t("plan.freeForever") }
+        : { big: t("plan.priceUnavailable"), strike: null, sub: null };
+    }
 
     const pct = price.launchDiscountPercent ?? 0;
     const net = pct ? Math.round(price.unitAmount * (1 - pct / 100)) : price.unitAmount;
@@ -245,10 +253,15 @@ export default function PlanPage() {
     const isCurrent = currentPlan === plan.id;
     if (isCurrent) return { label: t("plan.currentPlan"), disabled: true, onPress: () => {} };
     if (plan.status === "coming_soon") return { label: t("plan.comingSoon"), disabled: true, onPress: () => {} };
-    if (plan.prices.length === 0) {
-      // Free tier — only a downgrade target when there's a subscription to
-      // cancel (a granted paid tier has nothing to downgrade from here).
+    if (plan.id === "free") {
+      // Only a downgrade target when there's a subscription to cancel (a
+      // granted paid tier has nothing to downgrade from here).
       return { label: t("plan.downgrade"), disabled: !canCancel, onPress: () => cancelModal.open() };
+    }
+    if (plan.prices.length === 0) {
+      // A paid tier our processor has no price for. Offering it would start a
+      // checkout the server refuses; saying it is free would be a lie.
+      return { label: t("plan.priceUnavailable"), disabled: true, onPress: () => {} };
     }
     return { label: t("plan.get", { name: plan.displayName }), disabled: false, onPress: () => handleUpgrade(plan.id) };
   };
