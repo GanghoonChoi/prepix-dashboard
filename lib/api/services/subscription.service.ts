@@ -1,4 +1,5 @@
 import { apiClient } from "../client";
+import { countryHeaders } from "../country";
 
 export type BillingInterval = "month" | "year";
 
@@ -81,7 +82,9 @@ export const subscriptionService = {
 
   // The public catalog — single source of truth for tiers, prices and status.
   getPlans: async (): Promise<CatalogPlan[]> => {
-    const response = await apiClient.get("/subscriptions/plans");
+    const response = await apiClient.get("/subscriptions/plans", {
+      headers: await countryHeaders(),
+    });
     return response.data.data;
   },
 
@@ -89,10 +92,11 @@ export const subscriptionService = {
     planId: string,
     interval: BillingInterval = "month",
   ): Promise<CheckoutResult> => {
-    const response = await apiClient.post("/subscriptions/checkout", {
-      planId,
-      interval,
-    });
+    const response = await apiClient.post(
+      "/subscriptions/checkout",
+      { planId, interval },
+      { headers: await countryHeaders() },
+    );
     return response.data.data;
   },
 
