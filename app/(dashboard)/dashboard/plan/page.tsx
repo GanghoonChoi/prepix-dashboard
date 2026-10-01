@@ -72,6 +72,27 @@ export default function PlanPage() {
     }
   }, []);
 
+  // Back from a hosted checkout. Toss has already written the plan by the time
+  // the buyer arrives, but the others tell us through a webhook that can trail
+  // the redirect by seconds — so keep asking, briefly, instead of leaving a
+  // paid customer looking at the free plan until they think to refresh.
+  useEffect(() => {
+    if (!justUpgraded) return;
+    let tries = 0;
+    const id = setInterval(async () => {
+      tries++;
+      try {
+        const sub = await subscriptionService.getCurrent();
+        setCurrentSub(sub);
+        if (sub.plan !== "free") clearInterval(id);
+      } catch {
+        /* keep the view we have; the next tick or a reload reconciles */
+      }
+      if (tries >= 10) clearInterval(id);
+    }, 2000);
+    return () => clearInterval(id);
+  }, [justUpgraded]);
+
   const handleUpgrade = async (planId: string, country?: string) => {
     setActionLoading(true);
     try {
@@ -101,7 +122,6 @@ export default function PlanPage() {
         // The normal path for Creem and Lemon Squeezy, and Paddle's fallback
         // when its script has not loaded. Full-page navigation to a hosted
         // checkout — not React state.
-        // eslint-disable-next-line react-hooks/immutability
         window.location.href = result.checkoutUrl;
       } else {
         toast(t("plan.checkoutUnavailable"), "error");
