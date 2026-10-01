@@ -14,7 +14,10 @@ function lookup(): Promise<string> {
   return pending;
 }
 
-export async function countryHeaders(): Promise<Record<string, string>> {
-  const country = await lookup();
+// `override` is for the buyer who chose the other processor on purpose — a
+// foreign-issued card in Korea, which the domestic one declines. Any value that
+// is not KR sends them to the default processor.
+export async function countryHeaders(override?: string): Promise<Record<string, string>> {
+  const country = override ?? (await lookup());
   return country ? { "x-prepix-country": country } : {};
 }

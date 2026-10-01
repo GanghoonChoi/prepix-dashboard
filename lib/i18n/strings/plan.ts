@@ -43,6 +43,8 @@ export const plan: Record<Lang, Record<string, string>> = {
     "plan.checkoutUnavailable":
       "Checkout is not available right now. Please try again later.",
     "plan.checkoutFailed": "Failed to start checkout",
+    "plan.payWithForeignCard": "Paying with a card issued outside Korea? {price}/mo",
+    "plan.updateCard": "Update payment card",
     "plan.cancelToast":
       "Subscription cancelled. Access continues until your billing period ends.",
     "plan.cancelFailed": "Failed to cancel",
@@ -129,6 +131,8 @@ export const plan: Record<Lang, Record<string, string>> = {
     "plan.cancelAnytime": "언제든 해지할 수 있어요. 약정 없음.",
     "plan.checkoutUnavailable": "지금은 결제를 진행할 수 없어요. 잠시 후 다시 시도해 주세요.",
     "plan.checkoutFailed": "결제를 시작하지 못했어요",
+    "plan.payWithForeignCard": "해외에서 발급된 카드로 결제하시나요? 월 {price}",
+    "plan.updateCard": "카드 다시 등록",
     "plan.cancelToast": "구독을 해지했어요. 결제 주기가 끝날 때까지 계속 이용할 수 있어요.",
     "plan.cancelFailed": "해지에 실패했어요",
     "plan.refundToast": "결제가 환불되고 구독이 해지됐어요.",

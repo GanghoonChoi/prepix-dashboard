@@ -27,6 +27,10 @@ export default function PlanPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [currentSub, setCurrentSub] = useState<CurrentSubscription | null>(null);
   const [plans, setPlans] = useState<CatalogPlan[]>([]);
+  // The same catalog as the default processor would quote it, for a buyer in
+  // Korea whose card is foreign-issued: the domestic processor takes won on
+  // Korean cards only, so they need a way to the dollar price that is not a dead end.
+  const [intlPlans, setIntlPlans] = useState<CatalogPlan[]>([]);
   const [justUpgraded, setJustUpgraded] = useState(false);
   const cancelModal = useOverlayState();
   const refundModal = useOverlayState();
@@ -44,6 +48,10 @@ export default function PlanPage() {
       .then(([sub, catalog]) => {
         setCurrentSub(sub);
         setPlans(catalog);
+        // Only worth asking when this buyer is being quoted won.
+        if (catalog.some((p) => p.prices.some((pr) => pr.currency === "KRW" && p.id !== "free"))) {
+          subscriptionService.getPlans("INTL").then(setIntlPlans).catch(() => setIntlPlans([]));
+        }
       })
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
@@ -64,10 +72,10 @@ export default function PlanPage() {
     }
   }, []);
 
-  const handleUpgrade = async (planId: string) => {
+  const handleUpgrade = async (planId: string, country?: string) => {
     setActionLoading(true);
     try {
-      const result = await subscriptionService.checkout(planId);
+      const result = await subscriptionService.checkout(planId, "month", country);
       // Only Paddle has an in-page overlay, and it is opened against the
       // SERVER-CREATED transaction (client-side creation via `items` is blocked
       // for this vendor). Every other processor hosts its own checkout page, so
@@ -219,6 +227,19 @@ export default function PlanPage() {
   // "did it go through", and another button answers the wrong one.
   const refundPending = refundOffer?.action === "pending";
 
+  // The dollar price of a plan for a card issued abroad, or null when there is
+  // nothing to offer (not quoted in won, or no such price).
+  const foreignCardPrice = (plan: CatalogPlan): string | null => {
+    const quoted = plan.prices.find((p) => p.interval === "month");
+    if (!quoted || quoted.currency !== "KRW") return null;
+    const abroad = intlPlans
+      .find((p) => p.id === plan.id)
+      ?.prices.find((p) => p.interval === "month" && p.currency !== "KRW");
+    if (!abroad) return null;
+    const pct = abroad.launchDiscountPercent ?? 0;
+    return formatPrice(abroad.currency, pct ? Math.round(abroad.unitAmount * (1 - pct / 100)) : abroad.unitAmount);
+  };
+
   const priceLabel = (plan: CatalogPlan) => {
     if (plan.status === "coming_soon")
       return { big: t("plan.comingSoon"), strike: null as string | null, sub: null as string | null };
@@ -304,9 +325,24 @@ export default function PlanPage() {
                 {t("plan.ended")}
               </p>
             ) : status === "past_due" ? (
-              <p className="mt-1 text-sm text-warning">
-                {t("plan.pastDue")}
-              </p>
+              <>
+                <p className="mt-1 text-sm text-warning">
+                  {t("plan.pastDue")}
+                </p>
+                {/* The domestic processor mends a failed card by registering a new
+                    one; the others have no such step here. */}
+                {currentSub?.provider === "tosspayments" && (
+                  <Button
+                    className="mt-3"
+                    size="sm"
+                    variant="primary"
+                    isDisabled={actionLoading}
+                    onPress={() => handleUpgrade(currentPlan)}
+                  >
+                    {t("plan.updateCard")}
+                  </Button>
+                )}
+              </>
             ) : (
               <p className="mt-1 text-sm text-muted">
                 {currentPlan === "free" ? t("plan.onFree") : t("plan.active")}
@@ -437,6 +473,17 @@ export default function PlanPage() {
                     <p className="mt-2 text-center text-[11px] text-muted">
                       {t("plan.cancelAnytime")}
                     </p>
+                  )}
+
+                  {!btn.disabled && plan.id !== "free" && foreignCardPrice(plan) && (
+                    <button
+                      type="button"
+                      disabled={actionLoading}
+                      onClick={() => handleUpgrade(plan.id, "INTL")}
+                      className="mt-2 text-center text-[11px] text-muted underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
+                    >
+                      {t("plan.payWithForeignCard", { price: foreignCardPrice(plan)! })}
+                    </button>
                   )}
                 </div>
               );

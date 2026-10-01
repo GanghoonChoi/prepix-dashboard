@@ -27,6 +27,8 @@ export interface CurrentSubscription {
   // are granted directly, so `plan` can be paid while `manageable` is false.
   plan: string;
   status: string;
+  // Which processor sold the live subscription. Absent when there is none.
+  provider?: CheckoutResult["provider"];
   // Whether a live Paddle subscription backs this plan, i.e. whether there is
   // anything to cancel or downgrade. False for granted tiers and for plans with
   // no subscription at all.
@@ -81,9 +83,9 @@ export const subscriptionService = {
   },
 
   // The public catalog — single source of truth for tiers, prices and status.
-  getPlans: async (): Promise<CatalogPlan[]> => {
+  getPlans: async (country?: string): Promise<CatalogPlan[]> => {
     const response = await apiClient.get("/subscriptions/plans", {
-      headers: await countryHeaders(),
+      headers: await countryHeaders(country),
     });
     return response.data.data;
   },
@@ -91,11 +93,12 @@ export const subscriptionService = {
   checkout: async (
     planId: string,
     interval: BillingInterval = "month",
+    country?: string,
   ): Promise<CheckoutResult> => {
     const response = await apiClient.post(
       "/subscriptions/checkout",
       { planId, interval },
-      { headers: await countryHeaders() },
+      { headers: await countryHeaders(country) },
     );
     return response.data.data;
   },
