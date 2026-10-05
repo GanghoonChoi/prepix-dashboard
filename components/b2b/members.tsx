@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   b2bService,
   type ChangeAffiliation,
+  type ChangeTeamMember,
   type TeamPeople,
   type TeamPerson,
 } from "@/lib/api/services/b2b.service";
@@ -14,6 +15,7 @@ import {
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
+import { RecoverLead } from "./recover-lead";
 import { InvitationPanel } from "./invitations";
 import { B2bError, definitivelyRejected, errorCode, useCopy } from "./shared";
 
@@ -97,6 +99,11 @@ export function TeamMembers() {
                           ? ` · ${person.billingAllowed ? c("결제 권한 있음", "Billing permission") : c("결제 권한 없음", "No billing permission")}`
                           : ""}
                       </p>
+                      {person.role !== "owner" &&
+                        person.userId !== data.currentUserId &&
+                        (data.role === "owner" || person.role !== "admin") && (
+                          <MemberActionEditor person={person} onSaved={load} />
+                        )}
                       {roster.canDelegateBilling &&
                         person.role !== "owner" &&
                         !person.suspendedAt && (
@@ -112,6 +119,7 @@ export function TeamMembers() {
             </section>
           ))}
           <InvitationPanel editable={b2b.team.currentState === "active"} />
+          {data.role === "owner" && <RecoverLead people={roster.people} />}
         </>
       )}
     </TeamShell>
@@ -215,6 +223,122 @@ function AffiliationEditor({
           {busy
             ? c("저장 중…", "Saving…")
             : c("권한 변경 저장", "Save permissions")}
+        </button>
+      </form>
+    </details>
+  );
+}
+
+function MemberActionEditor({
+  person,
+  onSaved,
+}: {
+  person: TeamPerson;
+  onSaved: () => Promise<void>;
+}) {
+  const { data } = useWorkspace()!;
+  const c = useCopy();
+  const pending = useRef<ChangeTeamMember | null>(null);
+  const [action, setAction] = useState<ChangeTeamMember["action"]>(
+    person.suspendedAt ? "reactivate" : "reviewer",
+  );
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  return (
+    <details className="max-w-2xl rounded-lg border border-border p-3">
+      <summary className="min-h-11 cursor-pointer py-3 text-sm">
+        {c("팀 역할·참여 관리", "Manage team role and participation")}
+      </summary>
+      <form
+        className="space-y-4 pt-4"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          if (busy) return;
+          pending.current ??= {
+            requestKey: crypto.randomUUID(),
+            revision: person.revision,
+            action,
+            reason: reason.trim(),
+          };
+          setBusy(true);
+          setError("");
+          try {
+            await b2bService.changeTeamMember(
+              data.workspace.id,
+              person.userId,
+              pending.current,
+            );
+            pending.current = null;
+            setReason("");
+            await onSaved();
+          } catch (e) {
+            setError(errorCode(e));
+            if (definitivelyRejected(e)) pending.current = null;
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <p className="text-sm leading-6 text-muted">
+          {c(
+            "정지·제거는 후임 지정 없이 즉시 접근을 회수합니다. 다시 활성화해도 이전 프로젝트와 결제 권한은 복구되지 않습니다. 역할 변경은 이용권 구매나 환불을 실행하지 않습니다.",
+            "Suspension and removal revoke access immediately, without waiting for handover. Reactivation does not restore project or billing grants. Role changes do not purchase or refund licences.",
+          )}
+        </p>
+        <label className="block space-y-2 text-sm">
+          <span>{c("참여 변경", "Participation change")}</span>
+          <select
+            aria-label={c("참여 변경", "Participation change")}
+            className={inputClass}
+            value={action}
+            disabled={busy || !!pending.current}
+            onChange={(e) =>
+              setAction(e.target.value as ChangeTeamMember["action"])
+            }
+          >
+            <option value="reviewer">
+              {c("팀 참여자 · 검토", "Team participant · Review")}
+            </option>
+            <option value="editor">
+              {c("팀 참여자 · 제작", "Team participant · Production")}
+            </option>
+            {data.role === "owner" && person.kind === "internal" && (
+              <option value="admin">
+                {c("팀 관리자", "Team administrator")}
+              </option>
+            )}
+            {person.suspendedAt ? (
+              <option value="reactivate">
+                {c("팀 참여 다시 활성화", "Reactivate team participation")}
+              </option>
+            ) : (
+              <option value="suspend">
+                {c("팀 참여 정지", "Suspend team participation")}
+              </option>
+            )}
+            <option value="remove">
+              {c("팀에서 제거", "Remove from team")}
+            </option>
+          </select>
+        </label>
+        <label className="block space-y-2 text-sm">
+          <span>{c("참여 변경 사유", "Reason for participation change")}</span>
+          <textarea
+            aria-label={c("참여 변경 사유", "Reason for participation change")}
+            className={inputClass}
+            required
+            maxLength={1000}
+            disabled={busy || !!pending.current}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+        </label>
+        {error && <B2bError code={error} />}
+        <button className={primaryClass} disabled={busy || !reason.trim()}>
+          {busy
+            ? c("변경 중…", "Updating…")
+            : c("참여 변경 확인", "Confirm participation change")}
         </button>
       </form>
     </details>

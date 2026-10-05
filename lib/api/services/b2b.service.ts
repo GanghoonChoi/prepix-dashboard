@@ -7,6 +7,9 @@ import type {
   ChangeInvitation,
   TeamPeople,
   ChangeAffiliation,
+  ChangeTeamMember,
+  RecoverProjectLead,
+  ProjectLeadRecovery,
   ChangeParticipant,
   CreateProject,
   ProjectDetail,
@@ -100,6 +103,20 @@ export const b2bService = {
   transferLead: (id: string, projectId: string, input: TransferLead) =>
     post<{ revision: number; requestId: string }>(
       `${projectPath(id, projectId)}/lead`,
+      input,
+    ),
+  leave: (id: string, input: ChangeInvitation) =>
+    post<{ left: true; requestId: string }>(`${base(id)}/leave`, input),
+  changeTeamMember: (id: string, userId: string, input: ChangeTeamMember) =>
+    post<{ revision: number; requestId: string }>(
+      `${base(id)}/members/${e(userId)}/action`,
+      input,
+    ),
+  leadRecovery: (id: string, projectId: string) =>
+    get<ProjectLeadRecovery>(`${projectPath(id, projectId)}/lead-recovery`),
+  recoverLead: (id: string, projectId: string, input: RecoverProjectLead) =>
+    post<{ projectId: string; revision: number; requestId: string }>(
+      `${projectPath(id, projectId)}/recover-lead`,
       input,
     ),
   changeAffiliation: (id: string, userId: string, input: ChangeAffiliation) =>

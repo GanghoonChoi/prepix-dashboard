@@ -383,7 +383,194 @@ test("B2B external invitation proves mailbox and preserves billing mutation on l
       roster.people.find((p: { userId: string }) => p.userId === guest.id)
         .revision,
     ).toBe(1);
+    await row.getByText("팀 역할·참여 관리", { exact: true }).click();
+    await row.getByLabel("참여 변경", { exact: true }).selectOption("suspend");
+    await row
+      .getByLabel("참여 변경 사유", { exact: true })
+      .fill("Immediately suspend external access");
+    await row
+      .getByRole("button", { name: "참여 변경 확인", exact: true })
+      .click();
+    await expect(
+      row.locator("p").filter({ hasText: "참여 정지" }),
+    ).toBeVisible();
+    await guestPage.goto(`${base}/projects/${project.id}`);
+    await expect(guestPage.locator("main [role=alert]")).toBeVisible();
+    await expect(
+      guestPage.getByRole("heading", {
+        name: "External scope only",
+        exact: true,
+      }),
+    ).toHaveCount(0);
+    await row
+      .getByLabel("참여 변경", { exact: true })
+      .selectOption("reactivate");
+    await row
+      .getByLabel("참여 변경 사유", { exact: true })
+      .fill("Reactivate membership without old grants");
+    await row
+      .getByRole("button", { name: "참여 변경 확인", exact: true })
+      .click();
+    await expect(row.locator("p").filter({ hasText: "참여 정지" })).toHaveCount(
+      0,
+    );
+    await expect(
+      row.getByText("결제 권한 없음", { exact: false }),
+    ).toBeVisible();
+    await guestPage.goto(`${base}/projects/${project.id}`);
+    await expect(guestPage.locator("main [role=alert]")).toContainText(
+      "접근 권한이 없습니다",
+    );
+    await guestPage.goto(`${base}/settings`);
+    await guestPage
+      .getByLabel("탈퇴 사유", { exact: true })
+      .fill("End external participation");
+    await guestPage
+      .getByRole("button", { name: "팀 탈퇴 확인", exact: true })
+      .click();
+    await expect(guestPage).toHaveURL(/\/dashboard\/workspaces(?:$|\?)/);
   } finally {
     await guestContext.close();
   }
+});
+
+test("B2B owner restores vacant lead without gaining private project content", async ({
+  page,
+  request,
+}) => {
+  const owner = await account(request, "b2b-recover-owner");
+  const lead = await account(request, "b2b-recover-lead");
+  const successor = await account(request, "b2b-recover-successor");
+  const team = (
+    await (
+      await request.post(`${api}/v2/workspaces`, {
+        headers: owner.headers,
+        data: { name: `B2B recovery ${suffix()}` },
+      })
+    ).json()
+  ).data.workspace;
+  await request.post(`${api}/v2/workspaces/${team.id}/b2b/enroll`, {
+    headers: owner.headers,
+    data: {
+      requestKey: crypto.randomUUID(),
+      revision: 0,
+      reason: "Recovery fixture",
+    },
+  });
+  fixture({ workspaceId: team.id, action: "activate" });
+  fixture({ workspaceId: team.id, action: "join", userId: lead.id });
+  fixture({ workspaceId: team.id, action: "join", userId: successor.id });
+  const endpoint = `${api}/v2/workspaces/${team.id}/b2b`;
+  const project = (
+    await (
+      await request.post(`${endpoint}/projects`, {
+        headers: lead.headers,
+        data: {
+          requestKey: crypto.randomUUID(),
+          name: "Private vacancy content",
+          brief: "Owner must never see this",
+        },
+      })
+    ).json()
+  ).data.project;
+  await request.post(`${endpoint}/invitations`, {
+    headers: lead.headers,
+    data: {
+      requestKey: crypto.randomUUID(),
+      email: successor.email,
+      kind: "internal",
+      teamRole: "editor",
+      projectId: project.id,
+      projectRole: "producer",
+    },
+  });
+  let offer: { inviteUrl: string } | undefined;
+  await expect
+    .poll(
+      async () => {
+        const mailbox = await (await request.get(`${api}/__test/mail`)).json();
+        offer = mailbox.findLast(
+          (m: { to: string; inviteUrl?: string }) =>
+            m.to === successor.email &&
+            m.inviteUrl?.includes("/b2b-invitations/"),
+        );
+        return offer?.inviteUrl;
+      },
+      { timeout: 20000 },
+    )
+    .toBeTruthy();
+  const token = new URL(offer!.inviteUrl).pathname.split("/").at(-1);
+  expect(
+    (
+      await request.post(`${api}/v2/b2b/invitations/${token}/accept`, {
+        headers: successor.headers,
+      })
+    ).status(),
+  ).toBe(201);
+  await signIn(page, owner.email);
+  const base = `/dashboard/workspaces/${team.id}`;
+  await page.goto(`${base}/members`);
+  await page
+    .getByLabel("복구할 프로젝트 주소", { exact: true })
+    .fill(`http://localhost:3001${base}/projects/${project.id}`);
+  await page
+    .getByRole("button", { name: "담당자 공백 확인", exact: true })
+    .click();
+  await expect(page.locator("main [role=alert]")).toContainText(
+    "현재 담당자가 유효한 프로젝트",
+  );
+  const row = page.getByRole("listitem").filter({ hasText: lead.email });
+  await row.getByText("팀 역할·참여 관리", { exact: true }).click();
+  await row.getByLabel("참여 변경", { exact: true }).selectOption("suspend");
+  await row
+    .getByLabel("참여 변경 사유", { exact: true })
+    .fill("Immediate revoke before handover");
+  await row
+    .getByRole("button", { name: "참여 변경 확인", exact: true })
+    .click();
+  await expect(row.locator("p").filter({ hasText: "참여 정지" })).toBeVisible();
+  await page
+    .getByRole("button", { name: "담당자 공백 확인", exact: true })
+    .click();
+  await page
+    .getByLabel("수락한 내부 후임", { exact: true })
+    .selectOption(successor.id);
+  await page
+    .getByLabel("담당자 복구 사유", { exact: true })
+    .fill("Hand over after urgent suspension");
+  await page
+    .getByRole("button", { name: "후임 지정 확인", exact: true })
+    .click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "후임을 지정했습니다" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Private vacancy content", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("Owner must never see this", { exact: true }),
+  ).toHaveCount(0);
+  expect(
+    (
+      await request.get(`${endpoint}/projects/${project.id}`, {
+        headers: owner.headers,
+      })
+    ).status(),
+  ).toBe(404);
+  expect(
+    (
+      await (
+        await request.get(`${endpoint}/projects/${project.id}`, {
+          headers: successor.headers,
+        })
+      ).json()
+    ).data.project.role,
+  ).toBe("lead");
+  expect(
+    (
+      await request.get(`${endpoint}/projects/${project.id}`, {
+        headers: lead.headers,
+      })
+    ).status(),
+  ).toBe(404);
 });

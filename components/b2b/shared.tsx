@@ -80,6 +80,34 @@ const invitationErrors: Record<string, [string, string]> = {
   ],
 };
 const errors: Record<string, [string, string]> = {
+  B2B_OWNER_REQUIRED: [
+    "팀 소유자만 이 변경을 할 수 있습니다.",
+    "Only the team owner can make this change.",
+  ],
+  B2B_OWNER_PROTECTED: [
+    "소유자는 소유권 이전을 완료한 뒤 참여를 종료할 수 있습니다.",
+    "Complete ownership transfer before ending the owner's participation.",
+  ],
+  B2B_SELF_CHANGE_DENIED: [
+    "본인의 역할 변경은 소유자에게 요청해 주세요. 탈퇴는 설정에서 할 수 있습니다.",
+    "Ask the owner to change your role. Leave through settings.",
+  ],
+  B2B_MEMBER_STATE_CONFLICT: [
+    "참여 상태가 이미 변경되었습니다. 최신 명단을 확인해 주세요.",
+    "Participation has already changed. Review the current roster.",
+  ],
+  B2B_TEAM_MANAGER_REQUIRED: [
+    "내부 팀 관리자만 이 화면에 접근할 수 있습니다.",
+    "This page requires an internal team administrator.",
+  ],
+  B2B_LEAD_RECOVERY_NOT_ALLOWED: [
+    "현재 담당자가 유효한 프로젝트는 소유자가 담당자를 대신 변경할 수 없습니다.",
+    "The owner cannot replace a currently valid project lead.",
+  ],
+  B2B_ACCEPTED_SUCCESSOR_REQUIRED: [
+    "이미 프로젝트 참여를 수락한 내부 참여자를 지정해 주세요.",
+    "Choose an internal participant who has already accepted project participation.",
+  ],
   B2B_BILLING_PERMISSION_REQUIRED: [
     "결제 권한이 필요한 화면입니다.",
     "This page requires billing permission.",

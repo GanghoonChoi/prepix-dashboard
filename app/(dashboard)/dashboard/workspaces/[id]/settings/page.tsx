@@ -1,4 +1,5 @@
 "use client";
+import { LeaveTeam } from "@/components/b2b/leave-team";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n/context";
@@ -22,7 +23,7 @@ import {
   type MemberImpact,
 } from "@/lib/api/services/workspace.service";
 export default function Page() {
-  const { data, reload } = useWorkspace()!;
+  const { data, reload, b2b } = useWorkspace()!;
   const { lang, t } = useI18n();
   const router = useRouter();
   const c = (ko: string, en: string) => (lang === "ko" ? ko : en);
@@ -364,7 +365,8 @@ export default function Page() {
               )}
           </Block>
         )}
-        {!personal && (
+        {!personal && b2b?.enrolled && <LeaveTeam />}
+        {!personal && !b2b?.enrolled && (
           <Block
             title={c("내 참여", "Your membership")}
             description={

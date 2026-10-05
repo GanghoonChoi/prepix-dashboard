@@ -156,3 +156,23 @@ export type TeamPerson = {
   billingAllowed?: boolean;
 };
 export type TeamPeople = { people: TeamPerson[]; canDelegateBilling: boolean };
+
+export type ChangeTeamMember = RevisionMutation & {
+  action: "admin" | "editor" | "reviewer" | "remove" | "suspend" | "reactivate";
+  reason: string;
+};
+export type RecoverProjectLead = RevisionMutation & {
+  targetId: string;
+  reason: string;
+};
+
+export type ProjectLeadRecovery = {
+  projectId: string;
+  revision: number;
+  cause:
+    | "lead_vacant"
+    | "member_removed"
+    | "membership_suspended"
+    | "account_suspended";
+  eligibleUserIds: string[];
+};
