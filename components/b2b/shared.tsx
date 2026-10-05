@@ -80,6 +80,46 @@ const invitationErrors: Record<string, [string, string]> = {
   ],
 };
 const errors: Record<string, [string, string]> = {
+  B2B_PRODUCT_NOT_CONFIGURED: [
+    "상품과 제공량 설정이 아직 준비되지 않았습니다.",
+    "Product and allowance settings are not ready yet.",
+  ],
+  B2B_PRODUCT_VERSION_CONFLICT: [
+    "상품 조건을 확인할 수 없습니다. 결제 담당자에게 문의해 주세요.",
+    "The product conditions cannot be verified. Contact your billing administrator.",
+  ],
+  B2B_PRODUCT_VERSION_CHANGED: [
+    "상품 조건이 변경되었습니다. 최신 조건을 확인한 뒤 견적을 다시 만들어 주세요.",
+    "The product conditions changed. Review the latest conditions and request a new quote.",
+  ],
+  B2B_QUOTE_TARGET_CHANGED: [
+    "팀 이용 상태가 변경되었습니다. 현재 상태를 확인한 뒤 구매 대상을 다시 선택해 주세요.",
+    "The team status changed. Check its current status and select the purchase period again.",
+  ],
+  B2B_QUOTE_PERIOD_CHANGED: [
+    "구매 기간이 변경되었거나 확인되지 않았습니다. 현재 기간을 다시 확인해 주세요.",
+    "The purchased period changed or could not be verified. Check the current period again.",
+  ],
+  B2B_NEXT_PERIOD_ALREADY_PURCHASED: [
+    "다음 한 달을 이미 구매했습니다. 현재 구매 내역을 확인해 주세요.",
+    "The next month is already purchased. Review your purchase history.",
+  ],
+  B2B_QUOTE_SELECTION_INVALID: [
+    "추가 수량을 확인해 주세요. 현재 기간에 추가할 항목은 하나 이상 선택해야 합니다.",
+    "Check the quantities. Select at least one item when adding to the current period.",
+  ],
+  B2B_QUOTE_AMOUNT_TOO_SMALL: [
+    "남은 기간의 결제 금액이 너무 작습니다. 수량이나 다음 기간 구매를 확인해 주세요.",
+    "The remaining-period amount is too small. Check the quantities or the next-period purchase.",
+  ],
+  B2B_QUOTE_AMOUNT_INVALID: [
+    "이 수량의 견적을 계산할 수 없습니다. 구매 수량을 확인해 주세요.",
+    "A quote cannot be calculated for these quantities. Review the selection.",
+  ],
+  B2B_QUOTE_NOT_FOUND: [
+    "견적을 찾을 수 없습니다. 팀과 견적 주소를 확인해 주세요.",
+    "The quote could not be found. Check the team and quote address.",
+  ],
   B2B_OWNER_REQUIRED: [
     "팀 소유자만 이 변경을 할 수 있습니다.",
     "Only the team owner can make this change.",

@@ -1,6 +1,9 @@
 import { apiClient } from "../client";
 import type {
   B2bStatus,
+  TeamCommerce,
+  TeamQuote,
+  CreateTeamQuote,
   Invitation,
   InvitationPreview,
   IssueInvitation,
@@ -39,6 +42,16 @@ async function post<T>(path: string, input: unknown): Promise<T> {
   return result;
 }
 export const b2bService = {
+  commerce: (id: string) => get<TeamCommerce>(`${base(id)}/commerce`),
+  purchaseQuote: (id: string, input: CreateTeamQuote) =>
+    post<{ quote: TeamQuote; requestId: string }>(
+      `${base(id)}/commerce/quotes`,
+      input,
+    ),
+  savedPurchaseQuote: (id: string, quoteId: string) =>
+    get<{ quote: TeamQuote; expired: boolean }>(
+      `${base(id)}/commerce/quotes/${e(quoteId)}`,
+    ),
   invitation: (token: string) =>
     get<InvitationPreview>(`/b2b/invitations/${e(token)}`),
   acceptInvitation: (token: string) =>

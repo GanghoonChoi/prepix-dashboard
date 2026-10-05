@@ -201,3 +201,114 @@ export type OwnershipTransfer = {
   outcome: string | null;
   createdAt: string;
 };
+
+export type Rounding = "floor" | "ceil" | "half_up";
+export type TeamProduct = {
+  version: string;
+  name: string;
+  currency: "KRW";
+  aiUnitLabel: string;
+  aiUnitDescription: string;
+  base: {
+    supplyKrw: number;
+    seats: number;
+    aiUnits: number;
+    storageBytes: number;
+    transferBytes: number;
+  };
+  extraSeat: { supplyKrw: number; aiUnits: number };
+  aiPack: {
+    supplyKrw: number;
+    units: number;
+    currentPricing: "full_pack" | "remaining_time";
+    validity: "period" | "days";
+    validityDays: number | null;
+    carry: boolean;
+  };
+  storagePack: {
+    supplyKrw: number;
+    bytes: number;
+    currentPricing: "full_pack" | "remaining_time";
+  };
+  settlement: {
+    vatBasisPoints: number;
+    moneyRounding: Rounding;
+    grantRounding: Rounding;
+    quoteTtlSeconds: number;
+    orderTtlSeconds: number;
+    refundPolicyVersion: string;
+  };
+};
+export type QuoteTarget = "initial" | "current" | "next" | "restore";
+export type PurchaseSelection = {
+  extraSeats: number;
+  aiPacks: number;
+  storagePacks: number;
+};
+export type CreateTeamQuote = PurchaseSelection & {
+  requestKey: string;
+  productVersion: string;
+  target: QuoteTarget;
+  renewal: "one_off" | "automatic";
+  sourcePeriodId?: string;
+};
+export type TeamQuote = {
+  conditions: TeamProduct;
+  id: string;
+  workspaceId: string;
+  productVersion: string;
+  conditionsHash: string;
+  target: QuoteTarget;
+  renewal: "one_off" | "automatic";
+  sourcePeriodId: string | null;
+  selection: PurchaseSelection;
+  quotedAt: string;
+  expiresAt: string;
+  // First purchase / restoration starts when service actually becomes available.
+  period: {
+    startsAt: string | null;
+    endsAt: string | null;
+    anchorDay: number | null;
+  };
+  proration: { remainingMilliseconds: number; fullMilliseconds: number };
+  lines: {
+    kind: "base" | "extra_seat" | "ai_pack" | "storage_pack";
+    quantity: number;
+    fullSupplyKrw: number;
+    fraction: { numerator: string; denominator: string };
+  }[];
+  amounts: {
+    supplyKrw: number;
+    vatKrw: number;
+    totalKrw: number;
+    currency: "KRW";
+  };
+  allowances: {
+    seats: number;
+    periodAiUnits: number;
+    extraAiUnits: number;
+    storageBytes: number;
+    transferBytes: number;
+  };
+};
+export type TeamCommerce =
+  | {
+      configured: false;
+      checkoutReady: false;
+      reason: "B2B_PRODUCT_NOT_CONFIGURED" | "B2B_PRODUCT_VERSION_CONFLICT";
+    }
+  | {
+      configured: true;
+      checkoutReady: false;
+      product: TeamProduct;
+      conditionsHash: string;
+      currentPeriod: {
+        id: string;
+        startsAt: string;
+        endsAt: string;
+        anchorDay: number;
+        extraSeats: number;
+        product: TeamProduct;
+      } | null;
+      nextPurchased: boolean;
+    };

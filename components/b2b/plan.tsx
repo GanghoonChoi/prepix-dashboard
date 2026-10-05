@@ -1,4 +1,5 @@
 "use client";
+import { PurchaseQuotes } from "./purchase-quotes";
 import type { B2bStatus } from "@/lib/api/services/b2b.service";
 import { SpaceBadge, TeamShell } from "@/components/workspaces/shared";
 import { B2bError, StateBadge, useCopy } from "./shared";
@@ -36,12 +37,7 @@ export function B2bPlan({
       </section>
       <section className="space-y-3">
         <h2 className="font-medium">{c("팀 상품", "Team product")}</h2>
-        <p className="max-w-2xl text-sm leading-6 text-muted">
-          {c(
-            "현재 팀 상품 판매가 열리지 않았습니다. 상품과 제공량 설정이 확인된 뒤 구매할 수 있습니다.",
-            "Team sales are not open yet. Purchasing becomes available after the product and allowance settings are verified.",
-          )}
-        </p>
+        <PurchaseQuotes workspaceId={workspace.id} status={status} />
         <p className="text-sm leading-6 text-muted">
           {c(
             "팀 참여와 웹 검토에는 편집 이용권을 배정하지 않습니다. 편집 이용권은 팀 앱 편집과 팀 AI에 사용합니다.",
