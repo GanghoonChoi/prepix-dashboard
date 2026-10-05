@@ -548,3 +548,117 @@ export type TeamAiUsageOverview = {
   }[];
   serverTime: string;
 };
+
+export type TeamFileKind = "original" | "output" | "working";
+export type TeamFileUploadState =
+  | "preparing"
+  | "uploading"
+  | "verifying"
+  | "ready"
+  | "cancelled"
+  | "expired"
+  | "quarantined";
+export type TeamFileMetadata = {
+  container: string;
+  durationMs: number | null;
+  video: {
+    codec: string;
+    width: number;
+    height: number;
+    frameRateNumerator: number;
+    frameRateDenominator: number;
+  }[];
+  audio: { codec: string; sampleRate: number; channels: number }[];
+};
+export type TeamFilePolicy = {
+  version: string;
+  maxFileBytes: number;
+  formats: string[];
+  inspectionTimeoutSeconds: number;
+};
+export type TeamFileCapabilities = {
+  uploadsEnabled: boolean;
+  policy: TeamFilePolicy | null;
+  partSize: number;
+  storage: { usedBytes: string; reservedBytes: string; limitBytes: string };
+  serverTime: string;
+};
+export type TeamFileUpload = {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  assetId: string;
+  versionId: string;
+  name: string;
+  kind: TeamFileKind;
+  size: number;
+  sha256: string;
+  state: TeamFileUploadState;
+  failure: string | null;
+  lastActivityAt: string;
+  idleExpiresAt: string;
+  cleanedAt: string | null;
+  partSize: number;
+  previewState: "not_requested";
+};
+export type TeamFileUploadStatus = {
+  upload: TeamFileUpload;
+  parts: { number: number; size: number; etag: string; checksum?: string }[];
+  needsCompletion: boolean;
+};
+export type BeginTeamFileUploadInput = {
+  requestKey: string;
+  name: string;
+  kind: TeamFileKind;
+  size: number;
+  sha256: string;
+  existingAssetId?: string;
+  scope: "uploader_and_steward";
+};
+export type TeamFileVersion = {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  assetId: string;
+  name: string;
+  assetName: string;
+  kind: TeamFileKind;
+  ordinal: number;
+  assetRevision: number;
+  referenceRevision: number;
+  permissionRevision: number;
+  size: number;
+  sha256: string;
+  metadata: TeamFileMetadata;
+  createdAt: string;
+  previewState: "not_requested";
+  allowedActions: { download: boolean; ai: boolean; manage: boolean };
+};
+export type TeamFileVersionList = {
+  versions: TeamFileVersion[];
+  nextCursor: string | null;
+};
+export type TeamFilePermissionList = {
+  permissions: {
+    userId: string;
+    canDownload: boolean;
+    canUseForAi: boolean;
+    revokedAt: string | null;
+    revision: number;
+  }[];
+};
+export type ChangeTeamFilePermissionInput = {
+  requestKey: string;
+  revision: number;
+  userId: string;
+  canDownload: boolean;
+  canUseForAi: boolean;
+  remove?: boolean;
+  reason: string;
+};
+export type TeamFileDownload = {
+  url: string;
+  expiresIn: number;
+  size: number;
+  sha256: string;
+};
