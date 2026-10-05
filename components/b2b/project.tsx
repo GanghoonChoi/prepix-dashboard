@@ -2,6 +2,7 @@
 import { InvitationPanel } from "./invitations";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { buildTeamProjectOpenUrl } from "@/lib/workspaces/app-link";
 import {
   b2bService,
   type Project,
@@ -78,6 +79,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
   const [editing, setEditing] = useState(false);
   if (error) return <B2bError code={error} retry={() => void reload()} />;
   if (!project) return <TeamLoading />;
+  const appUrl = buildTeamProjectOpenUrl({ workspaceId: id, projectId: project.id });
   return (
     <TeamShell title={project.name}>
       <div className="flex flex-wrap items-center gap-3">
@@ -85,6 +87,11 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
         <StateBadge state={project.state} />
       </div>
       <div className="flex flex-wrap gap-3">
+        {appUrl && project.role !== "reviewer" && (
+          <a className={secondaryClass} href={appUrl}>
+            {c("앱에서 작업하기", "Work in app")}
+          </a>
+        )}
         <Link
           className={secondaryClass}
           href={`/dashboard/workspaces/${id}/projects`}
