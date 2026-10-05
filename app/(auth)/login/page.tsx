@@ -23,7 +23,7 @@ export default function LoginPage() {
   const { t, lang } = useI18n();
   usePageTitle(t("auth.signIn"));
   const router = useRouter();
-  const [authDestination, setAuthDestination] = useState("/dashboard");
+  const [authDestination, setAuthDestination] = useState<string | undefined>(undefined);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);

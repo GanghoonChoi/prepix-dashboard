@@ -10,6 +10,7 @@ import {
 } from "@/lib/api/services/workspace.service";
 import { isPersonal, personalFirst } from "@/lib/workspaces/kind";
 import { workspaceLinks, navActive } from "@/lib/workspaces/nav";
+import { b2bService, type B2bStatus } from "@/lib/api/services/b2b.service";
 import { cloudService } from "@/lib/api/services/cloud.service";
 import { SpaceIcon, useSpaceName } from "./shared";
 
@@ -102,9 +103,11 @@ export function WorkspaceSwitcher({ onClose }: { onClose?: () => void }) {
   // Keyed by workspace so a stale answer can never light the wrong nav, which
   // is also why this needs no reset-on-change inside the effect.
   const spaceId = current?.id;
+  const personalSpace = current ? isPersonal(current) : false;
   const [cloud, setCloud] = useState<{ id: string; enabled: boolean } | null>(
     null,
   );
+  const [b2b, setB2b] = useState<{ id: string; status: B2bStatus } | null>(null);
   useEffect(() => {
     if (!spaceId) return;
     let alive = true;
@@ -117,10 +120,23 @@ export function WorkspaceSwitcher({ onClose }: { onClose?: () => void }) {
         // An unreachable probe is not proof the archive is gone, but a link
         // that 404s is worse than none — the overview carries a card to it.
       });
+    const probe = () => {
+      if (personalSpace) return;
+      void b2bService.status(spaceId).then((status) => {
+        if (alive) setB2b({ id: spaceId, status });
+      }).catch(() => { if (alive) setB2b(null); });
+    };
+    probe();
+    window.addEventListener('workspaces:changed', probe);
+    window.addEventListener('focus', probe);
+    const timer = window.setInterval(probe, 30_000);
     return () => {
       alive = false;
+      clearInterval(timer);
+      window.removeEventListener('workspaces:changed', probe);
+      window.removeEventListener('focus', probe);
     };
-  }, [spaceId]);
+  }, [spaceId, personalSpace]);
   const cloudEnabled = !!cloud && cloud.id === spaceId && cloud.enabled;
 
   const pick = () => {
@@ -256,6 +272,7 @@ export function WorkspaceSwitcher({ onClose }: { onClose?: () => void }) {
               cloudEnabled,
               managementEnabled: current.managementEnabled !== false,
               role: current.role,
+              b2b: b2b && b2b.id === spaceId ? b2b.status : undefined,
             }).map((link) => {
               const active = navActive(
                 path,

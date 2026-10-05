@@ -47,7 +47,7 @@ export default function SignupPage() {
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileReset, setTurnstileReset] = useState(0);
   const [isSettingUp, setIsSettingUp] = useState(false);
-  const [authDestination, setAuthDestination] = useState("/dashboard");
+  const [authDestination, setAuthDestination] = useState<string | undefined>(undefined);
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");

@@ -12,6 +12,8 @@ import {
   workspaceService,
   type WorkspaceDetail,
 } from "@/lib/api/services/workspace.service";
+import { b2bService, type B2bStatus } from "@/lib/api/services/b2b.service";
+import { isPersonal } from "@/lib/workspaces/kind";
 import { cloudService } from "@/lib/api/services/cloud.service";
 import { CloudError, cloudErrorCode } from "./cloud-shared";
 import { TeamLoading } from "./shared";
@@ -20,6 +22,7 @@ const Context = createContext<{
   data: WorkspaceDetail;
   reload: () => Promise<void>;
   cloudEnabled: boolean;
+  b2b: B2bStatus | null;
 } | null>(null);
 export function useWorkspace() {
   return useContext(Context);
@@ -34,12 +37,20 @@ export function WorkspaceProvider({
   const [data, setData] = useState<WorkspaceDetail | null>(null);
   const [error, setError] = useState("");
   const [cloudEnabled, setCloudEnabled] = useState(false);
+  const [b2b, setB2b] = useState<B2bStatus | null>(null);
   const serial = useRef(0);
   const reload = useCallback(async () => {
     const request = ++serial.current;
     try {
       const next = await workspaceService.detail(id);
+      const status = isPersonal(next.workspace) ? { enabled: false, enrolled: false } as const : await b2bService.status(id).catch((e) => {
+        // Older servers have no B2B route. Network failures keep the last
+        // response and are surfaced instead of silently reopening old UI.
+        if (e?.response?.status === 404) return { enabled: false, enrolled: false } as const;
+        throw e;
+      });
       if (request === serial.current) {
+        setB2b(status);
         setData(next);
         setError("");
       }
@@ -91,7 +102,7 @@ export function WorkspaceProvider({
       </div>
     );
   return (
-    <Context.Provider value={{ data, reload, cloudEnabled }}>
+    <Context.Provider value={{ data, reload, cloudEnabled: cloudEnabled && (!b2b?.enrolled || b2b.team.legacyArchive), b2b }}>
       {/*
         A failed refresh is a banner over the page that is already there, never
         a replacement for it. Children — and their in-progress input — stay

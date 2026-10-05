@@ -8,6 +8,7 @@ import {
   SeatBreakdown,
   secondaryClass,
 } from "@/components/workspaces/shared";
+import { B2bPlan } from "@/components/b2b/plan";
 import { isPersonal } from "@/lib/workspaces/kind";
 import {
   cloudService,
@@ -34,7 +35,7 @@ import {
  * the one cost this actually incurs, and seats stay four separate numbers.
  */
 export default function Page() {
-  const { data, cloudEnabled } = useWorkspace()!;
+  const { data, cloudEnabled, b2b } = useWorkspace()!;
   const { lang, t } = useI18n();
   const personal = isPersonal(data.workspace);
   const c = (ko: string, en: string) => (lang === "ko" ? ko : en);
@@ -55,6 +56,7 @@ export default function Page() {
       live = false;
     };
   }, [cloudEnabled, data.workspace.id, data.role]);
+  if (b2b?.enrolled) return <B2bPlan status={b2b} workspace={data.workspace} />;
   return (
     <TeamShell title={c("플랜과 결제", "Plan and billing")}>
       {personal ? (
