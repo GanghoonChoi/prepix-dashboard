@@ -345,4 +345,16 @@ export type TeamOrder = {
   expiresAt: string;
   createdAt: string;
   receipt: { amountKrw: number; approvedAt: string } | null;
+  application: TeamApplication | null;
+};
+export type TeamApplication = {
+  id: string;
+  orderId: string;
+  periodId: string;
+  target: QuoteTarget;
+  effectiveAt: string;
+  appliedAt: string;
+  amounts: TeamQuote["amounts"];
+  allowances: TeamQuote["allowances"];
+  overpaymentKrw: number;
 };
