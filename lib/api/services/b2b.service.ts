@@ -1,6 +1,9 @@
 import { apiClient } from "../client";
 import type {
   B2bStatus,
+  TeamAiJob,
+  TeamAiJobList,
+  TeamAiUsageOverview,
   EditingDeviceOverview,
   RetireEditingDevice,
   LicenceOverview,
@@ -51,6 +54,23 @@ async function post<T>(path: string, input: unknown): Promise<T> {
   return result;
 }
 export const b2bService = {
+  aiUsage: (id: string) => get<TeamAiUsageOverview>(`${base(id)}/ai/usage`),
+  aiJobs: (id: string, cursor?: string) =>
+    get<TeamAiJobList>(
+      `${base(id)}/ai/jobs${cursor ? `?cursor=${e(cursor)}` : ""}`,
+    ),
+  aiJob: (id: string, projectId: string, jobId: string) =>
+    get<TeamAiJob>(`${projectPath(id, projectId)}/ai/jobs/${e(jobId)}`),
+  cancelAiJob: (
+    id: string,
+    projectId: string,
+    jobId: string,
+    requestKey: string,
+  ) =>
+    post<{ jobId: string; requestId: string }>(
+      `${projectPath(id, projectId)}/ai/jobs/${e(jobId)}/cancel`,
+      { requestKey },
+    ),
   editingDevices: (id: string) =>
     get<EditingDeviceOverview>(`${base(id)}/licences/devices`),
   retireEditingDevice: (

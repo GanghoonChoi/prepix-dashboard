@@ -43,7 +43,11 @@ test("a personal space carries no team chrome", () => {
     { cloudEnabled: true, managementEnabled: true },
   ).map((link) => link.href);
   assert.ok(!personal.some((href) => href.endsWith("/members")));
-  assert.ok(!personal.some((href) => href.endsWith("/plan") && href.includes("workspaces")));
+  assert.ok(
+    !personal.some(
+      (href) => href.endsWith("/plan") && href.includes("workspaces"),
+    ),
+  );
 });
 
 test("the overview does not stay lit on its own children", () => {
@@ -51,4 +55,49 @@ test("the overview does not stay lit on its own children", () => {
   assert.equal(navActive(`${base}/members`, base, base), false);
   assert.equal(navActive(base, base, base), true);
   assert.equal(navActive(`${base}/members`, `${base}/members`, base), true);
+});
+
+test("team AI usage stays scoped to enrolled teams with current project reading access", () => {
+  const b2b = {
+    enabled: true,
+    enrolled: true,
+    team: {
+      workspaceId: "w1",
+      policyVersion: "v1",
+      currentState: "active",
+      state: "active",
+      periodStartsAt: null,
+      periodEndsAt: null,
+      legacyArchive: false,
+      revision: 0,
+    },
+    member: { kind: "internal", billingAllowed: false, revision: 0 },
+    allowedActions: {
+      projects: true,
+      createProject: false,
+      manage: false,
+      billing: false,
+    },
+  } as const;
+  const options = { cloudEnabled: false, managementEnabled: false, b2b };
+  assert.ok(hrefs(options).includes("/dashboard/workspaces/w1/ai"));
+  assert.ok(
+    !hrefs({
+      ...options,
+      b2b: {
+        ...b2b,
+        allowedActions: { ...b2b.allowedActions, projects: false },
+      },
+    }).includes("/dashboard/workspaces/w1/ai"),
+  );
+  assert.ok(
+    !hrefs({ cloudEnabled: false, managementEnabled: false }).some((link) =>
+      link.endsWith("/ai"),
+    ),
+  );
+  assert.ok(
+    !workspaceLinks({ id: "p1", type: "personal" }, options).some((link) =>
+      link.href.endsWith("/ai"),
+    ),
+  );
 });

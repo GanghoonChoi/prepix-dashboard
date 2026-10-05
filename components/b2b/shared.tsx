@@ -92,6 +92,18 @@ const invitationErrors: Record<string, [string, string]> = {
   ],
 };
 const errors: Record<string, [string, string]> = {
+  B2B_AI_ACCOUNTING_REVIEW_REQUIRED: [
+    "사용량 기록을 확인하고 있습니다. 확인이 끝날 때까지 새 작업과 정산을 진행할 수 없습니다.",
+    "Usage records need review. New jobs and settlement are unavailable until this is resolved.",
+  ],
+  B2B_AI_JOB_NOT_FOUND: [
+    "현재 계정에서 접근할 수 있는 AI 작업을 찾을 수 없습니다.",
+    "This AI job is unavailable to your current account.",
+  ],
+  B2B_AI_CURSOR_INVALID: [
+    "사용 내역의 조회 위치를 확인할 수 없습니다. 처음 내역부터 다시 확인해 주세요.",
+    "The history position is invalid. Check the latest jobs again.",
+  ],
   B2B_LICENCE_CAPACITY_FULL: [
     "구매 정원이 가득 찼습니다. 회수 대기인 장치가 모두 종료되거나 추가 구매가 반영된 뒤 배정할 수 있습니다.",
     "Purchased capacity is full. Assign after all pending devices end or added capacity is applied.",

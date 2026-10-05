@@ -508,6 +508,8 @@ export type TeamAiJob = {
   estimatedUnits: number;
   maximumUnits: number;
   confirmedUnits: number;
+  reservedUnits: number;
+  returnedUnits: number;
   state:
     | "queued"
     | "running"
@@ -521,6 +523,11 @@ export type TeamAiJob = {
   completedAt: string | null;
   resultVersionId: string | null;
 };
+export type TeamAiJobList = {
+  jobs: (TeamAiJob & { projectName: string })[];
+  nextCursor: string | null;
+  serverTime: string;
+};
 export type TeamAiUsageOverview = {
   // Team aggregates are decimal strings to preserve sums beyond Number.MAX_SAFE_INTEGER.
   reconciled: boolean;
@@ -528,8 +535,13 @@ export type TeamAiUsageOverview = {
   reservedUnits: string;
   confirmedUnits: string;
   expiredUnits: string;
+  returnedUnits: string;
   personalBudgets: {
     periodId: string;
+    startsAt: string;
+    endsAt: string;
+    unitLabel: string;
+    unitDescription: string;
     limitUnits: number;
     reservedUnits: number;
     confirmedUnits: number;

@@ -96,6 +96,9 @@ export function workspaceLinks(
             },
           ]
         : []),
+      ...(status.allowedActions.projects
+        ? [{ href: `${base}/ai`, ko: "팀 AI 사용량", en: "Team AI usage" }]
+        : []),
       ...(status.allowedActions.billing
         ? [{ href: `${base}/plan`, ko: "플랜과 결제", en: "Plan and billing" }]
         : []),
