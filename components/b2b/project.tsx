@@ -1,4 +1,5 @@
 "use client";
+import { InvitationPanel } from "./invitations";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
@@ -491,7 +492,12 @@ export function ProjectParticipants({ projectId }: { projectId: string }) {
             >
               <option value="">{c("선택", "Select")}</option>
               {context.data.members
-                .filter((m) => !m.suspendedAt && m.userId !== project.leadId)
+                .filter(
+                  (m) =>
+                    !m.suspendedAt &&
+                    m.userId !== project.leadId &&
+                    roster?.people.some((p) => p.userId === m.userId),
+                )
                 .map((m) => (
                   <option value={m.userId} key={m.userId}>
                     {m.name || m.email}
@@ -552,6 +558,9 @@ export function ProjectParticipants({ projectId }: { projectId: string }) {
               : c("참여 범위 저장", "Save participation")}
           </button>
         </form>
+      )}
+      {project.role === "lead" && (
+        <InvitationPanel projectId={projectId} editable={editable} />
       )}
     </TeamShell>
   );

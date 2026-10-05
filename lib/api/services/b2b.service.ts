@@ -1,6 +1,11 @@
 import { apiClient } from "../client";
 import type {
   B2bStatus,
+  Invitation,
+  InvitationPreview,
+  IssueInvitation,
+  ChangeInvitation,
+  TeamPeople,
   ChangeAffiliation,
   ChangeParticipant,
   CreateProject,
@@ -28,6 +33,34 @@ async function post<T>(path: string, input: unknown): Promise<T> {
   return result;
 }
 export const b2bService = {
+  invitation: (token: string) =>
+    get<InvitationPreview>(`/b2b/invitations/${e(token)}`),
+  acceptInvitation: (token: string) =>
+    post<{
+      workspaceId: string;
+      projectId: string | null;
+      alreadyAccepted: boolean;
+    }>(`/b2b/invitations/${e(token)}/accept`, {}),
+  invitations: (id: string, projectId?: string) =>
+    get<{ invitations: Invitation[] }>(
+      `${base(id)}/invitations${projectId ? `?projectId=${e(projectId)}` : ""}`,
+    ),
+  issueInvitation: (id: string, input: IssueInvitation) =>
+    post<{ invitation: Invitation; revision: number; requestId: string }>(
+      `${base(id)}/invitations`,
+      input,
+    ),
+  changeInvitation: (
+    id: string,
+    invitationId: string,
+    action: "resend" | "revoke",
+    input: ChangeInvitation,
+  ) =>
+    post<{ invitation: Invitation; revision: number; requestId: string }>(
+      `${base(id)}/invitations/${e(invitationId)}/${action}`,
+      input,
+    ),
+  members: (id: string) => get<TeamPeople>(`${base(id)}/members`),
   status: (id: string) => get<B2bStatus>(`${base(id)}/status`),
   projects: (
     id: string,

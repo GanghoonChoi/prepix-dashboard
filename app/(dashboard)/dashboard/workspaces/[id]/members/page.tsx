@@ -1,5 +1,6 @@
 "use client";
 import { use } from "react";
+import { TeamMembers } from "@/components/b2b/members";
 import { MembersContent } from "@/components/workspaces/members-content";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import { TeamShell } from "@/components/workspaces/shared";
@@ -23,5 +24,6 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
         </p>
       </TeamShell>
     );
+  if (context?.b2b?.enrolled) return <TeamMembers />;
   return <MembersContent key={id} id={id} />;
 }

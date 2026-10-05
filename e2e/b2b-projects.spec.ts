@@ -149,17 +149,46 @@ test("B2B preparing gate, private projects, lost-response retry, role handoff an
     );
     await editorPage.getByRole("link", { name: "참여자", exact: true }).click();
     await editorPage
-      .getByLabel("팀 참여자", { exact: true })
-      .selectOption(owner.id);
+      .getByLabel("초대 이메일", { exact: true })
+      .fill(owner.email);
     await editorPage
-      .getByLabel("변경·종료·이전 사유")
-      .fill("Invite the owner into this specific project");
+      .getByLabel("참여 구분", { exact: true })
+      .selectOption("internal");
     await editorPage
-      .getByRole("button", { name: "참여 범위 저장", exact: true })
+      .getByRole("button", { name: "초대 보내기", exact: true })
       .click();
+    await expect
+      .poll(
+        async () => {
+          const mailbox = await (
+            await request.get(`${api}/__test/mail`)
+          ).json();
+          return mailbox.findLast(
+            (m: { to: string; inviteUrl?: string }) =>
+              m.to === owner.email &&
+              m.inviteUrl?.includes("/b2b-invitations/"),
+          )?.inviteUrl;
+        },
+        { timeout: 20000 },
+      )
+      .toBeTruthy();
+    const mailbox = await (await request.get(`${api}/__test/mail`)).json();
+    const offer = mailbox.findLast(
+      (m: { to: string; inviteUrl?: string }) =>
+        m.to === owner.email && m.inviteUrl?.includes("/b2b-invitations/"),
+    );
+    await page.goto(offer.inviteUrl);
+    await page.getByRole("button", { name: "초대 수락", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Private B2B project", exact: true }),
+    ).toBeVisible();
+    await editorPage.reload();
     await expect(
       editorPage.locator("main").getByText(owner.email, { exact: true }),
     ).toBeVisible();
+    await editorPage
+      .getByLabel("변경·종료·이전 사유")
+      .fill("Transfer accepted lead role");
     await editorPage
       .getByRole("button", { name: "담당자 이전", exact: true })
       .click();
@@ -205,5 +234,156 @@ test("B2B preparing gate, private projects, lost-response retry, role handoff an
     expect(browserErrors).toEqual([]);
   } finally {
     await editorContext.close();
+  }
+});
+
+test("B2B external invitation proves mailbox and preserves billing mutation on lost response", async ({
+  page,
+  request,
+  browser,
+}) => {
+  const owner = await account(request, "b2b-scope-owner");
+  const guest = await account(request, "b2b-scope-guest");
+  const team = (
+    await (
+      await request.post(`${api}/v2/workspaces`, {
+        headers: owner.headers,
+        data: { name: `B2B scope ${suffix()}` },
+      })
+    ).json()
+  ).data.workspace;
+  await request.post(`${api}/v2/workspaces/${team.id}/b2b/enroll`, {
+    headers: owner.headers,
+    data: {
+      revision: 0,
+      requestKey: crypto.randomUUID(),
+      reason: "Scope acceptance fixture",
+    },
+  });
+  fixture({ workspaceId: team.id, action: "activate" });
+  const endpoint = `${api}/v2/workspaces/${team.id}/b2b`;
+  const project = (
+    await (
+      await request.post(`${endpoint}/projects`, {
+        headers: owner.headers,
+        data: { requestKey: crypto.randomUUID(), name: "External scope only" },
+      })
+    ).json()
+  ).data.project;
+  await request.post(`${endpoint}/projects`, {
+    headers: owner.headers,
+    data: { requestKey: crypto.randomUUID(), name: "Unshared owner project" },
+  });
+  await signIn(page, owner.email);
+  const base = `/dashboard/workspaces/${team.id}`;
+  await page.goto(`${base}/projects/${project.id}/people`);
+  await page.getByLabel("초대 이메일", { exact: true }).fill(guest.email);
+  await page.getByLabel("초대 역할", { exact: true }).selectOption("reviewer");
+  await page.getByRole("button", { name: "초대 보내기", exact: true }).click();
+  let offer: { inviteUrl: string } | undefined;
+  await expect
+    .poll(
+      async () => {
+        const mailbox = await (await request.get(`${api}/__test/mail`)).json();
+        offer = mailbox.findLast(
+          (m: { to: string; inviteUrl?: string }) =>
+            m.to === guest.email && m.inviteUrl?.includes("/b2b-invitations/"),
+        );
+        return offer?.inviteUrl;
+      },
+      { timeout: 20000 },
+    )
+    .toBeTruthy();
+  // Possession of the link alone does not expose the project to another account.
+  await page.goto(offer!.inviteUrl);
+  await expect(page.locator("main [role=alert]")).toContainText(
+    "초대받은 이메일",
+  );
+  await expect(
+    page.getByRole("heading", { name: team.name, exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("External scope only", { exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByText(/초대 이메일.*\*\*\*/)).toBeVisible();
+  const guestContext = await browser.newContext({ locale: "ko-KR" });
+  const guestPage = await guestContext.newPage();
+  try {
+    await signIn(guestPage, guest.email);
+    await guestPage.goto(offer!.inviteUrl);
+    await expect(
+      guestPage.getByText("프로젝트 검토자", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      guestPage.getByText("허용되지 않음", { exact: true }),
+    ).toBeVisible();
+    await guestPage
+      .getByRole("button", { name: "초대 수락", exact: true })
+      .click();
+    await expect(
+      guestPage.getByRole("heading", {
+        name: "External scope only",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await guestPage.goto(`${base}/projects`);
+    await expect(
+      guestPage.getByText("Unshared owner project", { exact: true }),
+    ).toHaveCount(0);
+    await guestPage.goto(`${base}/members`);
+    await expect(guestPage.locator("main [role=alert]")).toBeVisible();
+    await expect(guestPage.getByText(owner.email, { exact: true })).toHaveCount(
+      0,
+    );
+    await page.goto(`${base}/members`);
+    const row = page.getByRole("listitem").filter({ hasText: guest.email });
+    await expect(
+      row.getByText("결제 권한 없음", { exact: false }),
+    ).toBeVisible();
+    await row.getByText("참여 구분·결제 권한 변경", { exact: true }).click();
+    await row.getByLabel("결제 권한 위임").check();
+    await row
+      .getByLabel("변경 사유", { exact: true })
+      .fill("Delegate purchase administration");
+    let lost = true;
+    await page.route(`${endpoint}/members/${guest.id}`, async (route) => {
+      if (lost) {
+        lost = false;
+        await route.fetch();
+        await route.abort();
+      } else await route.continue();
+    });
+    await row
+      .getByRole("button", { name: "권한 변경 저장", exact: true })
+      .click();
+    await expect(row.getByRole("alert")).toContainText(
+      "요청을 완료하지 못했습니다",
+    );
+    await expect(row.getByLabel("변경 사유", { exact: true })).toBeDisabled();
+    await row
+      .getByRole("button", { name: "권한 변경 저장", exact: true })
+      .click();
+    await expect(
+      row.getByText("결제 권한 있음", { exact: false }),
+    ).toBeVisible();
+    const status = (
+      await (
+        await request.get(`${endpoint}/status`, { headers: guest.headers })
+      ).json()
+    ).data;
+    expect(status.member.kind).toBe("external");
+    expect(status.allowedActions.billing).toBe(true);
+    expect(status.allowedActions.manage).toBe(false);
+    const roster = (
+      await (
+        await request.get(`${endpoint}/members`, { headers: owner.headers })
+      ).json()
+    ).data;
+    expect(
+      roster.people.find((p: { userId: string }) => p.userId === guest.id)
+        .revision,
+    ).toBe(1);
+  } finally {
+    await guestContext.close();
   }
 });

@@ -106,3 +106,53 @@ export type ChangeAffiliation = RevisionMutation & {
   billingAllowed: boolean;
   reason: string;
 };
+
+export type TeamRole = "owner" | "admin" | "editor" | "reviewer";
+export type Invitation = {
+  id: string;
+  workspaceId: string;
+  projectId: string | null;
+  email: string;
+  kind: ParticipationKind;
+  teamRole: Exclude<TeamRole, "owner">;
+  projectRole: Exclude<ProjectRole, "lead"> | null;
+  canDownload: boolean;
+  expiresAt: string;
+  acceptedAt: string | null;
+  revokedAt: string | null;
+  deliveryState: "queued" | "sending" | "sent" | "failed";
+  revision: number;
+};
+export type InvitationPreview = {
+  workspaceId: string;
+  workspaceName: string;
+  projectId: string | null;
+  projectName: string | null;
+  kind: ParticipationKind;
+  teamRole: Exclude<TeamRole, "owner">;
+  projectRole: Exclude<ProjectRole, "lead"> | null;
+  canDownload: boolean;
+  expiresAt: string;
+  accepted: boolean;
+};
+export type IssueInvitation = Mutation & {
+  email: string;
+  kind: ParticipationKind;
+  teamRole: Exclude<TeamRole, "owner">;
+  projectId?: string;
+  projectRole?: Exclude<ProjectRole, "lead">;
+  canDownload?: boolean;
+  lang?: "ko" | "en";
+};
+export type ChangeInvitation = RevisionMutation & { reason: string };
+export type TeamPerson = {
+  userId: string;
+  name: string | null;
+  email: string;
+  role: TeamRole;
+  suspendedAt: string | null;
+  kind: ParticipationKind;
+  revision: number;
+  billingAllowed?: boolean;
+};
+export type TeamPeople = { people: TeamPerson[]; canDelegateBilling: boolean };

@@ -36,6 +36,49 @@ export function definitivelyRejected(error: unknown): boolean {
     status !== 429
   );
 }
+const invitationErrors: Record<string, [string, string]> = {
+  INVITATION_EMAIL_MISMATCH: [
+    "초대받은 이메일의 계정으로 로그인해 주세요.",
+    "Sign in with the invited email account.",
+  ],
+  INVITATION_UNAVAILABLE: [
+    "유효한 초대를 찾을 수 없습니다.",
+    "This invitation is unavailable.",
+  ],
+  INVITATION_EXPIRED: [
+    "초대가 만료되었습니다. 담당자에게 다시 초대해 달라고 요청하세요.",
+    "The invitation expired. Ask the lead for a new invitation.",
+  ],
+  INVITATION_REVOKED: ["취소된 초대입니다.", "This invitation was cancelled."],
+  B2B_ALREADY_INVITED: [
+    "해당 범위의 초대가 이미 대기 중입니다. 기존 초대를 확인해 주세요.",
+    "An invitation for this scope is already pending. Check the existing invitation.",
+  ],
+  B2B_ALREADY_PARTICIPATING: [
+    "이미 이 프로젝트에 참여하고 있습니다. 역할 변경을 이용해 주세요.",
+    "This person already participates. Use role changes instead.",
+  ],
+  B2B_PROJECT_INVITATION_REQUIRED: [
+    "새 참여자는 초대 수락 후 추가됩니다. 프로젝트 초대를 이용해 주세요.",
+    "New participation requires acceptance. Send a project invitation.",
+  ],
+  B2B_AFFILIATION_CHANGE_REQUIRED: [
+    "현재 팀 참여 구분이 초대와 다릅니다. 소유자가 참여 구분을 먼저 확인해야 합니다.",
+    "The current affiliation differs. The owner must review it first.",
+  ],
+  B2B_INVITATION_CONFIGURATION_REQUIRED: [
+    "초대 메일 설정이 준비되지 않았습니다. 팀 관리자에게 문의하세요.",
+    "Invitation delivery is not configured. Contact a team administrator.",
+  ],
+  B2B_PROJECT_LEAD_TRANSFER_REQUIRED: [
+    "담당자 역할을 이전한 뒤 참여 구분을 변경해 주세요.",
+    "Transfer the lead role before changing affiliation.",
+  ],
+  B2B_EXTERNAL_ADMIN_DENIED: [
+    "외부 참여자는 팀 관리자가 될 수 없습니다.",
+    "External collaborators cannot become team administrators.",
+  ],
+};
 const errors: Record<string, [string, string]> = {
   B2B_BILLING_PERMISSION_REQUIRED: [
     "결제 권한이 필요한 화면입니다.",
@@ -98,10 +141,11 @@ export function B2bError({
   retry?: () => void;
 }) {
   const c = useCopy();
-  const message = errors[code] ?? [
-    "요청을 완료하지 못했습니다. 입력을 유지한 채 다시 시도할 수 있습니다.",
-    "The request could not be completed. Your input is preserved.",
-  ];
+  const message = errors[code] ??
+    invitationErrors[code] ?? [
+      "요청을 완료하지 못했습니다. 입력을 유지한 채 다시 시도할 수 있습니다.",
+      "The request could not be completed. Your input is preserved.",
+    ];
   return (
     <div
       role="alert"

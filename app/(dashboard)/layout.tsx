@@ -45,7 +45,7 @@ export default function DashboardLayout({
    * Accept button saying the button would not work yet.
    */
   const onInvitationPage =
-    usePathname()?.startsWith("/dashboard/invitations/") ?? false;
+    Boolean(usePathname()?.match(/^\/dashboard\/(?:b2b-)?invitations\//));
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   // "checking" until we've confirmed a token client-side. We render only a
@@ -79,9 +79,7 @@ export default function DashboardLayout({
        * account and belong on sign-in. Both screens carry `returnTo` on to the
        * other, so a wrong guess would cost one click rather than the journey.
        */
-      const invited = window.location.pathname.startsWith(
-        "/dashboard/invitations/",
-      );
+      const invited = /^\/dashboard\/(?:b2b-)?invitations\//.test(window.location.pathname);
       const needsAccount =
         new URLSearchParams(window.location.search).get("signup") === "1";
       window.location.replace(
