@@ -574,3 +574,196 @@ test("B2B owner restores vacant lead without gaining private project content", a
     ).status(),
   ).toBe(404);
 });
+
+test("B2B ownership uses consent and verification, retries lost responses and revokes former billing", async ({
+  page,
+  request,
+  browser,
+}) => {
+  const owner = await account(request, "b2b-transfer-owner");
+  const successor = await account(request, "b2b-transfer-successor");
+  const team = (
+    await (
+      await request.post(`${api}/v2/workspaces`, {
+        headers: owner.headers,
+        data: { name: `B2B ownership ${suffix()}` },
+      })
+    ).json()
+  ).data.workspace;
+  await request.post(`${api}/v2/workspaces/${team.id}/b2b/enroll`, {
+    headers: owner.headers,
+    data: {
+      requestKey: crypto.randomUUID(),
+      revision: 0,
+      reason: "Ownership fixture",
+    },
+  });
+  fixture({ workspaceId: team.id, action: "activate" });
+  const endpoint = `${api}/v2/workspaces/${team.id}/b2b`;
+  const before = (
+    await (
+      await request.get(`${endpoint}/status`, { headers: owner.headers })
+    ).json()
+  ).data;
+  await request.post(`${endpoint}/invitations`, {
+    headers: owner.headers,
+    data: {
+      requestKey: crypto.randomUUID(),
+      email: successor.email,
+      kind: "internal",
+      teamRole: "reviewer",
+    },
+  });
+  let offer: { inviteUrl: string } | undefined;
+  await expect
+    .poll(
+      async () => {
+        const mailbox = await (await request.get(`${api}/__test/mail`)).json();
+        offer = mailbox.findLast(
+          (m: { to: string; inviteUrl?: string }) =>
+            m.to === successor.email &&
+            m.inviteUrl?.includes("/b2b-invitations/"),
+        );
+        return offer?.inviteUrl;
+      },
+      { timeout: 20000 },
+    )
+    .toBeTruthy();
+  const token = new URL(offer!.inviteUrl).pathname.split("/").at(-1);
+  expect(
+    (
+      await request.post(`${api}/v2/b2b/invitations/${token}/accept`, {
+        headers: successor.headers,
+      })
+    ).status(),
+  ).toBe(201);
+  const base = `/dashboard/workspaces/${team.id}`;
+  await signIn(page, owner.email);
+  await page.goto(`${base}/settings`);
+  await page
+    .getByLabel("내부 소유권 후임", { exact: true })
+    .selectOption(successor.id);
+  await page
+    .getByLabel("소유권 변경 사유", { exact: true })
+    .fill("Transfer to accepted internal successor");
+  await page
+    .getByRole("button", { name: "소유권 이전 본인 확인", exact: true })
+    .click();
+  await page.getByLabel("현재 비밀번호", { exact: true }).fill(password);
+  let lost = true;
+  await page.route(`${endpoint}/ownership`, async (route) => {
+    if (lost) {
+      lost = false;
+      await route.fetch();
+      await route.abort();
+    } else await route.continue();
+  });
+  await page
+    .getByRole("button", { name: "본인 확인 후 이전 요청", exact: true })
+    .click();
+  await expect(
+    page.getByLabel("소유권 변경 사유", { exact: true }),
+  ).toBeDisabled();
+  await page
+    .getByRole("button", { name: "본인 확인 다시 시작", exact: true })
+    .click();
+  await page.getByLabel("현재 비밀번호", { exact: true }).fill(password);
+  await page
+    .getByRole("button", { name: "본인 확인 후 이전 요청", exact: true })
+    .click();
+  await expect(
+    page.getByText("소유권 이전 요청의 수락을 기다리고 있습니다.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  const pending = (
+    await (
+      await request.get(`${api}/v2/workspaces/${team.id}`, {
+        headers: owner.headers,
+      })
+    ).json()
+  ).data.pendingTransfer;
+  const successorContext = await browser.newContext({ locale: "ko-KR" });
+  const successorPage = await successorContext.newPage();
+  try {
+    await signIn(successorPage, successor.email);
+    await successorPage.goto(`${base}/settings`);
+    await successorPage
+      .getByLabel("소유권 변경 사유", { exact: true })
+      .fill("Accept ownership responsibility");
+    await successorPage
+      .getByRole("button", { name: "소유권 수락 본인 확인", exact: true })
+      .click();
+    await successorPage
+      .getByLabel("현재 비밀번호", { exact: true })
+      .fill(password);
+    let lostAccept = true;
+    await successorPage.route(
+      `${endpoint}/ownership/${pending.id}/accept`,
+      async (route) => {
+        if (lostAccept) {
+          lostAccept = false;
+          const applied = await route.fetch();
+          expect(applied.status(), JSON.stringify(await applied.json())).toBe(
+            201,
+          );
+          await route.abort();
+        } else await route.continue();
+      },
+    );
+    await successorPage
+      .getByRole("button", { name: "본인 확인 후 소유권 수락", exact: true })
+      .click();
+    await expect(
+      successorPage.getByRole("button", {
+        name: "본인 확인 다시 시작",
+        exact: true,
+      }),
+    ).toBeVisible();
+    // Refresh the completed server state while the lost response is unresolved.
+    await successorPage.evaluate(() =>
+      window.dispatchEvent(new Event("workspaces:changed")),
+    );
+    await expect(
+      successorPage.getByLabel("내부 소유권 후임", { exact: true }),
+    ).toBeVisible();
+    await successorPage
+      .getByRole("button", { name: "본인 확인 다시 시작", exact: true })
+      .click();
+    await successorPage
+      .getByLabel("현재 비밀번호", { exact: true })
+      .fill(password);
+    await successorPage
+      .getByRole("button", { name: "본인 확인 후 소유권 수락", exact: true })
+      .click();
+    await expect(
+      successorPage
+        .getByRole("status")
+        .filter({ hasText: "소유권 이전 상태를 업데이트했습니다" }),
+    ).toBeVisible();
+    const currentOwner = (
+      await (
+        await request.get(`${endpoint}/status`, { headers: successor.headers })
+      ).json()
+    ).data;
+    const previousOwner = (
+      await (
+        await request.get(`${endpoint}/status`, { headers: owner.headers })
+      ).json()
+    ).data;
+    expect(currentOwner.allowedActions.billing).toBe(true);
+    expect(previousOwner.allowedActions.billing).toBe(false);
+    expect(currentOwner.team.revision).toBe(2);
+    expect(currentOwner.team.periodEndsAt).toBe(before.team.periodEndsAt);
+    await page.goto(`${base}/settings`);
+    await page
+      .getByLabel("탈퇴 사유", { exact: true })
+      .fill("Leave after successor acceptance");
+    await page
+      .getByRole("button", { name: "팀 탈퇴 확인", exact: true })
+      .click();
+    await expect(page).toHaveURL(/\/dashboard\/workspaces(?:$|\?)/);
+  } finally {
+    await successorContext.close();
+  }
+});

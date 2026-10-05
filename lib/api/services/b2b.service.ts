@@ -10,6 +10,9 @@ import type {
   ChangeTeamMember,
   RecoverProjectLead,
   ProjectLeadRecovery,
+  RequestOwnership,
+  ResolveOwnership,
+  OwnershipTransfer,
   ChangeParticipant,
   CreateProject,
   ProjectDetail,
@@ -103,6 +106,21 @@ export const b2bService = {
   transferLead: (id: string, projectId: string, input: TransferLead) =>
     post<{ revision: number; requestId: string }>(
       `${projectPath(id, projectId)}/lead`,
+      input,
+    ),
+  requestOwnership: (id: string, input: RequestOwnership) =>
+    post<{ transfer: OwnershipTransfer; revision: number; requestId: string }>(
+      `${base(id)}/ownership`,
+      input,
+    ),
+  resolveOwnership: (
+    id: string,
+    transferId: string,
+    action: "accept" | "cancel" | "decline",
+    input: ResolveOwnership,
+  ) =>
+    post<{ updated: true; revision: number; requestId: string }>(
+      `${base(id)}/ownership/${e(transferId)}/${action}`,
       input,
     ),
   leave: (id: string, input: ChangeInvitation) =>

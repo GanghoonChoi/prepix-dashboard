@@ -15,12 +15,14 @@ export function ReauthForm({
   label,
   onConfirm,
   onCancel,
+  cancelDisabled = false,
 }: {
   workspaceId: string;
   purpose: string;
   label: string;
   onConfirm: (credential: Credential) => Promise<void>;
   onCancel: () => void;
+  cancelDisabled?: boolean;
 }) {
   const { lang } = useI18n();
   const c = (ko: string, en: string) => (lang === "ko" ? ko : en);
@@ -176,7 +178,11 @@ export function ReauthForm({
             )}
           </p>
         )}
-      <button className={secondaryClass} disabled={busy} onClick={onCancel}>
+      <button
+        className={secondaryClass}
+        disabled={busy || cancelDisabled}
+        onClick={onCancel}
+      >
         {c("취소", "Cancel")}
       </button>
     </div>

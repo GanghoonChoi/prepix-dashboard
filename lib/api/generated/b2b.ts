@@ -176,3 +176,28 @@ export type ProjectLeadRecovery = {
     | "account_suspended";
   eligibleUserIds: string[];
 };
+
+export type OwnershipCredential = {
+  challengeId: string;
+  password?: string;
+  idToken?: string;
+};
+export type RequestOwnership = RevisionMutation & {
+  targetId: string;
+  reason: string;
+  credential: OwnershipCredential;
+};
+export type ResolveOwnership = RevisionMutation & {
+  reason: string;
+  credential?: OwnershipCredential;
+};
+export type OwnershipTransfer = {
+  id: string;
+  workspaceId: string;
+  fromUserId: string;
+  toUserId: string;
+  expiresAt: string;
+  resolvedAt: string | null;
+  outcome: string | null;
+  createdAt: string;
+};

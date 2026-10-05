@@ -82,11 +82,14 @@ export function WorkspaceProvider({
     };
     const timer = setInterval(refresh, 30_000);
     window.addEventListener("focus", refresh);
+    const changed = () => void reload();
+    window.addEventListener("workspaces:changed", changed);
     return () => {
       alive = false;
       window.clearTimeout(initial);
       clearInterval(timer);
       window.removeEventListener("focus", refresh);
+      window.removeEventListener("workspaces:changed", changed);
     };
   }, [id, reload]);
   // Loading keeps the structure (§5.1): the back link, the header block and the

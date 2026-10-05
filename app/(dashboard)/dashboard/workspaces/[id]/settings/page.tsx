@@ -1,4 +1,5 @@
 "use client";
+import { OwnershipControls } from "@/components/b2b/ownership";
 import { LeaveTeam } from "@/components/b2b/leave-team";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -201,7 +202,8 @@ export default function Page() {
             </form>
           )}
         </Block>
-        {!personal && (
+        {!personal && b2b?.enrolled && <OwnershipControls />}
+        {!personal && !b2b?.enrolled && (
           <Block
             title={c("소유권", "Ownership")}
             description={c(
