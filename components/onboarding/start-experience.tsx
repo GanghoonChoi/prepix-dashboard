@@ -13,6 +13,7 @@ import {
 } from "@/lib/onboarding";
 import {
   workspaceService,
+  type Capabilities,
   type WorkspaceDetail,
   type WorkspaceList,
 } from "@/lib/api/services/workspace.service";
@@ -21,6 +22,7 @@ import {
   primaryClass,
   secondaryClass,
 } from "@/components/workspaces/shared";
+import { useTeamCreation } from "@/components/workspaces/use-team-creation";
 import { CloudEntry } from "@/components/workspaces/cloud-entry";
 import { InviteForm } from "@/components/workspaces/invite-form";
 import { workspaceError } from "@/lib/workspaces/onboarding";
@@ -35,7 +37,9 @@ export function StartExperience() {
   const [state, setState] = useState<StartState | null>(null);
   const [signedIn, setSignedIn] = useState(false);
   const [list, setList] = useState<WorkspaceList | null>(null);
-  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [status, setStatus] = useState<"loading" | "ready" | "error">(
+    "loading",
+  );
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
@@ -322,7 +326,11 @@ export function StartExperience() {
           personal ? (
             <PersonalStep
               onTeam={async (teamId) => {
-                await reload();
+                const next = await workspaceService.list();
+                if (!next.workspaces.some((row) => row.id === teamId))
+                  throw new Error("Team destination unavailable");
+                setList(next);
+                setStatus("ready");
                 navigate({ step: "invite", workspace: teamId });
               }}
               onNext={() =>
@@ -382,7 +390,9 @@ export function StartExperience() {
                 >
                   {copy("Manage workspace", "워크스페이스 관리")}
                 </Link>
-                <CloudEntry workspaceId={workspace.id} />
+                {!workspace.b2bEnrolled && (
+                  <CloudEntry workspaceId={workspace.id} />
+                )}
               </aside>
             )}
             {step === "app" ? (
@@ -551,8 +561,24 @@ function PersonalStep({
   const copy = (en: string, korean: string) => (ko ? korean : en);
   const [name, setName] = useState("");
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
+  const { submit, busy, pending, error } = useTeamCreation(capabilities);
+  const [capabilityFailure, setCapabilityFailure] = useState(false);
+  useEffect(() => {
+    let active = true;
+    workspaceService
+      .capabilities()
+      .then((value) => {
+        if (active) setCapabilities(value);
+      })
+      .catch(() => {
+        if (active) setCapabilityFailure(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+  const b2b = capabilities?.newTeamPolicy === "b2b_v1";
   return (
     <section className="space-y-5 rounded-xl border border-border p-6">
       <p className="text-sm leading-6 text-muted">{t("team.personalDesc")}</p>
@@ -561,48 +587,68 @@ function PersonalStep({
           className="space-y-4"
           onSubmit={async (event) => {
             event.preventDefault();
-            const next = name.trim();
-            if (busy || !next) return;
-            setBusy(true);
-            setError("");
-            try {
-              const { workspace } = await workspaceService.create(next);
-              await onTeam(workspace.id);
-            } catch (e) {
-              setError(workspaceError(e));
-            } finally {
-              setBusy(false);
-            }
+            if (capabilities)
+              await submit(name, (workspace) => onTeam(workspace.id));
           }}
         >
-          <label className="block text-sm font-medium" htmlFor="start-team-name">
+          <label
+            className="block text-sm font-medium"
+            htmlFor="start-team-name"
+          >
             {t("team.startTeamName")}
           </label>
+          {capabilityFailure && (
+            <p role="alert" className="text-sm text-muted">
+              {copy(
+                "Team settings could not be loaded. Open the team creation page to retry.",
+                "팀 생성 설정을 불러오지 못했습니다. 팀 생성 화면에서 다시 시도해 주세요.",
+              )}{" "}
+              <Link className="underline" href="/dashboard/workspaces/new">
+                {t("team.create")}
+              </Link>
+            </p>
+          )}
           <input
             id="start-team-name"
             className={`${inputClass} max-w-sm`}
             value={name}
-            maxLength={80}
-            disabled={busy}
+            maxLength={b2b ? 100 : 80}
+            disabled={busy || pending || !capabilities}
             placeholder={t("team.placeholder")}
             onChange={(event) => setName(event.target.value)}
           />
           <p className="text-xs leading-5 text-muted">
-            {t("team.startTeamHint")}
+            {t(b2b ? "team.b2bCreationTerms" : "team.startTeamHint")}
           </p>
           {error && (
             <p role="alert" className="text-sm leading-6">
               {t(`team.error.${error}`)}
             </p>
           )}
+          {pending && !busy && (
+            <p role="status" className="text-sm leading-6 text-muted">
+              {t("team.creationRetryHint")}
+            </p>
+          )}
           <div className="flex flex-wrap gap-3">
-            <button className={primaryClass} disabled={busy || !name.trim()}>
-              {busy ? t("team.creating") : t("team.makeTeam")}
+            <button
+              className={primaryClass}
+              disabled={
+                busy || !name.trim() || (!pending && !capabilities?.canCreate)
+              }
+            >
+              {t(
+                busy
+                  ? "team.creating"
+                  : pending
+                    ? "team.creationRetry"
+                    : "team.makeTeam",
+              )}
             </button>
             <button
               type="button"
               className={secondaryClass}
-              disabled={busy}
+              disabled={busy || pending}
               onClick={() => setOpen(false)}
             >
               {copy("Cancel", "취소")}
@@ -691,7 +737,7 @@ function WorkspaceStep({
               id="start-workspace-name"
               className={`${inputClass} max-w-sm flex-1`}
               value={name}
-              maxLength={80}
+              maxLength={workspace.b2bEnrolled ? 100 : 80}
               disabled={busy}
               onChange={(event) => {
                 setDraft(event.target.value);
@@ -711,8 +757,8 @@ function WorkspaceStep({
           </div>
           <p className="text-xs text-muted">
             {copy(
-              "Up to 80 characters. Renaming does not change the workspace address.",
-              "최대 80자. 이름을 바꿔도 워크스페이스 주소는 바뀌지 않습니다.",
+              `Up to ${workspace.b2bEnrolled ? 100 : 80} characters. Renaming does not change the workspace address.`,
+              `최대 ${workspace.b2bEnrolled ? 100 : 80}자. 이름을 바꿔도 워크스페이스 주소는 바뀌지 않습니다.`,
             )}
           </p>
           {saved && (
@@ -779,7 +825,22 @@ function InviteStep({
   }, [load]);
   return (
     <section className="space-y-5 rounded-xl border border-border p-6">
-      {detail ? (
+      {detail?.b2bEnrolled ? (
+        <div className="space-y-3">
+          <p className="text-sm leading-6 text-muted">
+            {copy(
+              "Check your current service status from the team home. Teams in preparation can use settings and purchasing. Participation is free, and editing licences are assigned separately.",
+              "팀 홈에서 현재 이용 상태를 확인해 주세요. 준비 상태에서는 설정과 구매만 이용할 수 있습니다. 팀 참여는 무료이고, 편집 이용권은 별도로 배정합니다.",
+            )}
+          </p>
+          <Link
+            className={primaryClass}
+            href={`/dashboard/workspaces/${workspace.id}`}
+          >
+            {copy("Open team home", "팀 홈으로 이동하기")}
+          </Link>
+        </div>
+      ) : detail ? (
         <InviteForm
           workspaceId={workspace.id}
           workspace={detail.workspace}

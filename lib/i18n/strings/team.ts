@@ -10,6 +10,19 @@ export const team = {
     "team.newTitle": "Name your workspace",
     "team.name": "Workspace name",
     "team.nameHint": "Up to 80 characters.",
+    "team.b2bNameHint": "Up to 100 characters.",
+    "team.b2bCreationTerms":
+      "Your team starts in preparation. Creating it does not charge you or start a trial. The service period begins when the first purchase is applied.",
+    "team.creationRetry": "Check the created team",
+    "team.creationRetryHint":
+      "Your request is saved. Retry to check the same team and continue.",
+    "team.error.WORKSPACE_REQUEST_KEY_REQUIRED":
+      "Reload the page and try again.",
+    "team.error.WORKSPACE_REQUEST_KEY_INVALID":
+      "Reload the page and try again.",
+    "team.error.WORKSPACE_REQUEST_KEY_CONFLICT":
+      "This request has different details. Check the original team's result.",
+    "team.error.WORKSPACE_UNAVAILABLE": "This team is no longer available.",
     "team.placeholder": "e.g. Studio team",
     "team.step1": "1. Workspace",
     "team.step2": "2. Invite team",
@@ -110,7 +123,7 @@ export const team = {
     "team.error.WORKSPACE_CREATION_UNAVAILABLE":
       "Workspace creation is available to preview accounts. If you were invited, open your invitation email.",
     "team.error.WORKSPACE_NAME_INVALID":
-      "Enter a workspace name between 1 and 80 characters.",
+      "Check the workspace name and the displayed length limit.",
     "team.error.WORKSPACE_NOT_FOUND":
       "This workspace is unavailable or you no longer have access.",
     "team.error.WORKSPACE_ADMIN_REQUIRED":
@@ -192,11 +205,25 @@ export const team = {
     "team.newTitle": "워크스페이스 이름을 정하세요",
     "team.name": "워크스페이스 이름",
     "team.nameHint": "최대 80자.",
+    "team.b2bNameHint": "최대 100자.",
+    "team.b2bCreationTerms":
+      "팀은 준비 상태로 시작합니다. 생성만으로 결제되거나 체험 기간이 시작되지 않으며, 첫 구매가 반영되면 이용기간이 시작됩니다.",
+    "team.creationRetry": "생성한 팀 확인하기",
+    "team.creationRetryHint":
+      "요청 내용을 보관했습니다. 다시 시도하면 같은 팀을 확인하고 이동합니다.",
+    "team.error.WORKSPACE_REQUEST_KEY_REQUIRED":
+      "페이지를 새로고침하고 다시 시도해 주세요.",
+    "team.error.WORKSPACE_REQUEST_KEY_INVALID":
+      "페이지를 새로고침하고 다시 시도해 주세요.",
+    "team.error.WORKSPACE_REQUEST_KEY_CONFLICT":
+      "기존 요청과 내용이 다릅니다. 처음 요청한 팀의 결과를 확인해 주세요.",
+    "team.error.WORKSPACE_UNAVAILABLE": "더 이상 이용할 수 없는 팀입니다.",
     "team.placeholder": "예: 스튜디오 팀",
     "team.step1": "1. 워크스페이스",
     "team.step2": "2. 팀원 초대",
     "team.step3": "3. 완료",
-    "team.previewTerms": "멤버 {seats}석 · 검토자 무료 · 워크스페이스를 만들어도 결제되지 않습니다",
+    "team.previewTerms":
+      "멤버 {seats}석 · 검토자 무료 · 워크스페이스를 만들어도 결제되지 않습니다",
     "team.remaining": "{count}개를 더 만들 수 있습니다.",
     "team.creating": "워크스페이스를 만드는 중…",
     "team.inviteDesc": "초대는 7일 동안 유효합니다. 건너뛰어도 됩니다.",
@@ -289,7 +316,7 @@ export const team = {
     "team.error.WORKSPACE_CREATION_UNAVAILABLE":
       "워크스페이스 생성은 미리보기 대상 계정에 제공됩니다. 초대받았다면 이메일의 초대 링크를 열어주세요.",
     "team.error.WORKSPACE_NAME_INVALID":
-      "1자 이상 80자 이하의 워크스페이스 이름을 입력하세요.",
+      "워크스페이스 이름과 화면에 표시된 글자 수 제한을 확인해 주세요.",
     "team.error.WORKSPACE_NOT_FOUND":
       "워크스페이스를 찾을 수 없거나 접근 권한이 없습니다.",
     "team.error.WORKSPACE_ADMIN_REQUIRED":

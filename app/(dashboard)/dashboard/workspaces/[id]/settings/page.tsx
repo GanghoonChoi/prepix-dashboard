@@ -145,7 +145,7 @@ export default function Page() {
                 <span>{c("워크스페이스 이름", "Workspace name")}</span>
                 <input
                   className={inputClass}
-                  maxLength={80}
+                  maxLength={b2b?.enrolled ? 100 : 80}
                   required
                   disabled={!data.canManage || busy}
                   value={form.name}

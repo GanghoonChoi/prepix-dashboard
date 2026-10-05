@@ -15,6 +15,7 @@ export type Workspace = {
    * reads it directly — `lib/workspaces/kind.ts` owns the absent case.
    */
   type?: "personal" | "team";
+  b2bEnrolled?: boolean;
   description?: string;
   revision?: number;
   seatLimit: number;
@@ -26,6 +27,9 @@ export type Capabilities = {
   enabled: boolean;
   canCreate: boolean;
   previewSeats: number;
+  creationRequestKeys?: boolean;
+  newTeamPolicy?: "b2b_v1" | "legacy";
+  maxTeamNameLength?: number;
   /**
    * How many more workspaces this account may create — the cap minus the ones
    * it created, floored at 0, and present even in the disabled response.
@@ -78,6 +82,7 @@ export type WorkspaceList = {
   pendingInvitationCount?: number;
 };
 export type WorkspaceDetail = {
+  b2bEnrolled?: boolean;
   workspace: Workspace;
   canManageMembers?: boolean;
   managementEnabled?: boolean;
@@ -216,7 +221,10 @@ export const workspaceService = {
       )
     ).data.data,
   transfer: async (id: string, targetId: string, credential: Credential) =>
-    teamClient.post(`/workspaces/${e(id)}/ownership`, { targetId, ...credential }),
+    teamClient.post(`/workspaces/${e(id)}/ownership`, {
+      targetId,
+      ...credential,
+    }),
   resolveTransfer: async (
     id: string,
     transferId: string,
@@ -242,15 +250,15 @@ export const workspaceService = {
       .data.data,
   list: async () =>
     (await teamClient.get<{ data: WorkspaceList }>("/workspaces")).data.data,
-  create: async (name: string) =>
+  create: async (name: string, requestKey?: string) =>
     (
       await teamClient.post<{
         data: { workspace: Workspace; resumed: boolean };
-      }>("/workspaces", { name })
+      }>("/workspaces", { name, ...(requestKey ? { requestKey } : {}) })
     ).data.data,
   detail: async (id: string) =>
-    (await teamClient.get<{ data: WorkspaceDetail }>(`/workspaces/${e(id)}`)).data
-      .data,
+    (await teamClient.get<{ data: WorkspaceDetail }>(`/workspaces/${e(id)}`))
+      .data.data,
   complete: async (id: string) =>
     teamClient.post(`/workspaces/${e(id)}/complete-onboarding`),
   /** `lang` is the INVITER's language — the only signal we have for the mail
@@ -274,7 +282,9 @@ export const workspaceService = {
       )
     ).data.data,
   revoke: async (id: string, invitationId: string) =>
-    teamClient.post(`/workspaces/${e(id)}/invitations/${e(invitationId)}/revoke`),
+    teamClient.post(
+      `/workspaces/${e(id)}/invitations/${e(invitationId)}/revoke`,
+    ),
   preview: async (token: string) =>
     (
       await teamClient.get<{ data: InvitePreview }>(
