@@ -440,6 +440,26 @@ export type EditingDeviceRegistration = {
   publicKey: string;
   signature: string;
 };
+export type RetireEditingDevice = {
+  requestKey: string;
+  revision: number;
+  reason: string;
+};
+export type EditingDeviceOverview = {
+  devices: {
+    id: string;
+    createdAt: string;
+    state: "active" | "retiring" | "retired";
+    revision: number;
+    retirementRequestedAt: string | null;
+    retiredAt: string | null;
+    retirementReason: string;
+    pendingGrantCount: number;
+    latestExpiry: string | null;
+  }[];
+  deviceLimit: number | null;
+  serverTime: string;
+};
 export type DeviceChallengeInput = {
   requestKey: string;
   deviceId: string;

@@ -1,6 +1,8 @@
 import { apiClient } from "../client";
 import type {
   B2bStatus,
+  EditingDeviceOverview,
+  RetireEditingDevice,
   LicenceOverview,
   LicenceAssignment,
   UserAiBudget,
@@ -49,6 +51,17 @@ async function post<T>(path: string, input: unknown): Promise<T> {
   return result;
 }
 export const b2bService = {
+  editingDevices: (id: string) =>
+    get<EditingDeviceOverview>(`${base(id)}/licences/devices`),
+  retireEditingDevice: (
+    id: string,
+    deviceId: string,
+    input: RetireEditingDevice,
+  ) =>
+    post<{ deviceId: string; requestId: string }>(
+      `${base(id)}/licences/devices/${e(deviceId)}/retire`,
+      input,
+    ),
   licences: (id: string, mine = false) =>
     get<LicenceOverview>(`${base(id)}/licences${mine ? "/mine" : ""}`),
   assignLicence: (id: string, input: AssignLicence) =>

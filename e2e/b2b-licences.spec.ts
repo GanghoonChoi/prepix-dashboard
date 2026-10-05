@@ -133,6 +133,7 @@ async function device(
   expect(issued.status()).toBe(201);
   const grant = (await issued.json()).data.grant;
   return {
+    deviceId,
     grant,
     signed,
     ack: async () => {
@@ -596,6 +597,199 @@ test("purchased capacity, lost-response assignment, independent limits, private 
   } finally {
     await personalContext.close();
   }
+});
+
+test("own device retirement survives a lost response and keeps replacement capacity until device proof", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(90000);
+  const owner = await account(request, "device-owner"),
+    staff = await account(request, "device-staff");
+  const team = (
+    await (
+      await request.post(`${api}/v2/workspaces`, {
+        headers: owner.headers,
+        data: { name: "장치 교체 검증", requestKey: randomUUID() },
+      })
+    ).json()
+  ).data.workspace;
+  const endpoint = `${api}/v2/workspaces/${team.id}/b2b`,
+    base = `/dashboard/workspaces/${team.id}/licences`;
+  const status = (
+    await (
+      await request.get(`${endpoint}/status`, { headers: owner.headers })
+    ).json()
+  ).data;
+  test.skip(!status.enrolled, "Requires local B2B product and devices preview");
+  const { periodId } = paidFixture({
+    workspaceId: team.id,
+    action: "purchase",
+    target: "initial",
+  });
+  const project = (
+    await (
+      await request.post(`${endpoint}/projects`, {
+        headers: owner.headers,
+        data: { name: "Device project", requestKey: randomUUID() },
+      })
+    ).json()
+  ).data.project;
+  await invite(request, team.id, owner, staff, project.id);
+  for (const user of [owner, staff])
+    expect(
+      (
+        await request.post(`${endpoint}/licences/assignments`, {
+          headers: owner.headers,
+          data: {
+            requestKey: randomUUID(),
+            periodId,
+            userId: user.id,
+            limitUnits: 1000,
+          },
+        })
+      ).status(),
+    ).toBe(201);
+  const d1 = await device(request, team.id, owner, project.id),
+    d2 = await device(request, team.id, owner, project.id);
+  await device(request, team.id, owner, project.id);
+  const staffDevice = await device(request, team.id, staff, project.id);
+  await signIn(page, owner.email, base);
+  const devices = page
+    .locator("section")
+    .filter({
+      has: page.getByRole("heading", { name: "내 등록 장치", exact: true }),
+    })
+    .first();
+  await expect(
+    devices.getByText(staffDevice.deviceId, { exact: false }),
+  ).toHaveCount(0);
+  await expect(devices.getByText(/사용 중·해제 대기 3 \/ 3/)).toBeVisible();
+  const active = devices.getByRole("region", {
+    name: `장치 ${d1.deviceId.slice(0, 8)} · 사용 중`,
+    exact: true,
+  });
+  await active.getByText("장치 등록 해제", { exact: true }).click();
+  await active
+    .getByLabel("등록 해제 사유", { exact: true })
+    .fill("사용하지 않는 장치 교체");
+  let calls = 0,
+    original: unknown;
+  await page.route(
+    `${endpoint}/licences/devices/${d1.deviceId}/retire`,
+    async (route) => {
+      if (calls++ === 0) {
+        original = route.request().postDataJSON();
+        expect((await route.fetch()).status()).toBe(201);
+        return route.abort();
+      }
+      expect(route.request().postDataJSON()).toEqual(original);
+      return route.continue();
+    },
+  );
+  await active
+    .getByRole("button", { name: "장치 해제 확인", exact: true })
+    .click();
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  const waiting = devices.getByRole("region", {
+    name: `장치 ${d1.deviceId.slice(0, 8)} · 등록 해제 대기`,
+    exact: true,
+  });
+  await expect(waiting.getByText(/1개 허가의 반납을 기다립니다/)).toBeVisible();
+  await expect(
+    waiting.getByLabel("등록 해제 사유", { exact: true }),
+  ).toHaveValue("사용하지 않는 장치 교체");
+  await expect(
+    waiting.getByLabel("등록 해제 사유", { exact: true }),
+  ).toBeDisabled();
+  await waiting
+    .getByRole("button", { name: "같은 장치 해제 다시 확인", exact: true })
+    .click();
+  await expect(
+    waiting.getByRole("status").filter({ hasText: "변경을 확인했습니다" }),
+  ).toBeVisible();
+  expect(calls).toBe(2);
+  expect(
+    (
+      await request.post(`${endpoint}/licences/devices/grants`, {
+        headers: owner.headers,
+        data: d1.signed,
+      })
+    ).status(),
+  ).toBe(403);
+  expect(
+    (
+      await request.post(`${endpoint}/licences/devices/grants`, {
+        headers: owner.headers,
+        data: d2.signed,
+      })
+    ).status(),
+  ).toBe(201);
+  const pair = generateKeyPairSync("ed25519");
+  const replacement = {
+    requestKey: randomUUID(),
+    deviceId: randomUUID(),
+    publicKey: pair.publicKey
+      .export({ type: "spki", format: "der" })
+      .toString("base64url"),
+  };
+  const registration = {
+    ...replacement,
+    signature: sign(
+      null,
+      Buffer.from(inputHash(registrationProof(team.id, owner.id, replacement))),
+      pair.privateKey,
+    ).toString("base64url"),
+  };
+  expect(
+    (
+      await request.post(`${endpoint}/licences/devices`, {
+        headers: owner.headers,
+        data: registration,
+      })
+    ).status(),
+  ).toBe(409);
+  await devices.scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: "/tmp/prepix-b2b-device-retirement-web.png",
+    fullPage: false,
+  });
+  await d1.ack();
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(
+    devices.getByRole("region", {
+      name: `장치 ${d1.deviceId.slice(0, 8)} · 등록 해제 완료`,
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(devices.getByText(/사용 중·해제 대기 2 \/ 3/)).toBeVisible();
+  expect(
+    (
+      await request.post(`${endpoint}/licences/devices`, {
+        headers: owner.headers,
+        data: registration,
+      })
+    ).status(),
+  ).toBe(201);
+  const own = (
+    await (
+      await request.get(`${endpoint}/licences/devices`, {
+        headers: owner.headers,
+      })
+    ).json()
+  ).data;
+  expect(
+    own.devices.filter((d: { state: string }) => d.state !== "retired"),
+  ).toHaveLength(3);
+  expect(
+    own.devices.find((d: { id: string }) => d.id === d1.deviceId).state,
+  ).toBe("retired");
+  const licences = (
+    await (
+      await request.get(`${endpoint}/licences/mine`, { headers: owner.headers })
+    ).json()
+  ).data;
+  expect(licences.assignments[0].state).toBe("active");
 });
 
 test("a revocation response lost after immediate release stays retryable across a failed refresh and a changed roster", async ({

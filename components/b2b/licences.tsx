@@ -14,6 +14,8 @@ import {
   type ChangeUserAiLimit,
   type LicenceAssignment,
   type LicenceOverview,
+  type EditingDeviceOverview,
+  type RetireEditingDevice,
   type RevokeLicence,
   type ScheduleLicenceRevocation,
   type TeamPerson,
@@ -130,6 +132,7 @@ export function TeamLicences() {
     workspaceId: string;
     manager: boolean;
     overview: LicenceOverview;
+    devices: EditingDeviceOverview;
     people: TeamPerson[];
   } | null>(null);
   const [failure, setFailure] = useState<{
@@ -141,15 +144,17 @@ export function TeamLicences() {
   const load = useCallback(async () => {
     const call = ++sequence.current;
     try {
-      const [overview, roster] = await Promise.all([
+      const [overview, roster, devices] = await Promise.all([
         b2bService.licences(workspaceId, !manager),
         manager ? b2bService.members(workspaceId) : Promise.resolve(null),
+        b2bService.editingDevices(workspaceId),
       ]);
       if (call !== sequence.current) return;
       setLoaded({
         workspaceId,
         manager,
         overview,
+        devices,
         people: roster?.people ?? [],
       });
       setFailure(null);
@@ -278,9 +283,190 @@ export function TeamLicences() {
               {c("플랜과 결제", "Plan and billing")}
             </Link>
           )}
+          <PersonalDevices overview={view.devices} onSaved={load} />
         </>
       )}
     </TeamShell>
+  );
+}
+
+function PersonalDevices({
+  overview,
+  onSaved,
+}: {
+  overview: EditingDeviceOverview;
+  onSaved: () => Promise<void>;
+}) {
+  const c = useCopy();
+  const occupied = overview.devices.filter(
+    (device) => device.state !== "retired",
+  ).length;
+  return (
+    <Block
+      title={c("내 등록 장치", "My registered devices")}
+      description={c(
+        "등록 해제는 새 편집 허가를 막습니다. 유효한 오프라인 허가가 모두 반납되거나 만료된 뒤 장치 정원에서 제외됩니다. 로컬 프로젝트와 사용자 이용권은 삭제되지 않습니다.",
+        "Retirement blocks new editing grants. A device stops occupying capacity after all valid offline permissions are discarded or expire. Local projects and your licence assignment are preserved.",
+      )}
+    >
+      <p className="text-sm tabular-nums">
+        {c("사용 중·해제 대기", "Active or retiring")} {occupied}
+        {overview.deviceLimit !== null && <> / {overview.deviceLimit}</>}
+      </p>
+      {overview.deviceLimit === null && (
+        <p className="text-sm text-muted">
+          {c(
+            "신규 등록을 위한 장치 정책이 아직 준비되지 않았습니다. 기존 장치는 조회하거나 등록 해제할 수 있습니다.",
+            "The policy for new registrations is not ready. Existing devices can still be viewed or retired.",
+          )}
+        </p>
+      )}
+      {overview.devices.length === 0 && (
+        <p className="text-sm text-muted">
+          {c(
+            "이 팀에 등록된 내 장치가 없습니다.",
+            "You have no registered devices in this team.",
+          )}
+        </p>
+      )}
+      {overview.devices
+        .toSorted(
+          (a, b) =>
+            a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id),
+        )
+        .map((device) => (
+          <DeviceRow key={device.id} device={device} onSaved={onSaved} />
+        ))}
+    </Block>
+  );
+}
+function DeviceRow({
+  device,
+  onSaved,
+}: {
+  device: EditingDeviceOverview["devices"][number];
+  onSaved: () => Promise<void>;
+}) {
+  const { data } = useWorkspace()!,
+    c = useCopy(),
+    fieldId = useId();
+  const [reason, setReason] = useState("");
+  const mutation = useLicenceMutation<RetireEditingDevice>(onSaved);
+  const active = device.state === "active";
+  const name = c(
+    `장치 ${device.id.slice(0, 8)}`,
+    `Device ${device.id.slice(0, 8)}`,
+  );
+  const state = c(
+    device.state === "retired"
+      ? "등록 해제 완료"
+      : active
+        ? "사용 중"
+        : "등록 해제 대기",
+    device.state === "retired"
+      ? "Retired"
+      : active
+        ? "Active"
+        : "Retirement pending",
+  );
+  return (
+    <section
+      aria-label={`${name} · ${state}`}
+      className="space-y-3 rounded-lg border border-border p-4 text-sm"
+    >
+      <div className="flex flex-wrap justify-between gap-3">
+        <h3 className="font-medium">{name}</h3>
+        <span className="text-muted">{state}</span>
+      </div>
+      <p className="break-all text-xs text-muted">
+        {c("장치 식별자", "Device ID")} · {device.id}
+      </p>
+      <p className="text-muted tabular-nums">
+        {c("등록", "Registered")} · {instant(device.createdAt)}
+      </p>
+      {device.state === "retiring" && (
+        <p role="status" className="leading-6 text-muted">
+          {device.latestExpiry
+            ? c(
+                `${device.pendingGrantCount}개 허가의 반납을 기다립니다. 반납 확인이 없으면 ${instant(device.latestExpiry)}까지 장치 정원을 유지합니다.`,
+                `Waiting for ${device.pendingGrantCount} permissions to be discarded. Without acknowledgement, device capacity remains occupied until ${instant(device.latestExpiry)}.`,
+              )
+            : c(
+                "장치 종료를 확인하고 있습니다.",
+                "Checking device completion.",
+              )}
+        </p>
+      )}
+      {device.retirementReason && (
+        <p className="break-words text-muted">
+          {c("해제 사유", "Retirement reason")} · {device.retirementReason}
+        </p>
+      )}
+      {(active || mutation.pending || mutation.error || mutation.saved) && (
+        <details>
+          <summary className="min-h-11 cursor-pointer py-3 text-muted">
+            {c("장치 등록 해제", "Retire this device")}
+          </summary>
+          <form
+            className="max-w-xl space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void mutation.run(
+                () => ({
+                  requestKey: crypto.randomUUID(),
+                  revision: device.revision,
+                  reason: reason.trim(),
+                }),
+                (input) =>
+                  b2bService.retireEditingDevice(
+                    data.workspace.id,
+                    device.id,
+                    input,
+                  ),
+              );
+            }}
+          >
+            <fieldset
+              disabled={mutation.locked || !active}
+              className="space-y-2 disabled:opacity-70"
+            >
+              <label htmlFor={`${fieldId}-reason`}>
+                {c("등록 해제 사유", "Retirement reason")}
+              </label>
+              <textarea
+                id={`${fieldId}-reason`}
+                className={inputClass}
+                maxLength={1000}
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                required
+              />
+            </fieldset>
+            <MutationStatus {...mutation} />
+            <button
+              className={primaryClass}
+              disabled={
+                mutation.busy ||
+                (!mutation.pending && (!active || !reason.trim()))
+              }
+            >
+              {c(
+                mutation.busy
+                  ? "장치 해제 확인 중…"
+                  : mutation.pending
+                    ? "같은 장치 해제 다시 확인"
+                    : "장치 해제 확인",
+                mutation.busy
+                  ? "Checking retirement…"
+                  : mutation.pending
+                    ? "Check the same retirement"
+                    : "Confirm device retirement",
+              )}
+            </button>
+          </form>
+        </details>
+      )}
+    </section>
   );
 }
 

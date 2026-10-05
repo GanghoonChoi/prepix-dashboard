@@ -37,6 +37,18 @@ export function definitivelyRejected(error: unknown): boolean {
   );
 }
 const invitationErrors: Record<string, [string, string]> = {
+  B2B_DEVICE_RETIRED: [
+    "이미 등록 해제가 요청된 장치입니다. 현재 장치 상태를 확인해 주세요.",
+    "Retirement has already been requested for this device. Review its current state.",
+  ],
+  B2B_DEVICE_NOT_FOUND: [
+    "현재 계정의 등록 장치를 찾을 수 없습니다.",
+    "This account's registered device is unavailable.",
+  ],
+  B2B_DEVICE_LIMIT_REACHED: [
+    "장치 정원이 가득 찼습니다. 기존 장치의 반납 또는 만료를 확인한 뒤 등록해 주세요.",
+    "Device capacity is full. Wait for an old device to be discarded or expire before registering.",
+  ],
   INVITATION_EMAIL_MISMATCH: [
     "초대받은 이메일의 계정으로 로그인해 주세요.",
     "Sign in with the invited email account.",
