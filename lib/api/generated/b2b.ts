@@ -358,3 +358,111 @@ export type TeamApplication = {
   allowances: TeamQuote["allowances"];
   overpaymentKrw: number;
 };
+
+export type LicenceState =
+  | "active"
+  | "scheduled"
+  | "revoking"
+  | "released"
+  | "expired";
+export type LicenceAssignment = {
+  id: string;
+  workspaceId: string;
+  periodId: string;
+  userId: string;
+  slot: number;
+  state: LicenceState;
+  startsAt: string;
+  endsAt: string;
+  assignedBy: string;
+  scheduledRevokeAt: string | null;
+  revocationRequestedAt: string | null;
+  reason: string;
+  closedAt: string | null;
+  revision: number;
+  createdAt: string;
+};
+export type UserAiBudget = {
+  workspaceId: string;
+  periodId: string;
+  userId: string;
+  limitUnits: number;
+  confirmedUnits: number;
+  reservedUnits: number;
+  revision: number;
+};
+export type LicenceOverview = {
+  assignments: LicenceAssignment[];
+  budgets: UserAiBudget[];
+  periods: {
+    id: string;
+    startsAt: string;
+    endsAt: string;
+    capacity: number;
+    revision: number;
+    state: "active" | "future" | "ended" | "revoked";
+  }[];
+  serverTime: string;
+};
+export type AssignLicence = {
+  requestKey: string;
+  periodId: string;
+  userId: string;
+  limitUnits: number;
+};
+export type RevokeLicence = {
+  requestKey: string;
+  revision: number;
+  reason: string;
+};
+export type ScheduleLicenceRevocation = RevokeLicence & {
+  scheduledRevokeAt: string | null;
+};
+export type ChangeUserAiLimit = {
+  requestKey: string;
+  revision: number;
+  limitUnits: number;
+  reason: string;
+};
+export type EditingDeviceRegistration = {
+  requestKey: string;
+  deviceId: string;
+  publicKey: string;
+  signature: string;
+};
+export type DeviceChallengeInput = {
+  requestKey: string;
+  deviceId: string;
+  projectId: string;
+};
+export type DeviceGrantInput = DeviceChallengeInput & {
+  challengeId: string;
+  signature: string;
+};
+export type DeviceGrantAcknowledgement = {
+  requestKey: string;
+  deviceId: string;
+  grantIds: string[];
+  signature: string;
+};
+export type EditingGrant = {
+  id: string;
+  workspaceId: string;
+  userId: string;
+  assignmentId: string;
+  assignmentRevision: number;
+  deviceId: string;
+  projectId: string;
+  signingKeyId: string;
+  issuedAt: string;
+  onlineUntil: string;
+  expiresAt: string;
+  revocationRequestedAt: string | null;
+  acknowledgedAt: string | null;
+};
+export type SignedEditingGrant = {
+  grant: EditingGrant;
+  token: string;
+  publicKey: string;
+  serverTime: string;
+};
