@@ -1,6 +1,13 @@
 import { apiClient } from "../client";
 import type {
   B2bStatus,
+  LicenceOverview,
+  LicenceAssignment,
+  UserAiBudget,
+  AssignLicence,
+  RevokeLicence,
+  ScheduleLicenceRevocation,
+  ChangeUserAiLimit,
   TeamCommerce,
   TeamQuote,
   CreateTeamQuote,
@@ -42,6 +49,37 @@ async function post<T>(path: string, input: unknown): Promise<T> {
   return result;
 }
 export const b2bService = {
+  licences: (id: string, mine = false) =>
+    get<LicenceOverview>(`${base(id)}/licences${mine ? "/mine" : ""}`),
+  assignLicence: (id: string, input: AssignLicence) =>
+    post<{ assignment: LicenceAssignment; requestId: string }>(
+      `${base(id)}/licences/assignments`,
+      input,
+    ),
+  revokeLicence: (id: string, assignmentId: string, input: RevokeLicence) =>
+    post<{ assignment: LicenceAssignment; requestId: string }>(
+      `${base(id)}/licences/assignments/${e(assignmentId)}/revoke`,
+      input,
+    ),
+  scheduleLicence: (
+    id: string,
+    assignmentId: string,
+    input: ScheduleLicenceRevocation,
+  ) =>
+    post<{ assignment: LicenceAssignment; requestId: string }>(
+      `${base(id)}/licences/assignments/${e(assignmentId)}/schedule`,
+      input,
+    ),
+  changeUserLimit: (
+    id: string,
+    periodId: string,
+    userId: string,
+    input: ChangeUserAiLimit,
+  ) =>
+    post<{ budget: UserAiBudget; requestId: string }>(
+      `${base(id)}/licences/periods/${e(periodId)}/users/${e(userId)}/limit`,
+      input,
+    ),
   commerce: (id: string) => get<TeamCommerce>(`${base(id)}/commerce`),
   purchaseQuote: (id: string, input: CreateTeamQuote) =>
     post<{ quote: TeamQuote; requestId: string }>(

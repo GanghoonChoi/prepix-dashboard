@@ -154,6 +154,7 @@ export type TeamPerson = {
   kind: ParticipationKind;
   revision: number;
   billingAllowed?: boolean;
+  accountUnavailable?: boolean;
 };
 export type TeamPeople = { people: TeamPerson[]; canDelegateBilling: boolean };
 
@@ -393,16 +394,25 @@ export type UserAiBudget = {
 };
 export type LicenceOverview = {
   assignments: LicenceAssignment[];
-  budgets: UserAiBudget[];
+  budgets: (UserAiBudget & { unitLabel: string; unitDescription: string })[];
   periods: {
     id: string;
     startsAt: string;
     endsAt: string;
     capacity: number;
     revision: number;
+    periodAiUnits: number;
+    aiUnitLabel: string;
+    aiUnitDescription: string;
     state: "active" | "future" | "ended" | "revoked";
   }[];
   serverTime: string;
+  deviceWaits: {
+    assignmentId: string;
+    deviceCount: number;
+    grantCount: number;
+    latestExpiry: string;
+  }[];
 };
 export type AssignLicence = {
   requestKey: string;

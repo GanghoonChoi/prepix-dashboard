@@ -80,6 +80,46 @@ const invitationErrors: Record<string, [string, string]> = {
   ],
 };
 const errors: Record<string, [string, string]> = {
+  B2B_LICENCE_CAPACITY_FULL: [
+    "구매 정원이 가득 찼습니다. 회수 대기인 장치가 모두 종료되거나 추가 구매가 반영된 뒤 배정할 수 있습니다.",
+    "Purchased capacity is full. Assign after all pending devices end or added capacity is applied.",
+  ],
+  B2B_LICENCE_ALREADY_ASSIGNED: [
+    "이 기간에 이미 이용권이 배정되어 있습니다. 현재 배정 목록을 확인해 주세요.",
+    "A licence is already assigned for this period. Review the current assignments.",
+  ],
+  B2B_LICENCE_CLOSED: [
+    "이미 회수되거나 종료된 배정입니다. 최신 상태를 확인해 주세요.",
+    "This assignment has been revoked or ended. Review its current state.",
+  ],
+  B2B_LICENCE_PERIOD_CLOSED: [
+    "구매 기간이 종료되거나 변경되었습니다. 현재 구매 기간을 확인해 주세요.",
+    "The purchased period ended or changed. Review the current period.",
+  ],
+  B2B_PURCHASED_PERIOD_NOT_FOUND: [
+    "실제 구매가 반영된 기간을 확인할 수 없습니다. 이용 상태와 구매 내역을 확인해 주세요.",
+    "No applied purchase period could be verified. Review the team status and purchases.",
+  ],
+  B2B_USER_LIMIT_BELOW_USAGE: [
+    "개인 한도는 확정 사용과 예약의 합보다 낮출 수 없습니다. 최신 사용량을 확인해 주세요.",
+    "The personal limit cannot be below confirmed and reserved usage. Review the current usage.",
+  ],
+  B2B_USER_LIMIT_SEPARATE_CHANGE_REQUIRED: [
+    "재배정은 기존 개인 한도를 유지합니다. 한도 변경은 별도 변경 화면에서 처리해 주세요.",
+    "Reassignment keeps the existing personal limit. Change it separately.",
+  ],
+  B2B_USER_LIMIT_INVALID: [
+    "AI 한도에 0 이상의 정수를 입력해 주세요.",
+    "Enter a non-negative whole number for the AI limit.",
+  ],
+  B2B_LICENCE_SCHEDULE_INVALID: [
+    "이용기간 안의 미래 시각을 한국 시간으로 지정해 주세요.",
+    "Choose a future time within the period in Korea time.",
+  ],
+  B2B_LICENCE_SCHEDULE_HAS_LONGER_GRANTS: [
+    "이미 발급된 오프라인 허가보다 이른 예정 회수는 설정할 수 없습니다. 즉시 회수하면 장치 종료를 기다립니다.",
+    "The scheduled cutoff cannot precede an issued offline grant. Immediate revocation waits for devices to end.",
+  ],
   B2B_PRODUCT_NOT_CONFIGURED: [
     "상품과 제공량 설정이 아직 준비되지 않았습니다.",
     "Product and allowance settings are not ready yet.",
