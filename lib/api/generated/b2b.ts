@@ -312,3 +312,37 @@ export type TeamCommerce =
       } | null;
       nextPurchased: boolean;
     };
+
+export type TeamBuyer = {
+  schemaVersion: string;
+  businessName: string;
+  businessRegistrationNumber: string;
+  representative: string;
+  address: string;
+  receiptEmail: string;
+};
+export type CreateTeamOrder = {
+  requestKey: string;
+  quoteId: string;
+  buyer: TeamBuyer;
+};
+export type TeamOrderState =
+  | "awaiting_payment"
+  | "payment_unknown"
+  | "received"
+  | "applying"
+  | "applied"
+  | "review_required"
+  | "canceled"
+  | "expired";
+export type TeamOrder = {
+  id: string;
+  workspaceId: string;
+  providerOrderId: string;
+  state: TeamOrderState;
+  quote: TeamQuote;
+  buyer: TeamBuyer;
+  expiresAt: string;
+  createdAt: string;
+  receipt: { amountKrw: number; approvedAt: string } | null;
+};
