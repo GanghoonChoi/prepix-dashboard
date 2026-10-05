@@ -496,3 +496,43 @@ export type SignedEditingGrant = {
   publicKey: string;
   serverTime: string;
 };
+
+export type TeamAiJob = {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  userId: string;
+  periodId: string;
+  quoteId: string;
+  operation: "transcript" | "vision" | "agent";
+  estimatedUnits: number;
+  maximumUnits: number;
+  confirmedUnits: number;
+  state:
+    | "queued"
+    | "running"
+    | "cancel_requested"
+    | "completed"
+    | "failed"
+    | "cancelled"
+    | "timed_out";
+  acceptedAt: string;
+  deadline: string;
+  completedAt: string | null;
+  resultVersionId: string | null;
+};
+export type TeamAiUsageOverview = {
+  // Team aggregates are decimal strings to preserve sums beyond Number.MAX_SAFE_INTEGER.
+  reconciled: boolean;
+  availableUnits: string | null;
+  reservedUnits: string;
+  confirmedUnits: string;
+  expiredUnits: string;
+  personalBudgets: {
+    periodId: string;
+    limitUnits: number;
+    reservedUnits: number;
+    confirmedUnits: number;
+  }[];
+  serverTime: string;
+};
