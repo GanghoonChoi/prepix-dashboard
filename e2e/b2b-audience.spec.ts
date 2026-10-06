@@ -34,6 +34,7 @@ test("P08: selected audience only, explicit publication, lost audience receipt, 
     await videoReady(L.page);
     await L.page.locator("video").evaluate((video: HTMLVideoElement) => video.play());
     await L.page.getByLabel("선택한 검토본 재생을 확인했습니다", { exact: true }).check();
+    await L.page.getByRole("radio", { name: "선택한 사람만", exact: true }).check();
     await L.page.getByRole("checkbox", { name: "aud-client · 검토자", exact: true }).check();
     await expect(publish).toBeDisabled();
     await L.page.getByRole("combobox", { name: "승인자 선택", exact: true }).selectOption(client.id);
@@ -58,6 +59,7 @@ test("P08: selected audience only, explicit publication, lost audience receipt, 
     await expect.poll(async () => (await json(request.get(`${root}/reviews/${id}`, { headers: lead.headers }))).approval).toBe("approved");
     await L.page.reload();
     const audience = L.page.getByRole("heading", { name: "검토 대상 변경", exact: true }).locator("..");
+    await audience.getByRole("radio", { name: "선택한 사람만", exact: true }).check();
     await audience.getByRole("checkbox", { name: "aud-client · 검토자", exact: true }).uncheck();
     await audience.getByRole("checkbox", { name: "aud-producer · 제작자", exact: true }).check();
     await audience.getByRole("combobox", { name: "승인자 선택", exact: true }).selectOption(producer.id);

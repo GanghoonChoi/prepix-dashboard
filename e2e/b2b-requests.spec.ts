@@ -272,7 +272,7 @@ test("F13 requests by role: exact-version submission after a lost response, conf
   });
   const made = await request.post(`${api}/v2/workspaces/${team}/b2b/projects`, {
     headers: lead.headers,
-    data: { requestKey: randomUUID(), name: "브랜드 영상" },
+    data: { requestKey: randomUUID(), name: "브랜드 영상", visibility: "private" },
   });
   expect(made.status()).toBe(201);
   const project = (await made.json()).data.project.id as string;

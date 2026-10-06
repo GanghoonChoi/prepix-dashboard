@@ -243,7 +243,7 @@ test("real private upload resumes after reload, verifies immutable content and s
     `${api}/v2/workspaces/${team.id}/b2b/projects`,
     {
       headers: user.headers,
-      data: { requestKey: randomUUID(), name: "이어 보내는 프로젝트" },
+      data: { requestKey: randomUUID(), name: "이어 보내는 프로젝트", visibility: "private" },
     },
   );
   expect(projectResponse.status()).toBe(201);
@@ -737,7 +737,7 @@ test("real private upload resumes after reload, verifies immutable content and s
     `${api}/v2/workspaces/${team.id}/b2b/projects`,
     {
       headers: user.headers,
-      data: { requestKey: randomUUID(), name: "정확한 버전 연결 대상" },
+      data: { requestKey: randomUUID(), name: "정확한 버전 연결 대상", visibility: "private" },
     },
   );
   expect(targetReply.status()).toBe(201);
@@ -1429,7 +1429,7 @@ test("steward handoff and separate recovery acceptance preserve exact-version pr
     `${api}/v2/workspaces/${team.id}/b2b/projects`,
     {
       headers: owner.headers,
-      data: { requestKey: randomUUID(), name: "비공개 버전 범위" },
+      data: { requestKey: randomUUID(), name: "비공개 버전 범위", visibility: "private" },
     },
   );
   expect(projectReply.status()).toBe(201);

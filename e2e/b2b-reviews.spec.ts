@@ -31,7 +31,7 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
     await json(
       request.post(`${api}/v2/workspaces/${team}/b2b/projects`, {
         headers: lead.headers,
-        data: { requestKey: randomUUID(), name: "브랜드 영상" },
+        data: { requestKey: randomUUID(), name: "브랜드 영상", visibility: "private" },
       }),
     )
   ).project.id as string;
@@ -112,6 +112,7 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   await videoReady(L.page);
   await L.page.locator("video").evaluate((v: HTMLVideoElement) => v.play());
   await L.page.getByLabel("선택한 검토본 재생을 확인했습니다", { exact: true }).check();
+  await L.page.getByRole("radio", { name: "선택한 사람만", exact: true }).check();
   await L.page.getByRole("checkbox", { name: "producer · 제작자", exact: true }).check();
   await L.page.getByRole("checkbox", { name: "client · 검토자", exact: true }).check();
   await L.page.getByRole("combobox", { name: "승인자 선택", exact: true }).selectOption(client.id);
@@ -366,6 +367,7 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   await beforePublish.evaluate((v: HTMLVideoElement) => v.play());
   await L.page.getByLabel("선택한 검토본 재생을 확인했습니다", { exact: true }).check();
   const replacing = L.page.getByRole("heading", { name: "새 영상 버전으로 교체", exact: true }).locator("..");
+  await replacing.getByRole("radio", { name: "선택한 사람만", exact: true }).check();
   await replacing.getByRole("checkbox", { name: "producer · 제작자", exact: true }).check();
   await replacing.getByRole("checkbox", { name: "client · 검토자", exact: true }).check();
   await replacing.getByRole("combobox", { name: "승인자 선택", exact: true }).selectOption(client.id);

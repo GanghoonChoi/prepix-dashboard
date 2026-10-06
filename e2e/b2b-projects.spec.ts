@@ -104,6 +104,8 @@ test("B2B preparing gate, private projects, lost-response retry, role handoff an
     await editorPage
       .getByLabel("납품에 편집 가능한 작업 파일과 소스 확인 필요")
       .check();
+    // V: the owner-must-not-see assertions below are the private (v1) rule.
+    await editorPage.getByRole("radio", { name: /^비공개\(참여자만\)/ }).check();
     const endpoint = `${api}/v2/workspaces/${team.id}/b2b/projects`;
     let lost = true;
     await editorPage.route(endpoint, async (route) => {
@@ -469,6 +471,7 @@ test("B2B owner restores vacant lead without gaining private project content", a
           requestKey: crypto.randomUUID(),
           name: "Private vacancy content",
           brief: "Owner must never see this",
+          visibility: "private",
         },
       })
     ).json()

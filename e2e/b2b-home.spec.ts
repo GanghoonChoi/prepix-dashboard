@@ -83,6 +83,7 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
           data: {
             requestKey: randomUUID(),
             name: "홈에서 숨겨야 할 다른 프로젝트",
+            visibility: "private",
           },
         }),
       )
