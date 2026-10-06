@@ -23,7 +23,7 @@ import {
   TeamShell,
 } from "@/components/workspaces/shared";
 import { FileTransfers } from "./file-transfers";
-import { B2bError, useCopy } from "./shared";
+import { B2bError, useCopy, previewStateCopy } from "./shared";
 import { useFileOperations } from "@/lib/b2b-files/use-operations";
 import {
   FileManager,
@@ -218,6 +218,9 @@ function FilesView({ scope }: { scope: FileScope }) {
                         ? c("결과물", "Output")
                         : c("작업 자료", "Working files")}
                   </p>
+                  <p className="mt-1 text-sm text-muted" aria-live="polite">
+                    {previewStateCopy(version.previewState, c)}
+                  </p>
                 </div>
                 {version.allowedActions.download && (
                   <button
@@ -258,10 +261,7 @@ function FilesView({ scope }: { scope: FileScope }) {
                   </dd>
                   <dt>{c("미리보기", "Preview")}</dt>
                   <dd>
-                    {c(
-                      "미생성 · 원본은 재생용으로 가져오지 않습니다.",
-                      "Not generated; the original is not fetched for playback.",
-                    )}
+                    {previewStateCopy(version.previewState, c)}
                   </dd>
                 </dl>
                 <VersionAddress scope={scope} versionId={version.id} />

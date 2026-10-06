@@ -1,4 +1,6 @@
 "use client";
+
+
 import { useI18n } from "@/lib/i18n/context";
 import type { ProjectState, TeamState } from "@/lib/api/services/b2b.service";
 import { secondaryClass } from "@/components/workspaces/shared";
@@ -340,4 +342,17 @@ export function StateBadge({ state }: { state: TeamState | ProjectState }) {
       {c(...stateLabels[state])}
     </span>
   );
+}
+
+export function previewStateCopy(
+  state: "not_requested" | "pending" | "processing" | "ready" | "failed",
+  c: (ko: string, en: string) => string,
+) {
+  switch (state) {
+    case "pending": return c("미리보기 준비 대기", "Preview queued");
+    case "processing": return c("미리보기 변환 중", "Preparing preview");
+    case "ready": return c("미리보기 준비됨", "Preview ready");
+    case "failed": return c("미리보기 처리 실패 · 원본은 보관됨", "Preview failed; original stored");
+    default: return c("미리보기 미생성", "Preview not generated");
+  }
 }

@@ -260,13 +260,29 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
       ).status(),
     ).toBe(201);
 
-  // The lead starts a review in the browser. No preview exists before.
+  // Registration queues conversion separately, before a review is published.
+  // Even a failed conversion must keep the original registered and readable.
+  await expect.poll(async () => {
+    const list = await json(request.get(`${root}/files`, { headers: producer.headers }));
+    return list.versions.find((v: { name: string }) => v.name === "cut-v1.mp4")?.previewState;
+  }, { timeout: 120_000 }).toBe("ready");
+  await expect.poll(async () => {
+    const list = await json(request.get(`${root}/files`, { headers: producer.headers }));
+    return list.versions.find((v: { name: string }) => v.name === "long-cut.mp4")?.previewState;
+  }, { timeout: 120_000 }).toBe("failed");
+  expect((await json(request.get(`${root}/reviews`, { headers: producer.headers }))).reviews).toHaveLength(0);
+  await P.page.reload();
+  await expect(P.page.getByText("미리보기 준비됨", { exact: true }).first()).toBeVisible();
+  await expect(P.page.getByText("미리보기 처리 실패 · 원본은 보관됨", { exact: true }).first()).toBeVisible();
+  const saved = await json(request.get(`${root}/files/${versions.find(v => v.name === "long-cut.mp4")!.id}`, { headers: producer.headers }));
+  expect(saved.version.id).toBe(versions.find(v => v.name === "long-cut.mp4")!.id);
+  // The lead selects the registered version for a distinct review publication.
   const L = await open(browser, lead, `${base}/reviews`);
   await expect(L.page.getByRole("heading", { name: "영상 검토", exact: true })).toBeVisible();
   await L.page.getByRole("button", { name: "새 검토", exact: true }).click();
   await L.page.getByLabel("검토 제목", { exact: true }).fill("1차 편집 검토");
   await L.page.getByRole("radio", { name: /cut-v1\.mp4 · V1/ }).check();
-  await expect(L.page.getByText("검토본 미요청", { exact: true })).toBeVisible();
+  await expect(L.page.getByText("검토본 준비됨", { exact: true })).toBeVisible();
   await L.page.getByRole("button", { name: "이 버전으로 검토 시작", exact: true }).click();
   await expect(L.page.getByRole("heading", { name: "1차 편집 검토", exact: true })).toBeVisible();
   const reviewUrl = new URL(L.page.url()).pathname;
@@ -447,12 +463,8 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   await V.page.getByLabel("이메일", { exact: true }).fill(viewer.email);
   await V.page.getByLabel("비밀번호", { exact: true }).fill(password);
   await V.page.getByRole("button", { name: "계속하기", exact: true }).click();
-  // A local production build refuses the absolutized localhost returnTo and
-  // lands on /dashboard (existing auth rule); the bare share path then opens
-  // with the token this tab kept from the fragment.
-  await V.page.waitForURL(/\/dashboard/, { timeout: 30_000 });
-  if (!V.page.url().includes("/review-shares/"))
-    await V.page.goto(new URL(link).pathname);
+  // Authentication returns directly to the share without reopening its URL.
+  await V.page.waitForURL(/\/dashboard\/review-shares\//, { timeout: 30_000 });
   await expect(V.page.getByRole("heading", { name: "1차 편집 검토", exact: true })).toBeVisible({ timeout: 30_000 });
   await expect(V.page.getByText("이 링크로 프로젝트의 다른 자료·요청·검토에는 들어갈 수 없습니다", { exact: false })).toBeVisible();
   expect(V.page.url()).not.toContain("#t=");
@@ -506,7 +518,6 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   await L.page.goto(reviewUrl);
   await L.page.getByRole("button", { name: "버전 선택", exact: true }).click();
   await L.page.getByRole("radio", { name: /· V2$/ }).check();
-  await L.page.getByRole("button", { name: "검토본 만들기", exact: true }).click();
   await expect(L.page.getByText("검토본 준비됨", { exact: true })).toBeVisible({ timeout: 120_000 });
   await L.page.getByRole("button", { name: "이 버전으로 교체", exact: true }).click();
   await expect(L.page.getByText(/V2 · 회차 2/)).toBeVisible();

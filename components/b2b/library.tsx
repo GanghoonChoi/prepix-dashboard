@@ -28,7 +28,7 @@ import {
   TeamShell,
 } from "@/components/workspaces/shared";
 import { bytes } from "@/lib/workspaces/upload";
-import { B2bError, useCopy } from "./shared";
+import { B2bError, useCopy, previewStateCopy } from "./shared";
 import { FileTransfers } from "./file-transfers";
 import { FileDownloads } from "./file-downloads";
 import { TransferSteward, VersionAddress, StewardInbox } from "./file-stewards";
@@ -421,6 +421,9 @@ function LibraryGroup({
                       : v.kind === "output"
                         ? c("결과물", "Output")
                         : c("작업 자료", "Working files")}
+                  </p>
+                  <p className="mt-1 text-sm text-muted" aria-live="polite">
+                    {previewStateCopy(v.previewState, c)}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">

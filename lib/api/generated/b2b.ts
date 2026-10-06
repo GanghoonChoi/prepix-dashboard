@@ -628,7 +628,7 @@ export type TeamFileUpload = {
   idleExpiresAt: string;
   cleanedAt: string | null;
   partSize: number;
-  previewState: "not_requested";
+  previewState: "not_requested" | TeamPreviewState;
 };
 export type TeamFileUploadStatus = {
   upload: TeamFileUpload;
@@ -677,7 +677,7 @@ export type TeamFileVersion = {
   sha256: string;
   metadata: TeamFileMetadata;
   createdAt: string;
-  previewState: "not_requested";
+  previewState: "not_requested" | TeamPreviewState;
   allowedActions: {
     download: boolean;
     ai: boolean;

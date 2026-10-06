@@ -29,7 +29,7 @@ import {
   primaryClass,
   secondaryClass,
 } from "@/components/workspaces/shared";
-import { B2bError, useCopy } from "./shared";
+import { B2bError, useCopy, previewStateCopy } from "./shared";
 
 type Job = {
   id: string;
@@ -299,7 +299,7 @@ export function FileTransfers({
           : c("처리 중", "Processing");
     const state = job.upload?.state;
     if (state === "ready")
-      return c("보관됨 · 미리보기 미생성", "Stored; preview not generated");
+      return `${c("보관됨", "Stored")} · ${previewStateCopy(job.upload?.previewState ?? "not_requested", c)}`;
     if (state === "verifying")
       return c("보안·파일 검사 중", "Security and file checks pending");
     if (state === "quarantined")

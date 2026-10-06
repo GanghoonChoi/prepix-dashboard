@@ -46,7 +46,8 @@ function entry(path: "/login" | "/signup", options: Options = {}): string {
     );
     params.set(
       "returnTo",
-      isDashboardPath && typeof window !== "undefined"
+      process.env.NEXT_PUBLIC_AUTH_ON_SITE === "1" &&
+        isDashboardPath && typeof window !== "undefined"
         ? new URL(target, window.location.origin).toString()
         : target,
     );
