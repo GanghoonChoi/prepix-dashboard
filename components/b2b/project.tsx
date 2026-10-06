@@ -79,7 +79,10 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
   const [editing, setEditing] = useState(false);
   if (error) return <B2bError code={error} retry={() => void reload()} />;
   if (!project) return <TeamLoading />;
-  const appUrl = buildTeamProjectOpenUrl({ workspaceId: id, projectId: project.id });
+  const appUrl = buildTeamProjectOpenUrl({
+    workspaceId: id,
+    projectId: project.id,
+  });
   return (
     <TeamShell title={project.name}>
       <div className="flex flex-wrap items-center gap-3">
@@ -98,7 +101,10 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
         >
           {c("프로젝트 목록", "Projects")}
         </Link>
-        <Link className={secondaryClass} href={`/dashboard/workspaces/${id}/projects/${projectId}/files`}>
+        <Link
+          className={secondaryClass}
+          href={`/dashboard/workspaces/${id}/projects/${projectId}/files`}
+        >
           {c("자료", "Files")}
         </Link>
         {project.role !== "reviewer" && (
@@ -119,6 +125,12 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
               : c("개요 수정", "Edit overview")}
           </button>
         )}
+        <Link
+          className={secondaryClass}
+          href={`/dashboard/workspaces/${id}/projects/${projectId}/requests`}
+        >
+          {c("요청사항", "Requests")}
+        </Link>
       </div>
       {editing && project.allowedActions.edit ? (
         <ProjectEditor

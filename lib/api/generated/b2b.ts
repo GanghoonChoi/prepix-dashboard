@@ -829,6 +829,8 @@ export type ProjectRequest = {
   };
 };
 export type ProjectRequestList = {
+  currentUserId: string;
+  nextCursor: string | null;
   requests: ProjectRequest[];
   // Counts visible required requests only; satisfied = confirmed or waived.
   required: { total: number; satisfied: number };
@@ -877,6 +879,7 @@ export type ProjectRequestSubmission = {
   createdAt: string;
 };
 export type ProjectRequestDetail = {
+  currentUserId: string;
   request: ProjectRequest;
   revisions: ProjectRequestRevision[];
   submissions: ProjectRequestSubmission[];
@@ -925,4 +928,17 @@ export type ProjectRequestCompletionEvidence = {
     confirmationId: string | null;
     waiver: { reason: string; by: string; at: string } | null;
   }[];
+};
+
+export type ProjectRequestMutationAction =
+  | "create"
+  | "update"
+  | "accept"
+  | "close"
+  | "reopen"
+  | "submit"
+  | "decide";
+export type ProjectRequestMutationLookup = {
+  currentUserId: string;
+  receipt: ProjectRequestMutationResult | null;
 };
