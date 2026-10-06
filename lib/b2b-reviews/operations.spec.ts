@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import {
   checkReview,
+  discardReview,
   reviewHash,
   runReview,
   sameIntent,
@@ -223,5 +224,46 @@ test("a lost audience-change response recovers the same round receipt after relo
   const recovered = await runReview({ ...r, input: { ...r.input, requestKey: randomUUID() } }, api, store, new AbortController().signal);
   assert.equal(recovered.review.round, 2);
   assert.equal(sends, 1);
+  assert.equal((await store.list(project)).length, 0);
+});
+
+test("a dead resend blocks the slot until it is discarded; an applied change is never discarded", async () => {
+  const store = new MemoryStore();
+  const signal = new AbortController().signal;
+  const r = comment();
+  let mode: "lost" | "conflict" | "ok" = "lost";
+  let stored: ReviewMutationResult | null = null;
+  const api: ReviewApi = {
+    operation: async () => ({ currentUserId: project.userId, receipt: stored }),
+    apply: async () => {
+      if (mode === "lost") throw new Error("timeout");
+      if (mode === "conflict")
+        throw Object.assign(new Error("409"), { response: { status: 409 } });
+      stored = receipt();
+    },
+  };
+  await assert.rejects(runReview(r, api, store, signal), /timeout/);
+  mode = "conflict";
+  const [pending] = await store.list(project);
+  await assert.rejects(runReview(pending, api, store, signal), /409/);
+  // attempts is 2, so the rejection no longer clears the record: it blocks
+  // every other comment on this review.
+  const [dead] = await store.list(project);
+  assert.equal(dead.attempts, 2);
+  const next = {
+    ...comment(),
+    input: { ...comment().input, body: "A new thought" },
+  };
+  await assert.rejects(runReview(next, api, store, signal), /B2B_FILE_OPERATION_PENDING/);
+  assert.equal(await discardReview(dead, api, store, signal), true);
+  assert.equal((await store.list(project)).length, 0);
+  mode = "ok";
+  await runReview(next, api, store, signal);
+  assert.equal((await store.list(project)).length, 0);
+  // The server did apply it after all: discard confirms instead.
+  stored = receipt();
+  const applied = comment();
+  await store.prepare(applied);
+  assert.equal(await discardReview(applied, api, store, signal), false);
   assert.equal((await store.list(project)).length, 0);
 });
