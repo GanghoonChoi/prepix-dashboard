@@ -300,7 +300,7 @@ export type TeamCommerce =
     }
   | {
       configured: true;
-      checkoutReady: false;
+      checkoutReady: boolean;
       product: TeamProduct;
       conditionsHash: string;
       currentPeriod: {
@@ -347,6 +347,12 @@ export type TeamOrder = {
   createdAt: string;
   receipt: { amountKrw: number; approvedAt: string } | null;
   application: TeamApplication | null;
+  kind: "checkout" | "billing";
+  // Documented provider refusal code only; never the provider message.
+  failureCode: string | null;
+  refunds: TeamRefund[];
+  // The purchased period this order was applied to (exclusive E).
+  appliedPeriod: { startsAt: string; endsAt: string } | null;
 };
 export type TeamApplication = {
   id: string;
@@ -359,6 +365,262 @@ export type TeamApplication = {
   allowances: TeamQuote["allowances"];
   overpaymentKrw: number;
 };
+
+// Original-order refunds and append-only corrections. Statements read these;
+// only `refunded` refunds and `money`/`confirm` corrections are money returned.
+// SOT: backend/docs/b2b-billing-execution.md §8-9
+export type TeamRefundState =
+  | "reserved"
+  | "cancelling"
+  | "provider_unknown"
+  | "refunded"
+  | "rejected"
+  | "failed"
+  | "review_required";
+export type TeamRefundSelection = {
+  base: boolean;
+  extraSeats: number;
+  aiPacks: number;
+  storagePacks: number;
+};
+export type TeamRefundLine = {
+  kind: "base" | "extra_seat" | "ai_pack" | "storage_pack" | "overpayment";
+  quantity: number;
+  // Exact unrounded supply; the refund total is rounded once.
+  supply: { numerator: string; denominator: string };
+  seats: number;
+  storageBytes: number;
+  aiUnits: number;
+};
+export type TeamRefund = {
+  id: string;
+  workspaceId: string;
+  orderId: string;
+  kind: "unused" | "overpayment";
+  state: TeamRefundState;
+  refundPolicyVersion: string | null;
+  settingsVersion: string;
+  selection: TeamRefundSelection | null;
+  // PostgreSQL instant the unused portion was measured and reserved.
+  basisAt: string;
+  amounts: {
+    supplyKrw: number;
+    vatKrw: number;
+    totalKrw: number;
+    currency: "KRW";
+  };
+  allowances: { seats: number; storageBytes: number; aiUnits: number };
+  lines: TeamRefundLine[];
+  reason: string;
+  requestedAt: string;
+  decidedAt: string | null;
+  refundedAt: string | null;
+};
+export type BillingCorrection = {
+  id: string;
+  workspaceId: string;
+  refundId: string;
+  orderId: string;
+  periodId: string | null;
+  grantId: string | null;
+  kind: "seats" | "storage_bytes" | "ai_units" | "money";
+  // hold/release: refund reservation of an allowance; confirm: money refunded.
+  effect: "hold" | "release" | "confirm";
+  // Signed integer as a decimal string (KRW, seats, bytes or AI units).
+  delta: string;
+  reason: string;
+  createdAt: string;
+};
+export type CreateTeamRefund = {
+  requestKey: string;
+  orderId: string;
+  selection: TeamRefundSelection;
+  reason: string;
+  expectedTotalKrw: number;
+};
+// Team billing settings, payment methods and renewal (S21-S24).
+// SOT: backend/docs/b2b-billing-execution.md §1-7
+export type TeamClientCheckout = {
+  mode: "toss" | "local_double";
+  clientKey: string;
+  environment: "test" | "live";
+  doubleCheckoutUrl: string | null;
+};
+export type TeamBillingReadiness = {
+  settingsVersion: string | null;
+  profileSchemaVersion: string | null;
+  autoPayConsentVersion: string | null;
+  checkout: boolean;
+  billing: boolean;
+  autoPay: boolean;
+  refunds: boolean;
+  overpayment: boolean;
+  // Setting names that block an action. Never interpreted as free/unlimited.
+  missing: string[];
+};
+export type TeamBillingProfile = TeamBuyer & {
+  revision: number;
+  updatedAt: string;
+};
+export type ChangeTeamBillingProfile = TeamBuyer & {
+  requestKey: string;
+  // null creates the first profile.
+  revision: number | null;
+};
+export type TeamPaymentMethodState =
+  | "pending"
+  | "issuing"
+  | "active"
+  | "replaced"
+  | "deleted"
+  | "failed"
+  | "unknown";
+export type TeamPaymentMethod = {
+  id: string;
+  state: TeamPaymentMethodState;
+  environment: "test" | "live";
+  method: string | null;
+  cardNumberMasked: string | null;
+  cardIssuerCode: string | null;
+  consentVersion: string;
+  consentedAt: string;
+  registeredByCurrentUser: boolean;
+  expiresAt: string;
+  activatedAt: string | null;
+  endedAt: string | null;
+  endReason: string | null;
+  revision: number;
+};
+export type StartPaymentMethodRegistration = {
+  requestKey: string;
+  consentVersion: string;
+};
+export type PaymentMethodRegistration = {
+  method: TeamPaymentMethod;
+  customerKey: string;
+  checkout: TeamClientCheckout;
+};
+export type CompletePaymentMethodRegistration = {
+  requestKey: string;
+  customerKey: string;
+  authKey: string;
+};
+export type RemovePaymentMethod = {
+  requestKey: string;
+  revision: number;
+  reason: string;
+};
+export type TeamRenewalPlan = {
+  mode: "one_off" | "automatic";
+  methodId: string | null;
+  // null: next-period capacity not specified; never auto-purchased.
+  extraSeats: number | null;
+  aiPacks: number;
+  storagePacks: number;
+  retainedUserIds: string[];
+  consentedProductVersion: string | null;
+  consentVersion: string | null;
+  pausedReason: string | null;
+  revision: number;
+  updatedAt: string | null;
+};
+export type ChangeTeamRenewalPlan = {
+  requestKey: string;
+  revision: number;
+  mode: "one_off" | "automatic";
+  methodId: string | null;
+  extraSeats: number | null;
+  aiPacks: number;
+  storagePacks: number;
+  retainedUserIds: string[];
+  // Required to switch to automatic: the consent text and product shown.
+  consentVersion?: string;
+  productVersion?: string;
+};
+export type TeamAutopayRunState =
+  | "scheduled"
+  | "charging"
+  | "paid"
+  | "failed"
+  | "skipped"
+  | "stopped";
+export type TeamAutopayRun = {
+  id: string;
+  sourcePeriodId: string;
+  state: TeamAutopayRunState;
+  attempts: number;
+  nextAttemptAt: string | null;
+  lastOrderId: string | null;
+  stopReason: string | null;
+  updatedAt: string;
+};
+export type TeamBilling = {
+  currentUserId: string;
+  readiness: TeamBillingReadiness;
+  profile: TeamBillingProfile | null;
+  methods: TeamPaymentMethod[];
+  renewal: TeamRenewalPlan;
+  runs: TeamAutopayRun[];
+  // Only for owners/administrators who can choose retained licence holders.
+  retainedCandidates: { userId: string; name: string | null; email: string }[] | null;
+  serverTime: string;
+};
+export type TeamOrderSummary = {
+  id: string;
+  providerOrderId: string;
+  kind: "checkout" | "billing";
+  state: TeamOrderState;
+  target: QuoteTarget;
+  renewal: "one_off" | "automatic";
+  amounts: TeamQuote["amounts"];
+  period: TeamQuote["period"];
+  failureCode: string | null;
+  createdAt: string;
+  expiresAt: string;
+  receipt: { amountKrw: number; approvedAt: string } | null;
+  appliedAt: string | null;
+  refund: { state: TeamRefundState; totalKrw: number } | null;
+};
+export type TeamOrderList = {
+  currentUserId: string;
+  items: TeamOrderSummary[];
+  nextCursor: string | null;
+};
+export type TeamCheckout = {
+  orderId: string;
+  providerOrderId: string;
+  orderName: string;
+  amount: number;
+  methods: string[];
+  customerKey: "ANONYMOUS";
+  expiresAt: string;
+  client: TeamClientCheckout;
+};
+export type BillingOperationAction =
+  | "order"
+  | "confirm"
+  | "profile"
+  | "method.start"
+  | "method.complete"
+  | "method.remove"
+  | "renewal"
+  | "renewal.stop"
+  | "refund";
+export type BillingOperationReceipt = {
+  currentUserId: string;
+  receipt: Record<string, unknown> | null;
+};
+export type TeamRefundPreview = Pick<
+  TeamRefund,
+  | "orderId"
+  | "refundPolicyVersion"
+  | "settingsVersion"
+  | "selection"
+  | "basisAt"
+  | "amounts"
+  | "allowances"
+  | "lines"
+>;
 
 export type LicenceState =
   | "active"
