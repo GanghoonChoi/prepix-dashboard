@@ -784,3 +784,145 @@ export type TeamFileTrashImpact = {
   revision: number;
   restoreUntil: string;
 };
+
+// F13 project requests. Submissions pin exact immutable file versions; a
+// restricted file carries no name or identifier. Confirmations are history:
+// only `current` ones satisfy completion.
+export type ProjectRequestState =
+  | "proposed"
+  | "open"
+  | "submitted"
+  | "confirmed"
+  | "waived"
+  | "cancelled"
+  | "declined";
+export type ProjectRequestPerson = { userId: string; name: string | null };
+export type ProjectRequest = {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  title: string;
+  state: ProjectRequestState;
+  required: boolean;
+  shared: boolean;
+  assignee: ProjectRequestPerson | null;
+  confirmer: ProjectRequestPerson | null;
+  createdBy: ProjectRequestPerson;
+  dueAt: string | null;
+  requestRevision: number;
+  submissionCount: number;
+  resolution: {
+    reason: string;
+    by: ProjectRequestPerson;
+    at: string;
+  } | null;
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+  allowedActions: {
+    update: boolean;
+    accept: boolean;
+    close: boolean;
+    reopen: boolean;
+    submit: boolean;
+    decide: boolean;
+  };
+};
+export type ProjectRequestList = {
+  requests: ProjectRequest[];
+  // Counts visible required requests only; satisfied = confirmed or waived.
+  required: { total: number; satisfied: number };
+  allowedActions: { create: boolean; propose: boolean };
+};
+export type ProjectRequestRevision = {
+  number: number;
+  body: string;
+  criteria: string;
+  format: string;
+  required: boolean;
+  createdBy: ProjectRequestPerson;
+  createdAt: string;
+};
+export type ProjectRequestSubmissionFile =
+  | {
+      position: number;
+      access: "available";
+      versionId: string;
+      assetId: string;
+      name: string;
+      ordinal: number;
+      size: number;
+      sha256: string;
+    }
+  | { position: number; access: "restricted" };
+export type ProjectRequestConfirmation = {
+  id: string;
+  decision: "confirmed" | "returned";
+  note: string;
+  confirmer: ProjectRequestPerson;
+  selfConfirmed: boolean;
+  externalOpened: boolean;
+  current: boolean;
+  createdAt: string;
+};
+export type ProjectRequestSubmission = {
+  id: string;
+  number: number;
+  requestRevision: number;
+  submittedBy: ProjectRequestPerson;
+  note: string;
+  external: { location: string; files: string[] } | null;
+  files: ProjectRequestSubmissionFile[];
+  confirmation: ProjectRequestConfirmation | null;
+  createdAt: string;
+};
+export type ProjectRequestDetail = {
+  request: ProjectRequest;
+  revisions: ProjectRequestRevision[];
+  submissions: ProjectRequestSubmission[];
+};
+export type ProjectRequestFields = {
+  title: string;
+  body: string;
+  criteria?: string;
+  format?: string;
+  required?: boolean;
+  confirmerId?: string | null;
+  assigneeId?: string | null;
+  dueAt?: string | null;
+  shared?: boolean;
+};
+export type CreateProjectRequest = Mutation & ProjectRequestFields;
+export type UpdateProjectRequest = RevisionMutation & ProjectRequestFields;
+export type CloseProjectRequest = RevisionMutation & { reason: string };
+export type ReopenProjectRequest = CloseProjectRequest;
+export type SubmitProjectRequest = Mutation & {
+  requestRevision: number;
+  versionIds: string[];
+  note: string;
+  externalLocation?: string;
+  externalFiles?: string[];
+};
+export type DecideProjectRequestSubmission = Mutation & {
+  decision: "confirmed" | "returned";
+  note: string;
+  externalOpened?: boolean;
+};
+export type ProjectRequestMutationResult = {
+  request: { id: string; state: ProjectRequestState; revision: number };
+  submissionId?: string;
+  confirmationId?: string;
+  requestId: string;
+};
+// Read by the delivery domain (F16) inside its own team-locked transaction.
+export type ProjectRequestCompletionEvidence = {
+  satisfied: boolean;
+  requests: {
+    requestId: string;
+    requestRevisionNumber: number;
+    state: "open" | "submitted" | "confirmed" | "waived";
+    submissionId: string | null;
+    confirmationId: string | null;
+    waiver: { reason: string; by: string; at: string } | null;
+  }[];
+};
