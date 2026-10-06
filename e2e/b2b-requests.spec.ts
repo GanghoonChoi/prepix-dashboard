@@ -6,7 +6,8 @@ import {
   type Page,
 } from "@playwright/test";
 import { execFileSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 // Local acceptance only: start the backend preview harness with
@@ -607,6 +608,156 @@ test("F13 requests by role: exact-version submission after a lost response, conf
     path: process.env.B2B_E2E_SCREENSHOT ?? "/tmp/prepix-request-mobile.png",
     fullPage: true,
   });
+  // Request references are exact versions, optional and independent of a delivery.
+  await L.goto(`${base}/requests`);
+  await L.getByRole("button", { name: "요청 등록", exact: true }).click();
+  await L.getByLabel("제목", { exact: true }).fill("참고 기준 영상");
+  await L.getByLabel("내용", { exact: true }).fill(
+    "첨부는 비교용이며 제출을 대신하지 않음",
+  );
+  await L.getByRole("checkbox", { name: /참고 첨부 edit\.wav/ }).check();
+  await L.getByRole("checkbox", {
+    name: "검토자와 외부 참여자 모두에게 공개",
+    exact: true,
+  }).check();
+  await L.getByRole("button", { name: "요청 저장", exact: true }).click();
+  await expect(
+    L.getByRole("heading", { name: "참고 기준 영상", exact: true }),
+  ).toBeVisible();
+  const referenceRequestId = L.url().split("/").at(-1)!;
+  const referenceResponse = (
+    await (
+      await request.get(`${root}/requests/${referenceRequestId}`, {
+        headers: lead.headers,
+      })
+    ).json()
+  ).data;
+  expect(referenceResponse.request.state).toBe("open");
+  expect(referenceResponse.submissions).toHaveLength(0);
+  expect(referenceResponse.revisions[0].references[0].versionId).toBe(
+    afterRetry.submissions[0].files[0].versionId,
+  );
+  const referenceFile = referenceResponse.revisions[0].references[0];
+  const versionResponse = (
+    await (
+      await request.get(`${root}/files/${referenceFile.versionId}`, {
+        headers: lead.headers,
+      })
+    ).json()
+  ).data.version;
+  if (!versionResponse.allowedActions.download) {
+    expect(
+      (
+        await request.post(
+          `${root}/assets/${referenceFile.assetId}/permissions`,
+          {
+            headers: lead.headers,
+            data: {
+              requestKey: randomUUID(),
+              revision: versionResponse.permissionRevision,
+              userId: lead.id,
+              canDownload: true,
+              canUseForAi: false,
+              reason: "Local verified reference receipt",
+            },
+          },
+        )
+      ).status(),
+    ).toBe(201);
+    await L.reload();
+  }
+  const downloading = L.waitForEvent("download");
+  await L.getByRole("button", {
+    name: "참고 자료 원본 받기",
+    exact: true,
+  }).click();
+  const downloaded = await downloading;
+  const receiptPath = `/tmp/prepix-reference-receipt-${randomUUID()}.wav`;
+  await downloaded.saveAs(receiptPath);
+  expect(
+    createHash("sha256")
+      .update(await readFile(receiptPath))
+      .digest("hex"),
+  ).toBe(referenceFile.sha256);
+  await L.screenshot({
+    path: "/tmp/prepix-request-references-mobile.png",
+    fullPage: true,
+  });
+  await L.getByRole("button", { name: "요청 변경", exact: true }).click();
+  await L.getByRole("button", { name: "참고 첨부 변경", exact: true }).click();
+  await L.getByRole("button", {
+    name: "참고 첨부 모두 해제",
+    exact: true,
+  }).click();
+  await lostReply(
+    L,
+    root,
+    "update",
+    `${root}/requests/${referenceRequestId}`,
+    () => L.getByRole("button", { name: "변경 저장", exact: true }).click(),
+  );
+  const referenceRemoved = (
+    await (
+      await request.get(`${root}/requests/${referenceRequestId}`, {
+        headers: lead.headers,
+      })
+    ).json()
+  ).data;
+  expect(referenceRemoved.revisions).toHaveLength(2);
+  expect(referenceRemoved.revisions[1].references).toEqual([]);
+  expect(referenceRemoved.revisions[0].references[0].versionId).toBe(
+    referenceFile.versionId,
+  );
+  await expect(
+    L.getByText("참고 첨부가 없습니다.", { exact: true }),
+  ).toBeVisible();
+  const permissions = (
+    await (
+      await request.get(`${root}/assets/${referenceFile.assetId}/permissions`, {
+        headers: lead.headers,
+      })
+    ).json()
+  ).data.permissions;
+  const externalGrant = permissions.find(
+    (p: { userId: string }) => p.userId === external.id,
+  );
+  expect(
+    (
+      await request.post(
+        `${root}/assets/${referenceFile.assetId}/permissions`,
+        {
+          headers: lead.headers,
+          data: {
+            requestKey: randomUUID(),
+            revision: externalGrant.revision,
+            userId: external.id,
+            canDownload: false,
+            canUseForAi: false,
+            remove: true,
+            reason: "Current reference access revoked",
+          },
+        },
+      )
+    ).status(),
+  ).toBe(201);
+  await X.goto(`${base}/requests/${referenceRequestId}`);
+  await expect(
+    X.getByRole("heading", { name: "참고 기준 영상", exact: true }),
+  ).toBeVisible();
+  await X.getByText("요청 변경 이력 2건", { exact: true }).click();
+  await expect(
+    X.getByText("접근 제한된 참고 자료", { exact: true }),
+  ).toBeVisible();
+  await expect(X.getByText(/edit\.wav/)).toHaveCount(0);
+  expect(
+    (
+      await (
+        await request.get(`${root}/requests/${referenceRequestId}`, {
+          headers: external.headers,
+        })
+      ).json()
+    ).data.revisions[0].references,
+  ).toEqual([{ position: 0, access: "restricted" }]);
   for (const view of [leadView, externalView, memberView, reviewerView]) {
     expect(view.errors).toEqual([]);
     await view.close();

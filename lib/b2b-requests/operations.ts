@@ -109,6 +109,17 @@ export function validRequest(
   )
     return false;
   if (
+    r.input.referenceVersionIds !== undefined &&
+    (!Array.isArray(r.input.referenceVersionIds) ||
+      r.input.referenceVersionIds.length > 20 ||
+      new Set(r.input.referenceVersionIds).size !==
+        r.input.referenceVersionIds.length ||
+      r.input.referenceVersionIds.some(
+        (id) => typeof id !== "string" || !uuid.test(id),
+      ))
+  )
+    return false;
+  if (
     ["create", "update", "accept"].includes(r.action) &&
     (typeof r.input.title !== "string" ||
       !r.input.title.trim() ||

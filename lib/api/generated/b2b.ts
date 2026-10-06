@@ -838,6 +838,7 @@ export type ProjectRequestList = {
 };
 export type ProjectRequestRevision = {
   number: number;
+  references: ProjectRequestReferenceFile[];
   body: string;
   criteria: string;
   format: string;
@@ -857,6 +858,11 @@ export type ProjectRequestSubmissionFile =
       sha256: string;
     }
   | { position: number; access: "restricted" };
+export type ProjectRequestReferenceFile =
+  | (Extract<ProjectRequestSubmissionFile, { access: "available" }> & {
+      canDownload: boolean;
+    })
+  | Extract<ProjectRequestSubmissionFile, { access: "restricted" }>;
 export type ProjectRequestConfirmation = {
   id: string;
   decision: "confirmed" | "returned";
@@ -885,6 +891,8 @@ export type ProjectRequestDetail = {
   submissions: ProjectRequestSubmission[];
 };
 export type ProjectRequestFields = {
+  // Omission preserves references on update; [] explicitly removes them.
+  referenceVersionIds?: string[];
   title: string;
   body: string;
   criteria?: string;

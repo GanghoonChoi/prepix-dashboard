@@ -15,6 +15,12 @@ import {
 } from "@/lib/api/services/b2b.service";
 import { RequestPending } from "./request-pending";
 import {
+  RequestReferencePicker,
+  RequestReferenceFiles,
+  ReferenceList,
+} from "./request-references";
+import type { ProjectRequestReferenceFile } from "@/lib/api/generated/b2b";
+import {
   requestEvents,
   requestKey,
   type RequestScope,
@@ -281,6 +287,7 @@ function Badge({ children }: { children: React.ReactNode }) {
 }
 
 type Draft = {
+  referenceVersionIds?: string[];
   title: string;
   body: string;
   criteria: string;
@@ -292,6 +299,7 @@ type Draft = {
   shared: boolean;
 };
 const emptyDraft = (me: string): Draft => ({
+  referenceVersionIds: [],
   title: "",
   body: "",
   criteria: "",
@@ -305,6 +313,9 @@ const emptyDraft = (me: string): Draft => ({
 function draftInput(d: Draft, lead: boolean) {
   return lead
     ? {
+        ...(d.referenceVersionIds !== undefined
+          ? { referenceVersionIds: d.referenceVersionIds }
+          : {}),
         title: d.title.trim(),
         body: d.body.trim(),
         criteria: d.criteria.trim(),
@@ -315,7 +326,13 @@ function draftInput(d: Draft, lead: boolean) {
         dueAt: fromLocal(d.due),
         shared: d.shared,
       }
-    : { title: d.title.trim(), body: d.body.trim() };
+    : {
+        title: d.title.trim(),
+        body: d.body.trim(),
+        ...(d.referenceVersionIds !== undefined
+          ? { referenceVersionIds: d.referenceVersionIds }
+          : {}),
+      };
 }
 function RequestFields({
   projectId,
@@ -324,6 +341,7 @@ function RequestFields({
   lead,
   disabled,
   requiredLocked,
+  references = [],
 }: {
   projectId: string;
   draft: Draft;
@@ -331,9 +349,14 @@ function RequestFields({
   lead: boolean;
   disabled: boolean;
   requiredLocked?: boolean;
+  references?: ProjectRequestReferenceFile[];
 }) {
   const c = useCopy();
-  const { team } = useScope();
+  const { team, me } = useScope();
+  const scope = useMemo(
+    () => requestScope(team, projectId, me),
+    [team, projectId, me],
+  );
   const [people, setPeople] = useState<ProjectPeople | null>(null);
   useEffect(() => {
     if (!lead) return;
@@ -373,6 +396,15 @@ function RequestFields({
           onChange={(e) => set({ ...draft, body: e.target.value })}
         />
       </label>
+      <RequestReferencePicker
+        scope={scope}
+        value={draft.referenceVersionIds}
+        onChange={(referenceVersionIds) =>
+          set({ ...draft, referenceVersionIds })
+        }
+        existing={references}
+        disabled={disabled}
+      />
       {lead && (
         <>
           <label className="block space-y-2 text-sm">
@@ -750,6 +782,11 @@ function ProjectRequestViewInner({
           </button>
         )}
       </div>
+      <RequestReferenceFiles
+        files={basis.references}
+        scope={scope}
+        invalidate={load}
+      />
       <div className="grid gap-8 lg:grid-cols-[1fr_18rem]">
         <section className="space-y-3">
           <h2 className="font-medium">
@@ -874,6 +911,7 @@ function ProjectRequestViewInner({
                 {r.required ? ` · ${c("필수", "Required")}` : ""}
               </p>
               <p className="mt-2 whitespace-pre-wrap break-words">{r.body}</p>
+              {!!r.references.length && <ReferenceList files={r.references} />}
               <p className="mt-1 whitespace-pre-wrap break-words text-muted">
                 {c("확인 기준", "Criteria")}: {r.criteria || c("없음", "None")}
                 {" · "}
@@ -969,6 +1007,7 @@ function RequestEditor({
   const basis = revisions.find((r) => r.number === request.requestRevision)!;
   const accept = request.allowedActions.accept;
   const [draft, setDraft] = useState<Draft>({
+    referenceVersionIds: undefined,
     title: request.title,
     body: basis.body,
     criteria: basis.criteria,
@@ -983,6 +1022,13 @@ function RequestEditor({
   const [revision] = useState(request.revision);
   const mutation = useMutation(projectId);
   const basisChanged =
+    (draft.referenceVersionIds !== undefined &&
+      JSON.stringify(draft.referenceVersionIds) !==
+        JSON.stringify(
+          basis.references.map((f) =>
+            f.access === "available" ? f.versionId : null,
+          ),
+        )) ||
     draft.body.trim() !== basis.body ||
     draft.criteria.trim() !== basis.criteria ||
     draft.format.trim() !== basis.format ||
@@ -1006,13 +1052,14 @@ function RequestEditor({
         set={setDraft}
         lead
         requiredLocked={request.required}
+        references={basis.references}
         disabled={mutation.busy || mutation.locked}
       />
       {basisChanged && ["submitted", "confirmed"].includes(request.state) && (
         <p role="status" className="text-sm">
           {c(
-            "내용·확인 기준·형식·필수 여부를 바꾸면 새 요청 버전이 만들어지고 기존 확인은 이력으로 남습니다. 다시 제출과 확인이 필요합니다.",
-            "Changing details, criteria, format or required creates a new revision; the existing confirmation becomes history and must be redone.",
+            "내용·확인 기준·형식·필수 여부·참고 첨부를 바꾸면 새 요청 버전이 만들어지고 기존 확인은 이력으로 남습니다. 다시 제출과 확인이 필요합니다.",
+            "Changing details, criteria, format, required or references creates a new revision; the existing confirmation becomes history and must be redone.",
           )}
         </p>
       )}

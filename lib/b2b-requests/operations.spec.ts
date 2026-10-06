@@ -311,3 +311,41 @@ test("a changed intent or failed persistence prevents a server mutation and an u
   assert.equal(posts, 1);
   assert.ok(store.row);
 });
+
+test("original reference selections bind the persisted intent, including ordered replacement and omission", () => {
+  const r = record("update");
+  const version = randomUUID(),
+    other = randomUUID();
+  const attached = {
+    ...r,
+    input: { ...r.input, referenceVersionIds: [version, other] },
+  };
+  assert.ok(validRequest(attached, scope));
+  assert.notEqual(requestHash(attached), requestHash(r));
+  assert.equal(
+    sameRequestIntent(attached, {
+      ...attached,
+      input: { ...attached.input, referenceVersionIds: [other, version] },
+    }),
+    false,
+  );
+  assert.equal(
+    sameRequestIntent(r, {
+      ...r,
+      input: { ...r.input, referenceVersionIds: [] },
+    }),
+    false,
+  );
+  for (const refs of [
+    [version, version],
+    ["not-a-version"],
+    Array.from({ length: 21 }, () => randomUUID()),
+    "https://example.test/file",
+  ])
+    assert.ok(
+      !validRequest(
+        { ...r, input: { ...r.input, referenceVersionIds: refs } },
+        scope,
+      ),
+    );
+});
