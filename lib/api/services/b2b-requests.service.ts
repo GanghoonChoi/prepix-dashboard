@@ -15,6 +15,8 @@ import type {
   ProjectRequestList,
   SubmitProjectRequest,
   UpdateProjectRequest,
+  RequestWorkQuery,
+  RequestWorkList,
 } from "../generated/b2b";
 const e = encodeURIComponent;
 const root = (team: string, project: string) =>
@@ -75,6 +77,30 @@ async function post(
   }
 }
 export const requestsService = {
+  work: async (
+    team: string,
+    project: string | undefined,
+    account: string,
+    origin: string,
+    query: RequestWorkQuery = {},
+  ) => {
+    const checkOrigin = () => {
+      if (new URL(apiClient.defaults.baseURL!).origin !== origin)
+        throw new Error("B2B_FILE_ACCOUNT_CHANGED");
+    };
+    checkOrigin();
+    const path = project
+      ? `/workspaces/${e(team)}/b2b/projects/${e(project)}/request-work`
+      : `/workspaces/${e(team)}/b2b/request-work`;
+    const result = await get<RequestWorkList>(
+      `${path}?${new URLSearchParams(query).toString()}`,
+      account,
+    );
+    checkOrigin();
+    if (result.workspaceId !== team || result.projectId !== (project ?? null))
+      throw new Error("B2B_FILE_ACCOUNT_CHANGED");
+    return result;
+  },
   list: (
     team: string,
     project: string,

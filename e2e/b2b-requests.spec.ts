@@ -102,15 +102,18 @@ async function invite(
   ).toBe(201);
   let inviteUrl = "";
   await expect
-    .poll(async () => {
-      const mail = await (await request.get(`${api}/__test/mail`)).json();
-      inviteUrl =
-        mail.findLast(
-          (m: { to: string; inviteUrl?: string }) =>
-            m.to === user.email && m.inviteUrl?.includes("/b2b-invitations/"),
-        )?.inviteUrl ?? "";
-      return inviteUrl;
-    })
+    .poll(
+      async () => {
+        const mail = await (await request.get(`${api}/__test/mail`)).json();
+        inviteUrl =
+          mail.findLast(
+            (m: { to: string; inviteUrl?: string }) =>
+              m.to === user.email && m.inviteUrl?.includes("/b2b-invitations/"),
+          )?.inviteUrl ?? "";
+        return inviteUrl;
+      },
+      { timeout: 30000 },
+    )
     .toBeTruthy();
   const token = new URL(inviteUrl).pathname.split("/").at(-1);
   expect(
@@ -759,6 +762,363 @@ test("F13 requests by role: exact-version submission after a lost response, conf
     ).data.revisions[0].references,
   ).toEqual([{ position: 0, access: "restricted" }]);
   for (const view of [leadView, externalView, memberView, reviewerView]) {
+    expect(view.errors).toEqual([]);
+    await view.close();
+  }
+});
+
+test("F03 request work on team home and project overview: live counts, paging, failures and revoked participation", async ({
+  browser,
+  request,
+}) => {
+  test.setTimeout(180000);
+  const lead = await account(request, "work-lead");
+  const external = await account(request, "work-external");
+  const reviewer = await account(request, "work-reviewer");
+  const member = await account(request, "work-member");
+  const madeTeam = await request.post(`${api}/v2/workspaces`, {
+    headers: lead.headers,
+    data: { requestKey: randomUUID(), name: "업무 집계 인수" },
+  });
+  expect(madeTeam.status()).toBe(201);
+  const team = (await madeTeam.json()).data.workspace.id as string;
+  fixture("b2b-paid-test-fixture.cjs", {
+    workspaceId: team,
+    action: "purchase",
+    target: "initial",
+  });
+  fixture("b2b-test-fixture.cjs", {
+    workspaceId: team,
+    action: "join",
+    userId: member.id,
+  });
+  const teamApi = `${api}/v2/workspaces/${team}/b2b`;
+  const madeProject = await request.post(`${teamApi}/projects`, {
+    headers: lead.headers,
+    data: { requestKey: randomUUID(), name: "초대된 영상 프로젝트" },
+  });
+  expect(madeProject.status()).toBe(201);
+  const project = (await madeProject.json()).data.project.id as string;
+  await invite(request, lead, team, project, external, "external", "producer");
+  await invite(request, lead, team, project, reviewer, "internal", "reviewer");
+  const root = `${teamApi}/projects/${project}`;
+  const home = `/dashboard/workspaces/${team}`;
+  const overview = `${home}/projects/${project}`;
+  const fields = {
+    body: "등록된 기준",
+    criteria: "결과를 확인",
+    required: true,
+    assigneeId: external.id,
+    confirmerId: lead.id,
+    shared: false,
+  };
+  const assigned: { id: string; title: string; revision: number }[] = [];
+  for (let i = 0; i < 25; i++) {
+    const title = `내 담당 영상 ${String(i).padStart(2, "0")}`;
+    const response = await request.post(`${root}/requests`, {
+      headers: lead.headers,
+      data: {
+        ...fields,
+        title,
+        requestKey: randomUUID(),
+        ...(i === 0
+          ? { dueAt: new Date(Date.now() - 60000).toISOString() }
+          : {}),
+      },
+    });
+    expect(response.status()).toBe(201);
+    assigned.push({ ...(await response.json()).data.request, title });
+  }
+  const privateRequest = await request.post(`${root}/requests`, {
+    headers: lead.headers,
+    data: {
+      requestKey: randomUUID(),
+      title: "비공개 내부 요청",
+      body: "Secret",
+      confirmerId: lead.id,
+      assigneeId: lead.id,
+    },
+  });
+  expect(privateRequest.status()).toBe(201);
+  const pending = await request.post(`${root}/requests`, {
+    headers: lead.headers,
+    data: {
+      requestKey: randomUUID(),
+      title: "내 확인 대기 영상",
+      body: "Check",
+      confirmerId: lead.id,
+      assigneeId: external.id,
+    },
+  });
+  expect(pending.status()).toBe(201);
+  const pendingId = (await pending.json()).data.request.id;
+  expect(
+    (
+      await request.post(`${root}/requests/${pendingId}/submissions`, {
+        headers: external.headers,
+        data: {
+          requestKey: randomUUID(),
+          requestRevision: 1,
+          versionIds: [],
+          note: "제출했습니다",
+        },
+      })
+    ).status(),
+  ).toBe(201);
+  expect(
+    (
+      await request.post(`${root}/requests`, {
+        headers: reviewer.headers,
+        data: {
+          requestKey: randomUUID(),
+          title: "검토자의 접수 제안",
+          body: "Please consider",
+        },
+      })
+    ).status(),
+  ).toBe(201);
+  for (const suffix of [
+    "?unknown=true",
+    "?view=done",
+    `?search=${"x".repeat(101)}`,
+  ])
+    expect(
+      (
+        await request.get(`${teamApi}/request-work${suffix}`, {
+          headers: lead.headers,
+        })
+      ).status(),
+    ).toBe(400);
+  expect(
+    (
+      await request.get(`${teamApi}/request-work`, {
+        headers: { ...lead.headers, "X-Prepix-Account-ID": external.id },
+      })
+    ).status(),
+  ).toBe(403);
+  const memberHttp = await request.get(`${teamApi}/request-work`, {
+    headers: member.headers,
+  });
+  expect(memberHttp.status()).toBe(200);
+  expect(memberHttp.headers()["cache-control"]).toBe("private, no-store");
+  const memberResponse = (await memberHttp.json()).data;
+  expect(memberResponse.cards).toEqual([]);
+  expect(memberResponse.required.total).toBe(0);
+  expect(JSON.stringify(memberResponse)).not.toContain("초대된 영상 프로젝트");
+
+  const leadView = await open(browser, lead, home);
+  const L = leadView.page;
+  const leadQueue = L.getByRole("region", {
+    name: "내 요청 업무",
+    exact: true,
+  });
+  await expect(
+    leadQueue.getByRole("button", { name: "내 담당 요청 1", exact: true }),
+  ).toBeVisible();
+  await expect(
+    leadQueue.getByRole("button", { name: "내 확인 대기 1", exact: true }),
+  ).toBeVisible();
+  await expect(
+    leadQueue.getByRole("button", { name: "내 접수 대기 1", exact: true }),
+  ).toBeVisible();
+  await leadQueue
+    .getByRole("button", { name: "내 확인 대기 1", exact: true })
+    .click();
+  await expect(
+    leadQueue.getByRole("link", { name: /내 확인 대기 영상/ }),
+  ).toBeVisible();
+  await expect(
+    leadQueue.getByRole("link", { name: /비공개 내부 요청/ }),
+  ).toHaveCount(0);
+
+  const externalView = await open(browser, external, home);
+  const X = externalView.page;
+  const queue = X.getByRole("region", { name: "내 요청 업무", exact: true });
+  await expect(
+    queue.getByRole("button", { name: "내 담당 요청 25", exact: true }),
+  ).toBeVisible();
+  await expect(
+    queue.getByRole("button", { name: "기한 지난 업무 1", exact: true }),
+  ).toBeVisible();
+  await expect(queue.getByRole("listitem")).toHaveCount(20);
+  await expect(
+    queue.getByText("비공개 내부 요청", { exact: true }),
+  ).toHaveCount(0);
+  await queue.getByRole("button", { name: "다음 업무", exact: true }).click();
+  await expect(queue.getByRole("listitem")).toHaveCount(5);
+  await expect(
+    queue.getByRole("button", { name: "내 담당 요청 25", exact: true }),
+  ).toBeVisible();
+  await queue.getByRole("button", { name: "처음 페이지", exact: true }).click();
+  await expect(queue.getByRole("listitem")).toHaveCount(20);
+  await queue
+    .getByLabel("요청 업무 검색", { exact: true })
+    .fill("비공개 내부 요청");
+  await queue.getByRole("button", { name: "검색", exact: true }).click();
+  await expect(
+    queue.getByText("검색 조건에 맞는 내 요청 업무가 없습니다.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await queue.getByLabel("요청 업무 검색", { exact: true }).fill("");
+  await queue.getByRole("button", { name: "검색", exact: true }).click();
+  await expect(queue.getByRole("listitem")).toHaveCount(20);
+
+  const workRoute = `${teamApi}/request-work**`;
+  let fail = true;
+  await X.route(workRoute, async (route) => {
+    if (fail) await route.abort();
+    else await route.continue();
+  });
+  await queue
+    .getByRole("button", { name: "업무 새로고침", exact: true })
+    .click();
+  await expect(queue.getByRole("alert")).toBeVisible();
+  await expect(queue.getByRole("listitem")).toHaveCount(20);
+  await expect(
+    queue.getByRole("button", { name: "내 담당 요청 25", exact: true }),
+  ).toBeVisible();
+  fail = false;
+  await queue.getByRole("button", { name: "다시 확인", exact: true }).click();
+  await expect(queue.getByRole("alert")).toHaveCount(0);
+  await X.unroute(workRoute);
+
+  // Same browser switches accounts: the team-only account cannot inherit cards.
+  await X.getByRole("button", { name: "로그아웃", exact: true }).click();
+  await loginOnPage(X, member, home);
+  await expect(
+    queue.getByRole("button", { name: "내 담당 요청 0", exact: true }),
+  ).toBeVisible();
+  await expect(queue.getByRole("listitem")).toHaveCount(0);
+  await X.getByRole("button", { name: "로그아웃", exact: true }).click();
+  await loginOnPage(X, external, overview);
+  await expect(queue.getByTestId("required-request-progress")).toHaveText(
+    "필수 요청 확인: 0 / 25",
+  );
+  await queue.getByRole("link", { name: /내 담당 영상 24/ }).click();
+  await expect(
+    X.getByRole("heading", { name: "내 담당 영상 24", exact: true }),
+  ).toBeVisible();
+  await X.goto(overview);
+  const reassigned = assigned[24];
+  expect(
+    (
+      await request.post(`${root}/requests/${reassigned.id}`, {
+        headers: lead.headers,
+        data: {
+          ...fields,
+          title: reassigned.title,
+          revision: reassigned.revision,
+          assigneeId: lead.id,
+          requestKey: randomUUID(),
+        },
+      })
+    ).status(),
+  ).toBe(201);
+  await queue
+    .getByRole("button", { name: "업무 새로고침", exact: true })
+    .click();
+  await expect(
+    queue.getByRole("button", { name: "내 담당 요청 24", exact: true }),
+  ).toBeVisible();
+  await expect(queue.getByTestId("required-request-progress")).toHaveText(
+    "필수 요청 확인: 0 / 24",
+  );
+  await expect(
+    queue.getByRole("link", { name: /내 담당 영상 24/ }),
+  ).toHaveCount(0);
+
+  fixture("b2b-test-fixture.cjs", { workspaceId: team, action: "expire" });
+  await queue
+    .getByRole("button", { name: "업무 새로고침", exact: true })
+    .click();
+  await expect(
+    queue.getByText(
+      "현재 열람 기간입니다. 요청을 볼 수 있지만 변경할 수 없습니다.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(queue.getByText("요청 보기", { exact: true })).toHaveCount(20);
+  await X.setViewportSize({ width: 390, height: 844 });
+  await X.screenshot({
+    path: "/tmp/prepix-request-work-mobile.png",
+    fullPage: true,
+  });
+  expect(
+    await X.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+  ).toBe(true);
+  fixture("b2b-test-fixture.cjs", { workspaceId: team, action: "activate" });
+
+  // A formerly authorized response arrives after a newer denial. It must not
+  // revive the project title, cards or totals after current participation ends.
+  const projectWork = `${root}/request-work**`;
+  let hold = true;
+  let release!: () => void;
+  let delivered!: () => void;
+  let captured!: () => void;
+  const ready = new Promise<void>((resolve) => {
+    captured = resolve;
+  });
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const landed = new Promise<void>((resolve) => {
+    delivered = resolve;
+  });
+  await X.route(projectWork, async (route) => {
+    if (hold) {
+      hold = false;
+      const response = await route.fetch();
+      captured();
+      await held;
+      await route.fulfill({ response });
+      delivered();
+    } else await route.continue();
+  });
+  await queue
+    .getByRole("button", { name: "업무 새로고침", exact: true })
+    .click();
+  await ready;
+  const currentProject = (
+    await (await request.get(root, { headers: lead.headers })).json()
+  ).data;
+  expect(
+    (
+      await request.post(`${root}/people`, {
+        headers: lead.headers,
+        data: {
+          requestKey: randomUUID(),
+          revision: currentProject.project.revision,
+          userId: external.id,
+          role: "producer",
+          canDownload: false,
+          remove: true,
+          reason: "참여 종료",
+        },
+      })
+    ).status(),
+  ).toBe(201);
+  await queue
+    .getByRole("button", { name: "업무 새로고침", exact: true })
+    .click();
+  await expect(
+    X.getByText("프로젝트를 찾을 수 없거나 접근 권한이 없습니다.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  release();
+  await landed;
+  await X.unroute(projectWork);
+  await expect(
+    X.getByRole("heading", { name: "초대된 영상 프로젝트", exact: true }),
+  ).toHaveCount(0);
+  await expect(queue).toHaveCount(0);
+  await X.goto(home);
+  await expect(
+    queue.getByRole("button", { name: "내 담당 요청 0", exact: true }),
+  ).toBeVisible();
+  await expect(queue.getByRole("listitem")).toHaveCount(0);
+  for (const view of [leadView, externalView]) {
     expect(view.errors).toEqual([]);
     await view.close();
   }

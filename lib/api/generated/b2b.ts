@@ -836,6 +836,30 @@ export type ProjectRequestList = {
   required: { total: number; satisfied: number };
   allowedActions: { create: boolean; propose: boolean };
 };
+export type RequestWorkQuery = {
+  view?: "all" | "assigned" | "confirming" | "proposals" | "overdue";
+  search?: string;
+  cursor?: string;
+};
+export type RequestWorkList = {
+  currentUserId: string;
+  workspaceId: string;
+  projectId: string | null;
+  asOf: string;
+  teamState: TeamState;
+  // Digest of this currently authorized response, not a team-wide revision.
+  revision: string;
+  counts: { assigned: number; confirming: number; proposals: number; overdue: number };
+  required: { total: number; satisfied: number };
+  cards: {
+    id: string; projectId: string; projectName: string; projectState: ProjectState;
+    title: string; state: ProjectRequestState; required: boolean; dueAt: string | null;
+    revision: number; requestRevision: number;
+    work: "assigned" | "confirming" | "proposal";
+    overdue: boolean; canAct: boolean;
+  }[];
+  nextCursor: string | null;
+};
 export type ProjectRequestRevision = {
   number: number;
   references: ProjectRequestReferenceFile[];

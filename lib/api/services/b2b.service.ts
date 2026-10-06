@@ -42,9 +42,13 @@ const e = encodeURIComponent;
 const base = (id: string) => `/workspaces/${e(id)}/b2b`;
 const projectPath = (id: string, projectId: string) =>
   `${base(id)}/projects/${e(projectId)}`;
-async function get<T>(path: string): Promise<T> {
-  return (await apiClient.get<{ data: T }>(path, { timeout: 15_000 })).data
-    .data;
+async function get<T>(path: string, account?: string): Promise<T> {
+  return (
+    await apiClient.get<{ data: T }>(path, {
+      timeout: 15_000,
+      ...(account ? { headers: { "X-Prepix-Account-ID": account } } : {}),
+    })
+  ).data.data;
 }
 async function post<T>(path: string, input: unknown): Promise<T> {
   const result = (
@@ -164,8 +168,8 @@ export const b2bService = {
     );
     return get<ProjectList>(`${base(id)}/projects?${params}`);
   },
-  project: (id: string, projectId: string) =>
-    get<ProjectDetail>(projectPath(id, projectId)),
+  project: (id: string, projectId: string, account?: string) =>
+    get<ProjectDetail>(projectPath(id, projectId), account),
   createProject: (id: string, input: CreateProject) =>
     post<{ project: StoredProject; revision: number; requestId: string }>(
       `${base(id)}/projects`,

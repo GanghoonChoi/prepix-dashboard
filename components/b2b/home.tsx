@@ -7,6 +7,7 @@ import {
   secondaryClass,
 } from "@/components/workspaces/shared";
 import { StateBadge, useCopy } from "./shared";
+import { RequestWorkPanel } from "./request-work";
 
 export function B2bHome({
   status,
@@ -67,6 +68,7 @@ export function B2bHome({
           </Link>
         </div>
       </section>
+      <RequestWorkPanel />
     </TeamShell>
   );
 }

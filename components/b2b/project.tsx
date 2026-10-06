@@ -1,7 +1,9 @@
 "use client";
 import { InvitationPanel } from "./invitations";
+import { RequestWorkPanel } from "./request-work";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { apiClient } from "@/lib/api/client";
 import { buildTeamProjectOpenUrl } from "@/lib/workspaces/app-link";
 import {
   b2bService,
@@ -28,6 +30,7 @@ import {
 function useProject(projectId: string) {
   const context = useWorkspace()!;
   const id = context.data.workspace.id;
+  const account = context.data.currentUserId;
   const permitted =
     !!context.b2b?.enrolled && context.b2b.allowedActions.projects;
   const [project, setProject] = useState<Project | null>(null);
@@ -37,7 +40,7 @@ function useProject(projectId: string) {
     if (!permitted) return;
     const request = ++serial.current;
     try {
-      const result = await b2bService.project(id, projectId);
+      const result = await b2bService.project(id, projectId, account);
       if (request === serial.current) {
         setProject(result.project);
         setError("");
@@ -45,10 +48,15 @@ function useProject(projectId: string) {
     } catch (e) {
       if (request === serial.current) {
         setError(errorCode(e));
-        setProject(null);
+        if (definitivelyRejected(e)) setProject(null);
       }
     }
-  }, [id, projectId, permitted]);
+  }, [id, projectId, permitted, account]);
+  const deny = useCallback(async () => {
+    ++serial.current;
+    setProject(null);
+    setError("B2B_PROJECT_NOT_FOUND");
+  }, []);
   useEffect(() => {
     const sequence = serial;
     const start = window.setTimeout(() => void reload(), 0);
@@ -70,14 +78,26 @@ function useProject(projectId: string) {
     project: permitted ? project : null,
     error: permitted ? error : context.b2b ? "B2B_PROJECT_NOT_FOUND" : "",
     reload,
+    deny,
   };
 }
 
 export function ProjectOverview({ projectId }: { projectId: string }) {
-  const { context, id, project, error, reload } = useProject(projectId);
+  const context = useWorkspace()!;
+  const origin = new URL(apiClient.defaults.baseURL!).origin;
+  return (
+    <ScopedProjectOverview
+      key={`${origin}:${context.data.currentUserId}:${context.data.workspace.id}:${projectId}`}
+      projectId={projectId}
+    />
+  );
+}
+function ScopedProjectOverview({ projectId }: { projectId: string }) {
+  const { context, id, project, error, reload, deny } = useProject(projectId);
   const c = useCopy();
   const [editing, setEditing] = useState(false);
-  if (error) return <B2bError code={error} retry={() => void reload()} />;
+  if (error && !project)
+    return <B2bError code={error} retry={() => void reload()} />;
   if (!project) return <TeamLoading />;
   const appUrl = buildTeamProjectOpenUrl({
     workspaceId: id,
@@ -85,6 +105,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
   });
   return (
     <TeamShell title={project.name}>
+      {error && <B2bError code={error} retry={() => void reload()} />}
       <div className="flex flex-wrap items-center gap-3">
         <SpaceBadge workspace={context.data.workspace} />
         <StateBadge state={project.state} />
@@ -144,6 +165,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
         />
       ) : (
         <>
+          <RequestWorkPanel projectId={projectId} onDenied={deny} />
           <section className="space-y-3 border-b border-border pb-8">
             <h2 className="font-medium">{c("작업 개요", "Brief")}</h2>
             <p className="max-w-3xl whitespace-pre-wrap break-words text-sm leading-6 text-muted">
