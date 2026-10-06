@@ -278,6 +278,12 @@ test("S27 notifications: current access, late and lost responses, reconnect, acc
   await page.goto("/dashboard/notifications");
   const lost = page.getByRole("button", { name: /현재 계정으로 볼 수 없는 알림이에요/ });
   await expect(lost).toHaveCount(2);
+  // A lost item is not counted, so it shows no unread dot/label and no toggle.
+  const lostRows = page.locator("li").filter({ has: lost });
+  await expect(
+    lostRows.getByRole("button", { name: /^(읽음으로|읽지 않음으로)$/ }),
+  ).toHaveCount(0);
+  await expect(lostRows.filter({ hasText: "읽지 않음" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /한 프로젝트의 참여가 끝났어요/ })).toHaveCount(1);
   expect(await page.locator("main").innerText()).not.toContain("Secret campaign");
   await lost.first().click();
@@ -286,6 +292,27 @@ test("S27 notifications: current access, late and lost responses, reconnect, acc
   // The request itself stays closed even by direct address.
   await page.goto(`/dashboard/workspaces/${team}/projects/${project}/requests/${first}`);
   await expect(page.getByText("Private subtitle")).toHaveCount(0);
+
+  // A persistent account mismatch asks the profile once and shows the error;
+  // it must not reload in a loop.
+  let navigations = 0;
+  const counted = () => void navigations++;
+  page.on("framenavigated", counted);
+  await page.route("**/v2/b2b/notifications?*", (route) =>
+    route.fulfill({
+      status: 403,
+      json: { statusCode: 403, message: "B2B_NOTIFICATION_ACCOUNT_CHANGED" },
+    }),
+  );
+  await page.goto("/dashboard/notifications");
+  await expect(
+    page.getByText("B2B_NOTIFICATION_ACCOUNT_CHANGED", { exact: false }),
+  ).toBeVisible();
+  await page.waitForTimeout(2500);
+  page.off("framenavigated", counted);
+  await page.unroute("**/v2/b2b/notifications?*");
+  expect(navigations).toBeLessThanOrEqual(2);
+  await page.goto("/dashboard/notifications");
 
   // 390px: one column, no horizontal scroll, the entry is in the mobile menu.
   await page.setViewportSize({ width: 390, height: 844 });

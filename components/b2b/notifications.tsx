@@ -16,6 +16,7 @@ import {
   describe,
   href,
   notificationApi,
+  notificationErrorCode as errorCode,
   NOTIFICATIONS_CHANGED,
   scopeKey,
   type NotificationScope,
@@ -26,12 +27,25 @@ import {
   TeamShell,
   inputClass,
 } from "@/components/workspaces/shared";
-import { errorCode, useCopy } from "./shared";
+import { useCopy } from "./shared";
 
 /** The account this tab is signed in as. Another tab signing in as someone
  * else rewrites the token; the storage event drops everything shown. */
 function useAccount() {
   const [account, setAccount] = useState<string | null>(null);
+  /** One profile read: the server's own answer to "who am I". */
+  const resync = useCallback(
+    () =>
+      userService
+        .getProfile()
+        .then((p) => {
+          const id = p.id ?? null;
+          setAccount(id);
+          return id;
+        })
+        .catch(() => null),
+    [],
+  );
   useEffect(() => {
     const read = () => {
       const cached = cachedAccount();
@@ -55,7 +69,7 @@ function useAccount() {
       window.removeEventListener("storage", changed);
     };
   }, []);
-  return account;
+  return { account, resync };
 }
 
 const when = (iso: string, ko: boolean) =>
@@ -69,15 +83,21 @@ const when = (iso: string, ko: boolean) =>
   }).format(new Date(iso));
 
 export function Notifications() {
-  const account = useAccount();
+  const { account, resync } = useAccount();
   return account ? (
-    <NotificationsView key={account} userId={account} />
+    <NotificationsView key={account} userId={account} resync={resync} />
   ) : (
     <TeamLoading />
   );
 }
 
-function NotificationsView({ userId }: { userId: string }) {
+function NotificationsView({
+  userId,
+  resync,
+}: {
+  userId: string;
+  resync: () => Promise<string | null>;
+}) {
   const c = useCopy();
   const ko = c("ko", "en") === "ko";
   const router = useRouter();
@@ -131,14 +151,17 @@ function NotificationsView({ userId }: { userId: string }) {
           return;
         }
         if (code === "B2B_NOTIFICATION_ACCOUNT_CHANGED") {
-          window.location.reload();
-          return;
+          // Ask once who this tab is. A different account re-keys the view
+          // (fresh state, new header); the same one is a real error, shown
+          // instead of reloading in a loop.
+          const id = await resync();
+          if (id && id !== userId) return;
         }
         setFailure(code);
         setStatus("error");
       }
     },
-    [api],
+    [api, resync, userId],
   );
   useEffect(() => {
     const timer = window.setTimeout(() => void reload(scope), 0);
@@ -204,7 +227,12 @@ function NotificationsView({ userId }: { userId: string }) {
           ? shown.filter((i) => i.id !== n.id)
           : shown.map((i) => (i.id === n.id ? { ...i, readAt: r.readAt } : i)),
       );
-      setUnread(r.unreadCount);
+      // The server count is account-wide; a team view keeps its own count and
+      // moves it only for items the count includes (current access).
+      if (n.access === "current" && !!n.readAt !== !!r.readAt)
+        setUnread((u) =>
+          u === null ? u : Math.max(0, u + (r.readAt ? -1 : 1)),
+        );
     } catch (error) {
       setNotice(
         c(
@@ -231,9 +259,13 @@ function NotificationsView({ userId }: { userId: string }) {
       }
       setItems((shown) =>
         shown.map((i) =>
-          i.id === n.id ? { ...i, readAt: i.readAt ?? new Date().toISOString() } : i,
+          i.id === n.id
+            ? { ...i, readAt: i.readAt ?? new Date().toISOString() }
+            : i,
         ),
       );
+      if (n.access === "current" && !n.readAt)
+        setUnread((u) => (u === null ? u : Math.max(0, u - 1)));
       setNotice(
         c(
           "현재 계정으로 이 내용을 열 수 없어요. 권한이 바뀌었거나 자료를 더 이상 볼 수 없는 상태예요.",
@@ -278,11 +310,7 @@ function NotificationsView({ userId }: { userId: string }) {
             ))}
           </select>
         </label>
-        <div
-          role="group"
-          aria-label={c("보기", "View")}
-          className="flex gap-2"
-        >
+        <div role="group" aria-label={c("보기", "View")} className="flex gap-2">
           {(["all", "unread"] as const).map((f) => (
             <button
               key={f}
@@ -313,7 +341,10 @@ function NotificationsView({ userId }: { userId: string }) {
         >
           <p>
             {failure === "B2B_DISABLED"
-              ? c("팀 알림을 사용할 수 없어요.", "Team notifications are unavailable.")
+              ? c(
+                  "팀 알림을 사용할 수 없어요.",
+                  "Team notifications are unavailable.",
+                )
               : c(
                   `알림을 불러오지 못했어요 (${failure}). 목록이 비어 있다는 뜻은 아니에요.`,
                   `Could not load notifications (${failure}). This does not mean there are none.`,
@@ -347,7 +378,7 @@ function NotificationsView({ userId }: { userId: string }) {
                 <span className="flex items-start gap-2">
                   <span
                     aria-hidden
-                    className={`mt-2 h-2 w-2 shrink-0 rounded-full ${n.readAt ? "bg-transparent" : "bg-accent"}`}
+                    className={`mt-2 h-2 w-2 shrink-0 rounded-full ${n.readAt || n.access === "lost" ? "bg-transparent" : "bg-accent"}`}
                   />
                   <span className="min-w-0">
                     <span
@@ -359,20 +390,24 @@ function NotificationsView({ userId }: { userId: string }) {
                       {[n.team?.name, n.project?.name, when(n.createdAt, ko)]
                         .filter(Boolean)
                         .join(" · ")}
-                      {n.readAt ? "" : c(" · 읽지 않음", " · Unread")}
+                      {n.readAt || n.access === "lost"
+                        ? ""
+                        : c(" · 읽지 않음", " · Unread")}
                     </span>
                   </span>
                 </span>
               </button>
-              <button
-                className={`${secondaryClass} self-start sm:self-auto`}
-                disabled={busy === n.id}
-                onClick={() => void toggle(n)}
-              >
-                {n.readAt
-                  ? c("읽지 않음으로", "Mark unread")
-                  : c("읽음으로", "Mark read")}
-              </button>
+              {n.access === "current" && (
+                <button
+                  className={`${secondaryClass} self-start sm:self-auto`}
+                  disabled={busy === n.id}
+                  onClick={() => void toggle(n)}
+                >
+                  {n.readAt
+                    ? c("읽지 않음으로", "Mark unread")
+                    : c("읽음으로", "Mark read")}
+                </button>
+              )}
             </li>
           ))}
         </ul>
@@ -394,9 +429,16 @@ function NotificationsView({ userId }: { userId: string }) {
  * never a zero; a disabled B2B service hides the entry. */
 export function NotificationEntry({ onClose }: { onClose?: () => void }) {
   const c = useCopy();
-  const account = useAccount();
-  const [count, setCount] = useState<number | null>(null);
-  const [hidden, setHidden] = useState(false);
+  const { account } = useAccount();
+  // Keyed by account so a switched account never inherits the old badge.
+  const [badge, setBadge] = useState<{
+    account: string;
+    count: number | null;
+    hidden: boolean;
+  } | null>(null);
+  const mine = badge?.account === account ? badge : null;
+  const count = mine?.count ?? null;
+  const hidden = mine?.hidden ?? false;
   useEffect(() => {
     if (!account) return;
     const api = notificationApi(account);
@@ -404,14 +446,21 @@ export function NotificationEntry({ onClose }: { onClose?: () => void }) {
     const load = () => {
       stop.abort();
       stop = new AbortController();
-      const mine = stop;
+      const asked = stop;
       api
-        .unread(mine.signal)
-        .then((r) => !mine.signal.aborted && setCount(r.unreadCount))
+        .unread(asked.signal)
+        .then(
+          (r) =>
+            !asked.signal.aborted &&
+            setBadge({ account, count: r.unreadCount, hidden: false }),
+        )
         .catch((error) => {
-          if (mine.signal.aborted) return;
-          if (errorCode(error) === "B2B_DISABLED") setHidden(true);
-          setCount(null);
+          if (asked.signal.aborted) return;
+          setBadge({
+            account,
+            count: null,
+            hidden: errorCode(error) === "B2B_DISABLED",
+          });
         });
     };
     const timer = window.setTimeout(load, 0);

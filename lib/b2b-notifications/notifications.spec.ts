@@ -6,6 +6,7 @@ import {
   current,
   describe,
   href,
+  notificationErrorCode,
   scopeKey,
   type NotificationScope,
 } from "./notifications";
@@ -97,5 +98,52 @@ test("destinations map to the screens that recheck access themselves", () => {
     href({ kind: "billing", workspaceId: w }),
     `/dashboard/workspaces/${w}/plan`,
   );
-  assert.equal(href({ kind: "library", workspaceId: w }), `/dashboard/workspaces/${w}/library`);
+  assert.equal(
+    href({ kind: "library", workspaceId: w }),
+    `/dashboard/workspaces/${w}/library`,
+  );
+});
+
+test("a missing date never leaves a dangling clause", () => {
+  for (const kind of [
+    "lifecycle.ops_check",
+    "lifecycle.period_ended",
+    "lifecycle.recovery_storage",
+    "notice.period_ending",
+    "notice.deletion_scheduled",
+  ] as const)
+    for (const params of [{}, { deadline: null }] as never[])
+      for (const ko of [true, false]) {
+        const text = describe(item({ kind, params }), ko);
+        assert.ok(
+          !/KST|까지|부터|\buntil\b|\bfrom\b|\bat\b/.test(text),
+          `${kind}: ${text}`,
+        );
+      }
+  assert.match(
+    describe(
+      item({
+        kind: "lifecycle.ops_check",
+        params: { deadline: "2026-10-09T09:00:00.000Z" },
+      }),
+      true,
+    ),
+    /18:00 KST까지/,
+  );
+});
+
+test("client-thrown account errors and server errors both yield a code", () => {
+  assert.equal(
+    notificationErrorCode(new Error("B2B_NOTIFICATION_ACCOUNT_CHANGED")),
+    "B2B_NOTIFICATION_ACCOUNT_CHANGED",
+  );
+  assert.equal(
+    notificationErrorCode({ response: { data: { message: "B2B_DISABLED" } } }),
+    "B2B_DISABLED",
+  );
+  assert.equal(
+    notificationErrorCode(new Error("Network Error")),
+    "REQUEST_FAILED",
+  );
+  assert.equal(notificationErrorCode(null), "REQUEST_FAILED");
 });

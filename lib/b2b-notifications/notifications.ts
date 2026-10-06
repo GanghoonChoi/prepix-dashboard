@@ -71,6 +71,26 @@ const kst = (iso: unknown, ko: boolean) =>
       }).format(new Date(iso)) + " KST"
     : "";
 
+/** Server error codes arrive in the response body; the account check throws
+ * its code client-side as a plain Error. Both end up as one code string. */
+export function notificationErrorCode(error: unknown): string {
+  const message = (error as { response?: { data?: { message?: unknown } } })
+    ?.response?.data?.message;
+  if (typeof message === "string") return message;
+  const own = (error as { message?: unknown } | null)?.message;
+  return typeof own === "string" && /^B2B_[A-Z_]+$/.test(own)
+    ? own
+    : "REQUEST_FAILED";
+}
+
+/** A date clause only when the server sent the date. */
+const dated = (
+  iso: unknown,
+  ko: boolean,
+  withDate: (when: string) => string,
+  without: string,
+) => (typeof iso === "string" ? withDate(kst(iso, ko)) : without);
+
 /** Text comes only from the kind and server params. Names appear only when
  * the server still returned them for the current account. */
 export function describe(n: UserNotification, ko: boolean): string {
@@ -112,10 +132,7 @@ export function describe(n: UserNotification, ko: boolean): string {
         : t("팀 역할이 바뀌었어요", "Your team role changed");
     case "transfer.failed":
       return p.reason === "expired"
-        ? t(
-            "멈춘 파일 전송이 만료됐어요",
-            "A stalled file transfer expired",
-          )
+        ? t("멈춘 파일 전송이 만료됐어요", "A stalled file transfer expired")
         : t(
             "파일 전송이 검사에서 거절됐어요",
             "A file transfer was rejected by inspection",
@@ -134,35 +151,68 @@ export function describe(n: UserNotification, ko: boolean): string {
     case "payment.failed":
       return t("결제가 완료되지 않았어요", "The payment did not complete");
     case "lifecycle.period_ended":
-      return t(
-        `팀 이용기간이 끝났어요. ${kst(p.readOnlyUntil, ko)}까지 열람·다운로드할 수 있어요`,
-        `The team period ended. Viewing and download remain until ${kst(p.readOnlyUntil, ko)}`,
+      return dated(
+        p.readOnlyUntil,
+        ko,
+        (d) =>
+          t(
+            `팀 이용기간이 끝났어요. ${d}까지 열람·다운로드할 수 있어요`,
+            `The team period ended. Viewing and download remain until ${d}`,
+          ),
+        t("팀 이용기간이 끝났어요", "The team period ended"),
       );
     case "lifecycle.recovery_storage":
-      return t(
-        `팀 자료가 복구 보관으로 바뀌었어요. ${kst(p.deletionFrom, ko)}부터 삭제돼요`,
-        `Team data moved to recovery storage. Deletion from ${kst(p.deletionFrom, ko)}`,
+      return dated(
+        p.deletionFrom,
+        ko,
+        (d) =>
+          t(
+            `팀 자료가 복구 보관으로 바뀌었어요. ${d}부터 삭제돼요`,
+            `Team data moved to recovery storage. Deletion from ${d}`,
+          ),
+        t(
+          "팀 자료가 복구 보관으로 바뀌었어요",
+          "Team data moved to recovery storage",
+        ),
       );
     case "lifecycle.deletion_due":
       return t("팀 자료 삭제 시각이 됐어요", "Team data deletion is due");
     case "lifecycle.ops_check":
-      return t(
-        `결제 확인 때문에 삭제가 멈췄어요. ${kst(p.deadline, ko)}까지 확인해요`,
-        `Deletion paused for a payment check until ${kst(p.deadline, ko)}`,
+      // The server may send no deadline (null): no dangling "까지".
+      return dated(
+        p.deadline,
+        ko,
+        (d) =>
+          t(
+            `결제 확인 때문에 삭제가 멈췄어요. ${d}까지 확인해요`,
+            `Deletion paused for a payment check until ${d}`,
+          ),
+        t(
+          "결제 확인 때문에 삭제가 멈췄어요",
+          "Deletion paused for a payment check",
+        ),
       );
     case "lifecycle.deletion_started":
       return t("팀 자료 삭제가 시작됐어요", "Team data deletion started");
     case "lifecycle.deletion_completed":
       return t("팀 자료가 삭제됐어요", "Team data was deleted");
     case "notice.period_ending":
-      return t(
-        `팀 이용기간이 ${kst(p.periodEndsAt, ko)}에 끝나요`,
-        `The team period ends at ${kst(p.periodEndsAt, ko)}`,
+      return dated(
+        p.periodEndsAt,
+        ko,
+        (d) => t(`팀 이용기간이 ${d}에 끝나요`, `The team period ends at ${d}`),
+        t("팀 이용기간이 곧 끝나요", "The team period ends soon"),
       );
     case "notice.deletion_scheduled":
-      return t(
-        `팀 자료가 ${kst(p.deletionFrom, ko)}부터 삭제돼요`,
-        `Team data will be deleted from ${kst(p.deletionFrom, ko)}`,
+      return dated(
+        p.deletionFrom,
+        ko,
+        (d) =>
+          t(
+            `팀 자료가 ${d}부터 삭제돼요`,
+            `Team data will be deleted from ${d}`,
+          ),
+        t("팀 자료가 곧 삭제돼요", "Team data will be deleted soon"),
       );
   }
   return t("새 알림이 있어요", "New notification");
@@ -198,7 +248,9 @@ export function notificationApi(userId: string) {
               timeout: 15000,
               params: {
                 filter: scope.filter,
-                ...(scope.workspaceId ? { workspaceId: scope.workspaceId } : {}),
+                ...(scope.workspaceId
+                  ? { workspaceId: scope.workspaceId }
+                  : {}),
                 ...(cursor ? { cursor } : {}),
               },
             },
