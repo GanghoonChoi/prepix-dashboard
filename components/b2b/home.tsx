@@ -25,7 +25,15 @@ import {
   TeamShell,
   secondaryClass,
 } from "@/components/workspaces/shared";
-import { B2bError, StateBadge, errorCode, useCopy } from "./shared";
+import { href as notificationHref } from "@/lib/b2b-notifications/notifications";
+import {
+  B2bError,
+  StateBadge,
+  VisibilityBadge,
+  errorCode,
+  roleLabels,
+  useCopy,
+} from "./shared";
 import { RequestWorkPanel } from "./request-work";
 import { ReviewWorkPanel } from "./review-work";
 const date = (value: string) =>
@@ -388,19 +396,15 @@ function ScopedHome({
                           <div className="min-w-0">
                             <p className="break-words font-medium">{p.name}</p>
                             <p className="mt-1 text-xs text-muted">
-                              {c(
-                                p.role === "lead"
-                                  ? "담당자"
-                                  : p.role === "producer"
-                                    ? "제작자"
-                                    : "검토자",
-                                p.role,
-                              )}{" "}
-                              · {c("최근 변경", "Updated")} {date(p.updatedAt)}{" "}
+                              {c(...roleLabels[p.role])} ·{" "}
+                              {c("최근 변경", "Updated")} {date(p.updatedAt)}{" "}
                               KST
                             </p>
                           </div>
-                          <StateBadge state={p.state} />
+                          <div className="flex flex-wrap gap-2">
+                            <VisibilityBadge visibility={p.visibility} />
+                            <StateBadge state={p.state} />
+                          </div>
                         </Link>
                       </li>
                     ))}
@@ -418,6 +422,57 @@ function ScopedHome({
                     {c(
                       "최근 변경된 프로젝트 일부입니다. 나머지는 전체 보기에서 확인하세요.",
                       "These are recently updated projects. View all to see the rest.",
+                    )}
+                  </p>
+                )}
+              </section>
+              <section
+                className="space-y-4 border-b border-border pb-8"
+                aria-label={c("최근 발행", "Recently published")}
+              >
+                <h2 className="font-medium">
+                  {c("최근 발행", "Recently published")}
+                </h2>
+                {data.recentPublications.items.length ? (
+                  <ul className={listClass}>
+                    {data.recentPublications.items.map((p) => (
+                      <li key={p.publicationId}>
+                        <Link
+                          href={notificationHref({
+                            kind: "review",
+                            workspaceId: workspace.id,
+                            projectId: p.projectId,
+                            reviewId: p.reviewId,
+                            round: p.round,
+                            versionId: p.versionId,
+                          })}
+                          className="block min-h-16 p-4 hover:bg-card"
+                        >
+                          <p className="break-words text-sm font-medium">
+                            {p.title}
+                          </p>
+                          <p className="mt-1 break-words text-xs text-muted tabular-nums">
+                            {p.projectName} · V{p.ordinal} ·{" "}
+                            {c("회차", "Round")} {p.round} ·{" "}
+                            {date(p.publishedAt)} KST
+                          </p>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-muted">
+                    {c(
+                      "지금 볼 수 있는 발행 영상이 없습니다. 결과의 검토본이 준비되면 여기에 표시됩니다.",
+                      "No published videos you can open yet. Results appear here once their review copy is ready.",
+                    )}
+                  </p>
+                )}
+                {data.recentPublications.hasMore && (
+                  <p className="text-xs text-muted">
+                    {c(
+                      "최근 발행 일부입니다. 나머지는 각 프로젝트의 영상 검토에서 확인하세요.",
+                      "These are the latest publications. Open a project's reviews for the rest.",
                     )}
                   </p>
                 )}
