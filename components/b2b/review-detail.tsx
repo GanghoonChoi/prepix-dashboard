@@ -800,6 +800,7 @@ function LeadTools({
   );
 }
 
+const CLEAR = "clear";
 function ApproverForm({
   scope,
   detail,
@@ -821,7 +822,11 @@ function ApproverForm({
       className="space-y-3"
       onSubmit={async (e) => {
         e.preventDefault();
-        const input = { revision: detail.review.revision, userId: userId || null, reason };
+        const input = {
+          revision: detail.review.revision,
+          userId: userId === CLEAR ? null : userId,
+          reason,
+        };
         const done = await mutation.run(input, (requestKey) =>
           reviewsService.mutate(scope, "approver", { requestKey, ...input }),
         );
@@ -838,7 +843,8 @@ function ApproverForm({
       </p>
       {error && <ReviewError code={error} />}
       <select className={inputClass} value={userId} onChange={(e) => setUserId(e.target.value)} aria-label={c("승인자 선택", "Choose approver")}>
-        <option value="">{replacing ? c("승인자 해제", "Clear approver") : c("선택", "Choose")}</option>
+        <option value="">{c("선택", "Choose")}</option>
+        {replacing && <option value={CLEAR}>{c("승인자 해제", "Clear approver")}</option>}
         {data?.candidates.map((p) => (
           <option key={`${p.basis}:${p.userId}`} value={p.userId}>
             {p.label} · {p.basis === "share" ? c("공유 수신자", "share recipient") : c("참여자", "participant")}
@@ -853,7 +859,7 @@ function ApproverForm({
       <button
         type="submit"
         className={primaryClass}
-        disabled={mutation.busy || (!userId && !replacing) || (replacing && !reason.trim())}
+        disabled={mutation.busy || !userId || (replacing && !reason.trim())}
       >
         {c("승인자 저장", "Save approver")}
       </button>

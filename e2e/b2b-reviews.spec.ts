@@ -171,6 +171,10 @@ async function videoReady(page: Page) {
     )
     .toBeGreaterThanOrEqual(2);
 }
+const shots = process.env.B2B_E2E_SHOTS;
+async function shot(page: Page, name: string) {
+  if (shots) await page.screenshot({ path: resolve(shots, `${name}.png`), fullPage: true });
+}
 const json = async (r: Promise<import("@playwright/test").APIResponse>) =>
   (await (await r).json()).data;
 
@@ -370,6 +374,7 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   expect(
     (await json(request.get(`${root}/reviews/${reviewId}`, { headers: lead.headers }))).comments,
   ).toHaveLength(1);
+  await shot(P.page, "s14-producer");
   // Seek by the comment's timecode.
   await videoReady(P.page);
   await P.page.getByRole("button", { name: /^00:00:01\.\d{3} – 00:00:03\.\d{3}$/ }).click();
@@ -452,6 +457,7 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   await expect(V.page.getByText("이 링크로 프로젝트의 다른 자료·요청·검토에는 들어갈 수 없습니다", { exact: false })).toBeVisible();
   expect(V.page.url()).not.toContain("#t=");
   await videoReady(V.page);
+  await shot(V.page, "s14-share-viewer");
   await expect(V.page.getByRole("button", { name: /원본 받기/ })).toHaveCount(0);
   await V.page.getByRole("textbox", { name: "코멘트 내용", exact: true }).fill("클라이언트 의견: 로고가 늦게 나옵니다");
   await V.page.getByRole("button", { name: "코멘트 남기기", exact: true }).click();
@@ -505,6 +511,7 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   await L.page.getByRole("button", { name: "이 버전으로 교체", exact: true }).click();
   await expect(L.page.getByText(/V2 · 회차 2/)).toBeVisible();
   await videoReady(L.page);
+  await shot(L.page, "s14-lead-round2");
   const round2 = await json(request.get(`${root}/reviews/${reviewId}`, { headers: lead.headers }));
   expect(round2.review.round).toBe(2);
   expect(round2.comments).toHaveLength(0);
@@ -525,12 +532,17 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   await C.page.goto(`/dashboard/workspaces/${team}`);
   await expect(C.page.getByRole("heading", { name: "검토·승인 업무", exact: true })).toBeVisible();
   await expect(C.page.getByText("1차 편집 검토", { exact: true })).toBeVisible();
+  await shot(C.page, "team-home-review-work");
   await C.page.setViewportSize({ width: 390, height: 844 });
   await C.page.goto(reviewUrl);
   await videoReady(C.page);
   expect(
     await C.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
   ).toBe(true);
+  await shot(C.page, "s14-mobile-390");
+  await L.page.goto(`${base}/reviews`);
+  await expect(L.page.getByRole("heading", { name: "영상 검토", exact: true })).toBeVisible();
+  await shot(L.page, "s34-list");
   for (const view of [P, L, C, V]) expect(view.errors).toEqual([]);
   await Promise.all([P, L, C, V].map((v) => v.close()));
 });
