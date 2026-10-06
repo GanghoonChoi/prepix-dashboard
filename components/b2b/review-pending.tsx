@@ -20,6 +20,7 @@ const actionCopy: Record<ReviewRecord["action"], [string, string]> = {
   create: ["검토 시작", "Start review"],
   round: ["영상 교체", "Replace video"],
   approver: ["승인자 지정", "Designate approver"],
+  audience: ["검토 대상 변경", "Change review audience"],
   decide: ["승인 결정", "Decision"],
   cancel: ["결정 취소", "Cancel decision"],
   comment: ["코멘트", "Comment"],

@@ -9,6 +9,7 @@ import {
 } from "../../b2b-reviews/operations";
 import type {
   ReviewApproverCandidates,
+  ReviewAudienceCandidates,
   ReviewDetail,
   ReviewDownload,
   ReviewList,
@@ -97,6 +98,8 @@ function mutationPath(r: ReviewRecord) {
       return `${review}/rounds`;
     case "approver":
       return `${review}/approver`;
+    case "audience":
+      return `${review}/audience`;
     case "decide":
       return `${review}/decisions`;
     case "cancel":
@@ -205,6 +208,10 @@ export const reviewsService = {
       `${root(s)}/review-previews`,
       { versionId },
     ),
+  previewPlayback: (s: ReviewScope, versionId: string) =>
+    post<ReviewPlayback>(s, `${root(s)}/review-previews/${e(versionId)}/playback`, {}),
+  audienceCandidates: (s: ReviewScope) =>
+    get<ReviewAudienceCandidates>(s, `${root(s)}/review-audience-candidates`),
   candidates: (s: ReviewScope) =>
     get<ReviewApproverCandidates>(
       s,

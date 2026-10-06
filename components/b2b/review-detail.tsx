@@ -31,6 +31,8 @@ import {
   kst,
   previewCopy,
   ReviewError,
+  ReviewAudiencePicker,
+  type AudienceSelection,
   timecode,
   useLoader,
   useRun,
@@ -153,6 +155,9 @@ function ReviewScreen({
           </span>
         )}
       </div>
+      {data.audience && <p className="text-sm text-muted">{c("현재 검토 대상", "Current review audience")}: {data.audience.map((p) => p.name ?? c("이름 없음", "Unnamed")).join(", ")}</p>}
+      {!data.review.audienceConfirmed && <p role="status" className="text-sm text-muted">{c("검토 대상·승인자 확정 전입니다. 담당자가 대상을 확정하면 새 검토 회차가 시작됩니다.", "The audience and approver are unconfirmed. Confirming them opens a new review round.")}</p>}
+      {selected.changeReason && <p className="text-sm text-muted">{c("회차 변경 사유", "Round-change reason")}: {selected.changeReason}</p>}
       {data.rounds.length > 1 && (
         <nav className="flex flex-wrap gap-2" aria-label={c("검토 회차", "Review rounds")}>
           {data.rounds.map((r) => (
@@ -194,7 +199,7 @@ function ReviewScreen({
         </div>
       </div>
       {data.allowedActions.download && <SharedDownload scope={scope} token={token ?? null} />}
-      {scope.kind === "project" && (data.allowedActions.setApprover || data.allowedActions.replaceVersion) && (
+      {scope.kind === "project" && (data.allowedActions.setAudience || data.allowedActions.setApprover || data.allowedActions.replaceVersion) && (
         <LeadTools scope={scope} detail={data} reload={load} />
       )}
     </TeamShell>
@@ -793,11 +798,33 @@ function LeadTools({
   const c = useCopy();
   return (
     <section className="space-y-8 border-t border-border pt-8" aria-label={c("담당자 관리", "Lead tools")}>
-      <ApproverForm scope={scope} detail={detail} reload={reload} />
-      <ReplaceVersion scope={scope} detail={detail} reload={reload} />
+      {detail.allowedActions.setAudience && <AudienceForm key={`audience:${detail.review.revision}`} scope={scope} detail={detail} reload={reload} />}
+      {detail.allowedActions.setApprover && <ApproverForm scope={scope} detail={detail} reload={reload} />}
+      {detail.allowedActions.replaceVersion && <ReplaceVersion key={`replace:${detail.review.revision}`} scope={scope} detail={detail} reload={reload} />}
       <Shares scope={scope} detail={detail} c={c} />
     </section>
   );
+}
+
+function AudienceForm({ scope, detail, reload }: { scope: ReviewScope & { kind: "project" }; detail: ReviewDetail; reload: () => Promise<void> }) {
+  const c = useCopy();
+  const [audience, setAudience] = useState<AudienceSelection>({ audienceUserIds: detail.audience?.map((p) => p.userId) ?? [], approverUserId: detail.approver?.person.userId ?? "" });
+  const [ready, setReady] = useState(false), [reason, setReason] = useState("");
+  const mutation = useRun();
+  return <form className="space-y-3" onSubmit={async (e) => {
+    e.preventDefault();
+    const input = { revision: detail.review.revision, ...audience, reason: reason.trim() };
+    const done = await mutation.run(input, (requestKey) => reviewsService.mutate(scope, "audience", { requestKey, ...input }));
+    if (done) setReason("");
+    await reload();
+  }}>
+    <h2 className="font-medium">{c("검토 대상 변경", "Change review audience")}</h2>
+    <p className="text-sm text-muted">{c("같은 영상도 대상 변경은 새 회차로 공개됩니다. 이전 코멘트·결정은 과거 기록에 남고 새 승인이 필요합니다. 제외한 사람은 새 주소를 발급받을 수 없습니다.", "Audience changes open a new round even for the same video. Earlier comments and decisions remain in history; a fresh approval is required. Removed viewers cannot obtain new playback URLs.")}</p>
+    <ReviewAudiencePicker scope={scope} value={audience} onChange={setAudience} disabled={mutation.busy} onValidityChange={setReady} />
+    <label className="block space-y-2 text-sm"><span>{c("대상 변경 사유(필수)", "Audience-change reason (required)")}</span><input className={inputClass} value={reason} maxLength={1000} disabled={mutation.busy} onChange={(e) => setReason(e.target.value)} /></label>
+    {mutation.error && <ReviewError code={mutation.error} />}
+    <button type="submit" className={primaryClass} disabled={mutation.busy || !ready || !reason.trim()}>{c("대상을 확정하고 새 회차 공개", "Confirm audience and publish a new round")}</button>
+  </form>;
 }
 
 const CLEAR = "clear";
@@ -879,6 +906,8 @@ function ReplaceVersion({
   const c = useCopy();
   const [open, setOpen] = useState(false);
   const mutation = useRun();
+  const [audience, setAudience] = useState<AudienceSelection>({ audienceUserIds: [], approverUserId: "" });
+  const [audienceReady, setAudienceReady] = useState(false), [reason, setReason] = useState("");
   const [assetId, setAssetId] = useState<string>();
   useEffect(() => {
     // The asset of the current version, from the project's readable files.
@@ -915,16 +944,20 @@ function ReplaceVersion({
           exclude={detail.review.versionId}
           canPrepare
           disabled={mutation.busy}
+          actionDisabled={!audienceReady || !reason.trim()}
           action={c("이 버전으로 교체", "Replace with this version")}
           onPick={async (version) => {
-            const input = { revision: detail.review.revision, versionId: version.id };
+            const input = { revision: detail.review.revision, versionId: version.id, ...audience, reason: reason.trim() };
             const done = await mutation.run(input, (requestKey) =>
               reviewsService.mutate(scope, "round", { requestKey, ...input }),
             );
             if (done) setOpen(false);
             await reload();
           }}
-        />
+        >
+          <ReviewAudiencePicker scope={scope} value={audience} onChange={setAudience} disabled={mutation.busy} onValidityChange={setAudienceReady} />
+          <label className="block space-y-2 text-sm"><span>{c("영상 교체 사유(필수)", "Video-replacement reason (required)")}</span><input className={inputClass} value={reason} maxLength={1000} disabled={mutation.busy} onChange={(e) => setReason(e.target.value)} /></label>
+        </VideoVersionPicker>
       )}
       {mutation.error && <ReviewError code={mutation.error} />}
     </section>
@@ -990,8 +1023,10 @@ function Shares({
           </label>
           <label className="block space-y-1 text-sm">
             <span>{c("만료일(비우면 7일 뒤, 한국 시간)", "Expiry date (empty = 7 days, Korea time)")}</span>
-            <input type="date" className={inputClass} value={expiry} onChange={(e) => setExpiry(e.target.value)} />
+            <input type="date" className={inputClass} disabled={!data?.customExpiryMaxDays} value={expiry} onChange={(e) => setExpiry(e.target.value)} />
           </label>
+          <p className="text-sm text-muted">{data?.customExpiryMaxDays ? c(`사용자 지정 만료일은 지금부터 최대 ${data.customExpiryMaxDays}일입니다.`, `Custom expiry may be at most ${data.customExpiryMaxDays} days from now.`) : c("사용자 지정 기간이 설정되지 않아 기본 7일로만 공유할 수 있습니다.", "Custom expiry is not configured; shares use the default 7 days.")}</p>
+          {expiry && <button type="button" className={secondaryClass} onClick={() => setExpiry("")}>{c("기본 7일로 공유", "Use the default 7 days")}</button>}
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={allowDownload} onChange={(e) => setAllowDownload(e.target.checked)} />
             {c("원본 다운로드 허용(기본 해제)", "Allow original download (off by default)")}

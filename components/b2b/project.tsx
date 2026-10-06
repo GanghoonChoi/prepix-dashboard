@@ -159,6 +159,12 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
         >
           {c("영상 검토", "Video reviews")}
         </Link>
+        <Link className={secondaryClass} href={`/dashboard/workspaces/${id}/projects/${projectId}/delivery`}>
+          {c("납품·프로젝트 완료", "Delivery and completion")}
+        </Link>
+        <Link className={secondaryClass} href={`/dashboard/workspaces/${id}/projects/${projectId}/publications`}>
+          {c("등록된 결과", "Registered results")}
+        </Link>
         {project.role !== "reviewer" && (
           <Link
             className={secondaryClass}

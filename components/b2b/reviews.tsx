@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type {
   ReviewApprovalState,
+  ReviewAudienceCandidates,
   ReviewPreview,
   TeamFileVersion,
 } from "@/lib/api/generated/b2b";
@@ -111,9 +112,16 @@ const reviewErrors: Record<string, Copy> = {
     "Enter 1-20 distinct recipient emails.",
   ],
   B2B_REVIEW_SHARE_EXPIRY_INVALID: [
-    "만료일은 지금 이후 30일 안에서 지정해 주세요.",
-    "Choose an expiry within the next 30 days.",
+    "만료일은 서버에 설정된 허용 기간 안에서 지정해 주세요.",
+    "Choose an expiry within the configured share period.",
   ],
+  B2B_REVIEW_SHARE_EXPIRY_CONFIGURATION_REQUIRED: [
+    "사용자 지정 공유 기간이 아직 설정되지 않았습니다. 만료일을 비우면 기본 7일로 공유할 수 있습니다.",
+    "Custom share expiry is not configured. Leave the date empty to share for the default 7 days.",
+  ],
+  B2B_REVIEW_AUDIENCE_REQUIRED: ["검토 대상과 승인자 한 명을 선택해 주세요.", "Choose the review audience and one approver."],
+  B2B_REVIEW_AUDIENCE_INVALID: ["선택한 사람의 현재 프로젝트 참여 상태가 바뀌었습니다. 대상을 다시 확인해 주세요.", "A selected person's project participation changed. Check the audience again."],
+  B2B_REVIEW_AUDIENCE_CONFIRMATION_REQUIRED: ["담당자가 검토 대상과 승인자를 확정해야 합니다.", "The lead must confirm the audience and approver."],
   B2B_REVIEW_SHARE_DOWNLOAD_NOT_ALLOWED: [
     "원본 공유가 허용된 프로젝트에서, 원본을 받을 수 있는 담당자만 원본 다운로드를 허용할 수 있습니다.",
     "Original downloads need a project that allows sharing originals and your own download access.",
@@ -276,6 +284,47 @@ export function useRun() {
   return { run, busy, error, setError };
 }
 
+export type AudienceSelection = { audienceUserIds: string[]; approverUserId: string };
+export function ReviewAudiencePicker({ scope, value, onChange, disabled, onValidityChange }: {
+  scope: ReviewScope & { kind: "project" };
+  value: AudienceSelection;
+  onChange: (value: AudienceSelection) => void;
+  disabled: boolean;
+  onValidityChange: (valid: boolean) => void;
+}) {
+  const c = useCopy();
+  const read = useCallback(() => reviewsService.audienceCandidates(scope), [scope]);
+  const { data, error, load } = useLoader<ReviewAudienceCandidates>(read);
+  useEffect(() => {
+    onValidityChange(!!data && !error && value.audienceUserIds.length > 0 && value.audienceUserIds.every((id) => data.candidates.some((p) => p.userId === id)) && value.audienceUserIds.includes(value.approverUserId));
+  }, [data, error, value, onValidityChange]);
+  const roles = { lead: c("담당자", "Lead"), producer: c("제작자", "Producer"), reviewer: c("검토자", "Reviewer") };
+  return (
+    <fieldset disabled={disabled || !data || !!error} className="space-y-3">
+      <legend className="mb-2 font-medium">{c("검토 대상과 승인자", "Review audience and approver")}</legend>
+      <p className="text-sm text-muted">{c("현재 프로젝트 참여자 중 검토를 볼 사람을 직접 선택합니다. 원본 다운로드·AI 권한은 별도로 유지됩니다. 승인자는 선택한 대상 중 한 명입니다.", "Choose the current project participants who can view this review. Original-download and AI permissions remain separate. Choose one audience member as approver.")}</p>
+      {error && <ReviewError code={error} retry={() => void load()} />}
+      {!data && !error && <TeamLoading />}
+      {data && <div className="max-h-64 space-y-1 overflow-y-auto">
+        {data.candidates.map((person) => <label key={person.userId} className="flex min-h-11 items-center gap-3 rounded-md border border-border px-3 py-2 text-sm">
+          <input type="checkbox" checked={value.audienceUserIds.includes(person.userId)} onChange={(e) => {
+            const audienceUserIds = e.target.checked ? [...value.audienceUserIds, person.userId] : value.audienceUserIds.filter((id) => id !== person.userId);
+            onChange({ audienceUserIds, approverUserId: audienceUserIds.includes(value.approverUserId) ? value.approverUserId : "" });
+          }} />
+          <span className="min-w-0 break-words">{person.label} · {roles[person.role]}</span>
+        </label>)}
+      </div>}
+      <label className="block space-y-2 text-sm">
+        <span>{c("승인자 선택", "Choose approver")}</span>
+        <select className={inputClass} value={value.approverUserId} onChange={(e) => onChange({ ...value, approverUserId: e.target.value })}>
+          <option value="">{c("선택", "Choose")}</option>
+          {data?.candidates.filter((person) => value.audienceUserIds.includes(person.userId)).map((person) => <option key={person.userId} value={person.userId}>{person.label} · {roles[person.role]}</option>)}
+        </select>
+      </label>
+    </fieldset>
+  );
+}
+
 /** Video versions of this project the viewer can read, with the selected
  * version's review-copy state. Never shows file names in review views; the
  * picker is the files surface of a lead or producer who can already read them. */
@@ -287,6 +336,8 @@ export function VideoVersionPicker({
   onPick,
   disabled,
   action,
+  children,
+  actionDisabled = false,
 }: {
   scope: ReviewScope & { kind: "project" };
   assetId?: string;
@@ -295,6 +346,8 @@ export function VideoVersionPicker({
   onPick: (version: TeamFileVersion, preview: ReviewPreview) => void;
   disabled: boolean;
   action: string;
+  children?: React.ReactNode;
+  actionDisabled?: boolean;
 }) {
   const c = useCopy();
   const files = useMemo(() => fileApi({ ...scope }), [scope]);
@@ -304,6 +357,10 @@ export function VideoVersionPicker({
   const [selected, setSelected] = useState<TeamFileVersion | null>(null);
   const [preview, setPreview] = useState<ReviewPreview | null>(null);
   const [busy, setBusy] = useState(false);
+  const [playback, setPlayback] = useState<{ url: string; expiresAt: string } | null>(null);
+  const [played, setPlayed] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  const selectedRef = useRef<string | null>(null);
   const load = useCallback(async () => {
     try {
       const list = await files.versions(search);
@@ -328,10 +385,12 @@ export function VideoVersionPicker({
   const status = useCallback(
     async (v: TeamFileVersion) => {
       try {
-        setPreview((await reviewsService.previewStatus(scope, v.id)).preview);
+        const next = (await reviewsService.previewStatus(scope, v.id)).preview;
+        if (selectedRef.current !== v.id) return;
+        setPreview(next);
         setError("");
       } catch (e) {
-        setError(errorCode(e));
+        if (selectedRef.current === v.id) setError(errorCode(e));
       }
     },
     [scope],
@@ -369,10 +428,14 @@ export function VideoVersionPicker({
                   type="radio"
                   name={`video-${action}`}
                   checked={selected?.id === v.id}
-                  disabled={disabled}
+                  disabled={disabled || busy}
                   onChange={() => {
                     setSelected(v);
+                    selectedRef.current = v.id;
                     setPreview(null);
+                    setPlayback(null);
+                    setPlayed(false);
+                    setConfirmed(false);
                     void status(v);
                   }}
                 />
@@ -387,6 +450,23 @@ export function VideoVersionPicker({
       {selected && preview && (
         <div className="space-y-3 rounded-md border border-border p-3 text-sm" aria-live="polite">
           <p>{previewCopy(preview, c)}</p>
+          {preview.state === "ready" && <>
+            <button type="button" className={secondaryClass} disabled={disabled || busy} onClick={async () => {
+              const id = selected.id;
+              setBusy(true);
+              try {
+                const source = await reviewsService.previewPlayback(scope, id);
+                if (selectedRef.current === id) { setPlayback(source); setError(""); }
+              } catch (e) { setError(errorCode(e)); }
+              finally { setBusy(false); }
+            }}>{c("공개 전 재생", "Play before publishing")}</button>
+            {playback && <video key={`${selected.id}:${playback.url}`} src={playback.url} controls playsInline preload="metadata" aria-label={c("공개 전 검토본 재생", "Review copy before publishing")} className="w-full max-h-80 rounded-md bg-black" onPlay={() => setPlayed(true)} onError={() => { setPlayed(false); setConfirmed(false); setError("B2B_PREVIEW_NOT_READY"); }} />}
+            <label className="flex min-h-11 items-center gap-3">
+              <input type="checkbox" checked={confirmed} disabled={disabled || !played} onChange={(e) => setConfirmed(e.target.checked)} />
+              {c("선택한 검토본 재생을 확인했습니다", "I checked playback of the selected review copy")}
+            </label>
+            {confirmed && children}
+          </>}
           {canPrepare &&
             (preview.state === "not_requested" ||
               (preview.state === "failed" &&
@@ -416,7 +496,7 @@ export function VideoVersionPicker({
           <button
             type="button"
             className={primaryClass}
-            disabled={disabled || busy}
+            disabled={disabled || busy || preview.state !== "ready" || !confirmed || actionDisabled}
             onClick={() => onPick(selected, preview)}
           >
             {action}
@@ -453,6 +533,8 @@ function ProjectReviewsInner({ projectId }: { projectId: string }) {
   }, [team, projectId, scope, query, cursor]);
   const { data, error, stale, load } = useLoader(read);
   const mutation = useRun();
+  const [audience, setAudience] = useState<AudienceSelection>({ audienceUserIds: [], approverUserId: "" });
+  const [audienceReady, setAudienceReady] = useState(false);
   if (!permitted || !me) return <B2bError code="B2B_PROJECT_NOT_FOUND" />;
   if (!data) return error ? <ReviewError code={error} retry={() => void load()} /> : <TeamLoading />;
   const { project, list } = data;
@@ -475,8 +557,8 @@ function ProjectReviewsInner({ projectId }: { projectId: string }) {
         <section className="space-y-4 rounded-lg border border-border p-4" aria-label={c("새 검토", "New review")}>
           <p className="text-sm text-muted">
             {c(
-              "선택한 정확한 영상 버전으로 검토를 시작합니다. 프로젝트 참여자에게 공개되며 원본 다운로드 권한은 바뀌지 않습니다. 업로드만으로 검토가 시작되지 않습니다.",
-              "Starts a review of the exact version you pick, visible to project participants. Download access does not change; uploads never start reviews on their own.",
+              "정확한 영상 버전의 검토본을 재생해 확인한 뒤 대상과 승인자를 선택하여 공개합니다. 자료 등록이나 변환만으로 공개되지 않습니다.",
+              "Play and check the exact review copy, then choose its audience and approver before publishing. Registration and conversion do not publish it.",
             )}
           </p>
           <label className="block space-y-2 text-sm">
@@ -487,15 +569,18 @@ function ProjectReviewsInner({ projectId }: { projectId: string }) {
             scope={scope}
             canPrepare
             disabled={mutation.busy}
+            actionDisabled={!title.trim() || !audienceReady}
             action={c("이 버전으로 검토 시작", "Start review with this version")}
             onPick={async (version) => {
-              const input = { title: title.trim(), versionId: version.id };
+              const input = { title: title.trim(), versionId: version.id, ...audience };
               const made = await mutation.run(input, (requestKey) =>
                 reviewsService.mutate(scope, "create", { requestKey, ...input }),
               );
               if (made) router.push(`${base}/reviews/${made.review.id}`);
             }}
-          />
+          >
+            <ReviewAudiencePicker scope={scope} value={audience} onChange={setAudience} disabled={mutation.busy} onValidityChange={setAudienceReady} />
+          </VideoVersionPicker>
           {mutation.error && <ReviewError code={mutation.error} />}
         </section>
       )}

@@ -197,3 +197,31 @@ test("a definitive first rejection clears the record; a receipt for another revi
     /B2B_FILE_OPERATION_INVALID/,
   );
 });
+
+test("audience publication is project-scoped and malformed audience records cannot be replayed", () => {
+  const approverUserId = randomUUID();
+  const r: ReviewRecord = { ...comment(), action: "audience", input: { requestKey: randomUUID(), revision: 1, audienceUserIds: [approverUserId], approverUserId, reason: "Client handoff" } };
+  assert.equal(validRecord(r, project), true);
+  assert.equal(validRecord({ ...r, scope: share }, share), false);
+  assert.equal(validRecord({ ...r, input: { ...r.input, audienceUserIds: [] } }, project), false);
+  assert.equal(validRecord({ ...r, input: { ...r.input, audienceUserIds: [approverUserId, approverUserId] } }, project), false);
+  assert.equal(validRecord({ ...r, input: { ...r.input, approverUserId: randomUUID() } }, project), false);
+  assert.equal(validRecord({ ...r, input: { ...r.input, reason: " " } }, project), false);
+});
+
+test("a lost audience-change response recovers the same round receipt after reload", async () => {
+  const approverUserId = randomUUID();
+  const r: ReviewRecord = { ...comment(), action: "audience", input: { requestKey: randomUUID(), revision: 1, audienceUserIds: [approverUserId], approverUserId, reason: "Client handoff" } };
+  const store = new MemoryStore();
+  let sends = 0;
+  let saved: ReviewMutationResult | null = null;
+  const api: ReviewApi = {
+    operation: async (record) => { assert.equal(record.input.requestKey, r.input.requestKey); return { currentUserId: project.userId, receipt: saved }; },
+    apply: async () => { sends++; saved = { requestId: randomUUID(), review: { id: reviewId, revision: 2, round: 2 } }; throw new Error("lost audience response"); },
+  };
+  await assert.rejects(runReview(r, api, store, new AbortController().signal), /lost audience/);
+  const recovered = await runReview({ ...r, input: { ...r.input, requestKey: randomUUID() } }, api, store, new AbortController().signal);
+  assert.equal(recovered.review.round, 2);
+  assert.equal(sends, 1);
+  assert.equal((await store.list(project)).length, 0);
+});

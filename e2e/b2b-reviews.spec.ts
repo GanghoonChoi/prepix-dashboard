@@ -1,182 +1,6 @@
-import {
-  test,
-  expect,
-  type APIRequestContext,
-  type Browser,
-  type Page,
-} from "@playwright/test";
-import { execFileSync } from "node:child_process";
+import { test, expect } from "@playwright/test";
 import { randomUUID } from "node:crypto";
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
-
-// Local acceptance only: the backend preview harness with B2B_TEST_ENABLED,
-// TEAM_TEST_STORAGE, B2B_TEST_FILES (ClamD protocol double, real ffprobe) and
-// B2B_TEST_PREVIEW (real ffmpeg worker step), an explicit
-// WORKSPACES_TEST_DATABASE_URL and B2B_E2E_MEDIA_DIR with cut-v1.mp4,
-// cut-v2.mp4 (6 s) and long-cut.mp4 (10 s, above the 8 s local limit).
-const api = process.env.B2B_E2E_API_URL ?? "http://127.0.0.1:3518";
-const media = process.env.B2B_E2E_MEDIA_DIR ?? "";
-const password = "LocalPreview123";
-type Account = Awaited<ReturnType<typeof account>>;
-
-async function account(request: APIRequestContext, label: string) {
-  const email = `${label}-${randomUUID()}@example.test`;
-  expect(
-    (
-      await request.post(`${api}/v2/auth/register`, {
-        data: { email, password, username: label },
-      })
-    ).status(),
-  ).toBe(201);
-  const session = (
-    await (
-      await request.post(`${api}/v2/auth/email/login`, {
-        data: { email, password },
-      })
-    ).json()
-  ).data;
-  const headers = { Authorization: `Bearer ${session.accessToken}` };
-  await request.post(`${api}/v2/auth/email/verify/request`, { headers });
-  let verifyUrl = "";
-  await expect
-    .poll(async () => {
-      const mail = await (await request.get(`${api}/__test/mail`)).json();
-      verifyUrl =
-        mail.findLast(
-          (m: { to: string; verifyUrl?: string }) =>
-            m.to === email && m.verifyUrl,
-        )?.verifyUrl ?? "";
-      return verifyUrl;
-    })
-    .toBeTruthy();
-  expect(
-    (
-      await request.post(`${api}/v2/auth/email/verify/confirm`, {
-        data: { token: new URL(verifyUrl).searchParams.get("token") },
-      })
-    ).status(),
-  ).toBe(200);
-  return { email, headers, id: session.user.id as string, label };
-}
-function fixture(script: string, input: object) {
-  expect(process.env.WORKSPACES_TEST_DATABASE_URL).toBeTruthy();
-  execFileSync(
-    process.execPath,
-    [
-      resolve(
-        process.env.B2B_E2E_FIXTURE_DIR ?? "../prepix-backend/backend/scripts",
-        script,
-      ),
-      JSON.stringify(input),
-    ],
-    { timeout: 15_000 },
-  );
-}
-async function invite(
-  request: APIRequestContext,
-  lead: Account,
-  team: string,
-  projectId: string,
-  user: Account,
-  kind: "internal" | "external",
-  role: "producer" | "reviewer",
-) {
-  const known = new Set(
-    (await (await request.get(`${api}/__test/mail`)).json()).map(
-      (m: { inviteUrl?: string }) => m.inviteUrl,
-    ),
-  );
-  expect(
-    (
-      await request.post(`${api}/v2/workspaces/${team}/b2b/invitations`, {
-        headers: lead.headers,
-        data: {
-          requestKey: randomUUID(),
-          email: user.email,
-          kind,
-          teamRole: role === "reviewer" ? "reviewer" : "editor",
-          projectId,
-          projectRole: role,
-          canDownload: false,
-        },
-      })
-    ).status(),
-  ).toBe(201);
-  let inviteUrl = "";
-  await expect
-    .poll(
-      async () => {
-        const mail = await (await request.get(`${api}/__test/mail`)).json();
-        inviteUrl =
-          mail.findLast(
-            (m: { to: string; inviteUrl?: string }) =>
-              m.to === user.email &&
-              m.inviteUrl?.includes("/b2b-invitations/") &&
-              !known.has(m.inviteUrl),
-          )?.inviteUrl ?? "";
-        return inviteUrl;
-      },
-      { timeout: 30_000 },
-    )
-    .toBeTruthy();
-  const token = new URL(inviteUrl).pathname.split("/").at(-1);
-  expect(
-    (
-      await request.post(`${api}/v2/b2b/invitations/${token}/accept`, {
-        headers: user.headers,
-      })
-    ).status(),
-  ).toBe(201);
-}
-async function open(browser: Browser, user: Account, target: string) {
-  const context = await browser.newContext({ locale: "ko-KR" });
-  const page = await context.newPage();
-  const errors: string[] = [];
-  page.on("pageerror", (e) => errors.push(e.message));
-  page.on("console", (m) => {
-    if (m.type() === "error" && !m.text().startsWith("Failed to load resource"))
-      errors.push(m.text());
-  });
-  await page.goto(`/login?locale=ko&returnTo=${encodeURIComponent(target)}`);
-  await page.getByLabel("이메일", { exact: true }).fill(user.email);
-  await page.getByLabel("비밀번호", { exact: true }).fill(password);
-  await page.getByRole("button", { name: "계속하기", exact: true }).click();
-  return { page, errors, close: () => context.close() };
-}
-async function upload(page: Page, name: string, newVersionOf?: string) {
-  await expect(
-    page.getByRole("heading", { name: "프로젝트 자료", exact: true }),
-  ).toBeVisible();
-  if (newVersionOf)
-    await page
-      .getByRole("combobox", { name: "등록 방식", exact: true })
-      .selectOption({ label: `기존 자료의 새 버전: ${newVersionOf}` });
-  await page.getByLabel("보관할 파일", { exact: true }).setInputFiles({
-    name,
-    mimeType: "video/mp4",
-    buffer: await readFile(resolve(media, name)),
-  });
-  await page.getByRole("button", { name: "팀에 보관 시작", exact: true }).click();
-}
-async function videoReady(page: Page) {
-  await expect
-    .poll(
-      () =>
-        page
-          .locator("video")
-          .evaluate((v: HTMLVideoElement) => v.readyState)
-          .catch(() => 0),
-      { timeout: 120_000 },
-    )
-    .toBeGreaterThanOrEqual(2);
-}
-const shots = process.env.B2B_E2E_SHOTS;
-async function shot(page: Page, name: string) {
-  if (shots) await page.screenshot({ path: resolve(shots, `${name}.png`), fullPage: true });
-}
-const json = async (r: Promise<import("@playwright/test").APIResponse>) =>
-  (await (await r).json()).data;
+import { api, media, password, account, fixture, invite, open, upload, videoReady, shot, json } from "./b2b-review-helpers";
 
 test("F14/F15: real review copy, playback and seek, range comments, one approver, restricted share", async ({
   browser,
@@ -283,6 +107,14 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   await L.page.getByLabel("검토 제목", { exact: true }).fill("1차 편집 검토");
   await L.page.getByRole("radio", { name: /cut-v1\.mp4 · V1/ }).check();
   await expect(L.page.getByText("검토본 준비됨", { exact: true })).toBeVisible();
+  await expect(L.page.getByRole("button", { name: "이 버전으로 검토 시작", exact: true })).toBeDisabled();
+  await L.page.getByRole("button", { name: "공개 전 재생", exact: true }).click();
+  await videoReady(L.page);
+  await L.page.locator("video").evaluate((v: HTMLVideoElement) => v.play());
+  await L.page.getByLabel("선택한 검토본 재생을 확인했습니다", { exact: true }).check();
+  await L.page.getByRole("checkbox", { name: "producer · 제작자", exact: true }).check();
+  await L.page.getByRole("checkbox", { name: "client · 검토자", exact: true }).check();
+  await L.page.getByRole("combobox", { name: "승인자 선택", exact: true }).selectOption(client.id);
   await L.page.getByRole("button", { name: "이 버전으로 검토 시작", exact: true }).click();
   await expect(L.page.getByRole("heading", { name: "1차 편집 검토", exact: true })).toBeVisible();
   const reviewUrl = new URL(L.page.url()).pathname;
@@ -305,8 +137,7 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   await L.page.getByRole("button", { name: "새 검토", exact: true }).click();
   await L.page.getByLabel("검토 제목", { exact: true }).fill("긴 원본 검토");
   await L.page.getByRole("radio", { name: /long-cut\.mp4 · V1/ }).check();
-  await L.page.getByRole("button", { name: "이 버전으로 검토 시작", exact: true }).click();
-  await expect(L.page.getByRole("heading", { name: "긴 원본 검토", exact: true })).toBeVisible();
+  await expect(L.page.getByRole("button", { name: "이 버전으로 검토 시작", exact: true })).toBeDisabled();
   await expect(
     L.page.getByText("원본 형식·길이·크기 문제로 검토본을 만들지 못했습니다", { exact: true }),
   ).toBeVisible({ timeout: 120_000 });
@@ -314,15 +145,14 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   await expect
     .poll(
       async () => {
-        const failedReview = L.page.url().split("/").at(-1)!;
-        const detail = await json(
-          request.get(`${root}/reviews/${failedReview}`, { headers: lead.headers }),
-        );
-        return `${detail.preview.state}:${detail.preview.attempts}`;
+        const failedVersion = versions.find((v) => v.name === "long-cut.mp4")!.id;
+        const status = await json(request.get(`${root}/review-previews?versionId=${failedVersion}`, { headers: lead.headers }));
+        return `${status.preview.state}:${status.preview.attempts}`;
       },
       { timeout: 120_000 },
     )
     .toBe("failed:2");
+  expect((await json(request.get(`${root}/reviews`, { headers: lead.headers }))).reviews).toHaveLength(1);
 
   // The producer leaves a time-range comment; its reply is lost once.
   await P.page.goto(reviewUrl);
@@ -398,12 +228,8 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
     .poll(() => P.page.locator("video").evaluate((v: HTMLVideoElement) => v.currentTime))
     .toBeGreaterThan(1.3);
 
-  // The lead designates the external reviewer as the one approver.
+  // Publication already fixed its selected audience and one approver.
   await L.page.goto(reviewUrl);
-  await L.page
-    .getByRole("combobox", { name: "승인자 선택", exact: true })
-    .selectOption({ label: "client · 참여자" });
-  await L.page.getByRole("button", { name: "승인자 저장", exact: true }).click();
   await expect(L.page.getByText("승인 대기", { exact: true })).toBeVisible();
   // The producer is not the approver: no decision buttons.
   await P.page.reload();
@@ -519,6 +345,16 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   await L.page.getByRole("button", { name: "버전 선택", exact: true }).click();
   await L.page.getByRole("radio", { name: /· V2$/ }).check();
   await expect(L.page.getByText("검토본 준비됨", { exact: true })).toBeVisible({ timeout: 120_000 });
+  await L.page.getByRole("button", { name: "공개 전 재생", exact: true }).click();
+  const beforePublish = L.page.getByLabel("공개 전 검토본 재생", { exact: true });
+  await expect.poll(() => beforePublish.evaluate((v: HTMLVideoElement) => v.readyState), { timeout: 120_000 }).toBeGreaterThanOrEqual(2);
+  await beforePublish.evaluate((v: HTMLVideoElement) => v.play());
+  await L.page.getByLabel("선택한 검토본 재생을 확인했습니다", { exact: true }).check();
+  const replacing = L.page.getByRole("heading", { name: "새 영상 버전으로 교체", exact: true }).locator("..");
+  await replacing.getByRole("checkbox", { name: "producer · 제작자", exact: true }).check();
+  await replacing.getByRole("checkbox", { name: "client · 검토자", exact: true }).check();
+  await replacing.getByRole("combobox", { name: "승인자 선택", exact: true }).selectOption(client.id);
+  await replacing.getByLabel("영상 교체 사유(필수)", { exact: true }).fill("Feedback applied to version 2");
   await L.page.getByRole("button", { name: "이 버전으로 교체", exact: true }).click();
   await expect(L.page.getByText(/V2 · 회차 2/)).toBeVisible();
   await videoReady(L.page);

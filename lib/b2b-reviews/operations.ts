@@ -38,6 +38,7 @@ const ACTIONS = [
   "create",
   "round",
   "approver",
+  "audience",
   "decide",
   "cancel",
   "comment",
@@ -124,6 +125,11 @@ export function validRecord(raw: unknown, scope: ReviewScope): raw is ReviewReco
     !["approved", "changes_requested"].includes(r.input.decision as string)
   )
     return false;
+  if (["create", "round", "audience"].includes(r.action)) {
+    const audience = r.input.audienceUserIds;
+    if (!Array.isArray(audience) || audience.length === 0 || audience.some((id) => typeof id !== "string" || !uuid.test(id)) || new Set(audience).size !== audience.length || typeof r.input.approverUserId !== "string" || !audience.includes(r.input.approverUserId)) return false;
+    if (r.action !== "create" && (typeof r.input.reason !== "string" || !r.input.reason.trim())) return false;
+  }
   return true;
 }
 /** Each action keeps its own pending slot so a lost comment never blocks a

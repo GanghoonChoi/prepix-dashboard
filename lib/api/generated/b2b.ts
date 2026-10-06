@@ -1015,6 +1015,80 @@ export type TeamFileTrashImpact = {
   restoreUntil: string;
 };
 
+// F12: verified file registration and explicit review publication are separate.
+export type RegisterPublication = {
+  requestKey: string;
+  participationId: string;
+  originWorkId: string;
+  // A render/result identity; one editing work may generate several cuts.
+  originResultId: string;
+  originRequestId: string | null;
+  basisRevision: number;
+  uploadId: string;
+  title: string;
+  generatedAt: string;
+  sha256: string;
+  size: number;
+  // Original basis remains fixed. A changed server project requires a new,
+  // explicit choice against the revision the user just inspected.
+  conflictChoice?: { mode: "new_version"; confirmedRevision: number };
+};
+export type PublishPublication = {
+  requestKey: string;
+  revision: number;
+  audienceUserIds: string[];
+  approverUserId: string;
+};
+export type TeamPublication = {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  originWorkId: string;
+  originResultId: string;
+  originRequestId: string | null;
+  basisRevision: number;
+  confirmedRevision: number;
+  uploadId: string;
+  versionId: string;
+  title: string;
+  generatedAt: string;
+  registeredAt: string;
+  size: number;
+  sha256: string;
+  metadata: TeamFileMetadata;
+  previewState: "not_requested" | TeamPreviewState;
+  state: "registered" | "published";
+  reviewId: string | null;
+  // Review changes retain this immutable result; the currently selected
+  // reviewed version is independently reported here.
+  currentReviewVersionId: string | null;
+  publishedAt: string | null;
+  allowedActions: { publish: boolean };
+};
+export type PublicationMutationResult = {
+  requestId: string;
+  publicationId: string;
+  versionId: string;
+  reviewId: string | null;
+  projectRevision: number;
+  state: "registered" | "published";
+};
+export type PublicationMutationLookup = {
+  currentUserId: string;
+  state: "not_received" | "completed";
+  result: PublicationMutationResult | null;
+};
+export type PublicationList = {
+  currentUserId: string;
+  currentParticipationId: string;
+  projectRevision: number;
+  publications: TeamPublication[];
+  nextCursor: string | null;
+  latestRegisteredVersionId: string | null;
+  currentReviewVersionId: string | null;
+  finalApprovedVersionId: string | null;
+};
+
 // F13 project requests. Submissions pin exact immutable file versions; a
 // restricted file carries no name or identifier. Confirmations are history:
 // only `current` ones satisfy completion.
@@ -1259,6 +1333,7 @@ export type ReviewRound = {
   openedAt: string;
   closedAt: string | null;
   current: boolean;
+  changeReason: string | null;
 };
 export type ReviewComment = {
   id: string;
@@ -1308,11 +1383,14 @@ export type ReviewDetail = {
     revision: number;
     createdAt: string;
     updatedAt: string;
+    audienceConfirmed: boolean;
   };
   rounds: ReviewRound[];
   selectedRound: number;
   preview: ReviewPreview;
   approver: ReviewApprover | null;
+  /** Selected current-round project participants; withheld from share viewers. */
+  audience: ReviewAudiencePerson[] | null;
   approval: ReviewApprovalState;
   decisions: ReviewDecision[];
   comments: ReviewComment[];
@@ -1326,11 +1404,24 @@ export type ReviewDetail = {
     share: boolean;
     retryPreview: boolean;
     download: boolean;
+    setAudience: boolean;
   };
 };
 export type ReviewPlayback = TeamPreviewPlayback;
-export type CreateReview = Mutation & { title: string; versionId: string };
-export type ReplaceReviewVersion = RevisionMutation & { versionId: string };
+export type ReviewAudiencePerson = ReviewPerson & {
+  role: "lead" | "producer" | "reviewer";
+};
+export type ReviewAudienceCandidates = {
+  currentUserId: string;
+  candidates: { userId: string; label: string; role: "lead" | "producer" | "reviewer" }[];
+};
+export type ConfirmReviewAudience = {
+  audienceUserIds: string[];
+  approverUserId: string;
+};
+export type CreateReview = Mutation & ConfirmReviewAudience & { title: string; versionId: string };
+export type ReplaceReviewVersion = RevisionMutation & ConfirmReviewAudience & { versionId: string; reason: string };
+export type SetReviewAudience = RevisionMutation & ConfirmReviewAudience & { reason: string };
 export type SetReviewApprover = RevisionMutation & {
   userId: string | null;
   reason: string;
@@ -1377,7 +1468,7 @@ export type ReviewShare = {
   revoked: { at: string; by: ReviewPerson; reason: string } | null;
   state: "active" | "expired" | "revoked";
 };
-export type ReviewShareList = { currentUserId: string; shares: ReviewShare[] };
+export type ReviewShareList = { currentUserId: string; shares: ReviewShare[]; customExpiryMaxDays: number | null };
 // The token is shown once on creation and reconstructed for the lead on
 // request; it is never part of a stored receipt, audit row or list.
 export type ReviewShareLink = {
@@ -1404,6 +1495,7 @@ export type ReviewMutationAction =
   | "create"
   | "round"
   | "approver"
+  | "audience"
   | "decide"
   | "cancel"
   | "comment"
@@ -1469,4 +1561,69 @@ export type ReviewApprovalEvidence = {
     decidedAt: string;
     retentionId: string;
   }[];
+};
+
+// F16 delivery and completion. Paths/URLs never identify delivered bytes.
+export type DeliveryMediaIdentity = Pick<TeamNativeSource,
+  "kind" | "durationTicks" | "width" | "height" | "frameRate" | "audioChannels">;
+export type DeliveryItem = {
+  itemId: string; role: "editing_project" | "source" | "result";
+  location: "cloud" | "external"; versionId: string | null;
+  name: string; size: number; sha256: string; media?: DeliveryMediaIdentity;
+};
+export type DeliveryOpenedItem = Pick<DeliveryItem, "itemId" | "size" | "sha256" | "media">;
+export type DeliveryReconfirm = { video: boolean; delivery: boolean; requestIds: string[] };
+export type CreateDeliveryPackage = {
+  requestKey: string; revision: number; videoVersionId: string; items: DeliveryItem[];
+  recipientIds: string[]; deviceId: string; environmentId: string; localCopyId: string;
+};
+export type ConfirmDeliveryPackage = {
+  requestKey: string; revision: number; manifestHash: string;
+  sourceKind: "native_app_verified" | "external_tool_attestation";
+  tool: string; toolVersion: string; deviceId: string; environmentId: string;
+  localCopyId: string; openedAt: string; openedItems: DeliveryOpenedItem[];
+};
+export type DeliveryMutationResult = {
+  requestId: string; currentUserId: string; workspaceId: string; projectId: string; revision: number;
+  packageId?: string; receiptId?: string; snapshotId?: string; reopenId?: string;
+  state?: ProjectState;
+};
+export type ProjectCompletionSnapshot = {
+  videoVersionId: string; approval: ReviewApprovalEvidence; requests: ProjectRequestCompletionEvidence;
+  completionRuleRevision: number; requiresWorkingFiles: boolean;
+  delivery: { packageId: string; manifestHash: string; items: DeliveryItem[];
+    receipts: { receiptId: string; userId: string; participationId: string; openedAt: string;
+      sourceKind: "native_app_verified" | "external_tool_attestation" }[] } | null;
+  retainedVersionIds: string[];
+};
+export type DeliveryPackageView = {
+  id: string; workspaceId: string; projectId: string; videoVersionId: string; producerId: string;
+  ruleRevision: number; policyVersion: string; deviceId: string; environmentId: string; localCopyId: string;
+  manifestHash: string; items: DeliveryItem[]; recipients: { userId: string }[]; createdAt: string;
+};
+export type DeliveryOpenReceiptView = {
+  id: string; workspaceId: string; projectId: string; packageId: string; userId: string; manifestHash: string;
+  sourceKind: "native_app_verified" | "external_tool_attestation"; tool: string; toolVersion: string;
+  deviceId: string; environmentId: string; localCopyId: string; openedItems: DeliveryOpenedItem[];
+  openedAt: string; receivedAt: string;
+};
+export type DeliveryDetail = {
+  currentUserId: string; workspaceId: string; projectId: string; revision: number; state: ProjectState;
+  requiresWorkingFiles: boolean; package: DeliveryPackageView | null; receipts: DeliveryOpenReceiptView[];
+  invalidations: { id: string; workspaceId: string; projectId: string; packageId: string; receiptId: string | null; actorId: string; reason: string; createdAt: string }[];
+  snapshots: { id: string; workspaceId: string; projectId: string; projectRevision: number; completedBy: string; createdAt: string; evidence: ProjectCompletionSnapshot | null }[];
+  reopens: { id: string; workspaceId: string; projectId: string; snapshotId: string; actorId: string; reason: string; reconfirm: DeliveryReconfirm; projectRevision: number; createdAt: string }[];
+  allowedActions: { propose: boolean; confirm: boolean; withdraw: boolean; complete: boolean; reopen: boolean; archive: boolean; unarchive: boolean };
+  serverTime: string;
+};
+export type DeliveryCondition<T> = { satisfied: boolean; code: string | null; evidence: T | null };
+export type DeliveryCheck = {
+  currentUserId: string; workspaceId: string; projectId: string; revision: number; satisfied: boolean; code: string | null;
+  conditions: { approval: DeliveryCondition<ReviewApprovalEvidence>; requests: DeliveryCondition<ProjectRequestCompletionEvidence>;
+    delivery: DeliveryCondition<ProjectCompletionSnapshot["delivery"]> & { required: boolean } };
+  evidence: ProjectCompletionSnapshot | null;
+};
+export type DeliveryReceiptLookup = {
+  currentUserId: string; workspaceId: string; projectId: string; action: string; requestKey: string;
+  inputHash: string; receipt: DeliveryMutationResult;
 };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@heroui/react";
@@ -18,8 +18,14 @@ import { signupHref } from "@/lib/auth-entry";
 // marketing site's onboarding sends people here and expects them back. See
 // `lib/return-to.ts` for why the host is matched exactly rather than by suffix.
 const safeReturnTo = () => readReturnTo();
+const subscribeHydration = () => () => {};
+const clientHydrated = () => true;
+const serverHydrated = () => false;
 
 export default function LoginPage() {
+  // SSR must not expose a submittable native form before React attaches its
+  // handler: a native GET drops the return destination and share journey.
+  const hydrated = useSyncExternalStore(subscribeHydration, clientHydrated, serverHydrated);
   const { t, lang } = useI18n();
   usePageTitle(t("auth.signIn"));
   const router = useRouter();
@@ -54,6 +60,7 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!hydrated || isLoading || isSigningIn) return;
     setIsLoading(true);
     setError("");
 
@@ -133,6 +140,7 @@ export default function LoginPage() {
 
       {/* Form */}
       <form onSubmit={handleLogin} className="space-y-5">
+        <fieldset disabled={!hydrated || isLoading || isSigningIn} className="space-y-5">
         <div className="space-y-1.5">
           <label htmlFor="email" className="block text-sm font-medium text-foreground">
             {t("auth.email")}
@@ -178,10 +186,11 @@ export default function LoginPage() {
           type="submit"
           variant="primary"
           className="w-full"
-          isDisabled={isLoading}
+          isDisabled={!hydrated || isLoading || isSigningIn}
         >
           {isLoading ? t("auth.signingIn") : t("auth.continue")}
         </Button>
+        </fieldset>
       </form>
 
       {/* Google */}
