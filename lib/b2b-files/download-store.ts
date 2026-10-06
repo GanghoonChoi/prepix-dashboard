@@ -1,3 +1,4 @@
+import { isDirectLibrary, LIBRARY_SOURCE } from "./api";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import type { FileScope } from "./api";
@@ -23,6 +24,8 @@ export function validDownload(
     r.schema === 1 &&
     !!r.scope &&
     scopeKey(r.scope) === scopeKey(scope) &&
+    (scope.projectId !== LIBRARY_SOURCE ||
+      (isDirectLibrary(scope) && isDirectLibrary(r.scope))) &&
     /^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(r.versionId) &&
     Number.isSafeInteger(r.size) &&
     r.size > 0 &&
@@ -58,14 +61,20 @@ export class BrowserDownloadStore {
             .filter(
               (v: DownloadRecord) =>
                 v?.scope &&
-                /^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(
+                (/^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(
                   v.scope.projectId,
-                ) &&
-                validDownload(v, { ...scope, projectId: v.scope.projectId }),
+                ) ||
+                  isDirectLibrary(v.scope)) &&
+                validDownload(v, {
+                  ...scope,
+                  projectId: v.scope.projectId,
+                  library: true,
+                }),
             )
             .map((v: DownloadRecord) => ({
               ...scope,
               projectId: v.scope.projectId,
+              library: true,
             })),
         );
       tx.onabort = tx.onerror = () =>

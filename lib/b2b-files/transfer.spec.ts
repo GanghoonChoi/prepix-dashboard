@@ -19,6 +19,7 @@ import {
   resumeTransfer,
   cancelTransfer,
   checkParts,
+  matchesUpload,
 } from "./transfer";
 
 const scope: FileScope = {
@@ -355,4 +356,24 @@ test("malformed server part lists and unusable part size cannot drive a transfer
     () => checkParts({ ...state, upload: { ...state.upload, partSize: 0 } }),
     /PART_SIZE_INVALID/,
   );
+});
+
+test("direct transfer resume accepts only its projectless server session and explicit library scope", async () => {
+  const f = await fixture(),
+    direct = { ...scope, projectId: "library", library: true };
+  const record = { ...f.record, scope: direct };
+  const reply = await f.api.begin(record.input);
+  const upload = { ...reply.upload, projectId: null };
+  assert.equal(matchesUpload(record, upload), true);
+  assert.equal(
+    matchesUpload(record, { ...upload, projectId: scope.projectId }),
+    false,
+  );
+  assert.equal(matchesUpload(f.record, upload), false);
+  assert.equal(validRecord(record, direct), true);
+  assert.equal(
+    validRecord({ ...record, scope: { ...direct, library: false } }, direct),
+    false,
+  );
+  assert.equal(validRecord(record, { ...direct, library: false }), false);
 });

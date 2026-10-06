@@ -1,3 +1,4 @@
+import { isDirectLibrary, LIBRARY_SOURCE } from "./api";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import type { ChangeTeamFilePermissionInput } from "../api/generated/b2b";
@@ -18,7 +19,7 @@ export type FileMutation = Base &
         targetProjectId: string;
         input: {
           requestKey: string;
-          sourceProjectId: string;
+          sourceProjectId?: string;
           versionId: string;
           fromLibrary?: boolean;
         };
@@ -54,6 +55,8 @@ export function validMutation(
     r.schema !== 1 ||
     !r.scope ||
     scopeKey(r.scope) !== scopeKey(scope) ||
+    (scope.projectId === LIBRARY_SOURCE &&
+      (!isDirectLibrary(scope) || !isDirectLibrary(r.scope))) ||
     !["permission", "link", "unlink"].includes(r.kind) ||
     !uuid.test(r.objectId) ||
     !r.input ||
@@ -68,10 +71,13 @@ export function validMutation(
       (r.targetProjectId !== scope.projectId || r.input.fromLibrary === true) &&
       (r.input.fromLibrary === undefined ||
         typeof r.input.fromLibrary === "boolean") &&
-      r.input.sourceProjectId === scope.projectId &&
+      (isDirectLibrary(scope)
+        ? r.input.sourceProjectId === undefined && r.input.fromLibrary === true
+        : r.input.sourceProjectId === scope.projectId) &&
       r.input.versionId === r.objectId
     );
   return (
+    !isDirectLibrary(scope) &&
     Number.isInteger(r.input.revision) &&
     r.input.revision >= 0 &&
     r.input.revision < 2147483647 &&
@@ -161,12 +167,17 @@ export class BrowserMutationStore implements MutationStore {
             .filter(
               (v: FileMutation) =>
                 v?.scope &&
-                uuid.test(v.scope.projectId) &&
-                validMutation(v, { ...scope, projectId: v.scope.projectId }),
+                (uuid.test(v.scope.projectId) || isDirectLibrary(v.scope)) &&
+                validMutation(v, {
+                  ...scope,
+                  projectId: v.scope.projectId,
+                  library: true,
+                }),
             )
             .map((v: FileMutation) => ({
               ...scope,
               projectId: v.scope.projectId,
+              library: true,
             })),
         );
       tx.onabort = tx.onerror = () =>

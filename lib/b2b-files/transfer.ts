@@ -1,3 +1,4 @@
+import { isDirectLibrary } from "./api";
 import { sha256 } from "@noble/hashes/sha2.js";
 import type {
   TeamFileUpload,
@@ -72,7 +73,8 @@ export async function prepareTransfer(options: {
 export function matchesUpload(record: TransferRecord, upload: TeamFileUpload) {
   return (
     upload.workspaceId === record.scope.workspaceId &&
-    upload.projectId === record.scope.projectId &&
+    upload.projectId ===
+      (isDirectLibrary(record.scope) ? null : record.scope.projectId) &&
     (!record.uploadId || record.uploadId === upload.id) &&
     upload.name === record.input.name &&
     upload.size === record.input.size &&

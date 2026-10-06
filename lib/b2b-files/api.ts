@@ -23,12 +23,19 @@ export type FileScope = {
   projectId: string;
   library?: boolean;
 };
+export const LIBRARY_SOURCE = "library";
+export const isDirectLibrary = (scope: FileScope) =>
+  scope.library === true && scope.projectId === LIBRARY_SOURCE;
 export function fileApi(scope: FileScope) {
   if (new URL(apiClient.defaults.baseURL!).origin !== scope.origin)
     throw new Error("B2B_FILE_SERVICE_CHANGED");
   const e = encodeURIComponent;
-  const root = `/workspaces/${e(scope.workspaceId)}/b2b/projects/${e(scope.projectId)}`;
+  if (scope.projectId === LIBRARY_SOURCE && !isDirectLibrary(scope))
+    throw new Error("B2B_FILE_SCOPE_INVALID");
   const libraryRoot = `/workspaces/${e(scope.workspaceId)}/b2b/library`;
+  const root = isDirectLibrary(scope)
+    ? libraryRoot
+    : `/workspaces/${e(scope.workspaceId)}/b2b/projects/${e(scope.projectId)}`;
   async function get<T>(path: string, signal?: AbortSignal) {
     return (
       await apiClient.get<{ data: T }>(root + path, {
@@ -90,7 +97,9 @@ export function fileApi(scope: FileScope) {
         ? apiClient
             .post<{ data: TeamFileDownload }>(
               `${libraryRoot}/files/${e(id)}/download`,
-              { sourceProjectId: scope.projectId },
+              isDirectLibrary(scope)
+                ? {}
+                : { sourceProjectId: scope.projectId },
               {
                 signal,
                 timeout: 30000,
@@ -103,7 +112,7 @@ export function fileApi(scope: FileScope) {
       scope.library
         ? apiClient
             .get<{ data: { version: TeamFileVersion } }>(
-              `${libraryRoot}/files/${e(id)}?sourceProjectId=${e(scope.projectId)}`,
+              `${libraryRoot}/files/${e(id)}${isDirectLibrary(scope) ? "" : `?sourceProjectId=${e(scope.projectId)}`}`,
               {
                 signal,
                 timeout: 15000,
@@ -139,7 +148,7 @@ export function fileApi(scope: FileScope) {
     link: (
       input: {
         requestKey: string;
-        sourceProjectId: string;
+        sourceProjectId?: string;
         versionId: string;
         fromLibrary?: boolean;
       },

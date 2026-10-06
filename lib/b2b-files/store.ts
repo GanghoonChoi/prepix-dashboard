@@ -1,3 +1,4 @@
+import { isDirectLibrary, LIBRARY_SOURCE } from "./api";
 import type { BeginTeamFileUploadInput } from "../api/generated/b2b";
 import type { FileScope } from "./api";
 
@@ -43,6 +44,8 @@ export function validRecord(
     r.schema === 1 &&
     !!r.scope &&
     scopeKey(r.scope) === scopeKey(scope) &&
+    (scope.projectId !== LIBRARY_SOURCE ||
+      (isDirectLibrary(scope) && isDirectLibrary(r.scope))) &&
     !!i &&
     uuid.test(i.requestKey) &&
     typeof i.name === "string" &&

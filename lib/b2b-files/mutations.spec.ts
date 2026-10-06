@@ -275,3 +275,64 @@ test("link lookup and mutation use the target project while retaining the source
   );
   assert.equal(mutationHash({ ...r, attempts: 25 }), mutationHash(r));
 });
+
+test("a direct library relink pins independent provenance and cannot become a project permission or unlink", () => {
+  const direct = { ...scope, projectId: "library", library: true };
+  const r: FileMutation = {
+    schema: 1,
+    scope: direct,
+    attempts: 0,
+    kind: "link",
+    objectId: randomUUID(),
+    targetProjectId: randomUUID(),
+    input: { requestKey: randomUUID(), versionId: "", fromLibrary: true },
+  };
+  r.input.versionId = r.objectId;
+  assert.equal(validMutation(r, direct), true);
+  assert.equal(
+    validMutation({ ...r, input: { ...r.input, fromLibrary: false } }, direct),
+    false,
+  );
+  assert.equal(
+    validMutation(
+      { ...r, input: { ...r.input, sourceProjectId: scope.projectId } },
+      direct,
+    ),
+    false,
+  );
+  assert.equal(
+    validMutation({ ...r, scope: { ...direct, library: false } }, direct),
+    false,
+  );
+  assert.notEqual(
+    mutationHash(r),
+    mutationHash({
+      ...r,
+      input: { ...r.input, sourceProjectId: scope.projectId },
+    }),
+  );
+  assert.ok(
+    downloadKey({
+      schema: 1,
+      scope: direct,
+      versionId: r.objectId,
+      size: 1,
+      sha256: "a".repeat(64),
+    }).startsWith(teamFilePrefix(direct)),
+  );
+  assert.equal(
+    validMutation(
+      {
+        ...r,
+        kind: "unlink",
+        input: {
+          requestKey: r.input.requestKey,
+          revision: 0,
+          reason: "remove",
+        },
+      },
+      direct,
+    ),
+    false,
+  );
+});

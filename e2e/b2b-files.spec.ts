@@ -859,7 +859,7 @@ test("real private upload resumes after reload, verifies immutable content and s
         headers: user.headers,
       })
     ).status(),
-  ).toBe(400);
+  ).toBe(404);
   expect(
     (
       await request.get(libraryRoot, {
@@ -1084,4 +1084,222 @@ test("real private upload resumes after reload, verifies immutable content and s
     page.getByRole("alertdialog", { name: "자료 권한 관리", exact: true }),
   ).toHaveCount(0);
   await expect(page.getByText(producer.email, { exact: false })).toHaveCount(0);
+});
+
+test("direct library registration resumes its projectless transfer, verifies original bytes and recovers an exact relink", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150_000);
+  const user = await account(request);
+  const team = (
+    await (
+      await request.post(`${api}/v2/workspaces`, {
+        headers: user.headers,
+        data: { name: "보관함 직접 등록 인수", requestKey: randomUUID() },
+      })
+    ).json()
+  ).data.workspace;
+  execFileSync(
+    process.execPath,
+    [
+      resolve("../prepix-backend/backend/scripts/b2b-paid-test-fixture.cjs"),
+      JSON.stringify({
+        workspaceId: team.id,
+        action: "purchase",
+        target: "initial",
+      }),
+    ],
+    { encoding: "utf8", timeout: 15000 },
+  );
+  const libraryRoot = `${api}/v2/workspaces/${team.id}/b2b/library`;
+  expect(
+    (
+      await (
+        await request.get(`${libraryRoot}/files/capabilities`, {
+          headers: user.headers,
+        })
+      ).json()
+    ).data.uploadsEnabled,
+  ).toBe(true);
+  const target = `/dashboard/workspaces/${team.id}/library`;
+  await page.goto(`/login?locale=ko&returnTo=${encodeURIComponent(target)}`);
+  await page.getByLabel("이메일", { exact: true }).fill(user.email);
+  await page.getByLabel("비밀번호", { exact: true }).fill(password);
+  await page.getByRole("button", { name: "계속하기", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "보관함", exact: true }),
+  ).toBeVisible();
+  const content = wav(16 * 1024 * 1024 + 16044),
+    name = "library-original.wav";
+  let held = false,
+    seen!: () => void,
+    release!: () => void;
+  const second = new Promise<void>((r) => (seen = r)),
+    gate = new Promise<void>((r) => (release = r));
+  const parts: number[] = [];
+  await page.route("**/b2b/library/uploads/*/parts", async (route) => {
+    const number = route.request().postDataJSON().number;
+    parts.push(number);
+    if (number === 2 && !held) {
+      held = true;
+      seen();
+      await gate;
+    }
+    try {
+      await route.continue();
+    } catch {
+      /* paused transfer */
+    }
+  });
+  await page
+    .getByLabel("보관할 파일", { exact: true })
+    .setInputFiles({ name, mimeType: "audio/wav", buffer: content });
+  await page
+    .getByRole("button", { name: "팀에 보관 시작", exact: true })
+    .click();
+  await second;
+  await page.getByRole("button", { name: "일시 중단", exact: true }).click();
+  release();
+  await page.reload();
+  const source = page.getByLabel(`${name} 원본 선택 후 재개`, { exact: true });
+  await expect(source).toBeVisible();
+  const before = parts.length;
+  await source.setInputFiles({
+    name,
+    mimeType: "audio/wav",
+    buffer: Buffer.alloc(content.length, 99),
+  });
+  await expect(
+    page.getByText("처음 등록한 파일과 내용이 다릅니다.", { exact: false }),
+  ).toBeVisible();
+  expect(parts.length).toBe(before);
+  await source.setInputFiles({
+    name: "renamed.wav",
+    mimeType: "audio/wav",
+    buffer: content,
+  });
+  let entry: {
+    version: { id: string; projectId: string | null; sha256: string };
+    linked: boolean;
+    locations: unknown[];
+  };
+  await expect
+    .poll(
+      async () => {
+        const response = (
+          await (
+            await request.get(libraryRoot, { headers: user.headers })
+          ).json()
+        ).data;
+        entry = response.entries[0];
+        return response.entries.length;
+      },
+      { timeout: 45000 },
+    )
+    .toBe(1);
+  expect(parts.slice(before)).toEqual([2]);
+  expect(entry!.version.projectId).toBeNull();
+  expect(entry!.linked).toBe(false);
+  expect(entry!.locations).toEqual([]);
+  expect(entry!.version.sha256).toBe(
+    createHash("sha256").update(content).digest("hex"),
+  );
+  await page.reload();
+  const row = () => page.getByTestId(`library-file-${entry!.version.id}`);
+  await expect(row()).toBeVisible();
+  const downloading = page.waitForEvent("download");
+  await row().getByRole("button", { name: "원본 받기", exact: true }).click();
+  const download = await downloading;
+  await download.saveAs("/tmp/prepix-direct-library-original.wav");
+  expect(
+    createHash("sha256")
+      .update(await readFile("/tmp/prepix-direct-library-original.wav"))
+      .digest("hex"),
+  ).toBe(entry!.version.sha256);
+  const project = (
+    await (
+      await request.post(`${api}/v2/workspaces/${team.id}/b2b/projects`, {
+        headers: user.headers,
+        data: { requestKey: randomUUID(), name: "직접 보관한 자료 사용" },
+      })
+    ).json()
+  ).data.project;
+  const keys: string[] = [];
+  await page.route(`**/projects/${project.id}/files/link`, async (route) => {
+    const body = route.request().postDataJSON();
+    keys.push(body.requestKey);
+    expect(body.fromLibrary).toBe(true);
+    expect(body.sourceProjectId).toBeUndefined();
+    await route.fetch();
+    await route.abort("failed");
+  });
+  const storage = (
+    await (
+      await request.get(`${libraryRoot}/files/capabilities`, {
+        headers: user.headers,
+      })
+    ).json()
+  ).data.storage.usedBytes;
+  await row()
+    .getByRole("button", { name: "프로젝트에 연결", exact: true })
+    .click();
+  const dialog = page.getByRole("alertdialog", {
+    name: "다른 프로젝트에 연결",
+    exact: true,
+  });
+  await dialog
+    .getByRole("combobox", { name: "연결할 프로젝트", exact: true })
+    .selectOption(project.id);
+  await dialog
+    .getByRole("button", { name: "다른 프로젝트에 연결", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "같은 요청 재시도", exact: true }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByText("변경이 반영되었습니다.", { exact: false }),
+  ).toBeVisible();
+  expect(keys).toHaveLength(1);
+  const versions = (
+    await (
+      await request.get(
+        `${api}/v2/workspaces/${team.id}/b2b/projects/${project.id}/files`,
+        { headers: user.headers },
+      )
+    ).json()
+  ).data.versions;
+  expect(versions.map((v: { id: string }) => v.id)).toEqual([
+    entry!.version.id,
+  ]);
+  expect(
+    (
+      await (
+        await request.get(`${libraryRoot}/files/capabilities`, {
+          headers: user.headers,
+        })
+      ).json()
+    ).data.storage.usedBytes,
+  ).toBe(storage);
+  expect(
+    (
+      await request.get(`${libraryRoot}/files/${entry!.version.id}`, {
+        headers: { ...user.headers, "X-Prepix-Account-ID": randomUUID() },
+      })
+    ).status(),
+  ).toBe(403);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(
+    page.getByRole("heading", { name: "보관함", exact: true }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > innerWidth,
+    ),
+  ).toBe(false);
+  await page.screenshot({
+    path: "/tmp/prepix-direct-library-mobile.png",
+    fullPage: true,
+  });
 });

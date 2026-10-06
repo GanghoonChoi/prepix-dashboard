@@ -587,7 +587,7 @@ export type TeamFileCapabilities = {
 export type TeamFileUpload = {
   id: string;
   workspaceId: string;
-  projectId: string;
+  projectId: string | null;
   assetId: string;
   versionId: string;
   name: string;
@@ -624,14 +624,14 @@ export type BeginTeamFileUploadInput = {
 export type TeamFileVersion = {
   id: string;
   workspaceId: string;
-  projectId: string;
+  projectId: string | null;
   assetId: string;
   name: string;
   assetName: string;
   kind: TeamFileKind;
   ordinal: number;
   assetRevision: number;
-  referenceRevision: number;
+  referenceRevision: number | null;
   permissionRevision: number;
   size: number;
   sha256: string;

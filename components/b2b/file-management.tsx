@@ -1,4 +1,5 @@
 "use client";
+import { isDirectLibrary } from "@/lib/b2b-files/api";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   Project,
@@ -241,12 +242,15 @@ export function FileManager({
                 targetProjectId: target,
                 input: {
                   requestKey: crypto.randomUUID(),
-                  sourceProjectId: scope.projectId,
+                  ...(isDirectLibrary(scope)
+                    ? {}
+                    : { sourceProjectId: scope.projectId }),
                   versionId: version.id,
                   ...(scope.library ? { fromLibrary: true } : {}),
                 },
               };
-            } else
+            } else {
+              if (version.referenceRevision === null) return;
               record = {
                 ...base,
                 kind: mode,
@@ -257,6 +261,7 @@ export function FileManager({
                   reason: reason.trim(),
                 },
               };
+            }
             if ((await operations.run(record)) && alive.current) close();
             else if (alive.current) void refresh();
           }}

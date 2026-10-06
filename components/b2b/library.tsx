@@ -3,10 +3,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { apiClient } from "@/lib/api/client";
 import type {
+  TeamFileCapabilities,
   TeamLibraryEntry,
   TeamLibraryList,
 } from "@/lib/api/generated/b2b";
-import { fileError, libraryList, type FileScope } from "@/lib/b2b-files/api";
+import {
+  fileApi,
+  LIBRARY_SOURCE,
+  fileError,
+  libraryList,
+  type FileScope,
+} from "@/lib/b2b-files/api";
 import { scopeKey } from "@/lib/b2b-files/store";
 import { BrowserMutationStore } from "@/lib/b2b-files/mutations";
 import { BrowserDownloadStore } from "@/lib/b2b-files/download-store";
@@ -22,6 +29,7 @@ import {
 } from "@/components/workspaces/shared";
 import { bytes } from "@/lib/workspaces/upload";
 import { B2bError, useCopy } from "./shared";
+import { FileTransfers } from "./file-transfers";
 import { FileDownloads } from "./file-downloads";
 import { FileManager, PendingFileOperations } from "./file-management";
 
@@ -48,6 +56,14 @@ export function TeamLibrary() {
 }
 function LibraryView({ scope }: { scope: TeamScope }) {
   const c = useCopy();
+  const directScope = useMemo<FileScope>(
+    () => ({ ...scope, projectId: LIBRARY_SOURCE, library: true }),
+    [scope],
+  );
+  const directApi = useMemo(() => fileApi(directScope), [directScope]);
+  const [capabilities, setCapabilities] = useState<TeamFileCapabilities | null>(
+    null,
+  );
   const [data, setData] = useState<TeamLibraryList | null>(null),
     [error, setError] = useState("");
   const [query, setQuery] = useState(""),
@@ -66,13 +82,15 @@ function LibraryView({ scope }: { scope: TeamScope }) {
     reader.current?.abort();
     reader.current = abort;
     try {
-      const result = await libraryList(
-        scope,
-        { search, kind, cursor },
-        abort.signal,
-      );
+      const [result, cap] = await Promise.all([
+        libraryList(scope, { search, kind, cursor }, abort.signal),
+        directApi.capabilities(abort.signal),
+      ]);
+      if (cap.currentUserId !== scope.userId)
+        throw new Error("B2B_FILE_ACCOUNT_CHANGED");
       if (sequence !== serial.current) return;
       setData(result);
+      setCapabilities(cap);
       setError("");
       // Resume/check opaque own-account records even when filtering or a new
       // active source moves a version to a different list group.
@@ -86,7 +104,10 @@ function LibraryView({ scope }: { scope: TeamScope }) {
         const next = new Map(prior.map((s) => [s.projectId, s]));
         for (const s of [
           ...(persisted?.flat() ?? []),
-          ...result.entries.map((e) => ({ projectId: e.version.projectId })),
+          directScope,
+          ...result.entries.map((e) => ({
+            projectId: e.version.projectId ?? LIBRARY_SOURCE,
+          })),
         ]) {
           // Stable scope identity keeps a receive worker alive during polling
           // and filters; new sources do not retarget an existing receipt.
@@ -102,9 +123,19 @@ function LibraryView({ scope }: { scope: TeamScope }) {
     } catch (e) {
       if (sequence !== serial.current) return;
       setData(null);
+      setCapabilities(null);
       setError(fileError(e));
     }
-  }, [scope, search, kind, cursor, operationStore, receiptStore]);
+  }, [
+    scope,
+    directScope,
+    directApi,
+    search,
+    kind,
+    cursor,
+    operationStore,
+    receiptStore,
+  ]);
   useEffect(() => {
     const sequence = serial,
       currentReader = reader;
@@ -126,8 +157,8 @@ function LibraryView({ scope }: { scope: TeamScope }) {
     <TeamShell
       title={c("보관함", "Library")}
       description={c(
-        "현재 자료 접근이 허용된 버전만 표시합니다. 프로젝트에서 제외한 자료도 담당자의 허용이 유지되어 있으면 다시 연결할 수 있습니다.",
-        "Only currently accessible versions are shown. Stewards with retained access can relink files removed from a project.",
+        "프로젝트를 선택하지 않고 자료를 등록할 수 있습니다. 현재 접근이 허용된 버전만 표시하며, 사용할 프로젝트에 정확한 버전을 연결합니다.",
+        "Register files without choosing a project. Only accessible versions are shown; link an exact version to the project where you need it.",
       )}
     >
       <form
@@ -175,6 +206,16 @@ function LibraryView({ scope }: { scope: TeamScope }) {
       ) : (
         <>
           {storageError && <B2bError code={storageError} />}
+          {capabilities && (
+            <FileTransfers
+              scope={directScope}
+              capabilities={capabilities}
+              versions={data.entries
+                .filter((e) => e.version.projectId === null)
+                .map((e) => e.version)}
+              changed={reload}
+            />
+          )}
           {!data.entries.length && (
             <p className="py-6 text-sm text-muted">
               {c(
@@ -188,7 +229,7 @@ function LibraryView({ scope }: { scope: TeamScope }) {
               key={scopeKey(s)}
               scope={s}
               entries={data.entries.filter(
-                (e) => e.version.projectId === s.projectId,
+                (e) => (e.version.projectId ?? LIBRARY_SOURCE) === s.projectId,
               )}
               changed={reload}
             />
