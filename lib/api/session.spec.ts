@@ -131,6 +131,11 @@ test("every mutation path classifies outcomes through the one shared policy", ()
   // A bare rejectFirst on any error would free a key regardless of attempt.
   const bare = files.filter((f) => /await store\.rejectFirst/.test(readFileSync(f, "utf8")));
   assert.deepEqual(bare, [], "free pending keys through releaseRejected()");
+  // Nor may a path finish (free) a failed record itself, e.g. on its own list
+  // of "final" server codes: only releaseRejected's lookup decides.
+  const ownRule = files.filter((f) => /catch\s*\([^)]*\)\s*\{[^}]*?(?<!=>\s?)\bstore\.finish\(/.test(readFileSync(f, "utf8")));
+  assert.deepEqual(ownRule, [], "a failed send frees its record only through releaseRejected()");
+  assert.ok(guarded.includes("lib/b2b-billing/operations.ts"), "billing (incl. termination and re-consent) uses the shared rule");
 });
 
 test("sign-in writes a fresh lineage and drops the previous actor; sign-out removes all four keys", (t) => {

@@ -87,6 +87,16 @@ export function notificationErrorCode(error: unknown): string {
     : "REQUEST_FAILED";
 }
 
+/** " (old → new)" in won, only when the server sent both totals. */
+const krw = (from: unknown, to: unknown, ko: boolean) => {
+  const n = (v: number) => v.toLocaleString(ko ? "ko-KR" : "en-US");
+  return typeof from === "number" && typeof to === "number"
+    ? ko
+      ? ` (${n(from)}원 → ${n(to)}원)`
+      : ` (KRW ${n(from)} → ${n(to)})`
+    : "";
+};
+
 /** A date clause only when the server sent the date. */
 const dated = (
   iso: unknown,
@@ -162,6 +172,28 @@ export function describe(n: UserNotification, ko: boolean): string {
       return t("결제 확인이 필요해요", "The payment needs review");
     case "payment.failed":
       return t("결제가 완료되지 않았어요", "The payment did not complete");
+    case "payment.renewal_consent_required":
+      // Statutory re-consent (E+): old and new price, charge time, and what
+      // happens without an answer. Amounts only when the server sent them.
+      return dated(
+        p.chargeAt,
+        ko,
+        (d) =>
+          t(
+            `갱신 조건이 바뀌어 동의가 필요해요${krw(p.fromTotalKrw, p.toTotalKrw, ko)}. ${d} 결제 전에 동의하지 않으면 갱신되지 않고 기간이 끝나면 종료돼요`,
+            `Renewal terms changed and need your consent${krw(p.fromTotalKrw, p.toTotalKrw, ko)}. Without consent before ${d} the plan ends at the period end`,
+          ),
+        t("갱신 조건이 바뀌어 동의가 필요해요", "Renewal terms changed and need your consent"),
+      );
+    case "payment.terminated":
+      return t("팀 이용 중도해지가 접수됐어요", "The team plan was terminated");
+    case "payment.statement_issued":
+      return typeof p.month === "string"
+        ? t(
+            `${p.month} 명세가 발행됐어요. 팀 자료가 삭제되기 전에 내려받아 두세요`,
+            `The ${p.month} statement was issued. Download it before team data is deleted`,
+          )
+        : t("명세가 발행됐어요", "A statement was issued");
     case "lifecycle.period_ended":
       return dated(
         p.readOnlyUntil,

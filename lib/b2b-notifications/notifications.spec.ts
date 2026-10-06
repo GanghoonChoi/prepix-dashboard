@@ -154,3 +154,23 @@ test("client-thrown account errors and server errors both yield a code", () => {
   );
   assert.equal(notificationErrorCode(null), "REQUEST_FAILED");
 });
+
+// (integration) E+ legal-floor billing notices render only server facts.
+test("legal-floor billing notices: re-consent states both prices and the charge time; nothing dangles without them", () => {
+  const consent = describe(
+    item({
+      kind: "payment.renewal_consent_required",
+      params: { fromTotalKrw: 110000, toTotalKrw: 132000, chargeAt: "2026-11-01T00:00:00.000Z" },
+    }),
+    true,
+  );
+  assert.match(consent, /110,000원 → 132,000원/);
+  assert.match(consent, /11\. 01\. 09:00 KST 결제 전에/);
+  for (const ko of [true, false]) {
+    const bare = describe(item({ kind: "payment.renewal_consent_required", params: {} }), ko);
+    assert.ok(!/KST|원|KRW|→/.test(bare), bare);
+    assert.ok(!/undefined|null/.test(describe(item({ kind: "payment.statement_issued", params: {} }), ko)));
+  }
+  assert.match(describe(item({ kind: "payment.statement_issued", params: { month: "2026-10" } }), true), /2026-10 명세/);
+  assert.equal(describe(item({ kind: "payment.terminated", params: { totalKrw: 1 } }), true), "팀 이용 중도해지가 접수됐어요");
+});
