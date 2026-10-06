@@ -81,6 +81,10 @@ export const reasonCopy = (reason: TeamDeletionBlockReason): Copy =>
 /** S26 deletion line. Billing-only details are not used here. */
 export function deletionCopy(view: TeamLifecycle): Copy {
   const d = view.deletion;
+  // Checks, holds or missing settings: no start time is promised, and nobody
+  // without billing permission learns which of them it is (server-shaped).
+  if (d.preparing && d.state !== "running" && d.state !== "completed")
+    return ["삭제 시작 전 확인 중입니다. 시작 시각은 아직 확정되지 않았습니다.", "Checks are under way before deletion starts. No start time is set yet."];
   switch (d.state) {
     case "running":
       return ["삭제가 진행 중입니다. 복구할 수 없습니다.", "Deletion is in progress. Recovery is no longer possible."];

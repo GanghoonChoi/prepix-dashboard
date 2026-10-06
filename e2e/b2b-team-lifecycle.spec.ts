@@ -41,7 +41,10 @@ test("S26/S32 exact boundaries, permission-dependent recovery detail, deletion s
   const ops = await team(request, owner.headers, -61 * DAY);
   const deleting = await team(request, second.headers, -61 * DAY);
   const deleted = await team(request, second.headers, -62 * DAY);
+  const preparing = await team(request, second.headers, -61 * DAY);
   fixture({ workspaceId: ops, action: "ops_check" });
+  fixture({ workspaceId: preparing, action: "settings_missing" });
+  fixture({ workspaceId: ops, action: "join", userId: member.id });
   fixture({ workspaceId: deleting, action: "deleting" });
   fixture({ workspaceId: deleted, action: "deleted" });
   fixture({ workspaceId: recovery, action: "join", userId: member.id });
@@ -84,6 +87,13 @@ test("S26/S32 exact boundaries, permission-dependent recovery detail, deletion s
   await expect(memberPage.getByTestId("recovery-detail")).toHaveCount(0);
   await expect(memberPage.getByRole("link", { name: "이용 복구", exact: true })).toHaveCount(0);
   await expect(memberPage.getByText("이용 복구 구매")).toHaveCount(0);
+  // The same member sees only a generic "checks before deletion" for the
+  // team that is stopped on a payment check: no payment word, no billing block.
+  await memberPage.goto(`/dashboard/workspaces/${ops}/status`);
+  await expect(memberPage.getByTestId("deletion-state")).toContainText("삭제 시작 전 확인 중입니다. 시작 시각은 아직 확정되지 않았습니다.");
+  await expect(memberPage.getByTestId("team-lifecycle")).not.toContainText(/결제 확인|운영 보류|payment/i);
+  await expect(memberPage.getByTestId("recovery-detail")).toHaveCount(0);
+  await memberPage.screenshot({ path: info.outputPath("s26-ops-check-member.png"), fullPage: true });
   await memberContext.close();
 
   // deletion_due + ops check, deleting, deleted.
@@ -97,6 +107,11 @@ test("S26/S32 exact boundaries, permission-dependent recovery detail, deletion s
   const secondPage = await secondContext.newPage();
   secondPage.on("pageerror", (e) => errors.push(e.message));
   await signIn(secondPage, second.email);
+  // Missing deletion settings: even the billing owner gets no firm start time.
+  await secondPage.goto(`/dashboard/workspaces/${preparing}/status`);
+  await expect(secondPage.getByTestId("deletion-state")).toContainText("시작 시각은 아직 확정되지 않았습니다");
+  await expect(secondPage.getByTestId("team-lifecycle")).toContainText("시작 시각 미확정");
+  await secondPage.screenshot({ path: info.outputPath("s26-settings-missing.png"), fullPage: true });
   await secondPage.goto(`/dashboard/workspaces/${deleting}/status`);
   await expect(secondPage.getByTestId("deletion-state")).toContainText("복구할 수 없습니다");
   await expect(secondPage.getByRole("link", { name: "이용 복구", exact: true })).toHaveCount(0);

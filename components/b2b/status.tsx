@@ -103,7 +103,12 @@ function Lifecycle({ scope }: { scope: Scope }) {
                 {[
                   [c("이용 종료 시각 (E)", "Period end (E)"), view.boundaries.readOnlyFrom],
                   [c("복구 보관 시작 (E+30일)", "Recovery storage from (E+30d)"), view.boundaries.recoveryFrom],
-                  [c("삭제 시작 예정 (E+60일)", "Deletion from (E+60d)"), view.boundaries.deletionFrom],
+                  [
+                    view.deletion.preparing
+                      ? c("삭제 가능 시각 (E+60일, 시작 시각 미확정)", "Deletion allowed from (E+60d; start time not set)")
+                      : c("삭제 시작 예정 (E+60일)", "Deletion from (E+60d)"),
+                    view.boundaries.deletionFrom,
+                  ],
                   [c("서버 기준 현재 시각", "Server time"), view.serverTime],
                 ].map(([label, iso]) => (
                   <div key={label} className="min-w-0">

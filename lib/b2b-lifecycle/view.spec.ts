@@ -21,8 +21,14 @@ test("S32 notices exist for every team-state refusal and never for others", () =
 });
 
 test("S26 deletion line follows the server state, not the clock", () => {
-  const base = { currentState: "deletion_due", deletion: { state: "not_started", startedAt: null, completedAt: null, backup: null } } as unknown as TeamLifecycle;
+  const base = { currentState: "deletion_due", deletion: { state: "not_started", preparing: false, startedAt: null, completedAt: null, backup: null } } as unknown as TeamLifecycle;
   assert.match(deletionCopy(base)[0], /복구할 수 있습니다/);
   assert.match(deletionCopy({ ...base, currentState: "deleting", deletion: { ...base.deletion, state: "running" } })[0], /복구할 수 없습니다/);
   assert.match(deletionCopy({ ...base, deletion: { ...base.deletion, state: "ops_check" } })[0], /결제 확인/);
+  // Pre-start checks promise no start time; the copy names no payment fact.
+  for (const state of ["waiting", "held", "ops_check"] as const) {
+    const [ko, en] = deletionCopy({ ...base, deletion: { ...base.deletion, state, preparing: true } });
+    assert.match(ko, /시작 시각은 아직 확정되지 않았습니다/);
+    assert.doesNotMatch(ko + en, /결제|payment|운영|operations|보류|held/i);
+  }
 });
