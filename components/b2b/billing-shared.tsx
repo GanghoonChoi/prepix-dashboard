@@ -12,6 +12,7 @@ import type {
   TeamOrderState,
   TeamRefundState,
 } from "@/lib/api/services/b2b.service";
+import { savePgIntent, type PgIntent } from "@/lib/b2b-billing/pg-return";
 import { B2bError, errorCode, useCopy } from "./shared";
 
 export const won = (value: number) =>
@@ -71,7 +72,8 @@ const messages: Record<string, [string, string]> = {
   B2B_RENEWAL_RETAINED_EXCEEDS_SEATS: ["유지 대상이 다음 기간 정원보다 많습니다. 부족한 정원은 자동으로 구매하지 않습니다.", "More retained members than next-period seats. Missing seats are never bought automatically."],
   B2B_REFUND_POLICY_NOT_CONFIGURED: ["이 주문 상품의 환불 기준이 확정되지 않아 환불을 요청할 수 없습니다.", "No approved refund policy exists for this order's product."],
   B2B_REFUND_NOT_REFUNDABLE: ["선택한 항목에는 환불할 미사용분이 없거나 승인된 기준상 환불 대상이 아닙니다.", "The selection has no refundable unused portion under the approved policy."],
-  B2B_REFUND_PENDING: ["이 주문의 환불이 이미 처리 중입니다.", "A refund for this order is already in progress."],
+  B2B_REFUND_PENDING: ["환불이 처리 중입니다. 끝난 뒤에 진행해 주세요. 같은 기간의 새 구매도 그때까지 막힙니다.", "A refund is in progress. Continue after it finishes; buying the same period again waits too."],
+  B2B_REFUND_BASIS_STALE: ["환불 금액을 확인한 지 시간이 지났습니다. 다시 확인해 주세요.", "The refund amount was checked a while ago. Check it again."],
   B2B_REFUND_SEATS_IN_USE: ["배정 중이거나 회수 대기인 이용권은 환불할 수 없습니다. 배정을 먼저 정리해 주세요.", "Assigned or pending-reclaim licences cannot be refunded."],
   B2B_REFUND_STORAGE_IN_USE: ["사용 중인 저장 용량은 환불할 수 없습니다.", "Storage in use cannot be refunded."],
   B2B_REFUND_AI_IN_USE: ["사용·예약된 AI 제공량은 환불할 수 없습니다.", "Used or reserved AI cannot be refunded."],
@@ -82,6 +84,7 @@ const messages: Record<string, [string, string]> = {
   B2B_BILLING_ACCOUNT_CHANGED: ["로그인 계정이 바뀌었습니다. 원래 계정으로 돌아가 결과를 확인해 주세요.", "The signed-in account changed. Return to the original account to confirm."],
   B2B_FILE_ACCOUNT_CHANGED: ["로그인 계정이 바뀌었습니다. 현재 계정으로 다시 열어 주세요.", "The signed-in account changed. Reopen for the current account."],
   B2B_BILLING_SERVICE_CHANGED: ["접속한 서비스가 바뀌었습니다. 다시 열어 주세요.", "The service changed. Reopen this page."],
+  B2B_PG_RETURN_SCOPE_MISMATCH: ["이 결제는 다른 계정이나 팀에서 시작되었거나 이 브라우저에 시작 기록이 없습니다. 결제를 확정하지 않았습니다. 결제를 시작한 계정으로 열어 확인해 주세요.", "This payment was started from another account or team, or this browser has no record of starting it. Nothing was confirmed. Open it from the account that started the payment."],
   B2B_PG_RETURN_MISMATCH: ["결제창에서 돌아온 정보가 이 주문과 다릅니다. 결제를 확정하지 않았습니다.", "The payment window returned data for a different order. Nothing was confirmed."],
 };
 export function BillingError({ code, retry }: { code: string; retry?: () => void }) {
@@ -192,7 +195,10 @@ export async function openPaymentWindow(input: {
   method: "카드" | "계좌이체";
   successUrl: string;
   failUrl: string;
+  // Written down before leaving; the return confirms only against it.
+  intent: PgIntent;
 }) {
+  savePgIntent(input.intent);
   if (input.client.mode === "local_double") {
     const q = new URLSearchParams({
       clientKey: input.client.clientKey,

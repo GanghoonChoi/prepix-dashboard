@@ -15,6 +15,7 @@ import type {
   TeamRefundSelection,
 } from "@/lib/api/services/b2b.service";
 import { checkRecord, runRecord, type BillingRecord } from "@/lib/b2b-billing/operations";
+import { checkPgReturn, clearPgIntent, readPgIntent } from "@/lib/b2b-billing/pg-return";
 import {
   BillingError,
   billingCode,
@@ -95,8 +96,16 @@ export function BillingOrder({ workspaceId, orderId }: { workspaceId: string; or
       window.history.replaceState(null, "", window.location.pathname);
       return;
     }
-    if (!paymentKey || returned !== order.providerOrderId || amount !== order.quote.amounts.totalKrw) {
-      setFailure("B2B_PG_RETURN_MISMATCH");
+    // Only the flow this service, account and team started may confirm.
+    if (!scope) return;
+    const verdict = checkPgReturn(
+      readPgIntent(order.providerOrderId),
+      scope,
+      { id: order.id, providerOrderId: order.providerOrderId, amount: order.quote.amounts.totalKrw },
+      { orderId: returned, amount },
+    );
+    if (!paymentKey || verdict !== "ok") {
+      setFailure(verdict === "scope_mismatch" ? "B2B_PG_RETURN_SCOPE_MISMATCH" : "B2B_PG_RETURN_MISMATCH");
       return;
     }
     confirming.current = true;
@@ -105,6 +114,7 @@ export function BillingOrder({ workspaceId, orderId }: { workspaceId: string; or
       .confirm(orderId, paymentKey)
       .then((r) => {
         setOrder(r.order);
+        clearPgIntent(order.providerOrderId);
         window.history.replaceState(null, "", window.location.pathname);
       })
       .catch((e) => setFailure(billingCode(e)))
@@ -112,7 +122,7 @@ export function BillingOrder({ workspaceId, orderId }: { workspaceId: string; or
         confirming.current = false;
         setBusy("");
       });
-  }, [api, order, pg, params, orderId]);
+  }, [api, order, pg, params, orderId, scope]);
   if (!order)
     return failure || error ? (
       <BillingError code={failure || error} retry={() => void (api ? load() : reload())} />
@@ -234,7 +244,7 @@ export function BillingOrder({ workspaceId, orderId }: { workspaceId: string; or
               className={primaryClass}
               disabled={!!busy}
               onClick={async () => {
-                if (!api) return;
+                if (!api || !scope) return;
                 setBusy("checkout");
                 try {
                   const checkout = await api.checkout(orderId);
@@ -248,6 +258,7 @@ export function BillingOrder({ workspaceId, orderId }: { workspaceId: string; or
                     method,
                     successUrl: `${back}?pg=success`,
                     failUrl: `${back}?pg=fail`,
+                    intent: { scope: scope!, orderId, providerOrderId: checkout.providerOrderId, amount: checkout.amount },
                   });
                 } catch (e) {
                   setFailure(billingCode(e));
@@ -400,6 +411,8 @@ export function BillingOrder({ workspaceId, orderId }: { workspaceId: string; or
                         selection,
                         reason: reason.trim(),
                         expectedTotalKrw: preview.amounts.totalKrw,
+                        // Measured at the instant shown, so seconds of drift never void it.
+                        basisAt: preview.basisAt,
                       },
                     })
                   }
