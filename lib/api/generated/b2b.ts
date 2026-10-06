@@ -1016,7 +1016,13 @@ export type TeamFileMetadata = {
     frameRateNumerator: number;
     frameRateDenominator: number;
   }[];
-  audio: { codec: string; sampleRate: number; channels: number }[];
+  audio: {
+    codec: string;
+    sampleRate: number;
+    channels: number;
+    /** The audio stream's own length; may be shorter than `durationMs`. */
+    durationMs?: number;
+  }[];
 };
 export type TeamFilePolicy = {
   /** Absent means native upload is unavailable, not unlimited. */

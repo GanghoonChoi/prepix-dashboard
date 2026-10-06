@@ -30,7 +30,13 @@ export type AiRunRecord = {
   schema: 1;
   scope: AiScope;
   quote: { requestKey: string; input: AiQuoteInput; id?: string };
-  submit?: { requestKey: string; approvedMaximumUnits: number; jobId?: string };
+  submit?: {
+    requestKey: string;
+    approvedMaximumUnits: number;
+    jobId?: string;
+    /** Cancel request key, kept until the server answered it. */
+    cancelKey?: string;
+  };
 };
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 export const scopeKey = (s: AiScope) =>
@@ -55,7 +61,9 @@ export function validRecord(raw: unknown, scope: AiScope): raw is AiRunRecord {
       (!!r.quote.id &&
         uuid.test(r.submit.requestKey) &&
         Number.isSafeInteger(r.submit.approvedMaximumUnits) &&
-        (r.submit.jobId === undefined || uuid.test(r.submit.jobId))))
+        (r.submit.jobId === undefined || uuid.test(r.submit.jobId)) &&
+        (r.submit.cancelKey === undefined ||
+          (!!r.submit.jobId && uuid.test(r.submit.cancelKey)))))
   );
 }
 
