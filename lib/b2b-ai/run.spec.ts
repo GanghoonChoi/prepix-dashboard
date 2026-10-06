@@ -127,3 +127,23 @@ test("results are shown only when the received bytes hash to the server summary"
     /HASH_MISMATCH/,
   );
 });
+
+test("a cancel request key is stored with the submission and survives a reload", () => {
+  const withKey: AiRunRecord = {
+    ...record,
+    submit: { ...record.submit!, cancelKey: id(10) },
+  };
+  assert.equal(validRecord(withKey, scope), true);
+  runStore.write(withKey);
+  assert.equal(runStore.read(scope)?.submit?.cancelKey, id(10));
+  // Only a real submission with a job can carry one, and it must be a UUID.
+  assert.equal(
+    validRecord({ ...withKey, submit: { ...withKey.submit!, cancelKey: "not-a-key" } }, scope),
+    false,
+  );
+  assert.equal(
+    validRecord({ ...withKey, submit: { requestKey: id(7), approvedMaximumUnits: 3, cancelKey: id(10) } }, scope),
+    false,
+  );
+  runStore.clear(scope);
+});

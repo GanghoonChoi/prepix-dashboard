@@ -98,6 +98,14 @@ const messages: Record<string, [string, string]> = {
     "현재 권한으로는 이 결과를 받을 수 없습니다. 참여나 입력 자료 접근이 바뀌었습니다.",
     "Your current access no longer covers this result.",
   ],
+  B2B_AI_ACCESS_ENDED: [
+    "현재 권한으로는 이 견적이나 작업을 볼 수 없습니다. 참여나 입력 자료 접근이 바뀌었습니다.",
+    "Your current access no longer covers this quote or job.",
+  ],
+  B2B_AI_INPUT_CONTAINER_UNSUPPORTED: [
+    "이 영상 형식은 영상 분석에 쓸 수 없습니다.",
+    "This video format cannot be used for video analysis.",
+  ],
   B2B_AI_RESULT_HASH_MISMATCH: [
     "받은 결과의 해시가 서버 기록과 달라 표시하지 않았습니다.",
     "The received result did not match its recorded hash and was not shown.",
@@ -198,7 +206,6 @@ function ScopedAiRun({ scope }: { scope: AiScope }) {
   const [record, setRecord] = useState<AiRunRecord | null | undefined>();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [pending, setPending] = useState<"quote" | "submit" | null>(null);
   const [quote, setQuote] = useState<TeamAiQuote | null>(null);
   const [execution, setExecution] = useState<TeamAiExecution | null>(null);
   const [pollError, setPollError] = useState("");
@@ -212,14 +219,12 @@ function ScopedAiRun({ scope }: { scope: AiScope }) {
     const checked = checkQuote(q, r);
     persist({ ...r, quote: { ...r.quote, id: checked.id } });
     setQuote(checked);
-    setPending(null);
   };
   const acceptExecution = (r: AiRunRecord, view: TeamAiExecution) => {
     const checked = checkExecution(view, r);
     if (r.submit && r.submit.jobId !== checked.job.id)
       persist({ ...r, submit: { ...r.submit, jobId: checked.job.id } });
     setExecution(checked);
-    setPending(null);
   };
   const sendQuote = async (r: AiRunRecord) => {
     setBusy(true);
@@ -231,7 +236,6 @@ function ScopedAiRun({ scope }: { scope: AiScope }) {
       setError(code(e));
       // A processed rejection created nothing; anything else may have landed.
       if (rejected(e) && !notReached(e)) persist(null);
-      else setPending("quote");
     } finally {
       setBusy(false);
     }
@@ -246,7 +250,18 @@ function ScopedAiRun({ scope }: { scope: AiScope }) {
         setBusy(false);
         return sendQuote(r);
       }
-      setPending("quote");
+      setError(code(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  // Reopen at the quote step: the stored quote id is only read, never re-requested.
+  const loadQuote = async (r: AiRunRecord) => {
+    setBusy(true);
+    try {
+      acceptQuote(r, (await api.getQuote(r.quote.id!)).quote);
+      setError("");
+    } catch (e) {
       setError(code(e));
     } finally {
       setBusy(false);
@@ -272,7 +287,6 @@ function ScopedAiRun({ scope }: { scope: AiScope }) {
         setError("");
       } catch (lookup) {
         if (notReached(lookup) && rejected(e)) persist({ ...r, submit: undefined });
-        else setPending("submit");
       }
     } finally {
       setBusy(false);
@@ -288,7 +302,6 @@ function ScopedAiRun({ scope }: { scope: AiScope }) {
         setBusy(false);
         return sendSubmit(r);
       }
-      setPending("submit");
       setError(code(e));
     } finally {
       setBusy(false);
@@ -310,11 +323,7 @@ function ScopedAiRun({ scope }: { scope: AiScope }) {
     if (!stored) return;
     if (!stored.quote.id) void recoverQuote(stored);
     else if (stored.submit && !stored.submit.jobId) void recoverSubmit(stored);
-    else if (!stored.submit)
-      void api
-        .getQuote(stored.quote.id)
-        .then(({ quote: q }) => acceptQuote(stored!, q))
-        .catch((e) => setError(code(e)));
+    else if (!stored.submit) void loadQuote(stored);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -389,7 +398,11 @@ function ScopedAiRun({ scope }: { scope: AiScope }) {
           label={c("견적 요청 결과를 확인하지 못했습니다.", "The quote request outcome is unknown.")}
           busy={busy}
           onCheck={() => void recoverQuote(record)}
-          onDiscard={pending === "quote" ? undefined : () => persist(null)}
+          onDiscard={() => {
+            // A quote reserves nothing: abandoning an unknown quote request is safe.
+            persist(null);
+            setError("");
+          }}
         />
       ) : !record.submit ? (
         quote ? (
@@ -424,8 +437,24 @@ function ScopedAiRun({ scope }: { scope: AiScope }) {
               setQuote(null);
             }}
           />
+        ) : error ? (
+          // The quote could not be read. Nothing was submitted (no submit key is
+          // stored) and a quote costs nothing, so the record may always be dropped.
+          <Pending
+            label={c(
+              "저장된 견적을 불러오지 못했습니다. 다시 확인하거나, 실행한 적 없는 이 기록을 지우고 새 견적을 받을 수 있습니다.",
+              "The saved quote could not be loaded. Check again, or discard this record (nothing was run) and request a new quote.",
+            )}
+            busy={busy}
+            onCheck={() => void loadQuote(record)}
+            onDiscard={() => {
+              persist(null);
+              setQuote(null);
+              setError("");
+            }}
+          />
         ) : (
-          !error && <TeamLoading />
+          <TeamLoading />
         )
       ) : !record.submit.jobId ? (
         <Pending
@@ -440,6 +469,12 @@ function ScopedAiRun({ scope }: { scope: AiScope }) {
         <JobView
           api={api}
           view={execution}
+          cancelKey={record.submit.cancelKey}
+          saveCancelKey={(key) => {
+            const current = runStore.read(scope);
+            if (current?.submit)
+              persist({ ...current, submit: { ...current.submit, cancelKey: key ?? undefined } });
+          }}
           pollError={pollError}
           onPoll={poll}
           onNew={() => {
@@ -497,6 +532,10 @@ function Draft({
   const c = useCopy();
   const [caps, setCaps] = useState<TeamAiCapabilities | null>(null);
   const [versions, setVersions] = useState<TeamFileVersion[] | null>(null);
+  // More pages exist while this is set; an empty list is only "none" without it.
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [moreFailure, setMoreFailure] = useState("");
+  const [loadingMore, setLoadingMore] = useState(false);
   const [failure, setFailure] = useState("");
   const [operation, setOperation] = useState<TeamAiOperation>("transcript");
   const [selected, setSelected] = useState<string[]>([]);
@@ -507,6 +546,7 @@ function Draft({
       const [capabilities, list] = await Promise.all([api.capabilities(), api.versions()]);
       setCaps(capabilities);
       setVersions(list.versions);
+      setNextCursor(list.nextCursor);
       setFailure("");
     } catch (e) {
       // Failure is not an empty file list.
@@ -518,6 +558,24 @@ function Draft({
     const t = window.setTimeout(() => void load(), 0);
     return () => clearTimeout(t);
   }, [load]);
+  const loadMore = async () => {
+    if (!nextCursor) return;
+    setLoadingMore(true);
+    setMoreFailure("");
+    try {
+      const page = await api.versions(nextCursor);
+      // Append without duplicates; a failed page keeps what is already listed.
+      setVersions((current) => [
+        ...(current ?? []),
+        ...page.versions.filter((v) => !(current ?? []).some((x) => x.id === v.id)),
+      ]);
+      setNextCursor(page.nextCursor);
+    } catch (e) {
+      setMoreFailure(code(e));
+    } finally {
+      setLoadingMore(false);
+    }
+  };
   if (failure) return <AiError code={failure} retry={() => void load()} />;
   if (!caps || !versions) return <TeamLoading />;
   const capability = caps.operations.find((o) => o.operation === operation)!;
@@ -576,10 +634,15 @@ function Draft({
             </legend>
             {usable.length === 0 ? (
               <p className="text-sm text-muted">
-                {c(
-                  "이 작업에 쓸 수 있는 등록 버전이 없습니다. 자료 화면에서 등록 상태와 AI 입력 허용을 확인하세요.",
-                  "No registered version is usable for this job. Check registration and AI permission in Files.",
-                )}
+                {nextCursor
+                  ? c(
+                      "지금까지 불러온 버전 중에는 이 작업에 쓸 수 있는 것이 없습니다. 더 불러와 확인하세요.",
+                      "None of the versions loaded so far is usable for this job. Load more to check.",
+                    )
+                  : c(
+                      "이 작업에 쓸 수 있는 등록 버전이 없습니다. 자료 화면에서 등록 상태와 AI 입력 허용을 확인하세요.",
+                      "No registered version is usable for this job. Check registration and AI permission in Files.",
+                    )}
               </p>
             ) : (
               <ul className="space-y-2">
@@ -600,12 +663,31 @@ function Draft({
                       />
                       <span className="font-medium">{v.name}</span>
                       <span className="tabular-nums text-muted">
-                        v{v.ordinal} · {seconds(v.metadata.durationMs!)} · sha256 {v.sha256.slice(0, 12)}…
+                        v{v.ordinal} ·{" "}
+                        {seconds(
+                          (capability.requiredStream === "audio" && v.metadata.audio[0]?.durationMs) ||
+                            v.metadata.durationMs!,
+                        )}{" "}
+                        · sha256 {v.sha256.slice(0, 12)}…
                       </span>
                     </label>
                   </li>
                 ))}
               </ul>
+            )}
+            {nextCursor && (
+              <div className="space-y-2">
+                <p className="text-xs text-muted">
+                  {c(
+                    "이 프로젝트에 버전이 더 있습니다. 목록은 일부만 불러왔습니다.",
+                    "This project has more versions; only part of the list is loaded.",
+                  )}
+                </p>
+                {moreFailure && <AiError code={moreFailure} retry={() => void loadMore()} />}
+                <button className={secondaryClass} disabled={loadingMore} onClick={() => void loadMore()}>
+                  {c("버전 더 불러오기", "Load more versions")}
+                </button>
+              </div>
             )}
             {versions.length > usable.length && (
               <p className="text-xs text-muted">
@@ -785,12 +867,16 @@ function QuoteView({
 function JobView({
   api,
   view,
+  cancelKey,
+  saveCancelKey,
   pollError,
   onPoll,
   onNew,
 }: {
   api: ReturnType<typeof aiApi>;
   view: TeamAiExecution;
+  cancelKey: string | undefined;
+  saveCancelKey: (key: string | null) => void;
   pollError: string;
   onPoll: () => Promise<void>;
   onNew: () => void;
@@ -798,24 +884,35 @@ function JobView({
   const c = useCopy();
   const { job, progress, result } = view;
   const [confirm, setConfirm] = useState(false);
-  const cancelKey = useRef<string | null>(null);
-  const [cancelUnknown, setCancelUnknown] = useState(false);
+  // A stored cancel key means the earlier cancel request's outcome is unknown.
+  const [cancelUnknown, setCancelUnknown] = useState(!!cancelKey);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [received, setReceived] = useState<{ sha256: string; document: TeamAiResultDocument; bytes: Uint8Array } | null>(null);
   const cancel = async () => {
     setBusy(true);
-    cancelKey.current ??= crypto.randomUUID();
+    let key = cancelKey;
     try {
-      await api.cancel(job.id, cancelKey.current);
-      cancelKey.current = null;
+      if (!key) {
+        // Written before the request, like every other key: a refresh resumes it.
+        key = crypto.randomUUID();
+        saveCancelKey(key);
+      }
+    } catch (e) {
+      setError(code(e));
+      setBusy(false);
+      return;
+    }
+    try {
+      await api.cancel(job.id, key);
+      saveCancelKey(null);
       setCancelUnknown(false);
       setConfirm(false);
       await onPoll();
     } catch (e) {
       setError(code(e));
       setCancelUnknown(!rejected(e));
-      if (rejected(e)) cancelKey.current = null;
+      if (rejected(e)) saveCancelKey(null);
     } finally {
       setBusy(false);
     }
