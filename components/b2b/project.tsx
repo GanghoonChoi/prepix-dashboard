@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { apiClient } from "@/lib/api/client";
 import { buildTeamProjectOpenUrl } from "@/lib/workspaces/app-link";
+import { projectSurfaces, visibilityChange } from "@/lib/b2b-projects/visibility";
 import {
   b2bService,
   type Project,
@@ -13,6 +14,7 @@ import {
 } from "@/lib/api/services/b2b.service";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
+  ConfirmDialog,
   inputClass,
   primaryClass,
   secondaryClass,
@@ -20,10 +22,12 @@ import {
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
+import { useRun } from "./reviews";
 import {
   B2bError,
   errorCode,
   StateBadge,
+  VisibilityBadge,
   useCopy,
   accessEnded,
   freeIntent,
@@ -105,15 +109,25 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
     workspaceId: id,
     projectId: project.id,
   });
+  const surfaces = projectSurfaces(project.role);
   return (
     <TeamShell title={project.name}>
       {error && <B2bError code={error} retry={() => void reload()} />}
       <div className="flex flex-wrap items-center gap-3">
         <SpaceBadge workspace={context.data.workspace} />
         <StateBadge state={project.state} />
+        <VisibilityBadge visibility={project.visibility} />
       </div>
+      {project.role === "viewer" && (
+        <p role="note" className="text-sm text-muted">
+          {c(
+            "팀 공개 프로젝트를 열람 중입니다. 작업하려면 담당자에게 참여를 요청하세요.",
+            "You are viewing a team-wide project. Ask the lead to add you to work on it.",
+          )}
+        </p>
+      )}
       <div className="flex flex-wrap gap-3">
-        {appUrl && project.role !== "reviewer" && (
+        {appUrl && surfaces.app && (
           <a className={secondaryClass} href={appUrl}>
             {c("앱에서 작업하기", "Work in app")}
           </a>
@@ -130,7 +144,7 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
         >
           {c("자료", "Files")}
         </Link>
-        {project.role !== "reviewer" && (
+        {surfaces.people && (
           <Link
             className={secondaryClass}
             href={`/dashboard/workspaces/${id}/projects/${projectId}/people`}
@@ -148,25 +162,31 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
               : c("개요 수정", "Edit overview")}
           </button>
         )}
-        <Link
-          className={secondaryClass}
-          href={`/dashboard/workspaces/${id}/projects/${projectId}/requests`}
-        >
-          {c("요청사항", "Requests")}
-        </Link>
+        {surfaces.requests && (
+          <Link
+            className={secondaryClass}
+            href={`/dashboard/workspaces/${id}/projects/${projectId}/requests`}
+          >
+            {c("요청사항", "Requests")}
+          </Link>
+        )}
         <Link
           className={secondaryClass}
           href={`/dashboard/workspaces/${id}/projects/${projectId}/reviews`}
         >
           {c("영상 검토", "Video reviews")}
         </Link>
-        <Link className={secondaryClass} href={`/dashboard/workspaces/${id}/projects/${projectId}/delivery`}>
-          {c("납품·프로젝트 완료", "Delivery and completion")}
-        </Link>
-        <Link className={secondaryClass} href={`/dashboard/workspaces/${id}/projects/${projectId}/publications`}>
-          {c("등록된 결과", "Registered results")}
-        </Link>
-        {project.role !== "reviewer" && (
+        {surfaces.delivery && (
+          <Link className={secondaryClass} href={`/dashboard/workspaces/${id}/projects/${projectId}/delivery`}>
+            {c("납품·프로젝트 완료", "Delivery and completion")}
+          </Link>
+        )}
+        {surfaces.publications && (
+          <Link className={secondaryClass} href={`/dashboard/workspaces/${id}/projects/${projectId}/publications`}>
+            {c("등록된 결과", "Registered results")}
+          </Link>
+        )}
+        {surfaces.ai && (
           <Link
             className={secondaryClass}
             href={`/dashboard/workspaces/${id}/projects/${projectId}/ai`}
@@ -187,8 +207,11 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
         />
       ) : (
         <>
-          <RequestWorkPanel projectId={projectId} onDenied={deny} />
+          {surfaces.requestWork && (
+            <RequestWorkPanel projectId={projectId} onDenied={deny} />
+          )}
           <ReviewWorkPanel projectId={projectId} onDenied={deny} />
+          <VisibilitySection project={project} onChanged={reload} />
           <section className="space-y-3 border-b border-border pb-8">
             <h2 className="font-medium">{c("작업 개요", "Brief")}</h2>
             <p className="max-w-3xl whitespace-pre-wrap break-words text-sm leading-6 text-muted">
@@ -222,6 +245,152 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
         </>
       )}
     </TeamShell>
+  );
+}
+
+function VisibilitySection({
+  project,
+  onChanged,
+}: {
+  project: Project;
+  onChanged: () => Promise<void>;
+}) {
+  const c = useCopy();
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
+  const mutation = useRun();
+  const widening = project.visibility === "private";
+  const close = () => {
+    setOpen(false);
+    setReason("");
+    setConfirmed(false);
+    mutation.setError("");
+  };
+  const submit = async () => {
+    let input;
+    try {
+      input = visibilityChange(project, { reason, confirmed });
+    } catch (e) {
+      mutation.setError((e as Error).message);
+      return;
+    }
+    const done = await mutation.run(input, (requestKey) =>
+      b2bService.changeVisibility(project.workspaceId, project.id, {
+        ...input,
+        requestKey,
+      }),
+    );
+    if (done) close();
+    await onChanged();
+  };
+  return (
+    <section
+      className="space-y-3 border-b border-border pb-8"
+      aria-label={c("공개 범위", "Visibility")}
+    >
+      <h2 className="font-medium">{c("공개 범위", "Visibility")}</h2>
+      <p className="max-w-3xl text-sm leading-6 text-muted">
+        {project.visibility === "team"
+          ? c(
+              "팀 전체 공개: 팀의 모든 내부 멤버가 이 프로젝트와 발행된 영상을 보고 코멘트할 수 있습니다. 받기와 AI 사용은 자료별 권한을 따릅니다.",
+              "Team-wide: every internal team member can see this project and its published videos and comment on them. Downloads and AI use follow per-file permissions.",
+            )
+          : c(
+              "비공개: 참여자만 이 프로젝트를 볼 수 있습니다. 참여하지 않은 소유자·관리자에게도 보이지 않습니다.",
+              "Private: only participants can see this project, including owners and admins who don't participate.",
+            )}
+      </p>
+      {project.allowedActions.changeVisibility && !open && (
+        <button
+          type="button"
+          className={secondaryClass}
+          onClick={() => setOpen(true)}
+        >
+          {widening
+            ? c("팀 전체 공개로 바꾸기", "Make team-wide")
+            : c("비공개로 바꾸기", "Make private")}
+        </button>
+      )}
+      {open && (
+        <ConfirmDialog
+          label={
+            widening
+              ? c("팀 전체 공개로 바꾸기", "Make team-wide")
+              : c("비공개로 바꾸기", "Make private")
+          }
+          onClose={close}
+        >
+          <h3 className="font-medium">
+            {widening
+              ? c("팀 전체 공개로 바꿀까요?", "Make this project team-wide?")
+              : c("비공개로 바꿀까요?", "Make this project private?")}
+          </h3>
+          <p className="text-sm leading-6 text-muted">
+            {widening
+              ? c(
+                  "팀의 모든 내부 멤버가 이 프로젝트, 발행된 영상과 그 코멘트를 보고 코멘트할 수 있게 됩니다. 원본 받기와 AI 사용은 계속 자료별 권한을 따르고, 외부 참여자는 초대받은 프로젝트만 봅니다.",
+                  "Every internal team member will see this project, its published videos and their comments, and can comment. Downloads and AI use still follow per-file permissions; external people still see only projects they were invited to.",
+                )
+              : c(
+                  "참여자만 볼 수 있게 됩니다. 참여하지 않은 팀원은 다음 동작부터 이 프로젝트에 접근할 수 없고, 그동안 남긴 코멘트는 기록에 남습니다.",
+                  "Only participants will see it. Team members who don't participate lose access on their next action; comments they already left stay in the record.",
+                )}
+          </p>
+          {widening && (
+            <label className="flex min-h-11 items-center gap-3 text-sm">
+              <input
+                type="checkbox"
+                checked={confirmed}
+                disabled={mutation.busy}
+                onChange={(e) => setConfirmed(e.target.checked)}
+              />
+              {c(
+                "모든 팀원에게 공개되는 범위를 확인했습니다",
+                "I understand every team member will see it",
+              )}
+            </label>
+          )}
+          <label className="block space-y-2 text-sm">
+            <span>
+              {widening
+                ? c("공개 사유(필수)", "Reason (required)")
+                : c("사유(선택)", "Reason (optional)")}
+            </span>
+            <input
+              className={inputClass}
+              value={reason}
+              maxLength={1000}
+              disabled={mutation.busy}
+              onChange={(e) => setReason(e.target.value)}
+            />
+          </label>
+          {mutation.error && <B2bError code={mutation.error} />}
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              className={primaryClass}
+              disabled={
+                mutation.busy || (widening && (!confirmed || !reason.trim()))
+              }
+              onClick={() => void submit()}
+            >
+              {widening
+                ? c("팀 전체 공개로 바꾸기", "Make team-wide")
+                : c("비공개로 바꾸기", "Make private")}
+            </button>
+            <button
+              type="button"
+              className={secondaryClass}
+              disabled={mutation.busy}
+              onClick={close}
+            >
+              {c("취소", "Cancel")}
+            </button>
+          </div>
+        </ConfirmDialog>
+      )}
+    </section>
   );
 }
 
@@ -383,7 +552,7 @@ export function ProjectParticipants({ projectId }: { projectId: string }) {
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const pending = useRef<{ hash: string; key: string } | null>(null);
-  const active = !!project && project.role !== "reviewer";
+  const active = !!project && projectSurfaces(project.role).people;
   const loadPeople = useCallback(async () => {
     if (!active) return;
     try {
@@ -400,7 +569,16 @@ export function ProjectParticipants({ projectId }: { projectId: string }) {
   }, [loadPeople, project?.revision]);
   if (error) return <B2bError code={error} retry={() => void reload()} />;
   if (!project) return <TeamLoading />;
-  if (!active) return <B2bError code="B2B_PROJECT_PEOPLE_RESTRICTED" />;
+  if (!active)
+    return (
+      <B2bError
+        code={
+          project.role === "viewer"
+            ? "B2B_PROJECT_PARTICIPATION_REQUIRED"
+            : "B2B_PROJECT_PEOPLE_RESTRICTED"
+        }
+      />
+    );
   const editable = project.allowedActions.managePeople;
   const mutate = async (
     input:

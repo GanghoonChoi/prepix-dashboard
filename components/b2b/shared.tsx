@@ -2,7 +2,7 @@
 
 
 import { useI18n } from "@/lib/i18n/context";
-import type { ProjectState, TeamState } from "@/lib/api/services/b2b.service";
+import type { ProjectRole, ProjectState, ProjectVisibility, TeamState } from "@/lib/api/services/b2b.service";
 import Link from "next/link";
 import { secondaryClass } from "@/components/workspaces/shared";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
@@ -20,6 +20,16 @@ export const stateLabels: Record<TeamState | ProjectState, [string, string]> = {
   in_progress: ["진행", "In progress"],
   completed: ["완료", "Completed"],
   archived: ["보관", "Archived"],
+};
+export const roleLabels: Record<ProjectRole | "viewer", [string, string]> = {
+  lead: ["담당자", "Lead"],
+  producer: ["제작자", "Producer"],
+  reviewer: ["검토자", "Reviewer"],
+  viewer: ["팀 열람", "Team viewer"],
+};
+export const visibilityLabels: Record<ProjectVisibility, [string, string]> = {
+  team: ["팀 공개", "Team-wide"],
+  private: ["비공개", "Private"],
 };
 export function useCopy() {
   const { lang } = useI18n();
@@ -287,6 +297,19 @@ const errors: Record<string, [string, string]> = {
     "프로젝트 담당자만 변경할 수 있습니다.",
     "Only the project lead can make this change.",
   ],
+  B2B_PROJECT_PARTICIPATION_REQUIRED: [
+    "팀 공개 프로젝트를 열람 중입니다. 작업하려면 담당자에게 참여를 요청하세요.",
+    "You are viewing a team-wide project. Ask the lead to add you to work on it.",
+  ],
+  B2B_PROJECT_VISIBILITY_CONFIRMATION_REQUIRED: [
+    "팀 전체 공개로 바꾸려면 공개 범위를 확인해 주세요.",
+    "Confirm who will see the project before making it team-wide.",
+  ],
+  B2B_PROJECT_VISIBILITY_UNCHANGED: [
+    "이미 같은 공개 범위입니다. 최신 상태를 확인해 주세요.",
+    "The project already has this visibility. Check the current state.",
+  ],
+  B2B_REASON_REQUIRED: ["사유를 입력해 주세요.", "Enter a reason."],
   B2B_PROJECT_PEOPLE_RESTRICTED: [
     "이 역할에서는 참여자 명단을 볼 수 없습니다.",
     "This role cannot view the participant roster.",
@@ -371,6 +394,14 @@ export function B2bError({
         </button>
       )}
     </div>
+  );
+}
+export function VisibilityBadge({ visibility }: { visibility: ProjectVisibility }) {
+  const c = useCopy();
+  return (
+    <span className="rounded-full border border-border px-2.5 py-1 text-xs">
+      {c(...visibilityLabels[visibility])}
+    </span>
   );
 }
 export function StateBadge({ state }: { state: TeamState | ProjectState }) {
