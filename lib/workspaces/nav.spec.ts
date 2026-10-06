@@ -101,3 +101,43 @@ test("team AI usage stays scoped to enrolled teams with current project reading 
     ),
   );
 });
+
+test("monthly statements follow current billing permission, never project access", () => {
+  const b2b = {
+    enabled: true,
+    enrolled: true,
+    team: {
+      workspaceId: "w1",
+      policyVersion: "v1",
+      currentState: "read_only",
+      state: "active",
+      periodStartsAt: null,
+      periodEndsAt: null,
+      legacyArchive: false,
+      revision: 0,
+    },
+    member: { kind: "internal", billingAllowed: true, revision: 0 },
+    allowedActions: {
+      projects: false,
+      createProject: false,
+      manage: false,
+      billing: true,
+    },
+  } as const;
+  const options = { cloudEnabled: false, managementEnabled: false, b2b };
+  assert.ok(hrefs(options).includes("/dashboard/workspaces/w1/statements"));
+  assert.ok(
+    !hrefs({
+      ...options,
+      b2b: {
+        ...b2b,
+        allowedActions: { ...b2b.allowedActions, projects: true, billing: false },
+      },
+    }).includes("/dashboard/workspaces/w1/statements"),
+  );
+  assert.ok(
+    !workspaceLinks({ id: "p1", type: "personal" }, options).some((link) =>
+      link.href.endsWith("/statements"),
+    ),
+  );
+});

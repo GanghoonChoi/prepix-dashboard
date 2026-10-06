@@ -1022,3 +1022,160 @@ export type ProjectRequestMutationLookup = {
   currentUserId: string;
   receipt: ProjectRequestMutationResult | null;
 };
+
+// F18/P14 monthly statement (월 이용명세서). Not a tax invoice. Money is KRW from
+// the original order copy; AI figures are units recorded against prepaid grants
+// and never added to a charge. SOT: backend/docs/b2b-monthly-statements.md
+export type StatementReason =
+  | "initial"
+  | "late_receipt"
+  | "application_recorded"
+  | "status_changed"
+  | "correction_recorded"
+  | "usage_recorded"
+  | "content_changed";
+export type TeamStatementPurchase = {
+  orderId: string;
+  target: QuoteTarget;
+  productVersion: string;
+  paidAt: string;
+  status: "applied" | "awaiting_application" | "review_required";
+  period: TeamQuote["period"];
+  lines: TeamQuote["lines"];
+  amounts: TeamQuote["amounts"];
+  receivedKrw: number;
+  application: {
+    appliedAt: string;
+    effectiveAt: string;
+    amounts: TeamQuote["amounts"];
+    overpaymentKrw: number;
+  } | null;
+};
+// Delayed-application overpayment debt on the original payment (information;
+// the money returned is only ever counted from a confirmed refund).
+export type TeamStatementAdjustment = {
+  orderId: string;
+  amountKrw: number;
+  state: "pending" | "confirming" | "unknown" | "refunded" | "review_required";
+  recordedAt: string;
+  refundedAt: string | null;
+};
+// A refund requested in, or confirmed in, the month. Only `returnedInMonthKrw`
+// (provider-confirmed money corrections dated in this month) is money returned;
+// reserved/cancelling/provider_unknown are "being confirmed", never refunded.
+export type TeamStatementRefund = {
+  refundId: string;
+  orderId: string;
+  orderPaidAt: string;
+  kind: "unused" | "overpayment";
+  state:
+    | "reserved"
+    | "cancelling"
+    | "provider_unknown"
+    | "refunded"
+    | "rejected"
+    | "failed"
+    | "review_required";
+  amounts: { supplyKrw: number; vatKrw: number; totalKrw: number };
+  allowances: { seats: number; storageBytes: number; aiUnits: number };
+  requestedAt: string;
+  refundedAt: string | null;
+  returnedInMonthKrw: number;
+};
+export type TeamStatementAiUnit = {
+  unitLabel: string;
+  unitDescription: string;
+  // Decimal strings: sums may exceed Number.MAX_SAFE_INTEGER.
+  grantedBasic: string;
+  grantedExtra: string;
+  reserved: string;
+  confirmed: string;
+  returned: string;
+  expired: string;
+  // Refund withholding (E1 0064): revoked never spendable; reinstated returns
+  // it after a rejected/failed refund (an expired grant re-expires at once).
+  revoked: string;
+  reinstated: string;
+  grants: {
+    kind: "basic" | "extra";
+    units: number;
+    startsAt: string;
+    expiresAt: string;
+  }[];
+};
+export type TeamStatementSnapshot = {
+  schemaVersion: 1;
+  document: "monthly_statement";
+  workspaceId: string;
+  teamName: string;
+  month: string;
+  range: { startsAt: string; endsAt: string };
+  recipient: (TeamBuyer & { sourceOrderId: string }) | null;
+  purchases: TeamStatementPurchase[];
+  totals: {
+    supplyKrw: number;
+    vatKrw: number;
+    totalKrw: number;
+    receivedKrw: number;
+    // Provider-confirmed refunds dated in this month, any original month.
+    refundedKrw: number;
+  };
+  byKind: {
+    kind: TeamQuote["lines"][number]["kind"];
+    quantity: number;
+    listSupplyKrw: number;
+  }[];
+  adjustments: TeamStatementAdjustment[];
+  refunds: TeamStatementRefund[];
+  ai: TeamStatementAiUnit[];
+};
+export type TeamStatementRevisionSummary = {
+  id: string;
+  month: string;
+  revision: number;
+  previousId: string | null;
+  reasons: StatementReason[];
+  issuedAt: string;
+  issueOn: string;
+  calendarVersion: string;
+  snapshotHash: string;
+  pdf: { sha256: string; bytes: number };
+};
+export type TeamStatementRevision = TeamStatementRevisionSummary & {
+  snapshot: TeamStatementSnapshot;
+};
+export type TeamStatementMonthState =
+  | "collecting"
+  | "scheduled"
+  | "due"
+  | "blocked"
+  | "issued";
+export type TeamStatementMonth = {
+  month: string;
+  state: TeamStatementMonthState;
+  issueOn: string | null;
+  latest: TeamStatementRevisionSummary | null;
+  revisions: number;
+};
+export type TeamStatementCalendarStatus =
+  | { configured: true; version: string; issueBusinessDay: number }
+  | { configured: false; reason: "B2B_STATEMENT_CALENDAR_MISSING" };
+export type TeamStatementList = {
+  calendar: TeamStatementCalendarStatus;
+  taxInvoice: { available: false; reason: "B2B_TAX_INVOICE_NOT_CONFIGURED" };
+  months: TeamStatementMonth[];
+  serverTime: string;
+};
+export type TeamStatementDetail = {
+  month: string;
+  state: TeamStatementMonthState;
+  issueOn: string | null;
+  revisions: TeamStatementRevision[];
+  serverTime: string;
+};
+export type IssueTeamStatement = { requestKey: string };
+export type TeamStatementIssueResult = {
+  month: string;
+  revision: TeamStatementRevisionSummary;
+  created: boolean;
+};
