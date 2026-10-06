@@ -1,0 +1,1013 @@
+"use client";
+import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { apiClient } from "@/lib/api/client";
+import type {
+  TeamAiCapabilities,
+  TeamAiExecution,
+  TeamAiOperation,
+  TeamAiQuote,
+  TeamAiResultDocument,
+  TeamFileVersion,
+} from "@/lib/api/services/b2b.service";
+import {
+  aiApi,
+  checkExecution,
+  checkQuote,
+  notReached,
+  rejected,
+  runStore,
+  verifyResultContent,
+  type AiQuoteInput,
+  type AiRunRecord,
+  type AiScope,
+} from "@/lib/b2b-ai/run";
+import { useWorkspace } from "@/components/workspaces/workspace-context";
+import {
+  Block,
+  ConfirmDialog,
+  inputClass,
+  primaryClass,
+  secondaryClass,
+  SpaceBadge,
+  TeamLoading,
+  TeamShell,
+} from "@/components/workspaces/shared";
+import { B2bError, useCopy } from "./shared";
+
+const messages: Record<string, [string, string]> = {
+  B2B_AI_CATALOG_NOT_CONFIGURED: [
+    "AI 작업 설정이 확정되지 않아 실행할 수 없습니다.",
+    "AI job settings are not configured, so jobs cannot run.",
+  ],
+  B2B_AI_OPERATION_NOT_CONFIGURED: [
+    "이 작업 종류는 현재 설정되지 않아 실행할 수 없습니다.",
+    "This job type is not configured.",
+  ],
+  B2B_AI_OPERATION_UNSUPPORTED: [
+    "팀 에이전트 작업은 아직 지원하지 않습니다.",
+    "Team agent jobs are not supported yet.",
+  ],
+  B2B_AI_INPUT_STREAM_MISSING: [
+    "선택한 입력에 이 작업에 필요한 음성 또는 영상이 없습니다.",
+    "A selected input lacks the audio or video this job needs.",
+  ],
+  B2B_AI_INPUT_LIMIT_EXCEEDED: [
+    "입력 크기나 길이가 이 작업의 한도를 넘습니다.",
+    "An input exceeds this job's size or duration limit.",
+  ],
+  B2B_AI_INPUT_INVALID: ["입력 버전을 다시 선택해 주세요.", "Select the input versions again."],
+  B2B_AI_LANGUAGE_UNSUPPORTED: ["지원하지 않는 언어입니다.", "This language is not supported."],
+  B2B_AI_INSTRUCTION_INVALID: [
+    "작업 지시를 입력해 주세요. 제어 문자는 쓸 수 없습니다.",
+    "Enter an instruction without control characters.",
+  ],
+  B2B_AI_QUOTE_EXPIRED: [
+    "견적이 만료되었습니다. 새 견적을 받아 주세요.",
+    "The quote expired. Request a new quote.",
+  ],
+  B2B_AI_QUOTE_STALE: [
+    "견적 뒤에 입력, 권한 또는 참여가 바뀌었습니다. 새 견적을 받아 주세요.",
+    "Inputs, permissions or participation changed after the quote. Request a new quote.",
+  ],
+  B2B_AI_CATALOG_CHANGED: [
+    "가격 설정이 바뀌었습니다. 새 견적을 받아 주세요.",
+    "Pricing changed. Request a new quote.",
+  ],
+  B2B_AI_MAXIMUM_NOT_APPROVED: [
+    "견적의 최대량을 그대로 승인해야 실행할 수 있습니다.",
+    "Approve the quote's exact maximum to run.",
+  ],
+  B2B_AI_PERSONAL_LIMIT_EXCEEDED: [
+    "내 이번 기간 한도가 부족합니다. 팀 관리자에게 한도 조정을 요청하세요.",
+    "Your period limit is insufficient. Ask a team admin to adjust it.",
+  ],
+  B2B_AI_TEAM_BALANCE_EXCEEDED: [
+    "팀 공동 AI 잔량이 부족합니다. 결제 권한자에게 추가 구매를 요청하세요.",
+    "The shared team balance is insufficient. Ask a billing manager to purchase more.",
+  ],
+  B2B_EDITING_LICENCE_REQUIRED: [
+    "이 팀의 편집 이용권이 있어야 팀 AI를 실행할 수 있습니다.",
+    "An editing licence in this team is required to run team AI.",
+  ],
+  B2B_AI_PROJECT_CLOSED: [
+    "진행 중인 프로젝트에서만 AI를 실행할 수 있습니다.",
+    "AI runs only in an active project.",
+  ],
+  B2B_AI_RESULT_ACCESS_ENDED: [
+    "현재 권한으로는 이 결과를 받을 수 없습니다. 참여나 입력 자료 접근이 바뀌었습니다.",
+    "Your current access no longer covers this result.",
+  ],
+  B2B_AI_RESULT_HASH_MISMATCH: [
+    "받은 결과의 해시가 서버 기록과 달라 표시하지 않았습니다.",
+    "The received result did not match its recorded hash and was not shown.",
+  ],
+  B2B_AI_RESULT_FORMAT_INVALID: [
+    "받은 결과의 형식을 확인할 수 없어 표시하지 않았습니다.",
+    "The received result format could not be verified.",
+  ],
+  B2B_AI_RESULT_UNAVAILABLE: [
+    "결과 파일을 지금 읽을 수 없습니다. 잠시 뒤 다시 받아 주세요.",
+    "The result file is temporarily unavailable.",
+  ],
+  B2B_AI_RUN_STORAGE_UNAVAILABLE: [
+    "브라우저 저장소를 쓸 수 없어 요청 기록을 남길 수 없습니다. 요청을 보내지 않았습니다.",
+    "Browser storage is unavailable, so no request was sent.",
+  ],
+  B2B_AI_RUN_RECORD_INVALID: [
+    "저장된 AI 작업 기록을 읽을 수 없습니다.",
+    "The saved AI run record is unreadable.",
+  ],
+  B2B_AI_RESPONSE_SCOPE_MISMATCH: [
+    "다른 계정, 팀 또는 요청의 응답이라 반영하지 않았습니다.",
+    "A response for another account, team or request was ignored.",
+  ],
+  B2B_FILE_ACCOUNT_CHANGED: [
+    "로그인한 계정이 바뀌었습니다. 이 작업은 원래 계정으로 다시 로그인하면 이어서 확인할 수 있습니다.",
+    "The signed-in account changed. Sign in with the original account to continue this run.",
+  ],
+  B2B_FILE_SERVICE_CHANGED: [
+    "연결된 서비스가 바뀌어 이 작업을 이어갈 수 없습니다.",
+    "The connected service changed; this run cannot continue here.",
+  ],
+};
+const code = (error: unknown) => {
+  const m = (error as { response?: { data?: { message?: unknown } } })?.response
+    ?.data?.message;
+  if (typeof m === "string") return m;
+  if (error instanceof Error && /^B2B_[A-Z_]+$/.test(error.message))
+    return error.message;
+  return "REQUEST_FAILED";
+};
+function AiError({ code: c, retry }: { code: string; retry?: () => void }) {
+  const copy = useCopy();
+  if (!messages[c]) return <B2bError code={c} retry={retry} />;
+  return (
+    <div role="alert" className="rounded-lg border border-border bg-surface p-4 text-sm leading-6">
+      <p>{copy(...messages[c])}</p>
+      {retry && (
+        <button type="button" className={`${secondaryClass} mt-3`} onClick={retry}>
+          {copy("다시 확인", "Check again")}
+        </button>
+      )}
+    </div>
+  );
+}
+const operations: Record<TeamAiOperation, [string, string]> = {
+  transcript: ["음성 전사", "Transcription"],
+  vision: ["영상 분석", "Video analysis"],
+  agent: ["에이전트 작업", "Agent task"],
+};
+const states: Record<TeamAiExecution["job"]["state"], [string, string]> = {
+  queued: ["접수됨 · 대기", "Queued"],
+  running: ["처리 중", "Running"],
+  cancel_requested: ["취소 처리 중", "Cancellation pending"],
+  completed: ["완료", "Completed"],
+  failed: ["실패 · 예약 전부 반환", "Failed · reservation returned"],
+  cancelled: ["취소 완료", "Cancelled"],
+  timed_out: ["시간 초과 · 예약 전부 반환", "Timed out · reservation returned"],
+};
+const instant = (value: string) =>
+  new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    dateStyle: "medium",
+    timeStyle: "medium",
+  }).format(new Date(value));
+const seconds = (ms: number) => `${(ms / 1000).toFixed(1)}s`;
+const clock = (s: number) =>
+  new Date(Math.round(s * 1000)).toISOString().slice(11, 22);
+
+export function ProjectAiRun({ projectId }: { projectId: string }) {
+  const context = useWorkspace();
+  if (!context?.b2b?.enrolled || !context.data.currentUserId)
+    return <B2bError code="B2B_TEAM_NOT_FOUND" />;
+  const scope: AiScope = {
+    origin: new URL(apiClient.defaults.baseURL!).origin,
+    userId: context.data.currentUserId,
+    workspaceId: context.data.workspace.id,
+    projectId,
+  };
+  // A new account, service, team or project is a separate run and record.
+  return <ScopedAiRun key={JSON.stringify(scope)} scope={scope} />;
+}
+
+function ScopedAiRun({ scope }: { scope: AiScope }) {
+  const c = useCopy();
+  const { data } = useWorkspace()!;
+  const [api] = useState(() => aiApi(scope));
+  const [record, setRecord] = useState<AiRunRecord | null | undefined>();
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState<"quote" | "submit" | null>(null);
+  const [quote, setQuote] = useState<TeamAiQuote | null>(null);
+  const [execution, setExecution] = useState<TeamAiExecution | null>(null);
+  const [pollError, setPollError] = useState("");
+  const persist = (next: AiRunRecord | null) => {
+    if (next) runStore.write(next);
+    else runStore.clear(scope);
+    setRecord(next);
+  };
+
+  const acceptQuote = (r: AiRunRecord, q: TeamAiQuote) => {
+    const checked = checkQuote(q, r);
+    persist({ ...r, quote: { ...r.quote, id: checked.id } });
+    setQuote(checked);
+    setPending(null);
+  };
+  const acceptExecution = (r: AiRunRecord, view: TeamAiExecution) => {
+    const checked = checkExecution(view, r);
+    if (r.submit && r.submit.jobId !== checked.job.id)
+      persist({ ...r, submit: { ...r.submit, jobId: checked.job.id } });
+    setExecution(checked);
+    setPending(null);
+  };
+  const sendQuote = async (r: AiRunRecord) => {
+    setBusy(true);
+    setError("");
+    try {
+      const receipt = await api.quote({ requestKey: r.quote.requestKey, ...r.quote.input });
+      acceptQuote(r, receipt.quote);
+    } catch (e) {
+      setError(code(e));
+      // A processed rejection created nothing; anything else may have landed.
+      if (rejected(e) && !notReached(e)) persist(null);
+      else setPending("quote");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const recoverQuote = async (r: AiRunRecord) => {
+    setBusy(true);
+    try {
+      acceptQuote(r, (await api.quoteByRequest(r.quote.requestKey)).quote);
+      setError("");
+    } catch (e) {
+      if (notReached(e)) {
+        setBusy(false);
+        return sendQuote(r);
+      }
+      setPending("quote");
+      setError(code(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const sendSubmit = async (r: AiRunRecord) => {
+    setBusy(true);
+    setError("");
+    try {
+      acceptExecution(
+        r,
+        await api.submit({
+          requestKey: r.submit!.requestKey,
+          quoteId: r.quote.id!,
+          approvedMaximumUnits: r.submit!.approvedMaximumUnits,
+        }),
+      );
+    } catch (e) {
+      setError(code(e));
+      // Never drop a key whose job may exist: ask the server with the original key.
+      try {
+        acceptExecution(r, await api.submissionByRequest(r.submit!.requestKey));
+        setError("");
+      } catch (lookup) {
+        if (notReached(lookup) && rejected(e)) persist({ ...r, submit: undefined });
+        else setPending("submit");
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+  const recoverSubmit = async (r: AiRunRecord) => {
+    setBusy(true);
+    try {
+      acceptExecution(r, await api.submissionByRequest(r.submit!.requestKey));
+      setError("");
+    } catch (e) {
+      if (notReached(e)) {
+        setBusy(false);
+        return sendSubmit(r);
+      }
+      setPending("submit");
+      setError(code(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Resume exactly where the stored record stopped.
+  const resumed = useRef(false);
+  useEffect(() => {
+    if (resumed.current) return;
+    resumed.current = true;
+    let stored: AiRunRecord | null = null;
+    try {
+      stored = runStore.read(scope);
+    } catch (e) {
+      setError(code(e));
+    }
+    setRecord(stored);
+    if (!stored) return;
+    if (!stored.quote.id) void recoverQuote(stored);
+    else if (stored.submit && !stored.submit.jobId) void recoverSubmit(stored);
+    else if (!stored.submit)
+      void api
+        .getQuote(stored.quote.id)
+        .then(({ quote: q }) => acceptQuote(stored!, q))
+        .catch((e) => setError(code(e)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const jobId = record?.submit?.jobId;
+  const finished = execution?.progress.phase === "finished";
+  const poll = useCallback(async () => {
+    if (!record?.submit?.jobId) return;
+    try {
+      acceptExecution(record, await api.execution(record.submit.jobId));
+      setPollError("");
+    } catch (e) {
+      // A failed check is not "done" or "empty": keep the last state labelled.
+      setPollError(code(e));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [api, jobId]);
+  useEffect(() => {
+    if (!jobId || finished) return;
+    const first = window.setTimeout(() => void poll(), 0);
+    const timer = window.setInterval(() => void poll(), 2000);
+    const focus = () => void poll();
+    window.addEventListener("focus", focus);
+    return () => {
+      clearTimeout(first);
+      clearInterval(timer);
+      window.removeEventListener("focus", focus);
+    };
+  }, [jobId, finished, poll]);
+
+  if (record === undefined) return <TeamLoading />;
+  return (
+    <TeamShell
+      title={c("AI 작업", "AI job")}
+      description={c(
+        "이 프로젝트에 등록된 입력 버전으로 견적을 받고, 승인한 최대량 안에서 실행합니다. 결과는 자동으로 게시하거나 덮어쓰지 않습니다.",
+        "Quote with this project's registered input versions and run within the approved maximum. Results are never published or applied automatically.",
+      )}
+    >
+      <div className="flex flex-wrap items-center gap-3">
+        <SpaceBadge workspace={data.workspace} />
+        <Link
+          className={secondaryClass}
+          href={`/dashboard/workspaces/${scope.workspaceId}/projects/${scope.projectId}`}
+        >
+          {c("프로젝트", "Project")}
+        </Link>
+        <Link className={secondaryClass} href={`/dashboard/workspaces/${scope.workspaceId}/ai`}>
+          {c("팀 AI 사용량", "Team AI usage")}
+        </Link>
+      </div>
+      {error && <AiError code={error} />}
+      {!record ? (
+        <Draft
+          api={api}
+          busy={busy}
+          onQuote={async (input) => {
+            const next: AiRunRecord = {
+              schema: 1,
+              scope,
+              quote: { requestKey: crypto.randomUUID(), input },
+            };
+            try {
+              persist(next);
+            } catch (e) {
+              return setError(code(e));
+            }
+            await sendQuote(next);
+          }}
+        />
+      ) : !record.quote.id ? (
+        <Pending
+          label={c("견적 요청 결과를 확인하지 못했습니다.", "The quote request outcome is unknown.")}
+          busy={busy}
+          onCheck={() => void recoverQuote(record)}
+          onDiscard={pending === "quote" ? undefined : () => persist(null)}
+        />
+      ) : !record.submit ? (
+        quote ? (
+          <QuoteView
+            quote={quote}
+            busy={busy}
+            onSubmit={async () => {
+              const next: AiRunRecord = {
+                ...record,
+                submit: {
+                  requestKey: crypto.randomUUID(),
+                  approvedMaximumUnits: quote.maximumUnits,
+                },
+              };
+              try {
+                persist(next);
+              } catch (e) {
+                return setError(code(e));
+              }
+              await sendSubmit(next);
+            }}
+            onRefresh={async () => {
+              try {
+                acceptQuote(record, (await api.getQuote(record.quote.id!)).quote);
+                setError("");
+              } catch (e) {
+                setError(code(e));
+              }
+            }}
+            onDiscard={() => {
+              persist(null);
+              setQuote(null);
+            }}
+          />
+        ) : (
+          !error && <TeamLoading />
+        )
+      ) : !record.submit.jobId ? (
+        <Pending
+          label={c(
+            "실행 요청 결과를 확인하지 못했습니다. 같은 요청 번호로만 다시 확인하거나 보냅니다.",
+            "The run request outcome is unknown. Only the same request key is checked or resent.",
+          )}
+          busy={busy}
+          onCheck={() => void recoverSubmit(record)}
+        />
+      ) : execution ? (
+        <JobView
+          api={api}
+          view={execution}
+          pollError={pollError}
+          onPoll={poll}
+          onNew={() => {
+            persist(null);
+            setQuote(null);
+            setExecution(null);
+          }}
+        />
+      ) : pollError ? (
+        <AiError code={pollError} retry={() => void poll()} />
+      ) : (
+        <TeamLoading />
+      )}
+    </TeamShell>
+  );
+}
+
+function Pending({
+  label,
+  busy,
+  onCheck,
+  onDiscard,
+}: {
+  label: string;
+  busy: boolean;
+  onCheck: () => void;
+  onDiscard?: () => void;
+}) {
+  const c = useCopy();
+  return (
+    <Block title={c("요청 확인 필요", "Request needs checking")} description={label}>
+      <div className="flex flex-wrap gap-2">
+        <button className={primaryClass} disabled={busy} onClick={onCheck}>
+          {c("같은 요청 확인", "Check the same request")}
+        </button>
+        {onDiscard && (
+          <button className={secondaryClass} disabled={busy} onClick={onDiscard}>
+            {c("기록 지우기", "Discard record")}
+          </button>
+        )}
+      </div>
+    </Block>
+  );
+}
+
+function Draft({
+  api,
+  busy,
+  onQuote,
+}: {
+  api: ReturnType<typeof aiApi>;
+  busy: boolean;
+  onQuote: (input: AiQuoteInput) => Promise<void>;
+}) {
+  const c = useCopy();
+  const [caps, setCaps] = useState<TeamAiCapabilities | null>(null);
+  const [versions, setVersions] = useState<TeamFileVersion[] | null>(null);
+  const [failure, setFailure] = useState("");
+  const [operation, setOperation] = useState<TeamAiOperation>("transcript");
+  const [selected, setSelected] = useState<string[]>([]);
+  const [instruction, setInstruction] = useState("");
+  const [language, setLanguage] = useState("");
+  const load = useCallback(async () => {
+    try {
+      const [capabilities, list] = await Promise.all([api.capabilities(), api.versions()]);
+      setCaps(capabilities);
+      setVersions(list.versions);
+      setFailure("");
+    } catch (e) {
+      // Failure is not an empty file list.
+      setVersions(null);
+      setFailure(code(e));
+    }
+  }, [api]);
+  useEffect(() => {
+    const t = window.setTimeout(() => void load(), 0);
+    return () => clearTimeout(t);
+  }, [load]);
+  if (failure) return <AiError code={failure} retry={() => void load()} />;
+  if (!caps || !versions) return <TeamLoading />;
+  const capability = caps.operations.find((o) => o.operation === operation)!;
+  const usable = versions.filter(
+    (v) =>
+      v.allowedActions.ai &&
+      v.metadata.durationMs !== null &&
+      (capability.requiredStream === "video" ? v.metadata.video : v.metadata.audio).length > 0,
+  );
+  const lang = language || capability.languages[0] || "";
+  return (
+    <Block
+      title={c("작업 준비", "Prepare a job")}
+      description={c(
+        "서버에 등록되고 이 프로젝트에 연결된 정확한 버전만 입력으로 쓸 수 있습니다. 앱의 로컬 원본은 먼저 등록해야 합니다.",
+        "Only exact versions registered on the server and linked to this project can be inputs. Register local originals from the app first.",
+      )}
+    >
+      {caps.blockedReason && <AiError code={caps.blockedReason} />}
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium">{c("작업 종류", "Job type")}</legend>
+        <div className="flex flex-wrap gap-4">
+          {caps.operations.map((o) => (
+            <label key={o.operation} className="flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name="operation"
+                value={o.operation}
+                checked={operation === o.operation}
+                disabled={!o.available}
+                onChange={() => {
+                  setOperation(o.operation);
+                  setSelected([]);
+                  setLanguage("");
+                }}
+              />
+              {c(...operations[o.operation])}
+              {!o.available && (
+                <span className="text-xs text-muted">({c("사용 불가", "unavailable")})</span>
+              )}
+            </label>
+          ))}
+        </div>
+        {!capability.available && capability.blockedReason && (
+          <AiError code={capability.blockedReason} />
+        )}
+      </fieldset>
+      {capability.available && (
+        <>
+          <fieldset className="space-y-2">
+            <legend className="text-sm font-medium">
+              {c("입력 버전", "Input versions")}{" "}
+              <span className="text-xs text-muted">
+                ({c("최대", "up to")} {capability.maxInputs})
+              </span>
+            </legend>
+            {usable.length === 0 ? (
+              <p className="text-sm text-muted">
+                {c(
+                  "이 작업에 쓸 수 있는 등록 버전이 없습니다. 자료 화면에서 등록 상태와 AI 입력 허용을 확인하세요.",
+                  "No registered version is usable for this job. Check registration and AI permission in Files.",
+                )}
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {usable.map((v) => (
+                  <li key={v.id}>
+                    <label className="flex flex-wrap items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(v.id)}
+                        disabled={!selected.includes(v.id) && selected.length >= capability.maxInputs}
+                        onChange={(event) =>
+                          setSelected(
+                            event.target.checked
+                              ? [...selected, v.id]
+                              : selected.filter((id) => id !== v.id),
+                          )
+                        }
+                      />
+                      <span className="font-medium">{v.name}</span>
+                      <span className="tabular-nums text-muted">
+                        v{v.ordinal} · {seconds(v.metadata.durationMs!)} · sha256 {v.sha256.slice(0, 12)}…
+                      </span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {versions.length > usable.length && (
+              <p className="text-xs text-muted">
+                {c(
+                  `AI 입력 허용이 없거나 필요한 스트림이 없는 버전 ${versions.length - usable.length}개는 제외했습니다.`,
+                  `${versions.length - usable.length} versions without AI permission or the needed stream are excluded.`,
+                )}
+              </p>
+            )}
+          </fieldset>
+          {capability.languages.length > 0 && (
+            <label className="block space-y-2 text-sm">
+              <span className="font-medium">{c("언어", "Language")}</span>
+              <select className={inputClass} value={lang} onChange={(e) => setLanguage(e.target.value)}>
+                {capability.languages.map((l) => (
+                  <option key={l} value={l}>
+                    {l === "auto" ? c("자동 감지", "Detect") : l}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <label className="block space-y-2 text-sm">
+            <span className="font-medium">{c("작업 지시", "Instruction")}</span>
+            <textarea
+              className={`${inputClass} min-h-28`}
+              maxLength={caps.instructionMaxLength}
+              value={instruction}
+              onChange={(e) => setInstruction(e.target.value)}
+            />
+            <span className="text-xs text-muted tabular-nums">
+              {instruction.length} / {caps.instructionMaxLength}
+            </span>
+          </label>
+          <p className="text-xs leading-5 text-muted">
+            {c(
+              `단위: ${capability.unitSeconds}초마다 ${capability.unitsPerBlock}단위, 입력당 최소 ${capability.minimumUnits}단위(올림). 견적에서 정확한 예상량과 최대량을 확인합니다.`,
+              `Units: ${capability.unitsPerBlock} per ${capability.unitSeconds}s, minimum ${capability.minimumUnits} per input (rounded up). The quote shows the exact estimate and maximum.`,
+            )}
+          </p>
+          <button
+            className={primaryClass}
+            disabled={busy || !selected.length || !instruction.trim()}
+            onClick={() =>
+              void onQuote({
+                operation,
+                inputVersionIds: selected,
+                instruction: instruction.trim(),
+                ...(capability.languages.length ? { language: lang } : {}),
+              })
+            }
+          >
+            {c("견적 받기", "Get a quote")}
+          </button>
+        </>
+      )}
+    </Block>
+  );
+}
+
+function QuoteView({
+  quote,
+  busy,
+  onSubmit,
+  onRefresh,
+  onDiscard,
+}: {
+  quote: TeamAiQuote;
+  busy: boolean;
+  onSubmit: () => Promise<void>;
+  onRefresh: () => Promise<void>;
+  onDiscard: () => void;
+}) {
+  const c = useCopy();
+  const [agree, setAgree] = useState(false);
+  const a = quote.availability;
+  const unit = a.unitLabel ?? c("단위", "units");
+  return (
+    <Block
+      title={c("견적", "Quote")}
+      description={c(
+        `${c(...operations[quote.operation])} · 만료 ${instant(quote.expiresAt)} · 설정 ${quote.catalogVersion}`,
+        `${c(...operations[quote.operation])} · expires ${instant(quote.expiresAt)} · settings ${quote.catalogVersion}`,
+      )}
+      actions={
+        <button className={secondaryClass} disabled={busy} onClick={() => void onRefresh()}>
+          {c("최신 상태 확인", "Refresh")}
+        </button>
+      }
+    >
+      <table className="w-full text-sm">
+        <thead className="text-left text-muted">
+          <tr>
+            <th className="py-1 font-normal">{c("입력 버전", "Input version")}</th>
+            <th className="py-1 font-normal">{c("길이", "Length")}</th>
+            <th className="py-1 text-right font-normal">{c("완료 단계 사용량", "Stage units")}</th>
+          </tr>
+        </thead>
+        <tbody className="tabular-nums">
+          {quote.inputs.map((i) => (
+            <tr key={i.versionId} className="border-t border-border">
+              <td className="py-2">
+                {i.name}
+                <span className="block text-xs text-muted">sha256 {i.sha256.slice(0, 16)}…</span>
+              </td>
+              <td className="py-2">{seconds(i.durationMs)}</td>
+              <td className="py-2 text-right">{i.units}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+        <div>
+          <dt className="text-muted">{c("예상 사용량", "Estimate")}</dt>
+          <dd className="text-xl font-medium tabular-nums">
+            {quote.estimatedUnits} {unit}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted">{c("최대 차감량 (예약)", "Maximum (reserved)")}</dt>
+          <dd className="text-xl font-medium tabular-nums">
+            {quote.maximumUnits} {unit}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-muted">{c("팀 공동 사용 가능량", "Shared team balance")}</dt>
+          <dd className="tabular-nums">{a.reconciled && a.teamAvailableUnits !== null ? a.teamAvailableUnits : c("확인 필요", "Needs review")}</dd>
+          <dd className="text-xs text-muted">{c("팀 전체가 함께 쓰는 잔액입니다.", "The balance the whole team shares.")}</dd>
+        </div>
+        <div>
+          <dt className="text-muted">{c("내 이번 기간 잔여 한도", "My remaining period limit")}</dt>
+          <dd className="tabular-nums">{a.personalRemainingUnits ?? c("없음 또는 확인 필요", "None or needs review")}</dd>
+          <dd className="text-xs text-muted">
+            {c(
+              "팀 잔액을 쓸 수 있는 내 상한이며 별도로 지급된 양이 아닙니다.",
+              "A cap on how much of the team balance you may use, not a separate grant.",
+            )}
+          </dd>
+        </div>
+      </dl>
+      <p className="text-xs leading-5 text-muted">
+        {c(
+          "실행하면 최대량을 예약합니다. 결과가 확인된 완료 단계의 측정량만 정산하고 남은 예약은 반환합니다. 서비스 실패는 전부 반환하고, 취소하면 이미 완료된 단계만 정산합니다.",
+          "Running reserves the maximum. Only verified completed stages settle; the rest returns. Service failures return everything; cancelling settles only completed stages.",
+        )}
+      </p>
+      {a.blockedReason && <AiError code={a.blockedReason} />}
+      {quote.jobId ? (
+        <p role="status" className="text-sm">{c("이미 실행한 견적입니다.", "This quote was already run.")}</p>
+      ) : (
+        <>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
+            {c(
+              `최대 ${quote.maximumUnits} ${unit} 예약에 동의합니다.`,
+              `I approve reserving up to ${quote.maximumUnits} ${unit}.`,
+            )}
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <button
+              className={primaryClass}
+              disabled={busy || !agree || !a.submittable}
+              onClick={() => void onSubmit()}
+            >
+              {c("실행", "Run")}
+            </button>
+            <button className={secondaryClass} disabled={busy} onClick={onDiscard}>
+              {c("견적 버리기", "Discard quote")}
+            </button>
+          </div>
+        </>
+      )}
+    </Block>
+  );
+}
+
+function JobView({
+  api,
+  view,
+  pollError,
+  onPoll,
+  onNew,
+}: {
+  api: ReturnType<typeof aiApi>;
+  view: TeamAiExecution;
+  pollError: string;
+  onPoll: () => Promise<void>;
+  onNew: () => void;
+}) {
+  const c = useCopy();
+  const { job, progress, result } = view;
+  const [confirm, setConfirm] = useState(false);
+  const cancelKey = useRef<string | null>(null);
+  const [cancelUnknown, setCancelUnknown] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [received, setReceived] = useState<{ sha256: string; document: TeamAiResultDocument; bytes: Uint8Array } | null>(null);
+  const cancel = async () => {
+    setBusy(true);
+    cancelKey.current ??= crypto.randomUUID();
+    try {
+      await api.cancel(job.id, cancelKey.current);
+      cancelKey.current = null;
+      setCancelUnknown(false);
+      setConfirm(false);
+      await onPoll();
+    } catch (e) {
+      setError(code(e));
+      setCancelUnknown(!rejected(e));
+      if (rejected(e)) cancelKey.current = null;
+    } finally {
+      setBusy(false);
+    }
+  };
+  const receive = async () => {
+    if (!result) return;
+    setBusy(true);
+    setError("");
+    try {
+      const meta = (await api.result(result.id)).result;
+      if (meta.sha256 !== result.sha256) throw new Error("B2B_AI_RESULT_HASH_MISMATCH");
+      setReceived(verifyResultContent(await api.content(result.id, result.sha256), meta));
+    } catch (e) {
+      setReceived(null);
+      setError(code(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const save = () => {
+    if (!received) return;
+    const url = URL.createObjectURL(
+      new Blob([received.bytes.slice().buffer as ArrayBuffer], { type: "application/json" }),
+    );
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `prepix-ai-result-${received.sha256.slice(0, 12)}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  return (
+    <Block
+      title={c("작업 진행", "Job progress")}
+      description={`${c(...operations[job.operation])} · ${c("접수", "Accepted")} ${instant(job.acceptedAt)} · ${c("처리 종료 시각", "Deadline")} ${instant(job.deadline)}`}
+      actions={
+        <button className={secondaryClass} disabled={busy} onClick={() => void onPoll()}>
+          {c("최신 상태 확인", "Refresh")}
+        </button>
+      }
+    >
+      {pollError && (
+        <div className="space-y-2">
+          <AiError code={pollError} retry={() => void onPoll()} />
+          <p className="text-xs text-muted">
+            {c("아래는 마지막으로 확인한 상태입니다.", "Below is the last confirmed state.")}
+          </p>
+        </div>
+      )}
+      <p role="status" className="text-sm font-medium">
+        {c(...states[job.state])}
+        {progress.phase === "needs_confirmation" &&
+          ` · ${c("공급자 처리 확인 필요 (다시 호출하지 않음)", "provider outcome needs confirmation (not re-sent)")}`}
+      </p>
+      <div
+        role="progressbar"
+        aria-label={c("완료 단계", "Completed stages")}
+        aria-valuemin={0}
+        aria-valuemax={progress.totalStages}
+        aria-valuenow={progress.completedStages}
+        className="h-2 w-full overflow-hidden rounded-full bg-border"
+      >
+        <div
+          className="h-full bg-accent transition-[width]"
+          style={{ width: `${progress.totalStages ? (100 * progress.completedStages) / progress.totalStages : 0}%` }}
+        />
+      </div>
+      <dl className="flex flex-wrap gap-x-5 gap-y-2 text-sm tabular-nums">
+        {[
+          [c("완료 단계", "Stages"), `${progress.completedStages} / ${progress.totalStages}`],
+          [c("승인 최대량", "Approved maximum"), job.maximumUnits],
+          [c("예약 중", "Reserved"), job.reservedUnits],
+          [c("사용 확정", "Confirmed"), job.confirmedUnits],
+          [c("예약 반환", "Returned"), job.returnedUnits],
+        ].map(([label, value]) => (
+          <div key={String(label)}>
+            <dt className="inline text-muted">{label} </dt>
+            <dd className="inline">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      {error && <AiError code={error} />}
+      {["queued", "running", "cancel_requested"].includes(job.state) || cancelUnknown ? (
+        job.state !== "cancel_requested" || cancelUnknown ? (
+          <button className={secondaryClass} disabled={busy} onClick={() => setConfirm(true)}>
+            {cancelUnknown ? c("취소 결과 확인", "Check cancellation") : c("작업 취소", "Cancel job")}
+          </button>
+        ) : null
+      ) : null}
+      {confirm && (
+        <ConfirmDialog label={c("AI 작업 취소 확인", "Confirm AI job cancellation")} onClose={() => !busy && setConfirm(false)}>
+          <p className="text-sm leading-6">
+            {c(
+              "대기 중이면 예약 전부를 반환합니다. 실행 중이면 이미 완료된 단계만 정산하고 나머지를 반환합니다.",
+              "Queued jobs return everything. Running jobs settle only completed stages and return the rest.",
+            )}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button className={primaryClass} disabled={busy} onClick={() => void cancel()}>
+              {cancelUnknown ? c("같은 취소 다시 확인", "Check same cancellation") : c("취소 요청", "Request cancellation")}
+            </button>
+            <button className={secondaryClass} disabled={busy} onClick={() => setConfirm(false)}>
+              {c("닫기", "Close")}
+            </button>
+          </div>
+        </ConfirmDialog>
+      )}
+      {progress.phase === "finished" && (
+        <div className="space-y-3 border-t border-border pt-4">
+          {result ? (
+            <>
+              <p className="text-sm">
+                {result.complete
+                  ? c("결과가 준비되었습니다.", "The result is ready.")
+                  : c(
+                      `취소 전에 완료된 ${result.completedStages}/${result.totalStages} 단계의 부분 결과입니다.`,
+                      `Partial result of ${result.completedStages}/${result.totalStages} stages completed before cancellation.`,
+                    )}{" "}
+                <span className="text-xs text-muted">
+                  {result.size} bytes · sha256 {result.sha256.slice(0, 16)}…
+                </span>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button className={primaryClass} disabled={busy} onClick={() => void receive()}>
+                  {c("결과 받기", "Receive result")}
+                </button>
+                {received && (
+                  <button className={secondaryClass} onClick={save}>
+                    {c("JSON 파일로 저장", "Save JSON file")}
+                  </button>
+                )}
+              </div>
+              {received && <ResultPreview sha256={received.sha256} document={received.document} />}
+            </>
+          ) : (
+            <p className="text-sm text-muted">
+              {c(
+                "제공할 결과가 없습니다. 고객 사용량은 확정되지 않았고 예약은 반환되었습니다.",
+                "No result is available. No usage was confirmed and the reservation was returned.",
+              )}
+            </p>
+          )}
+          <button className={secondaryClass} onClick={onNew}>
+            {c("새 작업 준비", "Prepare a new job")}
+          </button>
+        </div>
+      )}
+    </Block>
+  );
+}
+
+function ResultPreview({ sha256, document }: { sha256: string; document: TeamAiResultDocument }) {
+  const c = useCopy();
+  return (
+    <div className="space-y-3">
+      <p role="status" className="break-all text-xs text-muted">
+        {c("받은 바이트의 SHA-256 확인됨", "SHA-256 of received bytes verified")}: {sha256}
+      </p>
+      {document.items.map((item) => (
+        <article key={item.ordinal} className="space-y-2 rounded-lg border border-border p-3 text-sm">
+          <p className="text-xs text-muted">
+            {c("입력", "Input")} {item.ordinal + 1} · sha256 {item.inputSha256.slice(0, 12)}…
+          </p>
+          {item.output.kind === "transcript" ? (
+            <ol className="space-y-1">
+              {item.output.segments.slice(0, 50).map((s, i) => (
+                <li key={i} className="tabular-nums">
+                  <span className="text-muted">
+                    {clock(s.start)}–{clock(s.end)}
+                    {s.speaker ? ` [${s.speaker}]` : ""}
+                  </span>{" "}
+                  {s.text}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <>
+              <p>{item.output.summary}</p>
+              <ol className="space-y-1">
+                {item.output.segments.slice(0, 50).map((s, i) => (
+                  <li key={i} className="tabular-nums">
+                    <span className="text-muted">
+                      {clock(s.start)}–{clock(s.end)}
+                    </span>{" "}
+                    {s.description}
+                    {s.tags?.length ? <span className="text-xs text-muted"> · {s.tags.join(", ")}</span> : null}
+                  </li>
+                ))}
+              </ol>
+            </>
+          )}
+        </article>
+      ))}
+    </div>
+  );
+}

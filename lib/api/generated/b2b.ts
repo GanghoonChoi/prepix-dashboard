@@ -549,6 +549,164 @@ export type TeamAiUsageOverview = {
   serverTime: string;
 };
 
+// Team AI quote → submission → execution → result receipt (SOT: docs/b2b-ai-execution.md).
+// Clients never send units, hashes or prices; quotes are server-side and immutable.
+export type TeamAiOperation = TeamAiJob["operation"];
+export type TeamAiOperationCapability = {
+  operation: TeamAiOperation;
+  available: boolean;
+  blockedReason: string | null;
+  requiredStream: "audio" | "video" | null;
+  maxInputs: number;
+  maxInputBytes: number;
+  maxDurationMs: number;
+  unitSeconds: number;
+  unitsPerBlock: number;
+  minimumUnits: number;
+  rounding: "ceil";
+  languages: string[];
+};
+export type TeamAiCapabilities = {
+  catalogVersion: string | null;
+  blockedReason: string | null;
+  instructionMaxLength: number;
+  quoteTtlSeconds: number;
+  operations: TeamAiOperationCapability[];
+  serverTime: string;
+};
+export type CreateTeamAiQuote = {
+  requestKey: string;
+  operation: TeamAiOperation;
+  inputVersionIds: string[];
+  instruction: string;
+  language?: string;
+};
+export type TeamAiQuoteInput = {
+  ordinal: number;
+  versionId: string;
+  assetId: string;
+  name: string;
+  sha256: string;
+  size: number;
+  durationMs: number;
+  units: number;
+};
+// Team balance and personal limit are separate: the personal limit only caps
+// how much of the shared team balance this person may reserve.
+export type TeamAiAvailability = {
+  reconciled: boolean;
+  teamAvailableUnits: string | null;
+  personalRemainingUnits: number | null;
+  unitLabel: string | null;
+  unitDescription: string | null;
+  submittable: boolean;
+  blockedReason: string | null;
+};
+export type TeamAiQuote = {
+  id: string;
+  workspaceId: string;
+  projectId: string;
+  operation: TeamAiOperation;
+  catalogVersion: string;
+  language: string | null;
+  inputs: TeamAiQuoteInput[];
+  estimatedUnits: number;
+  maximumUnits: number;
+  createdAt: string;
+  expiresAt: string;
+  jobId: string | null;
+  availability: TeamAiAvailability;
+  serverTime: string;
+};
+export type TeamAiQuoteReceipt = { quote: TeamAiQuote; requestId: string };
+export type SubmitTeamAiJob = {
+  requestKey: string;
+  quoteId: string;
+  approvedMaximumUnits: number;
+};
+export type TeamAiResultFormat = "prepix.team-ai.result/v1";
+export type TeamAiResultSummary = {
+  id: string;
+  jobId: string;
+  format: TeamAiResultFormat;
+  mediaType: "application/json";
+  size: number;
+  sha256: string;
+  complete: boolean;
+  completedStages: number;
+  totalStages: number;
+  units: number;
+  createdAt: string;
+};
+export type TeamAiExecutionPhase =
+  | "queued"
+  | "running"
+  | "needs_confirmation"
+  | "finished";
+export type TeamAiExecution = {
+  job: TeamAiJob;
+  progress: {
+    phase: TeamAiExecutionPhase;
+    totalStages: number;
+    completedStages: number;
+  };
+  result: TeamAiResultSummary | null;
+  serverTime: string;
+};
+export type TeamAiSubmission = TeamAiExecution & { requestId: string | null };
+export type TeamAiResultReceipt = {
+  result: TeamAiResultSummary;
+  serverTime: string;
+};
+export type TeamAiResultContent = {
+  result: TeamAiResultSummary;
+  contentBase64: string;
+};
+// All start/end values are SECONDS from the start of the input version, with
+// 0 <= start <= end <= input duration; segments (and words inside a segment)
+// are in non-decreasing start order and words lie within their segment.
+export type TeamAiTranscriptOutput = {
+  kind: "transcript";
+  provider: string;
+  language: string;
+  durationMs: number;
+  segments: {
+    start: number;
+    end: number;
+    text: string;
+    speaker?: string;
+    words?: { start: number; end: number; text: string }[];
+  }[];
+  fullText: string;
+};
+// Structured provider output, validated on the server: at least one segment,
+// non-empty descriptions, same seconds bounds and ordering as transcripts.
+export type TeamAiVisionOutput = {
+  kind: "vision";
+  provider: string;
+  model: string;
+  summary: string;
+  segments: {
+    start: number;
+    end: number;
+    description: string;
+    tags?: string[];
+  }[];
+};
+// The exact bytes behind TeamAiResultSummary.sha256 parse as this document.
+export type TeamAiResultDocument = {
+  format: TeamAiResultFormat;
+  operation: TeamAiOperation;
+  catalogVersion: string;
+  complete: boolean;
+  items: {
+    ordinal: number;
+    inputVersionId: string;
+    inputSha256: string;
+    output: TeamAiTranscriptOutput | TeamAiVisionOutput;
+  }[];
+};
+
 export type TeamFileKind = "original" | "output" | "working";
 export type TeamFileUploadState =
   | "preparing"

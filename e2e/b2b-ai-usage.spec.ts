@@ -2,14 +2,14 @@ import { test, expect, type APIRequestContext } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
-const api = "http://127.0.0.1:3312";
+const api = process.env.B2B_E2E_API_URL ?? "http://127.0.0.1:3312";
 const password = "LocalPreview123";
 function fixture(script: string, input: object) {
   return JSON.parse(
     execFileSync(
       process.execPath,
       [
-        resolve(`../prepix-backend/backend/scripts/${script}`),
+        resolve(process.env.B2B_E2E_FIXTURE_DIR ?? "../prepix-backend/backend/scripts", script),
         JSON.stringify(input),
       ],
       { encoding: "utf8", timeout: 15000 },
