@@ -2138,3 +2138,23 @@ export const statementLabels = {
     content_changed: { ko: "집계 내용 정정", en: "Content corrected" },
   } satisfies Record<StatementReason, Label>,
 };
+
+
+/** F03: current actor's home. Limited cards never represent a team total. */
+export type TeamHome = {
+  currentUserId: string; workspaceId: string; serverTime: string;
+  currentState: TeamState;
+  period: { startsAt: string; endsAt: string; readUntil: string; recoveryUntil: string } | null;
+  periods: { id: string; startsAt: string; endsAt: string;
+    state: "current" | "scheduled" | "withheld" | "ended";
+    licence: { id: string; state: LicenceState; startsAt: string; endsAt: string; scheduledRevokeAt: string | null } | null;
+    aiBudget: { limitUnits: number; reservedUnits: number; confirmedUnits: number; remainingUnits: number } | null;
+    aiUnitLabel: string; aiUnitDescription: string;
+  }[];
+  aiUsage: { reconciled: boolean; availableUnits: string | null; sampledAt: string } | null;
+  aiUsageError: string | null;
+  projects: { items: { id: string; name: string; state: ProjectState; role: ProjectRole; updatedAt: string }[]; hasMore: boolean };
+  transfers: { items: { id: string; projectId: string; projectName: string; name: string; state: string; size: number; lastActivityAt: string }[]; hasMore: boolean };
+  aiJobs: { items: { id: string; projectId: string; projectName: string; operation: TeamAiOperation; state: string; acceptedAt: string; resultVersionId: string | null }[]; hasMore: boolean };
+  deliveries: { items: { projectId: string; projectName: string; packageId: string | null; state: "prepare" | "check" | "confirm" | "confirmed"; updatedAt: string }[]; hasMore: boolean };
+};

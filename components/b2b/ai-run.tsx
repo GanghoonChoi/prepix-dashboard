@@ -1,6 +1,19 @@
 "use client";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
+import { useSearchParams } from "next/navigation";
+import {
+  assertExistingAiScope,
+  checkExistingAi,
+} from "@/lib/b2b-home/existing-ai";
+import { homeEnvironment } from "@/lib/b2b-home/home";
 import { apiClient } from "@/lib/api/client";
 import type {
   TeamAiCapabilities,
@@ -56,8 +69,14 @@ const messages: Record<string, [string, string]> = {
     "입력 크기나 길이가 이 작업의 한도를 넘습니다.",
     "An input exceeds this job's size or duration limit.",
   ],
-  B2B_AI_INPUT_INVALID: ["입력 버전을 다시 선택해 주세요.", "Select the input versions again."],
-  B2B_AI_LANGUAGE_UNSUPPORTED: ["지원하지 않는 언어입니다.", "This language is not supported."],
+  B2B_AI_INPUT_INVALID: [
+    "입력 버전을 다시 선택해 주세요.",
+    "Select the input versions again.",
+  ],
+  B2B_AI_LANGUAGE_UNSUPPORTED: [
+    "지원하지 않는 언어입니다.",
+    "This language is not supported.",
+  ],
   B2B_AI_INSTRUCTION_INVALID: [
     "작업 지시를 입력해 주세요. 제어 문자는 쓸 수 없습니다.",
     "Enter an instruction without control characters.",
@@ -151,10 +170,17 @@ function AiError({ code: c, retry }: { code: string; retry?: () => void }) {
   const copy = useCopy();
   if (!messages[c]) return <B2bError code={c} retry={retry} />;
   return (
-    <div role="alert" className="rounded-lg border border-border bg-surface p-4 text-sm leading-6">
+    <div
+      role="alert"
+      className="rounded-lg border border-border bg-surface p-4 text-sm leading-6"
+    >
       <p>{copy(...messages[c])}</p>
       {retry && (
-        <button type="button" className={`${secondaryClass} mt-3`} onClick={retry}>
+        <button
+          type="button"
+          className={`${secondaryClass} mt-3`}
+          onClick={retry}
+        >
           {copy("다시 확인", "Check again")}
         </button>
       )}
@@ -186,6 +212,15 @@ const clock = (s: number) =>
   new Date(Math.round(s * 1000)).toISOString().slice(11, 22);
 
 export function ProjectAiRun({ projectId }: { projectId: string }) {
+  return (
+    <Suspense fallback={<TeamLoading />}>
+      <AiRunEntry projectId={projectId} />
+    </Suspense>
+  );
+}
+function AiRunEntry({ projectId }: { projectId: string }) {
+  const search = useSearchParams(),
+    jobId = search.get("jobId");
   const context = useWorkspace();
   if (!context?.b2b?.enrolled || !context.data.currentUserId)
     return <B2bError code="B2B_TEAM_NOT_FOUND" />;
@@ -195,8 +230,160 @@ export function ProjectAiRun({ projectId }: { projectId: string }) {
     workspaceId: context.data.workspace.id,
     projectId,
   };
+  if (jobId !== null) {
+    if (!context.b2b.allowedActions.projects)
+      return <B2bError code="B2B_AI_ACCESS_ENDED" />;
+    if (
+      !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(
+        jobId,
+      )
+    )
+      return <B2bError code="B2B_AI_RESPONSE_SCOPE_MISMATCH" />;
+    return (
+      <ExistingAiRun
+        key={JSON.stringify([scope, jobId])}
+        scope={scope}
+        jobId={jobId}
+      />
+    );
+  }
   // A new account, service, team or project is a separate run and record.
   return <ScopedAiRun key={JSON.stringify(scope)} scope={scope} />;
+}
+
+// An exact home link reads its already accepted job without constructing a new
+// quote/submit intent or overwriting another saved project run.
+function ExistingAiRun({ scope, jobId }: { scope: AiScope; jobId: string }) {
+  const c = useCopy(),
+    context = useWorkspace()!;
+  const lifetime = useRef<AbortController | null>(null),
+    serial = useRef(0);
+  const [view, setView] = useState<TeamAiExecution | null>(null),
+    [error, setError] = useState("");
+  const assertCurrent = useCallback(() => {
+    if (!lifetime.current) throw new Error("B2B_AI_RESPONSE_SCOPE_MISMATCH");
+    assertExistingAiScope(
+      scope,
+      jobId,
+      homeEnvironment(new URL(apiClient.defaults.baseURL!).origin),
+      window.location.search,
+      lifetime.current.signal,
+    );
+  }, [scope, jobId]);
+  const [baseApi] = useState(() => aiApi(scope));
+  const readExecution = useCallback(async () => {
+    assertCurrent();
+    const next = await baseApi.execution(jobId, lifetime.current!.signal);
+    assertCurrent();
+    return checkExistingAi(next, scope, jobId);
+  }, [assertCurrent, baseApi, jobId, scope]);
+  const poll = useCallback(async () => {
+    const ticket = ++serial.current;
+    try {
+      const next = await readExecution();
+      if (ticket !== serial.current) return;
+      setView(next);
+      setError("");
+    } catch (e) {
+      if (lifetime.current?.signal.aborted || ticket !== serial.current) return;
+      setView(null);
+      setError(code(e));
+    }
+  }, [readExecution]);
+  const guarded = useCallback(
+    async <T,>(send: () => Promise<T>) => {
+      assertCurrent();
+      try {
+        const result = await send();
+        assertCurrent();
+        return result;
+      } catch (e) {
+        assertCurrent();
+        throw e;
+      }
+    },
+    [assertCurrent],
+  );
+  const api = {
+    ...baseApi,
+    result: async (id: string) => {
+      const current = await readExecution();
+      if (current.result?.id !== id)
+        throw new Error("B2B_AI_RESULT_ACCESS_ENDED");
+      return guarded(() => baseApi.result(id, lifetime.current!.signal));
+    },
+    content: (id: string, sha: string) =>
+      guarded(() => baseApi.content(id, sha, lifetime.current!.signal)),
+  };
+  useLayoutEffect(() => {
+    const controller = new AbortController(),
+      counter = serial;
+    lifetime.current = controller;
+    return () => {
+      controller.abort();
+      counter.current++;
+    };
+  }, []);
+  useEffect(() => {
+    const initial = window.setTimeout(() => void poll(), 0),
+      timer = window.setInterval(() => void poll(), 2000);
+    window.addEventListener("focus", poll);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(timer);
+      window.removeEventListener("focus", poll);
+    };
+  }, [poll]);
+  return (
+    <TeamShell
+      title={c("접수된 AI 작업", "Accepted AI job")}
+      description={c(
+        "이미 접수된 작업의 현재 상태와 결과를 확인합니다.",
+        "Review the current status and result of an already accepted job.",
+      )}
+    >
+      <SpaceBadge workspace={context.data.workspace} />
+      <div className="flex flex-wrap gap-3">
+        <Link
+          href={`/dashboard/workspaces/${scope.workspaceId}`}
+          className={secondaryClass}
+        >
+          {c("팀 홈", "Team home")}
+        </Link>
+        <Link
+          href={`/dashboard/workspaces/${scope.workspaceId}/projects/${scope.projectId}/ai`}
+          className={secondaryClass}
+        >
+          {c("프로젝트 AI 화면", "Project AI screen")}
+        </Link>
+      </div>
+      {error ? (
+        <AiError code={error} retry={() => void poll()} />
+      ) : view ? (
+        <JobView
+          key={view.job.id}
+          api={api}
+          view={view}
+          cancelKey={undefined}
+          saveCancelKey={() => {}}
+          pollError=""
+          onPoll={poll}
+          onNew={() => {}}
+          existingOnly
+          assertCurrent={assertCurrent}
+          beforeSave={async () => {
+            if (!view.result) throw new Error("B2B_AI_RESULT_ACCESS_ENDED");
+            const meta = (await api.result(view.result.id)).result;
+            if (meta.sha256 !== view.result.sha256)
+              throw new Error("B2B_AI_RESULT_HASH_MISMATCH");
+            assertCurrent();
+          }}
+        />
+      ) : (
+        <TeamLoading />
+      )}
+    </TeamShell>
+  );
 }
 
 function ScopedAiRun({ scope }: { scope: AiScope }) {
@@ -872,6 +1059,9 @@ function JobView({
   pollError,
   onPoll,
   onNew,
+  existingOnly = false,
+  assertCurrent,
+  beforeSave,
 }: {
   api: ReturnType<typeof aiApi>;
   view: TeamAiExecution;
@@ -880,6 +1070,9 @@ function JobView({
   pollError: string;
   onPoll: () => Promise<void>;
   onNew: () => void;
+  existingOnly?: boolean;
+  assertCurrent?: () => void;
+  beforeSave?: () => Promise<void>;
 }) {
   const c = useCopy();
   const { job, progress, result } = view;
@@ -888,7 +1081,11 @@ function JobView({
   const [cancelUnknown, setCancelUnknown] = useState(!!cancelKey);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [received, setReceived] = useState<{ sha256: string; document: TeamAiResultDocument; bytes: Uint8Array } | null>(null);
+  const [received, setReceived] = useState<{
+    sha256: string;
+    document: TeamAiResultDocument;
+    bytes: Uint8Array;
+  } | null>(null);
   const cancel = async () => {
     setBusy(true);
     let key = cancelKey;
@@ -923,8 +1120,14 @@ function JobView({
     setError("");
     try {
       const meta = (await api.result(result.id)).result;
-      if (meta.sha256 !== result.sha256) throw new Error("B2B_AI_RESULT_HASH_MISMATCH");
-      setReceived(verifyResultContent(await api.content(result.id, result.sha256), meta));
+      if (meta.sha256 !== result.sha256)
+        throw new Error("B2B_AI_RESULT_HASH_MISMATCH");
+      const received = verifyResultContent(
+        await api.content(result.id, result.sha256),
+        meta,
+      );
+      assertCurrent?.();
+      setReceived(received);
     } catch (e) {
       setReceived(null);
       setError(code(e));
@@ -932,23 +1135,40 @@ function JobView({
       setBusy(false);
     }
   };
-  const save = () => {
+  const save = async () => {
     if (!received) return;
-    const url = URL.createObjectURL(
-      new Blob([received.bytes.slice().buffer as ArrayBuffer], { type: "application/json" }),
-    );
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `prepix-ai-result-${received.sha256.slice(0, 12)}.json`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    try {
+      setBusy(true);
+      if (beforeSave) await beforeSave();
+      assertCurrent?.();
+      const url = URL.createObjectURL(
+        new Blob([received.bytes.slice().buffer as ArrayBuffer], {
+          type: "application/json",
+        }),
+      );
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `prepix-ai-result-${received.sha256.slice(0, 12)}.json`;
+      assertCurrent?.();
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (e) {
+      setReceived(null);
+      setError(code(e));
+    } finally {
+      setBusy(false);
+    }
   };
   return (
     <Block
       title={c("작업 진행", "Job progress")}
       description={`${c(...operations[job.operation])} · ${c("접수", "Accepted")} ${instant(job.acceptedAt)} · ${c("처리 종료 시각", "Deadline")} ${instant(job.deadline)}`}
       actions={
-        <button className={secondaryClass} disabled={busy} onClick={() => void onPoll()}>
+        <button
+          className={secondaryClass}
+          disabled={busy}
+          onClick={() => void onPoll()}
+        >
           {c("최신 상태 확인", "Refresh")}
         </button>
       }
@@ -957,7 +1177,10 @@ function JobView({
         <div className="space-y-2">
           <AiError code={pollError} retry={() => void onPoll()} />
           <p className="text-xs text-muted">
-            {c("아래는 마지막으로 확인한 상태입니다.", "Below is the last confirmed state.")}
+            {c(
+              "아래는 마지막으로 확인한 상태입니다.",
+              "Below is the last confirmed state.",
+            )}
           </p>
         </div>
       )}
@@ -976,12 +1199,17 @@ function JobView({
       >
         <div
           className="h-full bg-accent transition-[width]"
-          style={{ width: `${progress.totalStages ? (100 * progress.completedStages) / progress.totalStages : 0}%` }}
+          style={{
+            width: `${progress.totalStages ? (100 * progress.completedStages) / progress.totalStages : 0}%`,
+          }}
         />
       </div>
       <dl className="flex flex-wrap gap-x-5 gap-y-2 text-sm tabular-nums">
         {[
-          [c("완료 단계", "Stages"), `${progress.completedStages} / ${progress.totalStages}`],
+          [
+            c("완료 단계", "Stages"),
+            `${progress.completedStages} / ${progress.totalStages}`,
+          ],
           [c("승인 최대량", "Approved maximum"), job.maximumUnits],
           [c("예약 중", "Reserved"), job.reservedUnits],
           [c("사용 확정", "Confirmed"), job.confirmedUnits],
@@ -994,15 +1222,26 @@ function JobView({
         ))}
       </dl>
       {error && <AiError code={error} />}
-      {["queued", "running", "cancel_requested"].includes(job.state) || cancelUnknown ? (
+      {!existingOnly &&
+      (["queued", "running", "cancel_requested"].includes(job.state) ||
+        cancelUnknown) ? (
         job.state !== "cancel_requested" || cancelUnknown ? (
-          <button className={secondaryClass} disabled={busy} onClick={() => setConfirm(true)}>
-            {cancelUnknown ? c("취소 결과 확인", "Check cancellation") : c("작업 취소", "Cancel job")}
+          <button
+            className={secondaryClass}
+            disabled={busy}
+            onClick={() => setConfirm(true)}
+          >
+            {cancelUnknown
+              ? c("취소 결과 확인", "Check cancellation")
+              : c("작업 취소", "Cancel job")}
           </button>
         ) : null
       ) : null}
       {confirm && (
-        <ConfirmDialog label={c("AI 작업 취소 확인", "Confirm AI job cancellation")} onClose={() => !busy && setConfirm(false)}>
+        <ConfirmDialog
+          label={c("AI 작업 취소 확인", "Confirm AI job cancellation")}
+          onClose={() => !busy && setConfirm(false)}
+        >
           <p className="text-sm leading-6">
             {c(
               "대기 중이면 예약 전부를 반환합니다. 실행 중이면 이미 완료된 단계만 정산하고 나머지를 반환합니다.",
@@ -1010,10 +1249,20 @@ function JobView({
             )}
           </p>
           <div className="flex flex-wrap gap-2">
-            <button className={primaryClass} disabled={busy} onClick={() => void cancel()}>
-              {cancelUnknown ? c("같은 취소 다시 확인", "Check same cancellation") : c("취소 요청", "Request cancellation")}
+            <button
+              className={primaryClass}
+              disabled={busy}
+              onClick={() => void cancel()}
+            >
+              {cancelUnknown
+                ? c("같은 취소 다시 확인", "Check same cancellation")
+                : c("취소 요청", "Request cancellation")}
             </button>
-            <button className={secondaryClass} disabled={busy} onClick={() => setConfirm(false)}>
+            <button
+              className={secondaryClass}
+              disabled={busy}
+              onClick={() => setConfirm(false)}
+            >
               {c("닫기", "Close")}
             </button>
           </div>
@@ -1035,16 +1284,28 @@ function JobView({
                 </span>
               </p>
               <div className="flex flex-wrap gap-2">
-                <button className={primaryClass} disabled={busy} onClick={() => void receive()}>
+                <button
+                  className={primaryClass}
+                  disabled={busy}
+                  onClick={() => void receive()}
+                >
                   {c("결과 받기", "Receive result")}
                 </button>
                 {received && (
-                  <button className={secondaryClass} onClick={save}>
+                  <button
+                    className={secondaryClass}
+                    onClick={() => void save()}
+                  >
                     {c("JSON 파일로 저장", "Save JSON file")}
                   </button>
                 )}
               </div>
-              {received && <ResultPreview sha256={received.sha256} document={received.document} />}
+              {received && (
+                <ResultPreview
+                  sha256={received.sha256}
+                  document={received.document}
+                />
+              )}
             </>
           ) : (
             <p className="text-sm text-muted">
@@ -1054,9 +1315,11 @@ function JobView({
               )}
             </p>
           )}
-          <button className={secondaryClass} onClick={onNew}>
-            {c("새 작업 준비", "Prepare a new job")}
-          </button>
+          {!existingOnly && (
+            <button className={secondaryClass} onClick={onNew}>
+              {c("새 작업 준비", "Prepare a new job")}
+            </button>
+          )}
         </div>
       )}
     </Block>

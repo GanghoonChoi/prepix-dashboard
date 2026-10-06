@@ -1,6 +1,8 @@
 import { apiClient } from "../client";
+import { homeEnvironment, readHome, type HomeScope } from "../../b2b-home/home";
 import type {
   B2bStatus,
+  TeamHome,
   TeamAiJob,
   TeamAiJobList,
   TeamAiUsageOverview,
@@ -58,6 +60,23 @@ async function post<T>(path: string, input: unknown): Promise<T> {
   return result;
 }
 export const b2bService = {
+  home: (scope: HomeScope, signal: AbortSignal) =>
+    readHome(
+      scope,
+      () => homeEnvironment(new URL(apiClient.defaults.baseURL!).origin),
+      async () =>
+        (
+          await apiClient.get<{ data: TeamHome }>(
+            `${base(scope.workspaceId)}/home`,
+            {
+              timeout: 15_000,
+              signal,
+              headers: { "X-Prepix-Account-ID": scope.userId },
+            },
+          )
+        ).data.data,
+      signal,
+    ),
   aiUsage: (id: string) => get<TeamAiUsageOverview>(`${base(id)}/ai/usage`),
   aiJobs: (id: string, cursor?: string) =>
     get<TeamAiJobList>(
