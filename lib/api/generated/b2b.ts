@@ -979,6 +979,8 @@ export type TeamAiQuoteInput = {
 export type TeamAiAvailability = {
   reconciled: boolean;
   personalRemainingUnits: number | null;
+  /** End of the period the caller's seat is read for (when a spent seat next has AI). */
+  periodEndsAt: string | null;
   unitLabel: string | null;
   unitDescription: string | null;
   submittable: boolean;

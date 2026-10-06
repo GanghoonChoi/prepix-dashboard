@@ -659,6 +659,10 @@ function PeriodLicences({
                       : undefined
                   }
                   empty={!holder}
+                  withdrawn={budget.slot > period.capacity}
+                  carried={rows.some(
+                    (a) => a.slot === budget.slot && a.userId !== holder?.userId,
+                  )}
                 />
               );
             })}
@@ -1026,17 +1030,29 @@ function BudgetRow({
   person,
   own = false,
   empty = false,
+  withdrawn = false,
+  carried = false,
 }: {
   budget: Budget;
   person?: TeamPerson;
   own?: boolean;
   empty?: boolean;
+  // The seat was withdrawn by a refund (above the period's capacity now).
+  withdrawn?: boolean;
+  // The seat's used total includes a previous holder's use.
+  carried?: boolean;
 }) {
   const c = useCopy();
   const seat = c(`${budget.slot}번 좌석`, `Seat ${budget.slot}`);
   const name = own
     ? c("내 좌석", "My seat")
-    : `${seat} · ${empty ? c("비어 있음", "empty") : (personName(person) ?? c("참여자", "Participant"))}`;
+    : `${seat} · ${
+        withdrawn
+          ? c("회수된 좌석", "withdrawn seat")
+          : empty
+            ? c("비어 있음", "empty")
+            : (personName(person) ?? c("참여자", "Participant"))
+      }`;
   return (
     <section
       className="space-y-3 border-l border-border pl-4 text-sm"
@@ -1061,6 +1077,14 @@ function BudgetRow({
           </div>
         ))}
       </dl>
+      {carried && (
+        <p className="text-xs text-muted">
+          {c(
+            "이전 보유자 사용 포함. 좌석을 넘기면 남은 양을 이어서 씁니다.",
+            "Includes the previous holder's use. A moved seat carries on with what is left.",
+          )}
+        </p>
+      )}
     </section>
   );
 }

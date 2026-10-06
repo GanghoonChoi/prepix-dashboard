@@ -358,7 +358,9 @@ export function PurchaseQuotes({
             {c("명", " people")} · {c("좌석 AI", "Seat AI")}{" "}
             {number(
               quote.allowances.seats
-                ? quote.allowances.periodAiUnits / quote.allowances.seats
+                ? Math.floor(
+                    quote.allowances.periodAiUnits / quote.allowances.seats,
+                  )
                 : 0,
             )}{" "}
             {quote.conditions.aiUnitLabel}
