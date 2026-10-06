@@ -54,3 +54,14 @@
 - 의미 있는 도메인 통합 검사, 웹 단위/타입/lint/빌드, 브라우저 인수를 통과시킨다. 기존 실패는 출발 커밋에서 재현하여 구분한다. 기존 요청/파일 브라우저도 필요한 변경 범위만 회귀 확인한다.
 - 커밋별로 검증하고 `HANDOFF.md`에 출발/최종 커밋, 변경 파일, migration 순서, API·보존 근거·현재 권한 계약, 실행한 검증과 실제/대역 구분, 미완/결정 필요, 통합 충돌 예상 파일과 재검증 방법을 남긴다. 포트/컨테이너를 기록하고 서버/웹은 종료한다. push/merge하지 않는다.
 - 정해진 범위가 크다는 이유로 API나 목업만 남기고 전체 완료라고 하지 않는다. 검토본 실제 생성과 서버·웹의 지정 승인 흐름까지 이어서 구현한다. 운영 인수나 제품 결정을 기다리는 한계는 정확히 남긴다.
+
+
+## 2026-10-06 추가 인계 — 참여 회차 계약 구현 완료
+
+통합 서버 `0f4de7a`에 요청의 참여 회차와 공통 accessor를 구현/검증했다. 원본 경로는 `/Users/spagettimaker/My/Lasker/prepix-backend/backend/src/b2b/project-participation.ts`다. `participationMatches(participant, { userId, participationId })`를 사용하며 participant는 현재 접근 검사로 얻은 `{userId,participationId,revokedAt}`다. 이 함수는 회차 비교만 담당한다. 현재 팀/계정/역할/공유 조건은 별도로 재검사한다.
+
+정식 `0063_b2b_participation_lifetimes.sql`은 프로젝트 참여의 `participation_id` UUID를 DB에서 발급/보호한다. 활성↔종료 전환은 새 UUID, 일반 역할/다운로드/revision 변경은 기존 UUID다. 다시 삽입하거나 UUID를 직접 보내도 과거 UUID를 복구하지 않는다. 지정 승인자/한정 공유의 파생 권한도 지정 시점의 UUID에 묶고 종료/재초대 후 명시 재지정 전 효력을 되살리지 않는다. 작성/승인 이력은 보존한다. 일반 participant.revision 비교나 joined_at 추정은 사용하지 않는다.
+
+신규 domain migration은 통합 0063 이후로 번호/의존 순서와 journal when(0063=1791265000000)을 맞춘다. 다른 분기의 이미 적용한 migration을 운영 DB에서 재작성/삭제하지 않는다. 최종 인계에 출발 상태·순서·새 DB 적용·충돌 파일을 적어 통합 담당이 맞추도록 한다. 현재 요청 snapshot은 assignee/confirmer/creator participation 열이며 NULL 과거 회차는 자동 허용하지 않는다. UUID를 고객 응답/로그에 노출하지 않는다. 요청 공통 contracts에는 `assignmentCurrent`와 `reassignAssignee/reassignConfirmer`도 추가됐으므로 생성 계약을 따로 손편집하지 않는다.
+
+Codex는 C의 작업 중 폴더를 변경하지 않았다. 해당 공통 변경이 필요한 연결은 별도 `(integration)` 커밋/의존성으로 남기고 요청 화면/권한 로직을 다시 구현하지 않는다. 새 DB 서버 189건과 실제 Chrome 3개를 검증했으며 통합 시 현재 소스/DB 기준으로 재검증한다.
