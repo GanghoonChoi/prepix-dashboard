@@ -133,7 +133,21 @@ test("every mutation path classifies outcomes through the one shared policy", ()
   assert.deepEqual(bare, [], "free pending keys through releaseRejected()");
   // Nor may a path finish (free) a failed record itself, e.g. on its own list
   // of "final" server codes: only releaseRejected's lookup decides.
-  const ownRule = files.filter((f) => /catch\s*\([^)]*\)\s*\{[^}]*?(?<!=>\s?)\bstore\.finish\(/.test(readFileSync(f, "utf8")));
+  const ownRule = files.filter((f) => {
+    const src = readFileSync(f, "utf8");
+    // Any direct finish shortly after a catch (a callback handed to
+    // releaseRejected, `() => store.finish(...)`, is the shared rule's own).
+    const block = (from: number) => {
+      // The catch body by brace depth (balanced in these sources).
+      const open = src.indexOf("{", from);
+      let depth = 0;
+      for (let i = open; i < src.length; i++)
+        if (src[i] === "{") depth++;
+        else if (src[i] === "}" && --depth === 0) return src.slice(open, i);
+      return src.slice(open);
+    };
+    return [...src.matchAll(/catch\s*\([^)]*\)\s*\{/g)].some((m) => /(?<!=>\s?)\bstore\.finish\(/.test(block(m.index!)));
+  });
   assert.deepEqual(ownRule, [], "a failed send frees its record only through releaseRejected()");
   assert.ok(guarded.includes("lib/b2b-billing/operations.ts"), "billing (incl. termination and re-consent) uses the shared rule");
 });
