@@ -85,3 +85,10 @@ Codex는 작업 폴더와 배정 문서만 준비했다. Claude 프로세스는 
 ## Codex native 원본 재연결 공통 변경
 
 2026-10-06 beta `fdc79e862`는 library/db/media-list/media IPC/공유 relink/export recovery와 플레이어/CSS를 수정했다. native 사본 원본의 처음/현재 조건을 `b2b_source_identities`에 저장하고 실제 전체 SHA-256/실측 속성/decode로 같은 원본을 판단한다. 다른 원본은 `media:inspect-relink`의 토큰과 새 optional `media:relink.allowSourceReplacement` 및 현재 편집 허가를 요구한다. AI 결과나 기존 일부 구간 캐시 해시로 native 원본 일치를 선언하지 않는다. D의 SQLite/IPC 변경과 통합할 때 이 테이블/검사를 유지한다. 공통 파일을 가져오기 위해 현재 작업을 덮어쓰지 말고 필요 연결을 별도 integration 커밋으로 인계한다. 관련 단위 57개/타입/빌드 Electron의 로컬 경로 이동 인수는 통과했지만 실제 NAS·전체 팀 원본 등록과 native 내보내기/발행은 남는다. 자세한 근거는 주 앱 `docs/product/b2b-native-working-copy-2026-10-06.md`다.
+
+
+## Codex의 작업 파일 저장 전송 공통 변경
+
+beta `bc5c0beba`는 native 작업 파일 저장/명시 전송을 구현·커밋했다. 앞선 `fdc79e862`의 원본 식별/relink 위에 SQLite `b2b_working_exports`와 프로젝트 조회 index, `storedNativeSource`의 순수 로컬 읽기, `project:save-working-file`/`project:working-files`/`project:reveal-working-file`, `team-files:send-working`, ipc-contract `WorkingFileSnapshot` 및 en/ko `team.files.working`/오류 문구를 추가했다. AI SQLite/IPC/locale를 통합할 때 양쪽 기능을 보존한다. shared 생성 서버 계약/parser는 이 저장 단위에서 변경하지 않았다.
+
+로컬 문서와 원본 조건의 고정 사본은 이후 편집/AI 결과 반영과 독립적이고 같은 키의 전송은 saved bytes를 유지한다. 로컬 revision은 서버 기준 revision이 아니다. 저장/working 파일 등록은 AI 결과 자동 게시·검토 공개·납품 확인을 뜻하지 않는다. F12의 원작업/서버 기준/검토 발행은 Codex가 계속 맡는다. 관련 단위 99개/앱 타입 6단계/실제 서버+빌드 Electron roundtrip 1개가 통과했다. D의 진행 중 폴더를 수정하거나 이 커밋을 강제로 합치지 않았다.

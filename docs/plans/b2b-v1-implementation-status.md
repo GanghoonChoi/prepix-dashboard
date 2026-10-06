@@ -446,3 +446,16 @@ beta `fdc79e862`에서 받은 작업 문서의 원본 조건을 SQLite에 보존
 F에 작업 단위 12 전체, **F17 팀 복구/실제 삭제/백업 파기, F19 사용자 알림, F20 한정 지원/감사와 운영 콘솔**, S26/S27/S32/S33의 구현/로컬 인수를 맡길 지시서와 독립 서버·웹·콘솔 worktree를 준비했다. 출발점은 `f90ef2c`/`3becfdc`/`5db3a2b`, 브랜치는 `codex/parallel-b2b-operations`, 폴더는 `/Users/spagettimaker/My/Lasker/prepix-parallel/operations/`다. 지시서는 `b2b-v1-claude-operations-assignment-2026-10-06.md`, 외부 전달 사본은 `/Users/spagettimaker/My/Lasker/prepix-parallel/HANDOFF-claude-operations-2026-10-06.md`다.
 
 권장 독립 자원 3558/3551/3552/55538/3980의 미사용을 확인했으나 실행 전 재확인한다. 55518/55528은 사용 중이므로 제외했다. 실제 세션·서버·시험 자원은 실행하지 않았다. C/D/E의 사건·객체는 명시적인 통합 인터페이스로 연결하고 기존 주문/잠금/outbox를 재사용한다. 주 서버/웹/앱, 진행 중 병렬 worktree, 운영 데이터는 수정하지 않았다. 운영 공급자 설정이 없는 부분은 실행 차단과 실제 로컬 객체/백업 검증을 분리한다. 새 배정 준비는 진행률을 늘리지 않는다.
+
+
+## 2026-10-06 beta 작업 파일 저장과 명시 전송 인수
+
+beta `bc5c0beba`에서 내보내기 화면의 작업 파일 영역에 로컬 사본 저장·미완료 저장 재개·폴더 확인·명시적인 팀 전송과 전송/수령 상태를 연결했다. host session 문서/로컬 revision/원본 조건을 요청키에 먼저 고정하고 payload를 파일 쓰기 전에 영속화한다. 같은 키는 이후 편집 내용으로 업그레이드하지 않는다. prefix 복구는 같은 내용만 이어 쓰고 충돌 파일을 보존한다. 큰 문서/payload를 목록 조회마다 전부 읽지 않으며 saved 파일은 bounded descriptor read/전체 해시/parser로 확인한다.
+
+현재 연결된 원본은 모든 바이트의 SHA-256·실측 속성·decode를 검사하고 처음 조건이 없는 로컬 원본은 측정 성공 뒤 식별을 등록한다. 과거 일부 구간 hash를 전체 원본 식별로 계산하지 않는다. 신뢰 가능한 조건이 있는 누락 원본은 조건을 유지해 저장하고 조건 없는 누락 원본은 새 작업 파일 내보내기를 거절하며 기존 로컬 편집을 유지한다. 로컬 저장은 오프라인/새 편집 허가 없이 가능하고 전송은 별도 선택/현재 계정·서비스·고정 프로젝트·서버 정책과 권한/용량 검사를 거친다. 같은 저장 키의 재전송은 기존 영속 전송/버전을 사용하며 실패해도 로컬 사본이 남는다.
+
+관련 단위 **99/99, 10개 파일**, beta 타입 **6/6**, 변경 TS 14개 lint·CSS integrity·계약/parser 동기화·diff 검사가 통과했다. 중간 run의 시험 폴더 제거/미처리 오류는 원본 사실 검사의 화면 알림 batching 타이머가 종료된 DB를 다시 여는 것으로 확인했고 알림 이벤트만 mock으로 격리했다. 최종 단위 `/tmp/prepix-native-export-unit-final-isolated.log`는 exit 0이며 cleanup 재시도는 제거했다. 타입은 `/tmp/prepix-native-export-types-verified.log`다.
+
+최종 빌드 Electron과 실제 Nest/JWT/엄격 DTO/MinIO로 링크 수령→사본 열기→원본 찾기→화면 로컬 저장→명시 전송→서버 ready→같은 키 재전송→동일 해시 수령→새 사본 열기와 원본/자막 참조 치환→기존 팀/개인 프로젝트 보존이 **1/1** 통과했다(9.6초). `/tmp/prepix-native-export-electron-verified.log`, `/tmp/prepix-native-export-electron.png`가 근거다. 초기 시험 fixture 경로와 개인 문서 생성 fixture 오류를 수정했다. 선택창/OS vault/스캐너는 명시적인 대역, NAS는 로컬 두 폴더의 경로 이동 재현이며 실제 운영 인수가 아니다. 기존 usage 404/old archive 거절 로그는 그대로 남아 있다.
+
+F12의 원작업/원요청 식별자·기준 **서버** 프로젝트 revision·발행 receipt·충돌 선택·검토 버전/대상·공개 뒤 알림은 다음 구현이다. 로컬 revision과 서버 기준을 혼용하지 않고 단순 working 파일 등록을 검토 공개나 작업 파일 전달 확인으로 계산하지 않는다. 클라우드 정확한 원본 연결, 모든 원본 식별 등록과 실제 NAS/OS 인수도 남는다. 서버 전체 192/197 기록을 이 앱 검사로 해소했다고 표시하지 않는다. C/D/E/F 결과의 최종 통합과 납품/복구/삭제/백업/알림/운영 목표를 유지하며 전체 개발 완성도 추정은 약 50%다.
