@@ -230,3 +230,44 @@ test("card registration, renewal plan, refund reservation and account switch kee
   await page.goto(`/dashboard/workspaces/${id}/plan/settings`);
   await expect(page.getByText(buyer.businessName)).toHaveCount(0);
 });
+
+test("a payment-window return confirms only in the scope that started it", async ({ page, request }) => {
+  const owner = await account(request, "billing-scope");
+  const id = await team(request, owner.headers);
+  const h = owner.headers,
+    base = `${api}/v2/workspaces/${id}/b2b`;
+  const product = (await (await request.get(`${base}/commerce`, { headers: h })).json()).data.product;
+  const quote = (await (await request.post(`${base}/commerce/quotes`, { headers: h, data: { requestKey: crypto.randomUUID(), productVersion: product.version, target: "initial", renewal: "one_off", extraSeats: 0, aiPacks: 0, storagePacks: 0 } })).json()).data.quote;
+  const order = (await (await request.post(`${base}/commerce/orders`, { headers: h, data: { requestKey: crypto.randomUUID(), quoteId: quote.id, buyer: { schemaVersion: "local-v1", ...buyer } } })).json()).data;
+  const orderPage = `/dashboard/workspaces/${id}/plan/orders/${order.orderId}`;
+  await login(page, owner.email, orderPage);
+  await page.getByRole("button", { name: /^결제하기/ }).click();
+  await page.waitForURL(`${double}/checkout?**`);
+  const approve = await page.getByRole("link", { name: "결제 인증 완료" }).getAttribute("href");
+  // The return opens under another account: the start record names the first one.
+  await page.goto(orderPage);
+  await expect(page.getByRole("button", { name: /^결제하기/ })).toBeVisible();
+  const tamper = (userId: string) =>
+    page.evaluate((u) => {
+      for (const k of Object.keys(localStorage))
+        if (k.startsWith("prepix-b2b-pg:")) {
+          const v = JSON.parse(localStorage.getItem(k)!);
+          v.scope.userId = u;
+          localStorage.setItem(k, JSON.stringify(v));
+        }
+      return Object.keys(localStorage).filter((k) => k.startsWith("prepix-b2b-pg:")).length;
+    }, userId);
+  const own = await page.evaluate(() => JSON.parse(localStorage.getItem(Object.keys(localStorage).find((k) => k.startsWith("prepix-b2b-pg:"))!)!).scope.userId as string);
+  expect(await tamper("00000000-0000-4000-8000-000000000000")).toBe(1);
+  await page.goto(approve!.startsWith("http") ? approve! : `${double}${approve}`);
+  await page.waitForURL(`**/plan/orders/**`);
+  await expect(page.getByText(/결제를 확정하지 않았습니다/)).toBeVisible();
+  const held = (await (await request.get(`${base}/commerce/orders/${order.orderId}`, { headers: h })).json()).data.order;
+  expect(held.state).toBe("awaiting_payment");
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  // Back in the scope that started it, the same return confirms.
+  await tamper(own);
+  await page.reload();
+  await expect(page.getByText("반영 완료", { exact: true })).toBeVisible({ timeout: 30_000 });
+});

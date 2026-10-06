@@ -453,6 +453,7 @@ function Checkout({
         method,
         successUrl: `${back}?pg=success`,
         failUrl: `${back}?pg=fail`,
+        intent: { scope, orderId: created.orderId, providerOrderId: checkout.providerOrderId, amount: checkout.amount },
       });
     } catch (e) {
       setFailure(billingCode(e));

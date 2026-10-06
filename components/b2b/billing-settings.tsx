@@ -57,6 +57,16 @@ const reasons: Record<string, [string, string]> = {
   next_period_purchased: ["다음 기간 선구매됨", "Next period prepaid"],
   review_required: ["운영 확인", "Operations review"],
   settings_missing: ["자동결제 설정 없음", "Automatic-payment settings missing"],
+  not_eligible: ["결제 직전에 조건이 맞지 않아 보내지 않음", "Not sent: a condition no longer held at charge time"],
+  order_review_required: ["다른 주문이 운영 확인 중이라 멈춤", "Stopped: another order is under operations review"],
+  consent_owner_lost_authority: ["동의한 사용자의 결제 권한 해제", "The consenting user lost billing authority"],
+  consent_inside_lead_window: ["결제 직전에 동의해 이번 기간은 건너뜀", "Consent came too close to the charge: this period is skipped"],
+  team_not_active: ["팀이 삭제 중이라 종료", "Closed: the team is being deleted"],
+  product_not_configured: ["상품 설정 없음", "Product not configured"],
+  payment_not_configured: ["결제 설정 없음", "Payment not configured"],
+  method_unavailable: ["결제 카드를 쓸 수 없음", "Card unavailable"],
+  method_environment_changed: ["결제 환경이 바뀜 · 카드를 다시 등록", "Payment environment changed · register the card again"],
+  renewal_stopped: ["갱신 방식이 자동이 아님", "Renewal is no longer automatic"],
 };
 const runLabels: Record<string, [string, string]> = {
   scheduled: ["자동결제 예정", "Scheduled"],
@@ -155,17 +165,20 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
     completing.current = true;
     setBusy("method.complete");
     void api
-      .completeMethod(registration, { requestKey: crypto.randomUUID(), customerKey, authKey })
+      // One request key per registration: a lost reply is answered from the server's receipt.
+      .completeMethod(registration, { requestKey: `complete-${registration}`, customerKey, authKey })
       .then((r) => {
         if (!current()) return;
         setNotice(
-          r.method.state === "active"
+          r.method.state === "issuing"
+            ? c("카드 등록을 확인하는 중입니다. 잠시 뒤 다시 확인해 주세요.", "The card registration is being checked. Check again in a moment.")
+            : r.method.state === "active"
             ? c("결제 수단을 등록했습니다.", "The payment method is registered.")
             : r.method.state === "unknown"
               ? c("등록 결과를 확인하지 못했습니다. 이 수단은 결제에 쓰지 않습니다. 새로 등록해 주세요.", "The result is unknown. This method is never charged; register again.")
               : c("등록하지 못했습니다. 처음부터 다시 진행해 주세요.", "Registration failed. Start again."),
         );
-        window.history.replaceState(null, "", window.location.pathname);
+        if (r.method.state !== "issuing") window.history.replaceState(null, "", window.location.pathname);
       })
       .catch((e) => {
         if (!current()) return;
@@ -372,8 +385,14 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
                 const result = (await run("method.start", "method", {
                   requestKey: crypto.randomUUID(),
                   consentVersion: r.autoPayConsentVersion!,
-                })) as { methodId: string; customerKey: string; checkout: Parameters<typeof openBillingAuth>[0]["client"] } | null;
+                })) as { methodId: string; customerKey: string; checkout?: Parameters<typeof openBillingAuth>[0]["client"] | null } | null;
                 if (!result) return;
+                // A recovered start result without the client checkout cannot open the window.
+                if (!result.checkout) {
+                  setFailure("B2B_BILLING_PAYMENT_NOT_CONFIGURED");
+                  await reload();
+                  return;
+                }
                 const back = `${window.location.origin}/dashboard/workspaces/${workspaceId}/plan/settings`;
                 await openBillingAuth({
                   client: result.checkout,
@@ -522,6 +541,16 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
             )}
           </div>
         </form>
+        {billing.renewal.mode === "automatic" && billing.renewal.firstChargeAt && (
+          <p role="status" className="text-sm leading-6">
+            {billing.renewal.upcomingSkipped
+              ? c(
+                  `결제 직전에 동의해 이번 기간은 자동결제하지 않습니다. 이번 기간을 이어 쓰려면 한 번 직접 구매해 주세요. 자동결제는 그다음 기간(${kst(billing.renewal.firstChargeAt)} 이후)부터 시작합니다.`,
+                  `You consented too close to the charge, so this period is not charged automatically. Buy it once yourself to continue; automatic payment starts with the following period (after ${kst(billing.renewal.firstChargeAt)}).`,
+                )
+              : c(`첫 자동결제는 ${kst(billing.renewal.firstChargeAt)} 이후에 진행됩니다.`, `The first automatic charge happens after ${kst(billing.renewal.firstChargeAt)}.`)}
+          </p>
+        )}
         {billing.renewal.pausedReason && (
           <p role="status" className="text-sm">
             {c("자동결제가 멈춘 이유", "Automatic payment paused")}: {c(...(reasons[billing.renewal.pausedReason] ?? [billing.renewal.pausedReason, billing.renewal.pausedReason]))}
