@@ -423,3 +423,15 @@ C의 검토/검토본 분기와 D의 AI 서버 커밋/앱 변경이 진행 중�
 독립 worktree는 `/Users/spagettimaker/My/Lasker/prepix-parallel/billing/prepix-backend`와 `prepix-dashboard`, 각각 `4c7e920`/`4d9fce3` 출발이고 브랜치는 `codex/parallel-b2b-billing`이다. 작성 시 두 repo가 깨끗하고 API 3548/웹 3541/PG 55508/저장소 3970이 비어 있었다. 프로세스/DB/저장소는 실행하지 않았다. 인계는 `b2b-v1-claude-billing-assignment-2026-10-06.md`와 전달용 `/Users/spagettimaker/My/Lasker/prepix-parallel/HANDOFF-claude-billing-2026-10-06.md`에 동일하게 저장했다.
 
 원수납/단회 적용/불변 원장과 기존 기간 경계를 재사용하고 공통 변경을 별도 integration 커밋으로 분리한다. D의 실제 AI 실행과 C의 검토 도메인은 E에서 재구현하지 않는다. 승인되지 않은 P17 가격·PG·환불/세금·달력 설정은 해당 실행을 차단한다. 실제 수납/환불·배포·운영 데이터·실제 이메일은 이 배정에 포함하지 않는다. 로컬 HTTP PG 대역/실제 PostgreSQL/Nest/JWT/브라우저 인수와 실제 PG/법정 증빙 인수의 차이를 인계한다. 새 배정 준비는 개발 진행률 약 50%를 늘리지 않는다.
+
+## 2026-10-06 native 원본의 전체 식별 재연결
+
+beta `fdc79e862`에서 받은 작업 문서의 원본 조건을 SQLite에 보존하고 원본 찾기의 전체 SHA-256/실측 길이·해상도·프레임률·오디오 채널과 decode를 대조했다. 같은 원본의 이름/경로 변경은 편집을 유지하며 다른 원본은 차이 확인과 현재 팀 편집 허가를 요구한다. 확인 토큰은 기대 조건/실측 결과에 고정하고 적용 때 재측정한다. 검사 중 파일 변경/확인 뒤 바이트 변경/계정·서비스 변경과 검증 중 편집 허가 상실을 거절한다. 원래 조건은 보존하고 현재 조건과 미디어를 원자적으로 갱신한다.
+
+기존 native 사본의 누락 조건은 현재 허용된 정확한 수령 버전에서만 복구한다. DB의 duration 초와 문서/IPC tick 단위를 맞추고 이전 missing 자리도 검증된 재열기에서 복구한다. 플레이어/보관함과 export 누락 원본 복구는 같은 차이 확인을 쓴다. 플레이어 복구 버튼이 영상 레이어와 캔버스 pointer capture에 가로막힌 실제 클릭 오류도 수정했다.
+
+최종 관련 단위 **57/57**(실제 원본/SQLite/ffprobe 6개, native 열기 6개), beta 타입 **6/6**, 최종 플레이어 변경 뒤 renderer 타입·변경 TS 13개 lint·CSS integrity·diff 검사가 통과했다. 빌드 Electron과 실제 Nest/JWT/엄격 DTO/MinIO의 버전 링크→사본 열기→원본 찾기 버튼→동일 바이트 재연결→다른 폴더 연결→타임라인/개인 프로젝트 보존이 **1/1** 통과했다(5.8초). 최초 두 앱 실행은 클릭 오류로 실패했고 수정 뒤 통과했다. 로그 `/tmp/prepix-native-nas-unit-verified.log`, `/tmp/prepix-native-nas-types-verified.log`, `/tmp/prepix-native-nas-renderer-types.log`, `/tmp/prepix-native-nas-electron-verified.log`, 화면 `/tmp/prepix-native-nas-electron.png`다. 단위 fixture의 DB 격리를 보완한 뒤 최종 결과를 기록했다.
+
+이 시험은 로컬 두 폴더에서 NAS 경로 이동 상황을 재현했으며 선택창/OS vault/스캐너는 명시적 대역이다. 실제 네트워크 NAS/자격 증명·모든 팀 원본의 조건 등록·클라우드 정확한 원본 연결·native 내보내기/전송/검토 발행·기준 revision 충돌 선택은 남는다. F11/F12 전체 완료와 운영 인수로 계산하지 않는다. 서버의 앞선 전체 192/197 실패 기록도 이번 앱 검사로 해소됐다고 표시하지 않는다.
+
+전체 개발 완성도 추정은 계속 **약 50%**다. C의 서버 `4619959`까지 검토본 분기 통합 흔적과 D의 `5d3a497` 및 미커밋 AI 구현을 확인했으나 현재 주 브랜치 통합 완료로 합산하지 않는다. E의 독립 서버/웹 폴더는 여전히 깨끗한 출발점이며 세션을 실행하지 않았다. 기존 E 인계서를 새 Claude 세션에 전달하면 구매/자동갱신/환불/월 PDF의 큰 작업을 진행할 수 있다. Codex는 native/NAS/발행과 최종 통합을 이어간다.

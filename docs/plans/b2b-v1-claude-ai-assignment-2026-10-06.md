@@ -81,3 +81,7 @@ Codex는 작업 폴더와 배정 문서만 준비했다. Claude 프로세스는 
 최종 새 DB 55488 전체 실행은 192/197이다. 파일/native 56개는 통과했고 AI 원장 개별 4개(상위 suite까지 실패 5)가 `B2B_TEAM_PREPARING`으로 실패했다. 앞선 새 DB 전체는 197/197이었으므로 재현 조건을 조사해야 한다. 로그 `/tmp/prepix-native-backend-fresh-final.log`의 ACL/이용권 replay, 만료 quote/lease, legacy balance 검토, allocation FK 사례다. 적용은 호스트 시각, AI/파일 작업은 PostgreSQL 시각을 사용하는 차이가 후보이며 확정 원인은 아니다. 같은 관측 오류를 단순히 기존 문제라 처리하거나 fixture 기간을 임의로 연장해서 숨기지 않는다. D 착수 때 출발점 재현과 시각 기준/원수납 적용을 확인하고 필요 공통 수정은 별도 커밋으로 인계한다. 사용자의 P17 값을 새로 정하는 작업은 아니다.
 
 동일 DB에서 AI 원장 파일만 다시 실행한 결과는 18/18 통과(12.7초), `/tmp/prepix-native-ai-regression-recheck.log`다. 단독 통과로 전체 실행의 간헐적 실패가 해결됐다고 계산하지 않는다.
+
+## Codex native 원본 재연결 공통 변경
+
+2026-10-06 beta `fdc79e862`는 library/db/media-list/media IPC/공유 relink/export recovery와 플레이어/CSS를 수정했다. native 사본 원본의 처음/현재 조건을 `b2b_source_identities`에 저장하고 실제 전체 SHA-256/실측 속성/decode로 같은 원본을 판단한다. 다른 원본은 `media:inspect-relink`의 토큰과 새 optional `media:relink.allowSourceReplacement` 및 현재 편집 허가를 요구한다. AI 결과나 기존 일부 구간 캐시 해시로 native 원본 일치를 선언하지 않는다. D의 SQLite/IPC 변경과 통합할 때 이 테이블/검사를 유지한다. 공통 파일을 가져오기 위해 현재 작업을 덮어쓰지 말고 필요 연결을 별도 integration 커밋으로 인계한다. 관련 단위 57개/타입/빌드 Electron의 로컬 경로 이동 인수는 통과했지만 실제 NAS·전체 팀 원본 등록과 native 내보내기/발행은 남는다. 자세한 근거는 주 앱 `docs/product/b2b-native-working-copy-2026-10-06.md`다.
