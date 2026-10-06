@@ -1,6 +1,12 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { apiClient } from "@/lib/api/client";
+import { homeEnvironment } from "@/lib/b2b-home/home";
+import {
+  assertProjectListScope, decodeNavigation, encodeNavigation, initialNavigation,
+  projectListKey, readProjectPages, type ProjectListScope,
+} from "@/lib/b2b-projects/list";
 import { useRouter } from "next/navigation";
 import {
   b2bService,
@@ -27,69 +33,146 @@ import {
 
 export function Projects() {
   const context = useWorkspace()!;
+  const status = context.b2b;
+  const scope: ProjectListScope = {
+    origin: new URL(apiClient.defaults.baseURL!).origin,
+    userId: context.data.currentUserId ?? "",
+    workspaceId: context.data.workspace.id,
+  };
+  // Changing the actor/service/team grant replaces all private React state at render.
+  const key = JSON.stringify([projectListKey(scope), status?.enrolled && [
+    status.team.currentState, status.team.revision, status.member.revision,
+    status.allowedActions.projects,
+  ]]);
+  return <ScopedProjects key={key} scope={scope} />;
+}
+function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
+  const [scope] = useState(initialScope);
+  const context = useWorkspace()!;
   const c = useCopy();
-  const id = context.data.workspace.id;
+  const id = scope.workspaceId;
   const base = `/dashboard/workspaces/${id}/projects`;
   const status = context.b2b;
   const permitted = !!status?.enrolled && status.allowedActions.projects;
   const [rows, setRows] = useState<Project[] | null>(null);
   const [cursor, setCursor] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const [state, setState] = useState("");
+  const [navigation, setNavigation] = useState(initialNavigation);
+  const { search, state } = navigation;
+  const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const serial = useRef(0);
-  const load = useCallback(
-    async (next?: string) => {
-      if (!permitted) return;
-      const request = ++serial.current;
-      setBusy(true);
-      try {
-        const result = await b2bService.projects(id, {
-          search: search || undefined,
-          state: state || undefined,
-          cursor: next,
-        });
-        if (request !== serial.current) return;
-        setRows((previous) =>
-          next
-            ? [
-                ...(previous ?? []),
-                ...result.projects.filter(
-                  (p) => !previous?.some((old) => old.id === p.id),
-                ),
-              ]
-            : result.projects,
-        );
-        setCursor(result.nextCursor);
-        setError("");
-      } catch (e) {
-        if (request !== serial.current) return;
-        setError(errorCode(e));
-        // Never keep private titles on screen after an access refusal.
-        setRows(null);
-        setCursor(null);
-      } finally {
-        if (request === serial.current) setBusy(false);
-      }
-    },
-    [id, permitted, search, state],
-  );
+  const lifetime = useRef<AbortController | null>(null);
+  const activeRequest = useRef<AbortController | null>(null);
+  const settings = useRef(initialNavigation());
+  const restoring = useRef(true);
+  const restoredScroll = useRef<number | null>(null);
+  const persist = useCallback(() => {
+    try { sessionStorage.setItem(projectListKey(scope), encodeNavigation(settings.current)); }
+    catch { /* Storage unavailable: browsing remains usable. */ }
+  }, [scope]);
+  useLayoutEffect(() => {
+    const sequence = serial;
+    const controller = new AbortController();
+    lifetime.current = controller;
+    // React/Next may retain route state while effects are disconnected. Clear
+    // private rows before its restored route can paint, not just on a new mount.
+    setRows(null); setCursor(null);
+    return () => {
+      controller.abort(); sequence.current++;
+      setRows(null); setCursor(null);
+    };
+  }, []);
   useEffect(() => {
+    try { settings.current = decodeNavigation(sessionStorage.getItem(projectListKey(scope))); }
+    catch { settings.current = initialNavigation(); }
+    setNavigation(settings.current);
+    setReady(true);
+  }, [scope]);
+  const load = useCallback(async (pages?: number) => {
+    const controller = lifetime.current;
+    if (!permitted || !ready || !controller || controller.signal.aborted) return;
+    const request = ++serial.current;
+    activeRequest.current?.abort();
+    const read = new AbortController();
+    activeRequest.current = read;
+    const signal = AbortSignal.any([controller.signal, read.signal]);
+    const target = pages ?? settings.current.pages;
+    restoring.current = true;
+    setRows(null); setCursor(null); setBusy(true); setError("");
+    try {
+      const result = await readProjectPages(scope,
+        () => homeEnvironment(new URL(apiClient.defaults.baseURL!).origin), target,
+        (cursor) => b2bService.projects(id, {
+          search: search || undefined, state: state || undefined, cursor,
+        }, scope.userId, signal), signal);
+      if (request !== serial.current || controller.signal.aborted) return;
+      settings.current = { ...settings.current, pages: result.pages };
+      persist();
+      restoredScroll.current = settings.current.scroll;
+      setRows(result.projects); setCursor(result.nextCursor);
+    } catch (e) {
+      if (request !== serial.current || controller.signal.aborted) return;
+      setError(errorCode(e)); setRows(null); setCursor(null);
+    } finally {
+      if (request === serial.current && !controller.signal.aborted) setBusy(false);
+    }
+  }, [id, permitted, ready, search, state, scope, persist]);
+  useLayoutEffect(() => {
+    if (rows === null || restoredScroll.current === null) return;
+    const position = restoredScroll.current;
+    const frame = requestAnimationFrame(() => {
+      window.scrollTo(0, position);
+      restoredScroll.current = null;
+      restoring.current = false;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [rows]);
+  useEffect(() => {
+    if (!ready || !permitted) return;
     const sequence = serial;
     const initial = window.setTimeout(() => void load(), 250);
-    const refresh = () => {
-      if (document.visibilityState === "visible") void load();
+    const account = () => {
+      try { assertProjectListScope(scope,
+        homeEnvironment(new URL(apiClient.defaults.baseURL!).origin), lifetime.current?.signal); }
+      catch {
+        serial.current++; lifetime.current?.abort();
+        setRows(null); setCursor(null); setBusy(false);
+        setError("B2B_PROJECT_LIST_SCOPE_CHANGED");
+        return false;
+      }
+      return true;
     };
+    const refresh = () => {
+      if (account() && document.visibilityState === "visible") void load();
+    };
+    const scroll = () => {
+      if (!restoring.current) settings.current = { ...settings.current, scroll: window.scrollY };
+    };
+    const save = () => persist();
     const timer = window.setInterval(refresh, 30_000);
     window.addEventListener("focus", refresh);
+    window.addEventListener("storage", account);
+    window.addEventListener("workspaces:changed", refresh);
+    window.addEventListener("scroll", scroll, { passive: true });
+    window.addEventListener("pagehide", save);
     return () => {
-      ++sequence.current;
-      clearTimeout(initial);
-      clearInterval(timer);
+      sequence.current++; persist(); clearTimeout(initial); clearInterval(timer);
       window.removeEventListener("focus", refresh);
+      window.removeEventListener("storage", account);
+      window.removeEventListener("workspaces:changed", refresh);
+      window.removeEventListener("scroll", scroll);
+      window.removeEventListener("pagehide", save);
     };
-  }, [load]);
+  }, [load, ready, permitted, scope, persist]);
+  const changeFilter = (change: Partial<Pick<typeof navigation, "search" | "state">>) => {
+    serial.current++;
+    activeRequest.current?.abort();
+    settings.current = { ...settings.current, ...change, pages: 1, scroll: 0 };
+    restoring.current = true;
+    setRows(null); setCursor(null); setError("");
+    setNavigation(settings.current); persist();
+  };
   if (!status) return <TeamLoading />;
   if (!permitted)
     return (
@@ -124,7 +207,7 @@ export function Projects() {
             className={inputClass}
             value={search}
             maxLength={100}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => changeFilter({ search: e.target.value })}
           />
         </label>
         <label className="space-y-2 text-sm">
@@ -133,7 +216,7 @@ export function Projects() {
             aria-label={c("상태", "State")}
             className={inputClass}
             value={state}
-            onChange={(e) => setState(e.target.value)}
+            onChange={(e) => changeFilter({ state: e.target.value })}
           >
             <option value="">{c("전체", "All")}</option>
             {(
@@ -151,7 +234,12 @@ export function Projects() {
           </select>
         </label>
       </div>
-      {error && <B2bError code={error} retry={() => void load()} />}
+      {error === "B2B_PROJECT_LIST_SCOPE_CHANGED" ? (
+        <div role="alert" className="space-y-3 text-sm">
+          <p>{c("계정 또는 서비스가 변경되었습니다. 현재 권한으로 목록을 다시 확인해 주세요.", "The account or service changed. Reload the list with your current access.")}</p>
+          <button className={secondaryClass} onClick={() => window.location.reload()}>{c("목록 다시 열기", "Reopen list")}</button>
+        </div>
+      ) : error && <B2bError code={error} retry={() => void load()} />}
       {rows === null && !error ? (
         <TeamLoading />
       ) : rows?.length === 0 ? (
@@ -173,6 +261,7 @@ export function Projects() {
               <Link
                 className="flex min-h-20 items-center justify-between gap-4 rounded-md py-5 focus-visible:outline-2 focus-visible:outline-offset-2 hover:bg-surface"
                 href={`${base}/${p.id}`}
+                onClick={persist}
               >
                 <div className="min-w-0">
                   <h2 className="truncate font-medium">{p.name}</h2>
@@ -194,7 +283,7 @@ export function Projects() {
         <button
           className={secondaryClass}
           disabled={busy}
-          onClick={() => void load(cursor)}
+          onClick={() => void load(settings.current.pages + 1)}
         >
           {busy ? c("불러오는 중…", "Loading…") : c("더 보기", "Load more")}
         </button>

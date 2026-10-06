@@ -178,6 +178,8 @@ export const b2bService = {
   projects: (
     id: string,
     query: { search?: string; state?: string; cursor?: string } = {},
+    account?: string,
+    signal?: AbortSignal,
   ) => {
     const params = new URLSearchParams(
       Object.entries(query).filter(([, v]) => v !== undefined) as [
@@ -185,7 +187,10 @@ export const b2bService = {
         string,
       ][],
     );
-    return get<ProjectList>(`${base(id)}/projects?${params}`);
+    return apiClient.get<{ data: ProjectList }>(`${base(id)}/projects?${params}`, {
+      timeout: 15_000, signal,
+      ...(account ? { headers: { "X-Prepix-Account-ID": account } } : {}),
+    }).then((response) => response.data.data);
   },
   project: (id: string, projectId: string, account?: string) =>
     get<ProjectDetail>(projectPath(id, projectId), account),
