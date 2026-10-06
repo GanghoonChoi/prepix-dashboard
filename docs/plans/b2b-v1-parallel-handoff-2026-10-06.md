@@ -44,7 +44,7 @@ cd /Users/spagettimaker/My/Lasker/prepix-parallel/requests/prepix-dashboard
 claude --add-dir /Users/spagettimaker/My/Lasker/prepix-parallel/requests/prepix-backend /Users/spagettimaker/.codex/worktrees/b2b-file-lifecycle/prepix-dashboard/docs/plans
 ```
 
-B의 새 세션은 `/Users/spagettimaker/My/Lasker/prepix-parallel/requests/prepix-dashboard/HANDOFF.md`부터 읽고 남은 조건을 확인한다. 확인한 최신 커밋은 웹 `537e5db`, 서버 `a038713`이다. 인계 보고의 테스트 결과는 통합 담당이 아직 재검증하지 않았다.
+B의 새 세션은 `/Users/spagettimaker/My/Lasker/prepix-parallel/requests/prepix-dashboard/HANDOFF.md`부터 읽고 남은 조건을 확인한다. 확인한 최신 커밋은 웹 `537e5db`, 서버 `a038713`이다. 서버는 통합 담당이 현재 파일 수명주기에 연결해 6e4a02a에서 전체 B2B 180건으로 재검증했다. 요청 웹은 영속 변경 기록·새로고침 복구를 확장한 뒤 통합할 범위로 남아 있다.
 
 현재 Codex의 웹 작업은 `/Users/spagettimaker/.codex/worktrees/b2b-file-lifecycle/prepix-dashboard`, 브랜치 `codex/b2b-file-lifecycle`에서 진행한다. 원래 대시보드 폴더는 다른 작업의 `chore/drop-old-dashboard-host` 브랜치이므로 변경하거나 기준 문서 경로로 사용하지 않는다.
 
@@ -55,7 +55,7 @@ B의 새 세션은 `/Users/spagettimaker/My/Lasker/prepix-parallel/requests/prep
 1. 해당 작업 폴더의 `AGENTS.md`와 `CLAUDE.md`를 먼저 읽는다. 인계 문서와 원래 문서, 실제 코드를 함께 확인한다. 범위를 벗어난 원본 작업 폴더는 참조용이다.
 2. 주 작업 폴더의 파일, 현재 브랜치, 미커밋 변경을 수정·정리·되돌리지 않는다. 다른 세션의 worktree를 변경하지 않는다.
 3. 서비스 주소·현재 사용자·팀·프로젝트·정확한 버전을 모든 저장/전송/재개 상태에 고정한다. 관리자 또는 소유자라는 이유로 콘텐츠를 볼 수 있게 하지 않는다. 외부 참여와 검토자 권한을 내부 제작 권한으로 바꾸지 않는다.
-4. 공통 `backend/src/b2b/contracts.ts`, 생성 계약, 기존 파일 서비스, `b2b.module.ts`, schema index, 마이그레이션 journal과 적용 SQL은 현재 Codex가 통합한다. 변경이 필요한 경우 자기 작업 폴더에서 통합용 별도 커밋/패치로 분리하고 충돌 가능성을 보고한다. 적용된 기존 마이그레이션을 고치지 않는다. 현재 통합 담당은 0058·0059 파일 수명주기 마이그레이션을 서버 650a543에서 로컬 검증해 커밋했다. 외부 세션은 번호 없는 draft SQL로 제공하고 최종 번호는 통합 담당이 부여한다.
+4. 공통 `backend/src/b2b/contracts.ts`, 생성 계약, 기존 파일 서비스, `b2b.module.ts`, schema index, 마이그레이션 journal과 적용 SQL은 현재 Codex가 통합한다. 변경이 필요한 경우 자기 작업 폴더에서 통합용 별도 커밋/패치로 분리하고 충돌 가능성을 보고한다. 적용된 기존 마이그레이션을 고치지 않는다. 현재 통합 담당은 0058·0059 파일 수명주기와 0060·0061 요청/필수 제출 증거 보호를 서버 6e4a02a에서 로컬 검증해 커밋했다. 외부 세션은 번호 없는 draft SQL로 제공하고 최종 번호는 통합 담당이 부여한다.
 5. 새 도메인은 기존 팀 잠금·현재 권한 검사·중복 요청 영수증·감사/outbox 규칙을 재사용한다. 권한이 사라진 뒤 재시도/재가입으로 이전 접근을 복원하지 않는다.
 6. 테스트 DB·객체 저장소 경로·앱 사용자 데이터·포트를 세션별로 분리한다. 주 작업의 PostgreSQL 55438, 웹 3501, API 3308, 객체 저장소 3900 및 다른 세션의 웹 3001과 그 데이터를 초기화하거나 변경하지 않는다. B 테스트용 웹/API 포트 후보는 3401/3408이며 시작 전 사용 여부를 확인한다. 별도 DB와 버킷을 실제로 준비한 뒤 연결한다. worker가 다른 세션의 업로드를 처리하게 하지 않는다.
 7. 실제 배포·결제·유료 AI 호출·외부 메일 발송을 포함하지 않는다. 합성 입력/시험 대역으로 확인한 결과는 실제 운영 인수와 구분한다. 승인되지 않은 상품/AI 값은 0원·무료·무제한으로 대체하지 않는다.
