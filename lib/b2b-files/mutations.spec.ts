@@ -16,6 +16,8 @@ import {
   type MutationStore,
 } from "./mutations";
 import type { FileScope } from "./api";
+import { teamFilePrefix } from "./store";
+import { downloadKey } from "./download-store";
 const scope: FileScope = {
   origin: "http://localhost:3312",
   userId: randomUUID(),
@@ -23,6 +25,57 @@ const scope: FileScope = {
   projectId: randomUUID(),
 };
 const signal = () => new AbortController().signal;
+test("library record inventory is exact to service, actor and team and keeps an immutable source", () => {
+  const s = { ...scope, origin: 'http://localhost:3312/"\\test' },
+    prefix = teamFilePrefix(s),
+    r = {
+      schema: 1 as const,
+      scope: s,
+      versionId: randomUUID(),
+      size: 1,
+      sha256: "a".repeat(64),
+    };
+  assert.ok(downloadKey(r).startsWith(prefix));
+  for (const other of [
+    { userId: randomUUID() },
+    { workspaceId: randomUUID() },
+    { origin: s.origin + "suffix" },
+  ])
+    assert.equal(
+      downloadKey({ ...r, scope: { ...s, ...other } }).startsWith(prefix),
+      false,
+    );
+  assert.ok(
+    downloadKey({ ...r, scope: { ...s, projectId: randomUUID() } }).startsWith(
+      prefix,
+    ),
+  );
+});
+test("orphan relink to the original project is valid only with an explicit library intent bound into the receipt hash", () => {
+  const r: FileMutation = {
+    schema: 1,
+    scope,
+    attempts: 0,
+    kind: "link",
+    objectId: randomUUID(),
+    targetProjectId: scope.projectId,
+    input: {
+      requestKey: randomUUID(),
+      sourceProjectId: scope.projectId,
+      versionId: "",
+      fromLibrary: true,
+    },
+  };
+  r.input.versionId = r.objectId;
+  assert.equal(validMutation(r, scope), true);
+  const plain = { ...r, input: { ...r.input, fromLibrary: undefined } };
+  assert.equal(validMutation(plain, scope), false);
+  assert.notEqual(mutationHash(r), mutationHash(plain));
+  assert.equal(
+    validMutation({ ...r, input: { ...r.input, fromLibrary: "true" } }, scope),
+    false,
+  );
+});
 const record = (): FileMutation => ({
   schema: 1,
   scope,

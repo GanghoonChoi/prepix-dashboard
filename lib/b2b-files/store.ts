@@ -22,6 +22,15 @@ export const scopeKey = (scope: FileScope) =>
   ]);
 export const recordKey = (record: TransferRecord) =>
   JSON.stringify([scopeKey(record.scope), record.input.requestKey]);
+// A trailing tuple comma makes the range account/team/service exact, even
+// for prefixes containing JSON quotes or backslashes.
+export const teamFilePrefix = (scope: Omit<FileScope, "projectId">) =>
+  JSON.stringify([
+    JSON.stringify([scope.origin, scope.userId, scope.workspaceId]).slice(
+      0,
+      -1,
+    ) + ",",
+  ]).slice(0, -2);
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 export function validRecord(
   raw: unknown,

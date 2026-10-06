@@ -829,6 +829,198 @@ test("real private upload resumes after reload, verifies immutable content and s
       ).json()
     ).data.versions,
   ).toHaveLength(3);
+  // An exact version with no active project reference remains available only
+  // to its currently authorized steward through the library.
+  const libraryRoot = `${api}/v2/workspaces/${team.id}/b2b/library`,
+    libraryPath = `/dashboard/workspaces/${team.id}/library`;
+  expect(
+    (
+      await request.post(`${root}/files/${managed.id}/unlink`, {
+        headers: user.headers,
+        data: {
+          requestKey: randomUUID(),
+          revision: 0,
+          reason: "Keep only in library",
+        },
+      })
+    ).status(),
+  ).toBe(201);
+  await page.goto(libraryPath);
+  expect(
+    (
+      await request.get(`${libraryRoot}?kind=unsupported`, {
+        headers: user.headers,
+      })
+    ).status(),
+  ).toBe(400);
+  expect(
+    (
+      await request.get(`${libraryRoot}/files/${managed.id}`, {
+        headers: user.headers,
+      })
+    ).status(),
+  ).toBe(400);
+  expect(
+    (
+      await request.get(libraryRoot, {
+        headers: { ...user.headers, "X-Prepix-Account-ID": producer.id },
+      })
+    ).status(),
+  ).toBe(403);
+  await expect(
+    page.getByRole("heading", { name: "보관함", exact: true }),
+  ).toBeVisible();
+  const libraryRow = () => page.getByTestId(`library-file-${managed.id}`);
+  await expect(libraryRow()).toBeVisible();
+  await libraryRow()
+    .getByText("버전 상세와 사용 위치", { exact: true })
+    .click();
+  await expect(
+    libraryRow().getByText("현재 표시할 수 있는 프로젝트 연결이 없습니다.", {
+      exact: false,
+    }),
+  ).toBeVisible();
+  expect(
+    (
+      await (
+        await request.get(libraryRoot, { headers: reviewer.headers })
+      ).json()
+    ).data.entries,
+  ).toHaveLength(0);
+  const libraryDownload = page.waitForEvent("download");
+  await libraryRow()
+    .getByRole("button", { name: "원본 받기", exact: true })
+    .click();
+  const libraryExport = await libraryDownload;
+  await libraryExport.saveAs("/tmp/prepix-library-original.wav");
+  expect(
+    createHash("sha256")
+      .update(await readFile("/tmp/prepix-library-original.wav"))
+      .digest("hex"),
+  ).toBe(managed.sha256);
+  // The orphan can be restored to its original project with an explicit
+  // library intent, rather than being forced into a different project.
+  await libraryRow()
+    .getByRole("button", { name: "프로젝트에 연결", exact: true })
+    .click();
+  dialog = page.getByRole("alertdialog", {
+    name: "다른 프로젝트에 연결",
+    exact: true,
+  });
+  await dialog
+    .getByRole("combobox", { name: "연결할 프로젝트", exact: true })
+    .selectOption(project.id);
+  await dialog
+    .getByRole("button", { name: "다른 프로젝트에 연결", exact: true })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  const libraryReference = (
+    await (await request.get(`${root}/files`, { headers: user.headers })).json()
+  ).data.versions.find((v: { id: string }) => v.id === managed.id);
+  expect(libraryReference).toBeTruthy();
+  expect(
+    (
+      await request.post(`${root}/files/${managed.id}/unlink`, {
+        headers: user.headers,
+        data: {
+          requestKey: randomUUID(),
+          revision: libraryReference.referenceRevision,
+          reason: "Move the retained version",
+        },
+      })
+    ).status(),
+  ).toBe(201);
+  await page.reload();
+  const libraryKeys: string[] = [];
+  await page.route(
+    `**/projects/${linkedProject.id}/files/link`,
+    async (route) => {
+      libraryKeys.push(route.request().postDataJSON().requestKey);
+      expect(route.request().postDataJSON().fromLibrary).toBe(true);
+      await route.fetch();
+      await route.abort("failed");
+    },
+  );
+  await libraryRow()
+    .getByRole("button", { name: "프로젝트에 연결", exact: true })
+    .click();
+  dialog = page.getByRole("alertdialog", {
+    name: "다른 프로젝트에 연결",
+    exact: true,
+  });
+  await dialog
+    .getByRole("combobox", { name: "연결할 프로젝트", exact: true })
+    .selectOption(linkedProject.id);
+  await dialog
+    .getByRole("button", { name: "다른 프로젝트에 연결", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "같은 요청 재시도", exact: true }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByText("변경이 반영되었습니다.", { exact: false }),
+  ).toBeVisible();
+  expect(libraryKeys).toHaveLength(1);
+  await libraryRow()
+    .getByText("버전 상세와 사용 위치", { exact: true })
+    .click();
+  await expect(
+    libraryRow().getByRole("link", { name: linkedProject.name, exact: true }),
+  ).toBeVisible();
+  expect(
+    (
+      await (
+        await request.get(`${targetRoot}/files`, { headers: producer.headers })
+      ).json()
+    ).data.versions,
+  ).toHaveLength(0);
+  expect(
+    (
+      await (
+        await request.get(`${root}/files/capabilities`, {
+          headers: user.headers,
+        })
+      ).json()
+    ).data.storage.usedBytes,
+  ).toBe(usedBefore);
+  await page.screenshot({
+    path: "/tmp/prepix-library-mobile.png",
+    fullPage: true,
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  // Filtering must keep the original-scope receipt and its local cleanup.
+  await page
+    .getByRole("combobox", { name: "자료 종류", exact: true })
+    .selectOption("output");
+  await expect(libraryRow()).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "임시 수령 삭제", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "임시 수령 삭제", exact: true })
+    .click();
+  await page.goto(target);
+  // Restore the source reference so the existing account-switch management
+  // check below still exercises a live project permission dialog.
+  expect(
+    (
+      await request.post(`${root}/files/link`, {
+        headers: user.headers,
+        data: {
+          requestKey: randomUUID(),
+          sourceProjectId: linkedProject.id,
+          versionId: managed.id,
+          fromLibrary: true,
+        },
+      })
+    ).status(),
+  ).toBe(201);
+  await page.reload();
   // Account assertion is enforced even if a different valid JWT can read this
   // team. A forged expectation cannot reserve or retrieve any file metadata.
   expect(

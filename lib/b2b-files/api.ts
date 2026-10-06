@@ -13,6 +13,7 @@ import type {
   ProjectList,
   TeamFileMutationAction,
   TeamFileMutationLookup,
+  TeamLibraryList,
 } from "../api/generated/b2b";
 
 export type FileScope = {
@@ -20,12 +21,14 @@ export type FileScope = {
   userId: string;
   workspaceId: string;
   projectId: string;
+  library?: boolean;
 };
 export function fileApi(scope: FileScope) {
   if (new URL(apiClient.defaults.baseURL!).origin !== scope.origin)
     throw new Error("B2B_FILE_SERVICE_CHANGED");
   const e = encodeURIComponent;
   const root = `/workspaces/${e(scope.workspaceId)}/b2b/projects/${e(scope.projectId)}`;
+  const libraryRoot = `/workspaces/${e(scope.workspaceId)}/b2b/library`;
   async function get<T>(path: string, signal?: AbortSignal) {
     return (
       await apiClient.get<{ data: T }>(root + path, {
@@ -83,9 +86,32 @@ export function fileApi(scope: FileScope) {
         signal,
       ),
     download: (id: string, signal?: AbortSignal) =>
-      post<TeamFileDownload>(`/files/${e(id)}/download`, {}, signal),
+      scope.library
+        ? apiClient
+            .post<{ data: TeamFileDownload }>(
+              `${libraryRoot}/files/${e(id)}/download`,
+              { sourceProjectId: scope.projectId },
+              {
+                signal,
+                timeout: 30000,
+                headers: { "X-Prepix-Account-ID": scope.userId },
+              },
+            )
+            .then((r) => r.data.data)
+        : post<TeamFileDownload>(`/files/${e(id)}/download`, {}, signal),
     version: (id: string, signal?: AbortSignal) =>
-      get<{ version: TeamFileVersion }>(`/files/${e(id)}`, signal),
+      scope.library
+        ? apiClient
+            .get<{ data: { version: TeamFileVersion } }>(
+              `${libraryRoot}/files/${e(id)}?sourceProjectId=${e(scope.projectId)}`,
+              {
+                signal,
+                timeout: 15000,
+                headers: { "X-Prepix-Account-ID": scope.userId },
+              },
+            )
+            .then((r) => r.data.data)
+        : get<{ version: TeamFileVersion }>(`/files/${e(id)}`, signal),
     permissions: (assetId: string, signal?: AbortSignal) =>
       get<TeamFilePermissionList>(`/assets/${e(assetId)}/permissions`, signal),
     people: (signal?: AbortSignal) => get<ProjectPeople>("/people", signal),
@@ -111,7 +137,12 @@ export function fileApi(scope: FileScope) {
         signal,
       ),
     link: (
-      input: { requestKey: string; sourceProjectId: string; versionId: string },
+      input: {
+        requestKey: string;
+        sourceProjectId: string;
+        versionId: string;
+        fromLibrary?: boolean;
+      },
       signal?: AbortSignal,
     ) =>
       post<{ projectId: string; requestId: string; revision: number }>(
@@ -142,6 +173,30 @@ export function fileApi(scope: FileScope) {
   };
 }
 export type FileApi = ReturnType<typeof fileApi>;
+export async function libraryList(
+  scope: Omit<FileScope, "projectId">,
+  query: { search: string; cursor?: string; kind?: string },
+  signal?: AbortSignal,
+) {
+  if (new URL(apiClient.defaults.baseURL!).origin !== scope.origin)
+    throw new Error("B2B_FILE_SERVICE_CHANGED");
+  const params = new URLSearchParams({ search: query.search });
+  if (query.cursor) params.set("cursor", query.cursor);
+  if (query.kind) params.set("kind", query.kind);
+  const result = (
+    await apiClient.get<{ data: TeamLibraryList }>(
+      `/workspaces/${encodeURIComponent(scope.workspaceId)}/b2b/library?${params}`,
+      {
+        signal,
+        timeout: 15000,
+        headers: { "X-Prepix-Account-ID": scope.userId },
+      },
+    )
+  ).data.data;
+  if (result.currentUserId !== scope.userId)
+    throw new Error("B2B_FILE_ACCOUNT_CHANGED");
+  return result;
+}
 export function fileError(error: unknown) {
   const message = (error as { response?: { data?: { message?: unknown } } })
     ?.response?.data?.message;

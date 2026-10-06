@@ -649,6 +649,17 @@ export type TeamFileVersionList = {
   versions: TeamFileVersion[];
   nextCursor: string | null;
 };
+export type TeamLibraryEntry = {
+  version: TeamFileVersion;
+  linked: boolean;
+  canLink: boolean;
+  locations: { projectId: string; name: string }[];
+};
+export type TeamLibraryList = {
+  currentUserId: string;
+  entries: TeamLibraryEntry[];
+  nextCursor: string | null;
+};
 export type TeamFilePermissionList = {
   stewardId: string;
   permissions: {

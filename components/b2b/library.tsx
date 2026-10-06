@@ -1,0 +1,330 @@
+"use client";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { apiClient } from "@/lib/api/client";
+import type {
+  TeamLibraryEntry,
+  TeamLibraryList,
+} from "@/lib/api/generated/b2b";
+import { fileError, libraryList, type FileScope } from "@/lib/b2b-files/api";
+import { scopeKey } from "@/lib/b2b-files/store";
+import { BrowserMutationStore } from "@/lib/b2b-files/mutations";
+import { BrowserDownloadStore } from "@/lib/b2b-files/download-store";
+import { useFileOperations } from "@/lib/b2b-files/use-operations";
+import { useFileDownloads } from "@/lib/b2b-files/use-downloads";
+import { useWorkspace } from "@/components/workspaces/workspace-context";
+import {
+  inputClass,
+  primaryClass,
+  secondaryClass,
+  TeamLoading,
+  TeamShell,
+} from "@/components/workspaces/shared";
+import { bytes } from "@/lib/workspaces/upload";
+import { B2bError, useCopy } from "./shared";
+import { FileDownloads } from "./file-downloads";
+import { FileManager, PendingFileOperations } from "./file-management";
+
+type TeamScope = Omit<FileScope, "projectId">;
+export function TeamLibrary() {
+  const context = useWorkspace()!,
+    { id } = context.data.workspace,
+    userId = context.data.currentUserId;
+  const scope = useMemo<TeamScope>(
+    () => ({
+      origin: new URL(apiClient.defaults.baseURL!).origin,
+      userId: userId ?? "",
+      workspaceId: id,
+    }),
+    [id, userId],
+  );
+  return context.b2b?.enrolled &&
+    context.b2b.allowedActions.projects &&
+    userId ? (
+    <LibraryView key={JSON.stringify(scope)} scope={scope} />
+  ) : (
+    <B2bError code="B2B_PROJECT_NOT_FOUND" />
+  );
+}
+function LibraryView({ scope }: { scope: TeamScope }) {
+  const c = useCopy();
+  const [data, setData] = useState<TeamLibraryList | null>(null),
+    [error, setError] = useState("");
+  const [query, setQuery] = useState(""),
+    [search, setSearch] = useState(""),
+    [kind, setKind] = useState(""),
+    [cursor, setCursor] = useState<string>();
+  const [scopes, setScopes] = useState<FileScope[]>([]),
+    [storageError, setStorageError] = useState("");
+  const operationStore = useMemo(() => new BrowserMutationStore(), []),
+    receiptStore = useMemo(() => new BrowserDownloadStore(), []);
+  const serial = useRef(0),
+    reader = useRef<AbortController | null>(null);
+  const reload = useCallback(async () => {
+    const sequence = ++serial.current,
+      abort = new AbortController();
+    reader.current?.abort();
+    reader.current = abort;
+    try {
+      const result = await libraryList(
+        scope,
+        { search, kind, cursor },
+        abort.signal,
+      );
+      if (sequence !== serial.current) return;
+      setData(result);
+      setError("");
+      // Resume/check opaque own-account records even when filtering or a new
+      // active source moves a version to a different list group.
+      const persisted = await Promise.all([
+        operationStore.scopes(scope),
+        receiptStore.scopes(scope),
+      ]).catch(() => null);
+      if (sequence !== serial.current) return;
+      setStorageError(persisted ? "" : "B2B_FILE_TRANSFER_STORAGE_UNAVAILABLE");
+      setScopes((prior) => {
+        const next = new Map(prior.map((s) => [s.projectId, s]));
+        for (const s of [
+          ...(persisted?.flat() ?? []),
+          ...result.entries.map((e) => ({ projectId: e.version.projectId })),
+        ]) {
+          // Stable scope identity keeps a receive worker alive during polling
+          // and filters; new sources do not retarget an existing receipt.
+          if (!next.has(s.projectId))
+            next.set(s.projectId, {
+              ...scope,
+              projectId: s.projectId,
+              library: true,
+            });
+        }
+        return next.size === prior.length ? prior : [...next.values()];
+      });
+    } catch (e) {
+      if (sequence !== serial.current) return;
+      setData(null);
+      setError(fileError(e));
+    }
+  }, [scope, search, kind, cursor, operationStore, receiptStore]);
+  useEffect(() => {
+    const sequence = serial,
+      currentReader = reader;
+    const start = window.setTimeout(() => void reload(), 0);
+    const refresh = () => {
+      if (document.visibilityState === "visible") void reload();
+    };
+    const interval = window.setInterval(refresh, 15000);
+    window.addEventListener("focus", refresh);
+    return () => {
+      ++sequence.current;
+      currentReader.current?.abort();
+      clearTimeout(start);
+      clearInterval(interval);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [reload]);
+  return (
+    <TeamShell
+      title={c("보관함", "Library")}
+      description={c(
+        "현재 자료 접근이 허용된 버전만 표시합니다. 프로젝트에서 제외한 자료도 담당자의 허용이 유지되어 있으면 다시 연결할 수 있습니다.",
+        "Only currently accessible versions are shown. Stewards with retained access can relink files removed from a project.",
+      )}
+    >
+      <form
+        className="flex flex-col gap-3 sm:flex-row"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setCursor(undefined);
+          setSearch(query.trim());
+        }}
+      >
+        <label className="flex-1">
+          <span className="sr-only">
+            {c("자료 이름 검색", "Search file names")}
+          </span>
+          <input
+            className={inputClass}
+            maxLength={100}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={c("접근 가능한 자료 검색", "Search accessible files")}
+          />
+        </label>
+        <label>
+          <span className="sr-only">{c("자료 종류", "File kind")}</span>
+          <select
+            className={inputClass}
+            value={kind}
+            onChange={(e) => {
+              setCursor(undefined);
+              setKind(e.target.value);
+            }}
+          >
+            <option value="">{c("모든 종류", "All kinds")}</option>
+            <option value="original">{c("원본", "Original")}</option>
+            <option value="output">{c("결과물", "Output")}</option>
+            <option value="working">{c("작업 자료", "Working files")}</option>
+          </select>
+        </label>
+        <button className={primaryClass}>{c("검색", "Search")}</button>
+      </form>
+      {error ? (
+        <B2bError code={error} retry={() => void reload()} />
+      ) : !data ? (
+        <TeamLoading />
+      ) : (
+        <>
+          {storageError && <B2bError code={storageError} />}
+          {!data.entries.length && (
+            <p className="py-6 text-sm text-muted">
+              {c(
+                "현재 접근할 수 있는 보관 자료가 없습니다.",
+                "No stored files are accessible to you.",
+              )}
+            </p>
+          )}
+          {scopes.map((s) => (
+            <LibraryGroup
+              key={scopeKey(s)}
+              scope={s}
+              entries={data.entries.filter(
+                (e) => e.version.projectId === s.projectId,
+              )}
+              changed={reload}
+            />
+          ))}
+          <div className="flex flex-wrap gap-3">
+            {cursor && (
+              <button
+                className={secondaryClass}
+                onClick={() => setCursor(undefined)}
+              >
+                {c("처음으로", "First page")}
+              </button>
+            )}
+            {data.nextCursor && (
+              <button
+                className={secondaryClass}
+                onClick={() => setCursor(data.nextCursor!)}
+              >
+                {c("다음 자료", "More files")}
+              </button>
+            )}
+          </div>
+        </>
+      )}
+    </TeamShell>
+  );
+}
+function LibraryGroup({
+  scope,
+  entries,
+  changed,
+}: { scope: FileScope; entries: TeamLibraryEntry[]; changed: () => void }) {
+  const c = useCopy(),
+    operations = useFileOperations(scope, true, changed),
+    downloads = useFileDownloads(scope, true, changed);
+  const [selection, setSelection] = useState<string>();
+  const selected = entries.find((e) => e.version.id === selection && e.canLink);
+  return (
+    <section className="space-y-4">
+      <FileDownloads downloads={downloads} />
+      <PendingFileOperations operations={operations} />
+      {selected && (
+        <FileManager
+          key={selected.version.id}
+          scope={scope}
+          version={selected.version}
+          mode="link"
+          operations={operations}
+          close={() => setSelection(undefined)}
+        />
+      )}
+      <ul className="divide-y divide-border">
+        {entries.map((entry) => {
+          const v = entry.version;
+          return (
+            <li
+              key={v.id}
+              data-testid={`library-file-${v.id}`}
+              className="space-y-3 py-5"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <h2 className="break-all font-medium">{v.assetName}</h2>
+                  <p className="mt-1 break-all text-sm text-muted">
+                    {v.name} · {c("버전", "Version")} {v.ordinal} ·{" "}
+                    {bytes(v.size)} ·{" "}
+                    {v.kind === "original"
+                      ? c("원본", "Original")
+                      : v.kind === "output"
+                        ? c("결과물", "Output")
+                        : c("작업 자료", "Working files")}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {v.allowedActions.download && (
+                    <button
+                      className={secondaryClass}
+                      onClick={() => void downloads.start(v)}
+                    >
+                      {c("원본 받기", "Receive original")}
+                    </button>
+                  )}
+                  {entry.canLink && (
+                    <button
+                      className={secondaryClass}
+                      onClick={() => setSelection(v.id)}
+                    >
+                      {c("프로젝트에 연결", "Link to project")}
+                    </button>
+                  )}
+                </div>
+              </div>
+              <details className="text-sm">
+                <summary className="cursor-pointer text-muted">
+                  {c("버전 상세와 사용 위치", "Version details and locations")}
+                </summary>
+                <div className="mt-3 space-y-2">
+                  <p className="text-muted">
+                    {c("등록 시각", "Registered")}:{" "}
+                    {new Date(v.createdAt).toLocaleString(c("ko-KR", "en-US"), {
+                      timeZone: "Asia/Seoul",
+                    })}
+                  </p>
+                  <p className="text-muted">
+                    {v.metadata.container} ·{" "}
+                    {v.metadata.durationMs !== null
+                      ? `${(v.metadata.durationMs / 1000).toFixed(2)} ${c("초", "seconds")}`
+                      : c("재생 길이 정보 없음", "Duration unavailable")}
+                  </p>
+                  {entry.locations.length ? (
+                    <ul className="space-y-2">
+                      {entry.locations.map((p) => (
+                        <li key={p.projectId}>
+                          <Link
+                            className="underline underline-offset-4 break-all"
+                            href={`/dashboard/workspaces/${scope.workspaceId}/projects/${p.projectId}/files`}
+                          >
+                            {p.name}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-muted">
+                      {c(
+                        "현재 표시할 수 있는 프로젝트 연결이 없습니다. 보관된 파일은 유지됩니다.",
+                        "No project links are currently visible. The stored file is retained.",
+                      )}
+                    </p>
+                  )}
+                </div>
+              </details>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}

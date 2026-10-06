@@ -1,7 +1,7 @@
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { sha256 } from "@noble/hashes/sha2.js";
 import type { FileScope } from "./api";
-import { scopeKey } from "./store";
+import { scopeKey, teamFilePrefix } from "./store";
 import type { DownloadIdentity } from "./download-engine";
 export type DownloadRecord = DownloadIdentity & {
   schema: 1;
@@ -43,6 +43,34 @@ export class BrowserDownloadStore {
         reject(new Error("B2B_FILE_TRANSFER_STORAGE_UNAVAILABLE"));
     });
     return this.opening;
+  }
+  async scopes(scope: Omit<FileScope, "projectId">) {
+    const db = await this.open(),
+      prefix = teamFilePrefix(scope);
+    return new Promise<FileScope[]>((resolve, reject) => {
+      const tx = db.transaction("receipts", "readonly"),
+        r = tx
+          .objectStore("receipts")
+          .getAll(IDBKeyRange.bound(prefix, prefix + "\uffff"));
+      tx.oncomplete = () =>
+        resolve(
+          r.result
+            .filter(
+              (v: DownloadRecord) =>
+                v?.scope &&
+                /^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(
+                  v.scope.projectId,
+                ) &&
+                validDownload(v, { ...scope, projectId: v.scope.projectId }),
+            )
+            .map((v: DownloadRecord) => ({
+              ...scope,
+              projectId: v.scope.projectId,
+            })),
+        );
+      tx.onabort = tx.onerror = () =>
+        reject(new Error("B2B_FILE_TRANSFER_STORAGE_UNAVAILABLE"));
+    });
   }
   async list(scope: FileScope) {
     const db = await this.open(),

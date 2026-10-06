@@ -71,7 +71,10 @@ export function workspaceLinks(
     return [
       { href: base, ko: "개요", en: "Overview" },
       ...(status.allowedActions.projects
-        ? [{ href: `${base}/projects`, ko: "프로젝트", en: "Projects" }]
+        ? [
+            { href: `${base}/projects`, ko: "프로젝트", en: "Projects" },
+            { href: `${base}/library`, ko: "보관함", en: "Library" },
+          ]
         : []),
       ...(status.team.legacyArchive &&
       options.cloudEnabled &&

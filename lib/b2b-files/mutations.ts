@@ -2,7 +2,7 @@ import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import type { ChangeTeamFilePermissionInput } from "../api/generated/b2b";
 import type { FileApi, FileScope } from "./api";
-import { scopeKey } from "./store";
+import { scopeKey, teamFilePrefix } from "./store";
 
 type Base = { schema: 1; scope: FileScope; attempts: number };
 export type FileMutation = Base &
@@ -20,6 +20,7 @@ export type FileMutation = Base &
           requestKey: string;
           sourceProjectId: string;
           versionId: string;
+          fromLibrary?: boolean;
         };
       }
     | {
@@ -64,7 +65,9 @@ export function validMutation(
   if (r.kind === "link")
     return (
       uuid.test(r.targetProjectId) &&
-      r.targetProjectId !== scope.projectId &&
+      (r.targetProjectId !== scope.projectId || r.input.fromLibrary === true) &&
+      (r.input.fromLibrary === undefined ||
+        typeof r.input.fromLibrary === "boolean") &&
       r.input.sourceProjectId === scope.projectId &&
       r.input.versionId === r.objectId
     );
@@ -143,6 +146,32 @@ export class BrowserMutationStore implements MutationStore {
         reject(new Error("B2B_FILE_TRANSFER_STORAGE_UNAVAILABLE"));
     });
     return this.opening;
+  }
+  async scopes(scope: Omit<FileScope, "projectId">) {
+    const db = await this.open(),
+      prefix = teamFilePrefix(scope);
+    return new Promise<FileScope[]>((resolve, reject) => {
+      const tx = db.transaction("operations", "readonly"),
+        r = tx
+          .objectStore("operations")
+          .getAll(IDBKeyRange.bound(prefix, prefix + "\uffff"));
+      tx.oncomplete = () =>
+        resolve(
+          r.result
+            .filter(
+              (v: FileMutation) =>
+                v?.scope &&
+                uuid.test(v.scope.projectId) &&
+                validMutation(v, { ...scope, projectId: v.scope.projectId }),
+            )
+            .map((v: FileMutation) => ({
+              ...scope,
+              projectId: v.scope.projectId,
+            })),
+        );
+      tx.onabort = tx.onerror = () =>
+        reject(new Error("B2B_FILE_TRANSFER_STORAGE_UNAVAILABLE"));
+    });
   }
   async list(scope: FileScope) {
     const db = await this.open(),

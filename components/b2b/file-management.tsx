@@ -134,7 +134,9 @@ export function FileManager({
         if (sequence === serial.current) {
           setData({
             projects: result.projects.filter(
-              (p) => p.id !== scope.projectId && p.allowedActions.upload,
+              (p) =>
+                (scope.library || p.id !== scope.projectId) &&
+                p.allowedActions.upload,
             ),
             nextCursor: result.nextCursor,
           });
@@ -153,7 +155,7 @@ export function FileManager({
           invalidate();
       }
     }
-  }, [api, mode, scope.projectId, version.assetId, invalidate]);
+  }, [api, mode, scope.projectId, scope.library, version.assetId, invalidate]);
   useEffect(() => {
     alive.current = true;
     const sequence = serial;
@@ -241,6 +243,7 @@ export function FileManager({
                   requestKey: crypto.randomUUID(),
                   sourceProjectId: scope.projectId,
                   versionId: version.id,
+                  ...(scope.library ? { fromLibrary: true } : {}),
                 },
               };
             } else
@@ -403,7 +406,8 @@ export function FileManager({
                                 ...(prior?.projects ?? []),
                                 ...result.projects.filter(
                                   (p) =>
-                                    p.id !== scope.projectId &&
+                                    (scope.library ||
+                                      p.id !== scope.projectId) &&
                                     p.allowedActions.upload,
                                 ),
                               ].map((p) => [p.id, p]),
