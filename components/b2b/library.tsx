@@ -34,6 +34,8 @@ import { FileDownloads } from "./file-downloads";
 import { TransferSteward, VersionAddress, StewardInbox } from "./file-stewards";
 import { FileManager, PendingFileOperations } from "./file-management";
 
+import { TrashPanel, TrashVersion } from "./file-trash";
+
 type TeamScope = Omit<FileScope, "projectId">;
 export function TeamLibrary({
   versionId,
@@ -225,6 +227,7 @@ function LibraryView({
             context.data.role !== "reviewer" && (
               <StewardInbox scope={scope} changed={reload} />
             )}
+          <TrashPanel scope={scope} changed={reload} />
           {storageError && <B2bError code={storageError} />}
           {versionId && (
             <AddressedVersion
@@ -436,6 +439,9 @@ function LibraryGroup({
                     >
                       {c("프로젝트에 연결", "Link to project")}
                     </button>
+                  )}
+                  {entry.canLink && !entry.linked && (
+                    <TrashVersion scope={scope} version={v} changed={changed} />
                   )}
                   {v.allowedActions.manage && (
                     <TransferSteward

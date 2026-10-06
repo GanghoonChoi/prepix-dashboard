@@ -92,6 +92,14 @@ const invitationErrors: Record<string, [string, string]> = {
   ],
 };
 const errors: Record<string, [string, string]> = {
+  B2B_FILE_REFERENCED: ["사용 중인 프로젝트 연결이 있어 이 버전을 휴지통으로 이동할 수 없습니다. 허용된 프로젝트에서 연결을 먼저 제외하세요.", "An active project reference prevents moving this version to trash. Remove its links in authorized projects first."],
+  B2B_FILE_RETENTION_REQUIRED: ["제출·승인·납품 등의 보존 근거가 있어 이 버전을 삭제할 수 없습니다.", "Submission, approval, delivery or other retention evidence prevents deletion."],
+  B2B_FILE_TRASH_NOT_FOUND: ["현재 이 휴지통 버전을 확인할 수 없습니다. 버전 주소와 현재 접근을 확인하세요.", "This trash version is unavailable. Check the version address and current access."],
+  B2B_FILE_TRASH_EXPIRED: ["복원 기한이 지났습니다. 팀을 복구해도 만료된 휴지통 버전은 복원되지 않습니다.", "Restoration has expired. Team recovery does not revive expired trash versions."],
+  B2B_FILE_TRASH_UNRECOVERABLE: ["영구 삭제가 요청된 버전은 복원할 수 없습니다.", "A version requested for permanent deletion cannot be restored."],
+  B2B_FILE_PURGE_CONFIRMATION_REQUIRED: ["복원 불가 확인이 필요합니다.", "Confirm that permanent deletion cannot be undone."],
+  B2B_FILE_DELETION_PAYMENT_HELD: ["복구 결제 확인으로 삭제가 보류 중입니다. 결제 상태가 확인된 뒤 재시도하세요.", "Deletion is held while recovery payment is checked. Retry after the payment is resolved."],
+
   B2B_FILE_DOWNLOAD_INTEGRITY: ["받은 파일의 크기나 내용이 원본과 다릅니다. 검증하지 못한 파일은 저장하지 않습니다.", "The received size or content differs from the original. Unverified files are not saved."],
   B2B_FILE_DOWNLOAD_RANGE_INVALID: ["서버의 부분 수령 응답을 확인할 수 없습니다. 브라우저 수령과 저장소 설정을 확인해 주세요.", "The partial response could not be verified. Check browser receipt and storage settings."],
   B2B_FILE_DOWNLOAD_STORAGE_UNAVAILABLE: ["이 브라우저에서 임시 파일 수령을 사용할 수 없습니다. 최신 브라우저와 저장소 설정을 확인해 주세요.", "Staged receipt is unavailable in this browser. Check your browser version and storage settings."],

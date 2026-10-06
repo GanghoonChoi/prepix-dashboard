@@ -148,7 +148,11 @@ async function loginSteward(
   user: Awaited<ReturnType<typeof account>>,
   target: string,
 ) {
-  if (page.url().startsWith("http://localhost:3001"))
+  if (
+    page
+      .url()
+      .startsWith(process.env.B2B_E2E_WEB_URL ?? "http://localhost:3001")
+  )
     await page.evaluate(() => localStorage.clear());
   await page.goto(`/login?locale=ko&returnTo=${encodeURIComponent(target)}`);
   await page.getByLabel("이메일", { exact: true }).fill(user.email);
@@ -225,7 +229,8 @@ test("real private upload resumes after reload, verifies immutable content and s
   execFileSync(
     process.execPath,
     [
-      resolve("../prepix-backend/backend/scripts/b2b-paid-test-fixture.cjs"),
+      process.env.B2B_E2E_FIXTURE_PATH ??
+        resolve("../prepix-backend/backend/scripts/b2b-paid-test-fixture.cjs"),
       JSON.stringify({
         workspaceId: team.id,
         action: "purchase",
@@ -1191,7 +1196,8 @@ test("direct library registration resumes its projectless transfer, verifies ori
   execFileSync(
     process.execPath,
     [
-      resolve("../prepix-backend/backend/scripts/b2b-paid-test-fixture.cjs"),
+      process.env.B2B_E2E_FIXTURE_PATH ??
+        resolve("../prepix-backend/backend/scripts/b2b-paid-test-fixture.cjs"),
       JSON.stringify({
         workspaceId: team.id,
         action: "purchase",
@@ -1409,7 +1415,8 @@ test("steward handoff and separate recovery acceptance preserve exact-version pr
   execFileSync(
     process.execPath,
     [
-      resolve("../prepix-backend/backend/scripts/b2b-paid-test-fixture.cjs"),
+      process.env.B2B_E2E_FIXTURE_PATH ??
+        resolve("../prepix-backend/backend/scripts/b2b-paid-test-fixture.cjs"),
       JSON.stringify({
         workspaceId: team.id,
         action: "purchase",
@@ -1641,7 +1648,7 @@ test("steward handoff and separate recovery acceptance preserve exact-version pr
     );
     expect(cancelled.status()).toBe(201);
   }
-  const recoveryAddress = `http://localhost:3001${libraryPath}?version=${recovery.versionId}`;
+  const recoveryAddress = `${process.env.B2B_E2E_WEB_URL ?? "http://localhost:3001"}${libraryPath}?version=${recovery.versionId}`;
   await page
     .getByLabel("복구할 자료 버전 주소", { exact: true })
     .fill(recoveryAddress);
@@ -1813,4 +1820,237 @@ test("steward handoff and separate recovery acceptance preserve exact-version pr
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
+});
+
+test("trash restoration and irreversible owner deletion preserve exact-version privacy across lost replies", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(150000);
+  const owner = await account(request),
+    producer = await account(request);
+  const teamReply = await request.post(`${api}/v2/workspaces`, {
+    headers: owner.headers,
+    data: { name: "휴지통과 영구 삭제 인수", requestKey: randomUUID() },
+  });
+  expect(teamReply.status()).toBe(201);
+  const team = (await teamReply.json()).data.workspace;
+  execFileSync(
+    process.execPath,
+    [
+      process.env.B2B_E2E_FIXTURE_PATH ??
+        resolve("../prepix-backend/backend/scripts/b2b-paid-test-fixture.cjs"),
+      JSON.stringify({
+        workspaceId: team.id,
+        action: "purchase",
+        target: "initial",
+      }),
+    ],
+    { encoding: "utf8", timeout: 15000 },
+  );
+  const projectReply = await request.post(
+    `${api}/v2/workspaces/${team.id}/b2b/projects`,
+    {
+      headers: owner.headers,
+      data: { requestKey: randomUUID(), name: "휴지통 자료의 사용 위치" },
+    },
+  );
+  expect(projectReply.status()).toBe(201);
+  const project = (await projectReply.json()).data.project;
+  await invite(request, owner, team.id, project.id, producer, "producer");
+  const base = `${api}/v2/workspaces/${team.id}/b2b`,
+    library = `${base}/library`,
+    trash = `${base}/file-trash`,
+    libraryPath = `/dashboard/workspaces/${team.id}/library`;
+  const original = await registerStewardFixture(
+    request,
+    producer,
+    library,
+    "restore-exact.wav",
+    32044,
+  );
+  const hidden = await registerStewardFixture(
+    request,
+    owner,
+    library,
+    "owner-private.wav",
+    16044,
+  );
+  await loginSteward(page, producer, libraryPath);
+  const row = () => page.getByTestId(`library-file-${original.versionId}`),
+    trashRow = () => page.getByTestId(`trash-file-${original.versionId}`);
+  await expect(row()).toBeVisible();
+  await expect(
+    page.getByTestId(`library-file-${hidden.versionId}`),
+  ).toHaveCount(0);
+  const before = (
+    await (
+      await request.get(`${library}/files/capabilities`, {
+        headers: producer.headers,
+      })
+    ).json()
+  ).data.storage.usedBytes;
+  const trashKeys: string[] = [];
+  await page.route("**/b2b/file-trash", async (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    trashKeys.push(route.request().postDataJSON().requestKey);
+    await route.fetch();
+    await route.abort("failed");
+  });
+  await row()
+    .getByRole("button", { name: "휴지통으로 이동", exact: true })
+    .click();
+  const move = page.getByRole("alertdialog", {
+    name: "버전을 휴지통으로 이동",
+    exact: true,
+  });
+  await move.getByLabel("변경 사유").fill("선택 버전 보관 정리");
+  await move
+    .getByRole("button", { name: "이 버전을 휴지통으로 이동", exact: true })
+    .click();
+  await expect(
+    page
+      .getByRole("button", { name: "휴지통 원요청 확인·재시도", exact: true })
+      .first(),
+  ).toBeVisible();
+  await page.reload();
+  await expect(row()).toHaveCount(0);
+  await expect(trashRow()).toBeVisible();
+  expect(trashKeys).toHaveLength(1);
+  expect(
+    (
+      await request.post(`${library}/files/${original.versionId}/download`, {
+        headers: producer.headers,
+        data: {},
+      })
+    ).status(),
+  ).toBe(404);
+  expect(
+    (
+      await (
+        await request.get(`${library}/files/capabilities`, {
+          headers: producer.headers,
+        })
+      ).json()
+    ).data.storage.usedBytes,
+  ).toBe(before);
+  await expect(
+    trashRow().getByRole("button", { name: "원본 받기", exact: true }),
+  ).toHaveCount(0);
+  const restoreKeys: string[] = [];
+  await page.route("**/b2b/file-trash/entries/*/restore", async (route) => {
+    restoreKeys.push(route.request().postDataJSON().requestKey);
+    await route.fetch();
+    await route.abort("failed");
+  });
+  await trashRow()
+    .getByRole("button", { name: "버전 복원", exact: true })
+    .click();
+  const restore = page.getByRole("alertdialog", {
+    name: "휴지통 버전 복원",
+    exact: true,
+  });
+  await restore.getByLabel("변경 사유").fill("정확한 이전 버전 복원");
+  await restore
+    .getByRole("button", { name: "이 버전 복원", exact: true })
+    .click();
+  await expect(
+    page
+      .getByRole("button", { name: "휴지통 원요청 확인·재시도", exact: true })
+      .first(),
+  ).toBeVisible();
+  await page.reload();
+  await expect(row()).toBeVisible();
+  await expect(trashRow()).toHaveCount(0);
+  expect(restoreKeys).toHaveLength(1);
+  await page.unroute("**/b2b/file-trash");
+  await page.unroute("**/b2b/file-trash/entries/*/restore");
+  await row()
+    .getByRole("button", { name: "휴지통으로 이동", exact: true })
+    .click();
+  await move.getByLabel("변경 사유").fill("소유자 영구 삭제를 위한 정리");
+  await move
+    .getByRole("button", { name: "이 버전을 휴지통으로 이동", exact: true })
+    .click();
+  await expect(trashRow()).toBeVisible();
+  await expect(row()).toHaveCount(0);
+  const current = (
+    await (await request.get(trash, { headers: producer.headers })).json()
+  ).data.entries.find(
+    (entry: { version: { id: string } }) =>
+      entry.version.id === original.versionId,
+  );
+  expect(current).toBeTruthy();
+  await loginSteward(page, owner, libraryPath);
+  await expect(trashRow()).toHaveCount(0);
+  const address = new URL(
+    libraryPath,
+    process.env.B2B_E2E_WEB_URL ?? "http://localhost:3001",
+  );
+  address.searchParams.set("version", original.versionId);
+  await page
+    .getByLabel("영구 삭제할 버전 주소", { exact: true })
+    .fill(address.toString());
+  await page
+    .getByRole("button", { name: "삭제 영향 확인", exact: true })
+    .click();
+  const purge = page.getByRole("alertdialog", {
+    name: "영구 삭제 확인",
+    exact: true,
+  });
+  await expect(purge).toBeVisible();
+  await expect(purge).not.toContainText("restore-exact.wav");
+  const confirmation = purge.getByRole("button", {
+    name: "복원 불가 영구 삭제 요청",
+    exact: true,
+  });
+  await expect(confirmation).toBeDisabled();
+  await purge.getByLabel("변경 사유").fill("요청한 버전 영구 삭제 확인");
+  await purge.getByRole("checkbox").check();
+  const purgeKeys: string[] = [];
+  await page.route("**/b2b/file-trash/entries/*/purge", async (route) => {
+    purgeKeys.push(route.request().postDataJSON().requestKey);
+    await route.fetch();
+    await route.abort("failed");
+  });
+  await confirmation.click();
+  await expect(
+    page
+      .getByRole("button", { name: "휴지통 원요청 확인·재시도", exact: true })
+      .first(),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByText("휴지통 변경 결과를 확인했습니다.", { exact: true }).first(),
+  ).toBeVisible();
+  expect(purgeKeys).toHaveLength(1);
+  await expect
+    .poll(
+      async () =>
+        (
+          await (
+            await request.get(`${library}/files/capabilities`, {
+              headers: owner.headers,
+            })
+          ).json()
+        ).data.storage.usedBytes,
+      { timeout: 20000 },
+    )
+    .toBe(String(16044));
+  expect(
+    (
+      await request.post(`${trash}/entries/${current.id}/restore`, {
+        headers: producer.headers,
+        data: {
+          requestKey: randomUUID(),
+          revision: 1,
+          reason: "Irreversible",
+          fromLibrary: true,
+        },
+      })
+    ).status(),
+  ).toBe(409);
+  await expect(
+    page.getByTestId(`library-file-${hidden.versionId}`),
+  ).toBeVisible();
 });

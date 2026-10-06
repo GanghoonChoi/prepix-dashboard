@@ -740,3 +740,47 @@ export type TeamFileStewardRecoveryList = {
   recoveries: TeamFileStewardRecovery[];
   nextCursor: string | null;
 };
+export type TeamFileTrashInput = {
+  requestKey: string;
+  versionId: string;
+  revision: number;
+  reason: string;
+  sourceProjectId?: string;
+  fromLibrary: boolean;
+};
+export type RestoreTeamFileTrashInput = Omit<TeamFileTrashInput, "versionId">;
+export type PurgeTeamFileTrashInput = {
+  requestKey: string;
+  revision: number;
+  reason: string;
+  confirmIrreversible: true;
+};
+export type TeamFileTrashReceipt = {
+  currentUserId: string;
+  requestId: string;
+  trashId: string;
+  versionId: string;
+  revision: number;
+  state: "trashed" | "restored" | "purge_requested";
+};
+export type TeamFileTrashEntry = {
+  id: string;
+  revision: number;
+  version: TeamFileVersion;
+  trashedAt: string;
+  restoreUntil: string;
+  state: "recoverable" | "expired" | "purge_requested";
+  allowedActions: { restore: boolean; purge: boolean };
+};
+export type TeamFileTrashList = {
+  currentUserId: string;
+  entries: TeamFileTrashEntry[];
+  nextCursor: string | null;
+};
+export type TeamFileTrashImpact = {
+  currentUserId: string;
+  trashId: string;
+  versionId: string;
+  revision: number;
+  restoreUntil: string;
+};

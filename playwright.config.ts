@@ -5,7 +5,7 @@ export default defineConfig({
   timeout: 60_000,
   expect: { timeout: 10_000 },
   use: {
-    baseURL: "http://localhost:3001",
+    baseURL: process.env.B2B_E2E_WEB_URL ?? "http://localhost:3001",
     channel: "chrome",
     locale: "ko-KR",
     viewport: { width: 1360, height: 1100 },
