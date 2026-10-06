@@ -14,6 +14,7 @@ import type {
   ScheduleLicenceRevocation,
   ChangeUserAiLimit,
   TeamCommerce,
+  TeamLifecycle,
   TeamQuote,
   CreateTeamQuote,
   Invitation,
@@ -156,6 +157,9 @@ export const b2bService = {
     ),
   members: (id: string) => get<TeamPeople>(`${base(id)}/members`),
   status: (id: string) => get<B2bStatus>(`${base(id)}/status`),
+  // S26/S32. The account header makes the server refuse a stale account's read.
+  lifecycle: (id: string, account: string) =>
+    get<TeamLifecycle>(`${base(id)}/lifecycle`, account),
   projects: (
     id: string,
     query: { search?: string; state?: string; cursor?: string } = {},

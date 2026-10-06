@@ -1,7 +1,10 @@
 "use client";
 import { useI18n } from "@/lib/i18n/context";
 import type { ProjectState, TeamState } from "@/lib/api/services/b2b.service";
+import Link from "next/link";
 import { secondaryClass } from "@/components/workspaces/shared";
+import { useWorkspace } from "@/components/workspaces/workspace-context";
+import { accessNotice, kst } from "@/lib/b2b-lifecycle/view";
 
 export const stateLabels: Record<TeamState | ProjectState, [string, string]> = {
   preparing: ["준비", "Preparing"],
@@ -302,6 +305,46 @@ const errors: Record<string, [string, string]> = {
     "Choose an internal team participant as successor.",
   ],
 };
+/** S32: a team-state refusal. Exact boundary times, no target names. */
+function TeamAccessNotice({ code, notice }: { code: string; notice: [string, string] }) {
+  const c = useCopy();
+  const { lang } = useI18n();
+  const context = useWorkspace();
+  const status = context?.b2b?.enrolled ? context.b2b : null;
+  const end = status?.team.periodEndsAt ?? null;
+  const base = context ? `/dashboard/workspaces/${context.data.workspace.id}` : null;
+  const next =
+    end && code === "B2B_TEAM_READ_ONLY"
+      ? [c("복구 보관 시작", "Recovery storage from"), new Date(Date.parse(end) + 30 * 86400000).toISOString()]
+      : end && code === "B2B_TEAM_RECOVERY"
+        ? [c("삭제 시작 예정", "Deletion from"), new Date(Date.parse(end) + 60 * 86400000).toISOString()]
+        : null;
+  return (
+    <div role="alert" data-testid="team-access-notice" className="space-y-3 rounded-lg border border-border bg-surface p-4 text-sm leading-6">
+      <p>{c(...notice)}</p>
+      {next && (
+        <p className="text-muted tabular-nums">
+          {next[0]}: {kst(next[1], lang)}
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        {base && (
+          <Link className={secondaryClass} href={`${base}/status`}>
+            {c("이용 상태 확인", "Check team status")}
+          </Link>
+        )}
+        {base && (
+          <Link className={secondaryClass} href={base}>
+            {c("팀 홈", "Team home")}
+          </Link>
+        )}
+        <Link className={secondaryClass} href="/dashboard/settings">
+          {c("계정 확인", "Check account")}
+        </Link>
+      </div>
+    </div>
+  );
+}
 export function B2bError({
   code,
   retry,
@@ -310,6 +353,8 @@ export function B2bError({
   retry?: () => void;
 }) {
   const c = useCopy();
+  const notice = accessNotice(code);
+  if (notice) return <TeamAccessNotice code={code} notice={notice} />;
   const message = errors[code] ??
     invitationErrors[code] ?? [
       "요청을 완료하지 못했습니다. 입력을 유지한 채 다시 시도할 수 있습니다.",

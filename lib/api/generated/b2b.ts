@@ -1022,3 +1022,134 @@ export type ProjectRequestMutationLookup = {
   currentUserId: string;
   receipt: ProjectRequestMutationResult | null;
 };
+
+// F17 team end-of-use, recovery and deletion (S26/S32, F2/F3 contracts).
+// SOT: backend/docs/b2b-team-lifecycle-deletion.md
+export type TeamDeletionState =
+  | "waiting"
+  | "held"
+  | "ops_check"
+  | "running"
+  | "completed"
+  | "superseded";
+export type TeamDeletionBlockReason =
+  | "payment_hold"
+  | "payment_unknown"
+  | "received_unapplied"
+  | "review_required"
+  | "order_pending"
+  | "settings_missing"
+  | "operator_hold"
+  | "operator_released";
+export type TeamDeletionObjectState = "pending" | "deleted" | "failed";
+export type TeamBackupPurgeState = "pending" | "purged" | "unverified" | "failed";
+export type TeamBackupPurgeResultState =
+  | "purged"
+  | "absent"
+  | "unverifiable"
+  | "failed";
+export type TeamLifecycleBoundary = "ended" | "recovery_storage" | "deletion_due";
+// Customer-visible view. `recovery` is null without billing permission.
+export type TeamLifecycle = {
+  workspaceId: string;
+  serverTime: string;
+  currentState: TeamState;
+  policyVersion: string;
+  periodEndsAt: string | null;
+  boundaries: {
+    readOnlyFrom: string;
+    recoveryFrom: string;
+    deletionFrom: string;
+  } | null;
+  allowedActions: {
+    openContent: boolean;
+    download: boolean;
+    edit: boolean;
+    restorePurchase: boolean;
+    billing: boolean;
+  };
+  deletion: {
+    state: TeamDeletionState | "not_started";
+    startedAt: string | null;
+    completedAt: string | null;
+    backup: { state: TeamBackupPurgeState; dueAt: string } | null;
+  };
+  recovery: {
+    holdStartedAt: string | null;
+    holdEndsAt: string | null;
+    holdUsed: boolean;
+    pendingOrder: { id: string; state: TeamOrderState } | null;
+    opsCheck: {
+      reason: TeamDeletionBlockReason;
+      since: string;
+      deadline: string | null;
+    } | null;
+  } | null;
+};
+// F3 operator accessors (service methods, not HTTP). operatorId is the
+// server-verified console identity; grantId is F3's operations grant evidence.
+export type TeamDeletionOperator = {
+  operatorId: string;
+  grantId: string;
+  reason: string;
+  requestKey: string;
+};
+export type TeamDeletionOpsReceipt = {
+  jobId: string;
+  action: "hold" | "release" | "assign" | "retry";
+  state: TeamDeletionState;
+  revision: number;
+  requestId: string;
+};
+export type TeamRecoveryReprocessReceipt = {
+  orderId: string;
+  action: "reprocess";
+  orderState: TeamOrderState;
+  applicationId: string | null;
+  requestId: string;
+};
+export type TeamDeletionOpsView = {
+  workspaceId: string;
+  currentState: TeamState;
+  periodEndsAt: string | null;
+  jobs: {
+    id: string;
+    periodEndsAt: string;
+    state: TeamDeletionState;
+    blockReason: TeamDeletionBlockReason | null;
+    blockedOrderId: string | null;
+    opsSince: string | null;
+    opsDeadline: string | null;
+    opsAssignee: string | null;
+    policyVersion: string | null;
+    startedAt: string | null;
+    completedAt: string | null;
+    lastError: string | null;
+    revision: number;
+    objects: Record<TeamDeletionObjectState, number>;
+    backup: {
+      state: TeamBackupPurgeState | null;
+      dueAt: string | null;
+      verifiedAt: string | null;
+      copies: {
+        backupId: string;
+        state: TeamBackupPurgeResultState;
+        verifiedAt: string | null;
+      }[];
+    };
+    actions: {
+      action: string;
+      operatorId: string;
+      reason: string;
+      createdAt: string;
+    }[];
+  }[];
+  recoverySafety: {
+    periodEndsAt: string;
+    holdStartedAt: string | null;
+    holdEndsAt: string | null;
+    blockedOrderId: string | null;
+    blockedReason: string | null;
+    blockedSince: string | null;
+  }[];
+};
