@@ -5,7 +5,8 @@ import type {
   TeamFileUpload,
   TeamFileUploadStatus,
 } from "../api/generated/b2b";
-import type { FileApi, FileScope } from "./api";
+import type { FileScope } from "./api";
+import type { TransferApi as FileApi } from "./transfer";
 import {
   mergeRecord,
   scopeKey,
@@ -68,15 +69,6 @@ async function fixture(content = "original bytes") {
   let parts: TeamFileUploadStatus["parts"] = [],
     needsCompletion = false;
   const api: FileApi = {
-    capabilities: async () => {
-      throw new Error("unused");
-    },
-    versions: async () => {
-      throw new Error("unused");
-    },
-    download: async () => {
-      throw new Error("unused");
-    },
     lookup: async () => ({ currentUserId: scope.userId, upload, cancelled }),
     begin: async (input) => {
       begins++;

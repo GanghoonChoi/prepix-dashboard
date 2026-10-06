@@ -638,13 +638,19 @@ export type TeamFileVersion = {
   metadata: TeamFileMetadata;
   createdAt: string;
   previewState: "not_requested";
-  allowedActions: { download: boolean; ai: boolean; manage: boolean };
+  allowedActions: {
+    download: boolean;
+    ai: boolean;
+    manage: boolean;
+    unlink: boolean;
+  };
 };
 export type TeamFileVersionList = {
   versions: TeamFileVersion[];
   nextCursor: string | null;
 };
 export type TeamFilePermissionList = {
+  stewardId: string;
   permissions: {
     userId: string;
     canDownload: boolean;
@@ -652,6 +658,11 @@ export type TeamFilePermissionList = {
     revokedAt: string | null;
     revision: number;
   }[];
+};
+export type TeamFileMutationAction = "permission" | "link" | "unlink";
+export type TeamFileMutationLookup = {
+  currentUserId: string;
+  receipt: { requestId: string; revision: number } | null;
 };
 export type ChangeTeamFilePermissionInput = {
   requestKey: string;

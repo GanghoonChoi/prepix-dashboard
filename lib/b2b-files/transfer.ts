@@ -6,6 +6,10 @@ import type {
 } from "../api/generated/b2b";
 import { fileDigestOffThread, putPart } from "../workspaces/upload";
 import type { FileApi, FileScope } from "./api";
+export type TransferApi = Pick<
+  FileApi,
+  "lookup" | "begin" | "status" | "part" | "complete" | "cancel"
+>;
 import type { TransferRecord, TransferStore } from "./store";
 
 export type TransferPhase = "hashing" | "uploading" | "verifying";
@@ -108,7 +112,7 @@ export function checkParts(status: TeamFileUploadStatus) {
 export async function resumeTransfer(options: {
   record: TransferRecord;
   file?: File;
-  api: FileApi;
+  api: TransferApi;
   store: TransferStore;
   signal: AbortSignal;
   progress: Progress;
@@ -201,7 +205,7 @@ export async function resumeTransfer(options: {
 }
 export async function cancelTransfer(
   record: TransferRecord,
-  api: FileApi,
+  api: TransferApi,
   store: TransferStore,
   signal: AbortSignal,
 ) {

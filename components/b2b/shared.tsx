@@ -92,6 +92,11 @@ const invitationErrors: Record<string, [string, string]> = {
   ],
 };
 const errors: Record<string, [string, string]> = {
+  B2B_FILE_OPERATION_PENDING: ["이 변경의 처리 결과를 먼저 확인해 주세요. 처음 요청을 그대로 재시도할 수 있습니다.", "Confirm the pending change first. You can retry the original request."],
+  B2B_FILE_OPERATION_INVALID: ["변경 요청과 처리 결과를 확인할 수 없습니다. 원래 요청 기록을 유지합니다.", "The operation or its receipt could not be verified. The original request is retained."],
+  B2B_FILE_OPERATION_NOT_FOUND: ["현재 프로젝트에서 이 변경 요청을 확인할 수 없습니다.", "This operation is unavailable in the current project."],
+  B2B_FILE_STEWARD_TRANSFER_REQUIRED: ["자료 담당자의 열람을 해제하려면 담당자를 먼저 이전해야 합니다.", "Transfer stewardship before removing the steward's read access."],
+  B2B_FILE_AI_INPUT_DENIED: ["현재 역할과 자료 권한으로는 AI 입력 사용을 허용할 수 없습니다.", "The current role and file permissions do not allow AI input use."],
   B2B_FILE_RESELECT_REQUIRED: ["원본 파일을 다시 선택해 주세요. 크기와 전체 해시를 확인한 뒤 남은 부분부터 전송합니다.", "Choose the source file again. Its size and full hash are checked before remaining parts are sent."],
   UPLOAD_RESUME_MISMATCH: ["처음 등록한 파일과 내용이 다릅니다. 같은 원본을 선택하거나 새 자료로 등록해 주세요.", "This file differs from the original upload. Choose the same source or register a new asset."],
   B2B_FILE_SIZE_INVALID: ["빈 파일이거나 현재 파일당 크기 제한을 초과했습니다.", "The file is empty or exceeds the current per-file size limit."],

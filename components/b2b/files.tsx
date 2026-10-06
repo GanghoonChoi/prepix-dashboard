@@ -21,6 +21,12 @@ import {
 } from "@/components/workspaces/shared";
 import { FileTransfers } from "./file-transfers";
 import { B2bError, useCopy } from "./shared";
+import { useFileOperations } from "@/lib/b2b-files/use-operations";
+import {
+  FileManager,
+  PendingFileOperations,
+  type FileManagementMode,
+} from "./file-management";
 
 export function ProjectFiles({ projectId }: { projectId: string }) {
   const context = useWorkspace()!;
@@ -57,6 +63,10 @@ function FilesView({ scope }: { scope: FileScope }) {
     [cursor, setCursor] = useState<string>();
   const [downloadError, setDownloadError] = useState(""),
     [downloading, setDownloading] = useState("");
+  const [management, setManagement] = useState<{
+    versionId: string;
+    mode: FileManagementMode;
+  } | null>(null);
   const serial = useRef(0),
     downloadController = useRef<AbortController | null>(null),
     readController = useRef<AbortController | null>(null);
@@ -102,9 +112,13 @@ function FilesView({ scope }: { scope: FileScope }) {
       window.removeEventListener("focus", refresh);
     };
   }, [reload]);
+  const operations = useFileOperations(scope, !!data, reload);
   if (error) return <B2bError code={error} retry={() => void reload()} />;
   if (!data) return <TeamLoading />;
   const { project, capabilities, list } = data;
+  const managedVersion = list.versions.find(
+    (v) => v.id === management?.versionId,
+  );
   return (
     <TeamShell
       title={c("프로젝트 자료", "Project files")}
@@ -136,6 +150,21 @@ function FilesView({ scope }: { scope: FileScope }) {
         versions={list.versions}
         changed={() => void reload()}
       />
+      <PendingFileOperations operations={operations} />
+      {management &&
+        managedVersion &&
+        (management.mode === "unlink"
+          ? managedVersion.allowedActions.unlink
+          : managedVersion.allowedActions.manage) && (
+          <FileManager
+            key={`${managedVersion.id}:${management.mode}`}
+            scope={scope}
+            version={managedVersion}
+            mode={management.mode}
+            operations={operations}
+            close={() => setManagement(null)}
+          />
+        )}
       <section
         className="space-y-4"
         aria-label={c("보관된 자료", "Stored files")}
@@ -284,6 +313,44 @@ function FilesView({ scope }: { scope: FileScope }) {
                   </dd>
                 </dl>
               </details>
+              <div className="flex flex-wrap gap-3">
+                {version.allowedActions.manage && (
+                  <>
+                    <button
+                      type="button"
+                      className={secondaryClass}
+                      onClick={() =>
+                        setManagement({
+                          versionId: version.id,
+                          mode: "permission",
+                        })
+                      }
+                    >
+                      {c("자료 권한 관리", "Manage permissions")}
+                    </button>
+                    <button
+                      type="button"
+                      className={secondaryClass}
+                      onClick={() =>
+                        setManagement({ versionId: version.id, mode: "link" })
+                      }
+                    >
+                      {c("다른 프로젝트에 연결", "Link to another project")}
+                    </button>
+                  </>
+                )}
+                {version.allowedActions.unlink && (
+                  <button
+                    type="button"
+                    className={secondaryClass}
+                    onClick={() =>
+                      setManagement({ versionId: version.id, mode: "unlink" })
+                    }
+                  >
+                    {c("프로젝트 연결 제외", "Unlink from project")}
+                  </button>
+                )}
+              </div>
             </li>
           ))}
         </ul>

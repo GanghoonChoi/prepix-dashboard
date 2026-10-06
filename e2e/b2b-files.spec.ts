@@ -70,6 +70,58 @@ function wav(size: number) {
   value.writeUInt32LE(size - 44, 40);
   return value;
 }
+async function invite(
+  request: APIRequestContext,
+  owner: Awaited<ReturnType<typeof account>>,
+  teamId: string,
+  projectId: string,
+  user: Awaited<ReturnType<typeof account>>,
+  role: "producer" | "reviewer",
+) {
+  const existing = new Set<string>(
+    (await (await request.get(`${api}/__test/mail`)).json())
+      .filter((m: { to: string }) => m.to === user.email)
+      .map((m: { inviteUrl?: string }) => m.inviteUrl),
+  );
+  expect(
+    (
+      await request.post(`${api}/v2/workspaces/${teamId}/b2b/invitations`, {
+        headers: owner.headers,
+        data: {
+          requestKey: randomUUID(),
+          email: user.email,
+          kind: "internal",
+          teamRole: "editor",
+          projectId,
+          projectRole: role,
+          canDownload: false,
+        },
+      })
+    ).status(),
+  ).toBe(201);
+  let inviteUrl = "";
+  await expect
+    .poll(async () => {
+      const mail = await (await request.get(`${api}/__test/mail`)).json();
+      inviteUrl =
+        mail.findLast(
+          (m: { to: string; inviteUrl?: string }) =>
+            m.to === user.email &&
+            m.inviteUrl?.includes("/b2b-invitations/") &&
+            !existing.has(m.inviteUrl),
+        )?.inviteUrl ?? "";
+      return inviteUrl;
+    })
+    .toBeTruthy();
+  const token = new URL(inviteUrl).pathname.split("/").at(-1);
+  expect(
+    (
+      await request.post(`${api}/v2/b2b/invitations/${token}/accept`, {
+        headers: user.headers,
+      })
+    ).status(),
+  ).toBe(201);
+}
 test("real private upload resumes after reload, verifies immutable content and survives cancellation response loss", async ({
   page,
   request,
@@ -247,13 +299,11 @@ test("real private upload resumes after reload, verifies immutable content and s
   await page
     .getByRole("combobox", { name: "등록 방식", exact: true })
     .selectOption(catalogue[0].assetId);
-  await page
-    .getByLabel("보관할 파일", { exact: true })
-    .setInputFiles({
-      name: "revision.wav",
-      mimeType: "audio/wav",
-      buffer: small,
-    });
+  await page.getByLabel("보관할 파일", { exact: true }).setInputFiles({
+    name: "revision.wav",
+    mimeType: "audio/wav",
+    buffer: small,
+  });
   await page
     .getByRole("button", { name: "팀에 보관 시작", exact: true })
     .click();
@@ -285,14 +335,14 @@ test("real private upload resumes after reload, verifies immutable content and s
       await request.get(`${root}/files/capabilities`, { headers: user.headers })
     ).json()
   ).data.storage.usedBytes;
-  await page.getByRole("combobox", { name: "등록 방식", exact: true }).selectOption("");
   await page
-    .getByLabel("보관할 파일", { exact: true })
-    .setInputFiles({
-      name: "original.wav",
-      mimeType: "audio/wav",
-      buffer: small,
-    });
+    .getByRole("combobox", { name: "등록 방식", exact: true })
+    .selectOption("");
+  await page.getByLabel("보관할 파일", { exact: true }).setInputFiles({
+    name: "original.wav",
+    mimeType: "audio/wav",
+    buffer: small,
+  });
   await page
     .getByRole("button", { name: "팀에 보관 시작", exact: true })
     .click();
@@ -335,6 +385,254 @@ test("real private upload resumes after reload, verifies immutable content and s
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
+  // The management UI works against current project participants, with read,
+  // original-download and AI-use grants remaining separate.
+  const producer = await account(request),
+    reviewer = await account(request);
+  await invite(request, user, team.id, project.id, producer, "producer");
+  await invite(request, user, team.id, project.id, reviewer, "reviewer");
+  const managed = third[0];
+  const row = () =>
+    page
+      .getByRole("listitem")
+      .filter({
+        has: page.getByRole("heading", {
+          name: managed.assetName,
+          exact: true,
+        }),
+      })
+      .first();
+  await row()
+    .getByRole("button", { name: "자료 권한 관리", exact: true })
+    .click();
+  let dialog = page.getByRole("alertdialog", {
+    name: "자료 권한 관리",
+    exact: true,
+  });
+  await dialog
+    .getByRole("combobox", { name: "현재 참여자", exact: true })
+    .selectOption(reviewer.id);
+  await expect(
+    dialog.getByLabel("AI 입력 사용 허용", { exact: true }),
+  ).toBeDisabled();
+  await dialog
+    .getByLabel("변경 사유", { exact: true })
+    .fill("검토를 위한 열람");
+  await dialog
+    .getByRole("button", { name: "자료 권한 관리", exact: true })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  const reviewFiles = (
+    await (
+      await request.get(`${root}/files`, { headers: reviewer.headers })
+    ).json()
+  ).data.versions;
+  expect(reviewFiles).toHaveLength(1);
+  expect(reviewFiles[0].allowedActions.download).toBe(false);
+  expect(reviewFiles[0].allowedActions.ai).toBe(false);
+  const permissionKeys: string[] = [];
+  await page.route(
+    `**/assets/${managed.assetId}/permissions`,
+    async (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      permissionKeys.push(route.request().postDataJSON().requestKey);
+      if (permissionKeys.length === 1) {
+        await route.fetch();
+        await route.abort("failed");
+      } else await route.continue();
+    },
+  );
+  await row()
+    .getByRole("button", { name: "자료 권한 관리", exact: true })
+    .click();
+  dialog = page.getByRole("alertdialog", {
+    name: "자료 권한 관리",
+    exact: true,
+  });
+  await dialog
+    .getByRole("combobox", { name: "현재 참여자", exact: true })
+    .selectOption(producer.id);
+  await dialog
+    .getByLabel("변경 사유", { exact: true })
+    .fill("제작자 열람만 허용");
+  await dialog
+    .getByRole("button", { name: "자료 권한 관리", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "같은 요청 재시도", exact: true }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByText("변경이 반영되었습니다.", { exact: false }),
+  ).toBeVisible();
+  expect(permissionKeys).toHaveLength(1);
+  expect(
+    (
+      await (
+        await request.get(`${root}/files`, { headers: producer.headers })
+      ).json()
+    ).data.versions[0].allowedActions,
+  ).toMatchObject({ download: false, ai: false });
+  await row()
+    .getByRole("button", { name: "자료 권한 관리", exact: true })
+    .click();
+  dialog = page.getByRole("alertdialog", {
+    name: "자료 권한 관리",
+    exact: true,
+  });
+  await dialog
+    .getByRole("combobox", { name: "현재 참여자", exact: true })
+    .selectOption(producer.id);
+  await dialog.getByLabel("원본 다운로드 허용", { exact: true }).check();
+  await dialog.getByLabel("AI 입력 사용 허용", { exact: true }).check();
+  await dialog
+    .getByLabel("변경 사유", { exact: true })
+    .fill("제작에 필요한 자료 권한");
+  await dialog
+    .getByRole("button", { name: "자료 권한 관리", exact: true })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  expect(
+    (
+      await (
+        await request.get(`${root}/files`, { headers: producer.headers })
+      ).json()
+    ).data.versions[0].allowedActions,
+  ).toMatchObject({ download: false, ai: true });
+  expect(
+    (
+      await request.post(`${root}/files/${managed.id}/download`, {
+        headers: producer.headers,
+        data: {},
+      })
+    ).status(),
+  ).toBe(403);
+  const targetReply = await request.post(
+    `${api}/v2/workspaces/${team.id}/b2b/projects`,
+    {
+      headers: user.headers,
+      data: { requestKey: randomUUID(), name: "정확한 버전 연결 대상" },
+    },
+  );
+  expect(targetReply.status()).toBe(201);
+  const linkedProject = (await targetReply.json()).data.project;
+  await invite(request, user, team.id, linkedProject.id, producer, "producer");
+  const targetRoot = `${api}/v2/workspaces/${team.id}/b2b/projects/${linkedProject.id}`;
+  await row()
+    .getByRole("button", { name: "다른 프로젝트에 연결", exact: true })
+    .click();
+  dialog = page.getByRole("alertdialog", {
+    name: "다른 프로젝트에 연결",
+    exact: true,
+  });
+  await dialog
+    .getByRole("combobox", { name: "연결할 프로젝트", exact: true })
+    .selectOption(linkedProject.id);
+  await dialog
+    .getByRole("button", { name: "다른 프로젝트에 연결", exact: true })
+    .click();
+  await expect(dialog).toHaveCount(0);
+  expect(
+    (
+      await (
+        await request.get(`${targetRoot}/files`, { headers: user.headers })
+      ).json()
+    ).data.versions.map((v: { id: string }) => v.id),
+  ).toEqual([managed.id]);
+  expect(
+    (
+      await (
+        await request.get(`${targetRoot}/files`, { headers: producer.headers })
+      ).json()
+    ).data.versions,
+  ).toHaveLength(0);
+  expect(
+    (
+      await (
+        await request.get(`${root}/files/capabilities`, {
+          headers: user.headers,
+        })
+      ).json()
+    ).data.storage.usedBytes,
+  ).toBe(usedBefore);
+  await page.goto(
+    `/dashboard/workspaces/${team.id}/projects/${linkedProject.id}/files`,
+  );
+  const unlinkKeys: string[] = [];
+  await page.route(`**/files/${managed.id}/unlink`, async (route) => {
+    unlinkKeys.push(route.request().postDataJSON().requestKey);
+    await route.fetch();
+    await route.abort("failed");
+  });
+  await page
+    .getByRole("button", { name: "프로젝트 연결 제외", exact: true })
+    .click();
+  dialog = page.getByRole("alertdialog", {
+    name: "프로젝트 연결 제외",
+    exact: true,
+  });
+  await dialog
+    .getByLabel("변경 사유", { exact: true })
+    .fill("연결을 제외하고 보관 파일 유지");
+  await dialog
+    .getByRole("button", { name: "프로젝트 연결 제외", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "같은 요청 재시도", exact: true }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByText("변경이 반영되었습니다.", { exact: false }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "프로젝트 연결 제외", exact: true }),
+  ).toHaveCount(0);
+  expect(unlinkKeys).toHaveLength(1);
+  expect(
+    (
+      await (
+        await request.get(`${root}/files/capabilities`, {
+          headers: user.headers,
+        })
+      ).json()
+    ).data.storage.usedBytes,
+  ).toBe(usedBefore);
+  await page.goto(target);
+  await expect(
+    page.getByRole("heading", { name: "프로젝트 자료", exact: true }),
+  ).toBeVisible();
+  // Keyboard focus stays in the management dialog and returns to its opener.
+  const opener = row().getByRole("button", {
+    name: "자료 권한 관리",
+    exact: true,
+  });
+  await opener.click();
+  dialog = page.getByRole("alertdialog", {
+    name: "자료 권한 관리",
+    exact: true,
+  });
+  await expect(
+    dialog.getByRole("combobox", { name: "현재 참여자", exact: true }),
+  ).toBeVisible();
+  await dialog
+    .getByRole("combobox", { name: "현재 참여자", exact: true })
+    .selectOption(producer.id);
+  await page.screenshot({
+    path: "/tmp/prepix-b2b-file-management-mobile.png",
+    fullPage: true,
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await dialog.getByRole("button", { name: "닫기", exact: true }).focus();
+  await page.keyboard.press("Tab");
+  await expect(
+    dialog.getByRole("combobox", { name: "현재 참여자", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(opener).toBeFocused();
   // Lose a genuine begin reply after its server reservation. The durable key
   // still resolves the same upload after reload; cancel uses that original key.
   let loseBegin = true;
@@ -407,7 +705,43 @@ test("real private upload resumes after reload, verifies immutable content and s
       })
     ).status(),
   ).toBe(403);
+  for (const endpoint of [
+    `${root}/people`,
+    `${api}/v2/workspaces/${team.id}/b2b/projects`,
+  ]) {
+    expect(
+      (
+        await request.get(endpoint, {
+          headers: { ...user.headers, "X-Prepix-Account-ID": randomUUID() },
+        })
+      ).status(),
+    ).toBe(403);
+  }
+  expect(
+    (
+      await request.get(
+        `${root}/files/operations/permission/${permissionKeys[0]}?inputHash=bad`,
+        { headers: user.headers },
+      )
+    ).status(),
+  ).toBe(400);
+  expect(
+    (
+      await request.get(
+        `${root}/files/operations/unknown/${permissionKeys[0]}?inputHash=${"0".repeat(64)}`,
+        { headers: user.headers },
+      )
+    ).status(),
+  ).toBe(422);
   const other = await account(request);
+  await row()
+    .getByRole("button", { name: "자료 권한 관리", exact: true })
+    .click();
+  await expect(
+    page
+      .getByRole("alertdialog", { name: "자료 권한 관리", exact: true })
+      .getByRole("combobox", { name: "현재 참여자", exact: true }),
+  ).toBeVisible();
   await page.evaluate(
     (session) => {
       localStorage.setItem("accessToken", session.accessToken);
@@ -421,4 +755,8 @@ test("real private upload resumes after reload, verifies immutable content and s
   ).toHaveCount(0);
   await expect(page.getByText("uncertain.wav", { exact: true })).toHaveCount(0);
   await expect(page.getByText(project.name, { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByRole("alertdialog", { name: "자료 권한 관리", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByText(producer.email, { exact: false })).toHaveCount(0);
 });

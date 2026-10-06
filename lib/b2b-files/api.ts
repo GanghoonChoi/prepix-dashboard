@@ -6,6 +6,12 @@ import type {
   TeamFileUploadStatus,
   TeamFileVersionList,
   TeamFileDownload,
+  TeamFilePermissionList,
+  ChangeTeamFilePermissionInput,
+  ProjectPeople,
+  ProjectList,
+  TeamFileMutationAction,
+  TeamFileMutationLookup,
 } from "../api/generated/b2b";
 
 export type FileScope = {
@@ -77,6 +83,59 @@ export function fileApi(scope: FileScope) {
       ),
     download: (id: string, signal?: AbortSignal) =>
       post<TeamFileDownload>(`/files/${e(id)}/download`, {}, signal),
+    permissions: (assetId: string, signal?: AbortSignal) =>
+      get<TeamFilePermissionList>(`/assets/${e(assetId)}/permissions`, signal),
+    people: (signal?: AbortSignal) => get<ProjectPeople>("/people", signal),
+    projects: async (cursor?: string, signal?: AbortSignal) =>
+      (
+        await apiClient.get<{ data: ProjectList }>(
+          `/workspaces/${e(scope.workspaceId)}/b2b/projects${cursor ? `?cursor=${e(cursor)}` : ""}`,
+          {
+            signal,
+            timeout: 15000,
+            headers: { "X-Prepix-Account-ID": scope.userId },
+          },
+        )
+      ).data.data,
+    changePermission: (
+      assetId: string,
+      input: ChangeTeamFilePermissionInput,
+      signal?: AbortSignal,
+    ) =>
+      post<{ projectId: string; requestId: string; revision: number }>(
+        `/assets/${e(assetId)}/permissions`,
+        input,
+        signal,
+      ),
+    link: (
+      input: { requestKey: string; sourceProjectId: string; versionId: string },
+      signal?: AbortSignal,
+    ) =>
+      post<{ projectId: string; requestId: string; revision: number }>(
+        "/files/link",
+        input,
+        signal,
+      ),
+    unlink: (
+      versionId: string,
+      input: { requestKey: string; revision: number; reason: string },
+      signal?: AbortSignal,
+    ) =>
+      post<{ projectId: string; requestId: string; revision: number }>(
+        `/files/${e(versionId)}/unlink`,
+        input,
+        signal,
+      ),
+    operation: (
+      action: TeamFileMutationAction,
+      requestKey: string,
+      hash: string,
+      signal?: AbortSignal,
+    ) =>
+      get<TeamFileMutationLookup>(
+        `/files/operations/${action}/${e(requestKey)}?inputHash=${e(hash)}`,
+        signal,
+      ),
   };
 }
 export type FileApi = ReturnType<typeof fileApi>;
