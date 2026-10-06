@@ -2,7 +2,25 @@
 
 기준 문서: `b2b-v1-implementation-plan-2026-10-05.md`. 목표는 계획 전체 구현이며 아래 첫 묶음으로 범위를 축소하지 않는다. 데스크톱 기준은 사용자 지정 `prepix(beta)`다. 서버와 beta 앱은 `codex/b2b-v1`, 현재 웹은 `/Users/spagettimaker/.codex/worktrees/b2b-file-lifecycle/prepix-dashboard`의 `codex/b2b-file-lifecycle`에서 작업한다. 원래 웹 폴더의 별도 작업 브랜치는 유지한다.
 
-## 최신 요약: 2026-10-06 리뷰 수정본 통합·실제 인수
+## 최신 요약: 2026-10-06 홈·원본 복구·전체 입력 AI 보강
+
+C/D/E 리뷰 통합을 유지하며 F03 홈, F11 클라우드 원본 복구, F07 전체 입력 러프컷/다중 분석을 추가했다. 전체 개발 추정은 **약 70%**다. 기능·클라이언트 연결과 남은 정책/운영 인수를 고려한 추정이며 테스트 통과율이나 출시 준비율이 아니다. 웹 러프컷/홈의 최종 production 인수와 목록 복귀 보강은 아직 진행 중이므로 아래 앱/서버 완료와 구분한다.
+
+| 범위 | 검증·커밋 상태 |
+| --- | --- |
+| AI 최종 접근·미정산 결과 정리 | 서버 `9bb76b0`: 스토리지 응답 뒤 현재 접근/기간과 exact 결과를 재검사한다. 결과 row가 있어도 실제 정산 작업에 결합되지 않은 객체는 회수한다. 실제 PG/S3 33/33 |
+| F11 허용된 클라우드 원본 복구 | 서버 `5bbbb03`, beta `838502e88`: 원본 sourceKey·전체 SHA/size·현재 팀/프로젝트를 고정해 허용된 exact 후보만 표시한다. 명시 동의 후 수령·native 재검사하며 변경된 바이트를 대체 원본으로 자동 적용하지 않는다. 서버 실제 PG/스토리지 57/57, 앱 26/26·타입6/6·빌드, 실제 Electron 1/1 |
+| F03 개인별 팀 홈 | 서버 `b965548`, 웹 `90447d3`, 마지막 fence 회귀 서버 `5552e79`: 본인 프로젝트/전송/AI/납품/기간/이용권·한도와 정확한 AI 원작업 GET 복귀. 실제 PG 15/15와 별도 실제 Chrome 지연 응답/권한 회수 10/10. production 전체 홈 인수는 진행 중 |
+| F07 전체 입력 러프컷 | 서버 `c51aed4`·원견적 보강 `e4b40ef`, beta `30e48403a`: 여러 등록 원본을 한 전체 작업으로 구성하고, 원견적 모델·상한과 exact manifest로 검증한다. 원키·응답 유실·MAIN SIGKILL 복구, 재생 미리보기, 문서 변경 뒤 명시 재확인, 실제 순서대로 타임라인 1회 적용. 다중 전사/영상 분석도 모든 입력을 검증하여 원자 적용. 서버 AI 75/75 및 보강 47/47, 앱 의미 있는 단위 83/83·개인 우회 차단 8/8·타입6/6·빌드; fresh built Electron 전체 1/1(17.1초) |
+| F 운영·G 개인 AI | F 외부 Claude 완료 인계 전이므로 주 코드에 계산하지 않는다. G의 개인 AI 서버 프록시/원키 발급 제거는 사용자 승인·독립 폴더/배정 문서만 준비했으며 아직 구현하지 않았다 |
+
+새 SQL **0076_b2b_ai_roughcut**은 provider 원격 입력 receipt와 전체 작업 실행을 추가한다. fresh DB에 **77개(0000~0076)**를 적용했고, 55728 시험 DB의 전체 SQL hash/journal when 일치와 비미래 단조 값을 확인했다. 별도 fresh77 로그도 보존한다. 기존 운영 DB를 다시 만든 기록이 아니다. F/G 외부 레인은 0076 번호를 재사용하지 않도록 조율 문서를 갱신했다.
+
+최초 러프컷 Electron run은 러프컷 복구/적용 뒤 다중 전사에서 거절됐다. 공급자 대역이 MP4 오디오 길이를 1초로 가정한 것이 원인이었다. 실제 ffprobe 측정을 사용하는 명시적인 로컬 대역으로 수정하고 같은 전체 흐름을 통과했다. production 길이 검증 기준은 바꾸지 않았다. 실제 공급자 실행/운영 키·Windows/OS·NAS·검사 엔진·저장소·PG 인수와 P17 승인 설정, AI 보존/삭제 정책, 전체 35화면/20기능/17정책 감사는 계속 남는다.
+
+근거: `/tmp/prepix-f11-{files-pg,cloud-unit-final,cloud-electron}.log`, `/tmp/prepix-home-final-fence-pg.log`, `/tmp/prepix-home-races.log`, `/tmp/prepix-roughcut-fresh77-migration.log`, `/tmp/prepix-roughcut-final-all-ai.log`, `/tmp/prepix-roughcut-immutable-quote-final-green.log`, `/tmp/prepix-f07-roughcut-live.log`(최초 실패), `/tmp/prepix-f07-roughcut-live-final.log`(전체 성공). PostgreSQL/MinIO/ffprobe/ffmpeg/Nest/JWT/Chrome/Electron은 실제이며 AI/PG/ClamD/OS vault는 로컬 대역이다. production 서버 빌드는 통과하고 전체 spec 타입의 기존 admin 1·runner 2 오류는 유지한다.
+
+## 이전 요약: 2026-10-06 리뷰 수정본 통합·실제 인수
 
 전체 개발 완성도는 **약 65%**로 추정한다. 이전 60% 상태에서 C·D·E 리뷰 수정본, 구매/자동갱신/환불·월 명세, beta F12/F16 native 연결과 실제 앱 인수를 추가로 통과했다. F 운영·G 개인 AI 전환과 팀 agent/일괄 분석·보존/삭제·전체 정책/실 환경 인수는 남았다. 시험 건수는 개발 진행률이나 운영 출시 준비율이 아니다. 데스크톱은 계속 prepix(beta) 기준이다.
 
