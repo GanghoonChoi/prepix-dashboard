@@ -351,6 +351,8 @@ export type TeamOrder = {
   // Documented provider refusal code only; never the provider message.
   failureCode: string | null;
   refunds: TeamRefund[];
+  // The purchased period this order was applied to (exclusive E).
+  appliedPeriod: { startsAt: string; endsAt: string } | null;
 };
 export type TeamApplication = {
   id: string;
