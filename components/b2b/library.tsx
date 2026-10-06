@@ -31,10 +31,14 @@ import { bytes } from "@/lib/workspaces/upload";
 import { B2bError, useCopy } from "./shared";
 import { FileTransfers } from "./file-transfers";
 import { FileDownloads } from "./file-downloads";
+import { TransferSteward, VersionAddress, StewardInbox } from "./file-stewards";
 import { FileManager, PendingFileOperations } from "./file-management";
 
 type TeamScope = Omit<FileScope, "projectId">;
-export function TeamLibrary() {
+export function TeamLibrary({
+  versionId,
+  sourceProjectId,
+}: { versionId?: string; sourceProjectId?: string }) {
   const context = useWorkspace()!,
     { id } = context.data.workspace,
     userId = context.data.currentUserId;
@@ -49,12 +53,22 @@ export function TeamLibrary() {
   return context.b2b?.enrolled &&
     context.b2b.allowedActions.projects &&
     userId ? (
-    <LibraryView key={JSON.stringify(scope)} scope={scope} />
+    <LibraryView
+      key={JSON.stringify(scope)}
+      scope={scope}
+      versionId={versionId}
+      sourceProjectId={sourceProjectId}
+    />
   ) : (
     <B2bError code="B2B_PROJECT_NOT_FOUND" />
   );
 }
-function LibraryView({ scope }: { scope: TeamScope }) {
+function LibraryView({
+  scope,
+  versionId,
+  sourceProjectId,
+}: { scope: TeamScope; versionId?: string; sourceProjectId?: string }) {
+  const context = useWorkspace()!;
   const c = useCopy();
   const directScope = useMemo<FileScope>(
     () => ({ ...scope, projectId: LIBRARY_SOURCE, library: true }),
@@ -205,7 +219,22 @@ function LibraryView({ scope }: { scope: TeamScope }) {
         <TeamLoading />
       ) : (
         <>
+          {context.b2b?.enrolled &&
+            context.b2b.team.currentState === "active" &&
+            context.b2b.member.kind === "internal" &&
+            context.data.role !== "reviewer" && (
+              <StewardInbox scope={scope} changed={reload} />
+            )}
           {storageError && <B2bError code={storageError} />}
+          {versionId && (
+            <AddressedVersion
+              key={`${versionId}:${sourceProjectId ?? "library"}`}
+              scope={scope}
+              versionId={versionId}
+              sourceProjectId={sourceProjectId}
+              changed={reload}
+            />
+          )}
           {capabilities && (
             <FileTransfers
               scope={directScope}
@@ -229,7 +258,9 @@ function LibraryView({ scope }: { scope: TeamScope }) {
               key={scopeKey(s)}
               scope={s}
               entries={data.entries.filter(
-                (e) => (e.version.projectId ?? LIBRARY_SOURCE) === s.projectId,
+                (e) =>
+                  e.version.id !== versionId &&
+                  (e.version.projectId ?? LIBRARY_SOURCE) === s.projectId,
               )}
               changed={reload}
             />
@@ -255,6 +286,92 @@ function LibraryView({ scope }: { scope: TeamScope }) {
         </>
       )}
     </TeamShell>
+  );
+}
+function AddressedVersion({
+  scope,
+  versionId,
+  sourceProjectId,
+  changed,
+}: {
+  scope: TeamScope;
+  versionId: string;
+  sourceProjectId?: string;
+  changed: () => void;
+}) {
+  const c = useCopy(),
+    [entry, setEntry] = useState<TeamLibraryEntry | null>(null),
+    [error, setError] = useState("");
+  const frozen = useMemo<FileScope>(
+    () => ({
+      ...scope,
+      projectId: sourceProjectId ?? LIBRARY_SOURCE,
+      library: true,
+    }),
+    [scope, sourceProjectId],
+  );
+  const api = useMemo(() => fileApi(frozen), [frozen]),
+    reader = useRef<AbortController | null>(null),
+    serial = useRef(0);
+  const reload = useCallback(async () => {
+    const sequence = ++serial.current,
+      abort = new AbortController();
+    reader.current?.abort();
+    reader.current = abort;
+    try {
+      const uuid =
+        /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+      if (
+        !uuid.test(versionId) ||
+        (sourceProjectId !== undefined && !uuid.test(sourceProjectId))
+      )
+        throw new Error("B2B_FILE_NOT_FOUND");
+      const value = await api.libraryEntry(versionId, abort.signal);
+      if (sequence === serial.current) {
+        setEntry(value);
+        setError("");
+      }
+    } catch (e) {
+      if (!abort.signal.aborted && sequence === serial.current) {
+        setEntry(null);
+        setError(fileError(e));
+      }
+    }
+  }, [api, versionId, sourceProjectId]);
+  useEffect(() => {
+    const currentSerial = serial;
+    const initial = window.setTimeout(() => void reload(), 0),
+      timer = window.setInterval(() => void reload(), 15000);
+    return () => {
+      ++currentSerial.current;
+      reader.current?.abort();
+      clearTimeout(initial);
+      clearInterval(timer);
+    };
+  }, [reload]);
+  return (
+    <section
+      className="space-y-3 rounded-lg border border-border p-4"
+      aria-label={c("주소로 선택한 버전", "Version selected by address")}
+    >
+      <h2 className="font-medium">
+        {c("주소로 선택한 버전", "Version selected by address")}
+      </h2>
+      {error ? (
+        <B2bError code={error} retry={() => void reload()} />
+      ) : !entry ? (
+        <TeamLoading />
+      ) : (
+        <LibraryGroup
+          scope={frozen}
+          entries={[entry]}
+          changed={() => {
+            void reload();
+            changed();
+          }}
+        />
+      )}
+    </section>
   );
 }
 function LibraryGroup({
@@ -320,6 +437,13 @@ function LibraryGroup({
                       {c("프로젝트에 연결", "Link to project")}
                     </button>
                   )}
+                  {v.allowedActions.manage && (
+                    <TransferSteward
+                      scope={scope}
+                      version={v}
+                      changed={changed}
+                    />
+                  )}
                 </div>
               </div>
               <details className="text-sm">
@@ -327,6 +451,7 @@ function LibraryGroup({
                   {c("버전 상세와 사용 위치", "Version details and locations")}
                 </summary>
                 <div className="mt-3 space-y-2">
+                  <VersionAddress scope={scope} versionId={v.id} />
                   <p className="text-muted">
                     {c("등록 시각", "Registered")}:{" "}
                     {new Date(v.createdAt).toLocaleString(c("ko-KR", "en-US"), {

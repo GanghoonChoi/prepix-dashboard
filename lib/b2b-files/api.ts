@@ -14,6 +14,7 @@ import type {
   TeamFileMutationAction,
   TeamFileMutationLookup,
   TeamLibraryList,
+  TeamLibraryEntry,
 } from "../api/generated/b2b";
 
 export type FileScope = {
@@ -56,6 +57,29 @@ export function fileApi(scope: FileScope) {
     ).data.data;
   }
   return {
+    libraryEntry: (id: string, signal?: AbortSignal) => {
+      if (!scope.library) throw new Error("B2B_FILE_SCOPE_INVALID");
+      return apiClient
+        .get<{ data: TeamLibraryEntry }>(
+          `${libraryRoot}/files/${e(id)}${isDirectLibrary(scope) ? "" : `?sourceProjectId=${e(scope.projectId)}`}`,
+          {
+            signal,
+            timeout: 15000,
+            headers: { "X-Prepix-Account-ID": scope.userId },
+          },
+        )
+        .then((r) => {
+          const entry = r.data.data;
+          if (
+            entry.version.id !== id ||
+            entry.version.workspaceId !== scope.workspaceId ||
+            entry.version.projectId !==
+              (isDirectLibrary(scope) ? null : scope.projectId)
+          )
+            throw new Error("B2B_FILE_OPERATION_INVALID");
+          return entry;
+        });
+    },
     capabilities: (signal?: AbortSignal) =>
       get<TeamFileCapabilities>("/files/capabilities", signal),
     versions: (search = "", cursor?: string, signal?: AbortSignal) =>

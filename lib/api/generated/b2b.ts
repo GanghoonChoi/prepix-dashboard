@@ -690,3 +690,53 @@ export type TeamFileDownload = {
   size: number;
   sha256: string;
 };
+export type TeamFileStewardInput = {
+  requestKey: string;
+  versionId: string;
+  revision: number;
+  targetId: string;
+  reason: string;
+  canDownload: boolean;
+};
+export type TransferTeamFileStewardInput = TeamFileStewardInput & {
+  sourceProjectId?: string;
+  fromLibrary: boolean;
+};
+export type TeamFileStewardCause =
+  | "member_removed"
+  | "membership_suspended"
+  | "account_suspended"
+  | "account_purged";
+export type TeamFileStewardLookup = {
+  currentUserId: string;
+  versionId: string;
+  revision: number;
+  cause?: TeamFileStewardCause;
+  eligiblePeople: { userId: string; name: string | null; email: string }[];
+};
+export type TeamFileStewardReceipt = {
+  currentUserId: string;
+  requestId: string;
+  revision: number;
+  recoveryId?: string;
+};
+export type TeamFileStewardOperation =
+  | "transfer"
+  | "request"
+  | "accept"
+  | "cancel";
+export type TeamFileStewardRecovery = {
+  id: string;
+  versionId: string;
+  reason: string;
+  cause: TeamFileStewardCause;
+  canDownload: boolean;
+  incoming: boolean;
+  state: "pending" | "expired" | "accepted" | "cancelled";
+  expiresAt: string;
+};
+export type TeamFileStewardRecoveryList = {
+  currentUserId: string;
+  recoveries: TeamFileStewardRecovery[];
+  nextCursor: string | null;
+};

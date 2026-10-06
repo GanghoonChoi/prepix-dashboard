@@ -11,6 +11,7 @@ import {
 import { fileApi, fileError, type FileScope } from "@/lib/b2b-files/api";
 import { useFileDownloads } from "@/lib/b2b-files/use-downloads";
 import { FileDownloads } from "./file-downloads";
+import { TransferSteward, VersionAddress } from "./file-stewards";
 import { scopeKey } from "@/lib/b2b-files/store";
 import { bytes } from "@/lib/workspaces/upload";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
@@ -263,10 +264,16 @@ function FilesView({ scope }: { scope: FileScope }) {
                     )}
                   </dd>
                 </dl>
+                <VersionAddress scope={scope} versionId={version.id} />
               </details>
               <div className="flex flex-wrap gap-3">
                 {version.allowedActions.manage && (
                   <>
+                    <TransferSteward
+                      scope={scope}
+                      version={version}
+                      changed={reload}
+                    />
                     <button
                       type="button"
                       className={secondaryClass}

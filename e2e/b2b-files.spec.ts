@@ -1,8 +1,17 @@
-import { test, expect, type APIRequestContext } from "@playwright/test";
+import {
+  test,
+  expect,
+  type APIRequestContext,
+  type Page,
+} from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { randomUUID, createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { readFile } from "node:fs/promises";
+import type {
+  TeamFileUpload,
+  TeamFileUploadStatus,
+} from "../lib/api/generated/b2b";
 const api = process.env.B2B_E2E_API_URL ?? "http://127.0.0.1:3312",
   password = "LocalPreview123";
 async function account(request: APIRequestContext) {
@@ -69,6 +78,85 @@ function wav(size: number) {
   value.write("data", 36);
   value.writeUInt32LE(size - 44, 40);
   return value;
+}
+async function registerStewardFixture(
+  request: APIRequestContext,
+  user: Awaited<ReturnType<typeof account>>,
+  root: string,
+  name: string,
+  size: number,
+  existingAssetId?: string,
+) {
+  const content = wav(size);
+  const begin = await request.post(`${root}/uploads`, {
+    headers: user.headers,
+    data: {
+      requestKey: randomUUID(),
+      name,
+      kind: "original",
+      size,
+      sha256: createHash("sha256").update(content).digest("hex"),
+      scope: "uploader_and_steward",
+      ...(existingAssetId ? { existingAssetId } : {}),
+    },
+  });
+  expect(begin.status(), await begin.text()).toBe(201);
+  const status = (await begin.json()).data as TeamFileUploadStatus;
+  const upload = status.upload;
+  for (
+    let offset = 0, number = 1;
+    offset < content.length;
+    offset += upload.partSize, number++
+  ) {
+    const part = content.subarray(offset, offset + upload.partSize);
+    const signed = await request.post(`${root}/uploads/${upload.id}/parts`, {
+      headers: user.headers,
+      data: {
+        number,
+        checksum: createHash("sha256").update(part).digest("base64"),
+      },
+    });
+    expect(signed.status(), await signed.text()).toBe(201);
+    const target = (await signed.json()).data;
+    const sent = await request.put(target.url, {
+      headers: target.headers,
+      data: part,
+    });
+    expect(sent.status(), await sent.text()).toBe(200);
+  }
+  const complete = await request.post(`${root}/uploads/${upload.id}/complete`, {
+    headers: user.headers,
+    data: {},
+  });
+  expect(complete.status(), await complete.text()).toBe(201);
+  await expect
+    .poll(
+      async () => {
+        const current = await request.get(`${root}/uploads/${upload.id}`, {
+          headers: user.headers,
+        });
+        expect(current.status()).toBe(200);
+        return ((await current.json()).data.upload as TeamFileUpload).state;
+      },
+      { timeout: 30000 },
+    )
+    .toBe("ready");
+  return upload;
+}
+async function loginSteward(
+  page: Page,
+  user: Awaited<ReturnType<typeof account>>,
+  target: string,
+) {
+  if (page.url().startsWith("http://localhost:3001"))
+    await page.evaluate(() => localStorage.clear());
+  await page.goto(`/login?locale=ko&returnTo=${encodeURIComponent(target)}`);
+  await page.getByLabel("이메일", { exact: true }).fill(user.email);
+  await page.getByLabel("비밀번호", { exact: true }).fill(password);
+  await page.getByRole("button", { name: "계속하기", exact: true }).click();
+  await expect(page).toHaveURL(
+    new RegExp(target.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+  );
 }
 async function invite(
   request: APIRequestContext,
@@ -1302,4 +1390,427 @@ test("direct library registration resumes its projectless transfer, verifies ori
     path: "/tmp/prepix-direct-library-mobile.png",
     fullPage: true,
   });
+});
+
+test("steward handoff and separate recovery acceptance preserve exact-version privacy across lost replies", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(180_000);
+  const owner = await account(request),
+    producer = await account(request),
+    successor = await account(request);
+  const teamReply = await request.post(`${api}/v2/workspaces`, {
+    headers: owner.headers,
+    data: { name: "자료 인계와 복구 인수", requestKey: randomUUID() },
+  });
+  expect(teamReply.status()).toBe(201);
+  const team = (await teamReply.json()).data.workspace;
+  execFileSync(
+    process.execPath,
+    [
+      resolve("../prepix-backend/backend/scripts/b2b-paid-test-fixture.cjs"),
+      JSON.stringify({
+        workspaceId: team.id,
+        action: "purchase",
+        target: "initial",
+      }),
+    ],
+    { encoding: "utf8", timeout: 15000 },
+  );
+  const projectReply = await request.post(
+    `${api}/v2/workspaces/${team.id}/b2b/projects`,
+    {
+      headers: owner.headers,
+      data: { requestKey: randomUUID(), name: "비공개 버전 범위" },
+    },
+  );
+  expect(projectReply.status()).toBe(201);
+  const project = (await projectReply.json()).data.project;
+  await invite(request, owner, team.id, project.id, producer, "producer");
+  await invite(request, owner, team.id, project.id, successor, "producer");
+  const base = `${api}/v2/workspaces/${team.id}/b2b`,
+    library = `${base}/library`,
+    stewards = `${base}/file-stewards`;
+  const libraryPath = `/dashboard/workspaces/${team.id}/library`,
+    membersPath = `/dashboard/workspaces/${team.id}/members`;
+  const normal = await registerStewardFixture(
+    request,
+    producer,
+    library,
+    "handoff-selected.wav",
+    16044,
+  );
+  const linked = await request.post(
+    `${base}/projects/${project.id}/files/link`,
+    {
+      headers: producer.headers,
+      data: {
+        requestKey: randomUUID(),
+        versionId: normal.versionId,
+        fromLibrary: true,
+      },
+    },
+  );
+  expect(linked.status(), await linked.text()).toBe(201);
+  const hidden = await registerStewardFixture(
+    request,
+    producer,
+    `${base}/projects/${project.id}`,
+    "private-unselected.wav",
+    16060,
+    normal.assetId,
+  );
+  const recovery = await registerStewardFixture(
+    request,
+    producer,
+    library,
+    "recovery-private.wav",
+    16076,
+  );
+  // Current role and project participation grant neither private file access
+  // nor a right to override a healthy steward.
+  expect(
+    (
+      await request.get(`${library}/files/${normal.versionId}`, {
+        headers: owner.headers,
+      })
+    ).status(),
+  ).toBe(404);
+  expect(
+    (
+      await request.get(`${library}/files/${normal.versionId}`, {
+        headers: successor.headers,
+      })
+    ).status(),
+  ).toBe(404);
+  expect(
+    (
+      await request.get(`${stewards}/recovery/${recovery.versionId}`, {
+        headers: owner.headers,
+      })
+    ).status(),
+  ).toBe(403);
+
+  await loginSteward(page, producer, libraryPath);
+  const normalRow = () => page.getByTestId(`library-file-${normal.versionId}`);
+  await normalRow().getByText("버전 상세와 사용 위치", { exact: true }).click();
+  await normalRow()
+    .getByRole("button", { name: "버전 주소 복사", exact: true })
+    .click();
+  const normalAddress = await normalRow()
+    .getByLabel("자료 버전 주소", { exact: true })
+    .inputValue();
+  expect(new URL(normalAddress).searchParams.get("version")).toBe(
+    normal.versionId,
+  );
+  const transferKeys: string[] = [];
+  await page.route("**/b2b/file-stewards/transfer", async (route) => {
+    transferKeys.push(route.request().postDataJSON().requestKey);
+    await route.fetch();
+    await route.abort("failed");
+  });
+  await normalRow()
+    .getByRole("button", { name: "자료 담당자 인계", exact: true })
+    .click();
+  let dialog = page.getByRole("alertdialog", {
+    name: "자료 담당자 인계",
+    exact: true,
+  });
+  await dialog
+    .getByLabel("내부 후임", { exact: true })
+    .selectOption(successor.id);
+  await dialog
+    .getByLabel("인계 사유", { exact: true })
+    .fill("선택 버전만 후임에게 인계");
+  await dialog
+    .getByLabel("후임에게 선택한 버전의 원본 다운로드도 허용", { exact: true })
+    .check();
+  await dialog
+    .getByRole("button", { name: "이 버전으로 인계", exact: true })
+    .click();
+  await expect
+    .poll(
+      async () =>
+        (
+          await (
+            await request.get(`${library}/files/${normal.versionId}`, {
+              headers: producer.headers,
+            })
+          ).json()
+        ).data.version.allowedActions.manage,
+    )
+    .toBe(false);
+  await page.reload();
+  await expect(
+    page.getByText(
+      "자료 인계 변경을 확인했습니다. 현재 자료와 권한을 다시 조회합니다.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  expect(transferKeys).toHaveLength(1);
+  await expect(
+    normalRow().getByRole("button", { name: "자료 담당자 인계", exact: true }),
+  ).toHaveCount(0);
+  const transferred = (
+    await (
+      await request.get(`${library}/files/${normal.versionId}`, {
+        headers: successor.headers,
+      })
+    ).json()
+  ).data;
+  expect(transferred.version.allowedActions).toMatchObject({
+    manage: true,
+    download: true,
+  });
+  expect(
+    (
+      await request.get(
+        `${base}/projects/${project.id}/files/${hidden.versionId}`,
+        { headers: successor.headers },
+      )
+    ).status(),
+  ).toBe(404);
+  expect(
+    (
+      await request.get(`${library}/files/${hidden.versionId}`, {
+        headers: successor.headers,
+      })
+    ).status(),
+  ).toBe(404);
+  await loginSteward(
+    page,
+    successor,
+    `${libraryPath}?version=${normal.versionId}`,
+  );
+  await expect(normalRow()).toHaveCount(1);
+  await expect(
+    normalRow().getByText("handoff-selected.wav", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("private-unselected.wav", { exact: true }),
+  ).toHaveCount(0);
+
+  await loginSteward(page, owner, membersPath);
+  const producerMember = page
+    .getByRole("listitem")
+    .filter({ hasText: producer.email });
+  await producerMember.getByText("팀 역할·참여 관리", { exact: true }).click();
+  await producerMember
+    .getByLabel("참여 변경", { exact: true })
+    .selectOption("suspend");
+  await producerMember
+    .getByLabel("참여 변경 사유", { exact: true })
+    .fill("자료 담당자 부재로 후임 복구");
+  await producerMember
+    .getByRole("button", { name: "참여 변경 확인", exact: true })
+    .click();
+  await expect(
+    producerMember.locator("p").filter({ hasText: "참여 정지" }),
+  ).toBeVisible();
+  const eligibility = (
+    await (
+      await request.get(`${stewards}/recovery/${recovery.versionId}`, {
+        headers: owner.headers,
+      })
+    ).json()
+  ).data;
+  for (let i = 0; i < 20; i++) {
+    const issued = await request.post(`${stewards}/recoveries`, {
+      headers: owner.headers,
+      data: {
+        requestKey: randomUUID(),
+        versionId: recovery.versionId,
+        revision: eligibility.revision,
+        targetId: successor.id,
+        canDownload: false,
+        reason: `Archived request ${i}`,
+      },
+    });
+    expect(issued.status()).toBe(201);
+    const previous = (await issued.json()).data;
+    const cancelled = await request.post(
+      `${stewards}/recoveries/${previous.recoveryId}/cancel`,
+      {
+        headers: owner.headers,
+        data: {
+          requestKey: randomUUID(),
+          reason: "Superseded before acceptance",
+        },
+      },
+    );
+    expect(cancelled.status()).toBe(201);
+  }
+  const recoveryAddress = `http://localhost:3001${libraryPath}?version=${recovery.versionId}`;
+  await page
+    .getByLabel("복구할 자료 버전 주소", { exact: true })
+    .fill(recoveryAddress);
+  await page
+    .getByRole("button", { name: "복구 가능 여부 확인", exact: true })
+    .click();
+  await expect(
+    page.getByText(
+      "서버가 복구 사유를 확인했습니다. 파일명과 비공개 사용 위치는 표시하지 않습니다.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await page
+    .getByLabel("내부 후임", { exact: true })
+    .selectOption(successor.id);
+  await page
+    .getByLabel("인계 사유", { exact: true })
+    .fill("정지된 담당자의 선택 버전 복구");
+  const requestKeys: string[] = [];
+  await page.route("**/b2b/file-stewards/recoveries", async (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    requestKeys.push(route.request().postDataJSON().requestKey);
+    await route.fetch();
+    await route.abort("failed");
+  });
+  await page
+    .getByRole("button", { name: "후임에게 복구 수락 요청", exact: true })
+    .click();
+  await expect(
+    page
+      .getByRole("button", { name: "원요청 확인·재시도", exact: true })
+      .first(),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page
+      .getByText(
+        "자료 인계 변경을 확인했습니다. 현재 자료와 권한을 다시 조회합니다.",
+        { exact: true },
+      )
+      .first(),
+  ).toBeVisible();
+  expect(requestKeys).toHaveLength(1);
+  await expect(
+    page.getByText("recovery-private.wav", { exact: true }),
+  ).toHaveCount(0);
+  expect(
+    (
+      await request.get(`${library}/files/${recovery.versionId}`, {
+        headers: successor.headers,
+      })
+    ).status(),
+  ).toBe(404);
+  expect(
+    (
+      await request.get(`${library}/files/${recovery.versionId}`, {
+        headers: owner.headers,
+      })
+    ).status(),
+  ).toBe(404);
+  const offerPage = (
+    await (
+      await request.get(`${stewards}/recoveries`, {
+        headers: successor.headers,
+      })
+    ).json()
+  ).data;
+  expect(offerPage.recoveries).toHaveLength(20);
+  expect(offerPage.nextCursor).toBeTruthy();
+  const offer = offerPage.recoveries.find(
+    (r: { state: string }) => r.state === "pending",
+  );
+  expect(offer).toBeTruthy();
+  expect(offer).not.toHaveProperty("name");
+
+  await loginSteward(page, successor, libraryPath);
+  const offerRow = () => page.getByTestId(`steward-recovery-${offer.id}`);
+  await expect(offerRow()).toBeVisible();
+  await page
+    .getByRole("button", { name: "다음 복구 요청", exact: true })
+    .click();
+  await expect(page.getByTestId(/^steward-recovery-/)).toHaveCount(1);
+  await expect(offerRow()).toHaveCount(0);
+  await page.getByRole("button", { name: "첫 요청 목록", exact: true }).click();
+  await expect(offerRow()).toBeVisible();
+  await offerRow()
+    .getByRole("button", { name: "복구 내용 확인", exact: true })
+    .click();
+  dialog = page.getByRole("alertdialog", {
+    name: "자료 복구 수락",
+    exact: true,
+  });
+  await expect(
+    dialog.getByText("원본 다운로드 허용 없음", { exact: true }),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({
+    path: "/tmp/prepix-steward-recovery-mobile.png",
+    fullPage: true,
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await dialog.getByRole("button", { name: "닫기", exact: true }).focus();
+  await page.keyboard.press("Tab");
+  await expect(
+    dialog.getByRole("button", { name: "이 버전의 복구 수락", exact: true }),
+  ).toBeFocused();
+  const acceptKeys: string[] = [];
+  await page.route(
+    "**/b2b/file-stewards/recoveries/*/accept",
+    async (route) => {
+      acceptKeys.push(route.request().postDataJSON().requestKey);
+      await route.fetch();
+      await route.abort("failed");
+    },
+  );
+  await dialog
+    .getByRole("button", { name: "이 버전의 복구 수락", exact: true })
+    .click();
+  await expect(
+    page
+      .getByRole("button", { name: "원요청 확인·재시도", exact: true })
+      .first(),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByText(
+      "자료 인계 변경을 확인했습니다. 현재 자료와 권한을 다시 조회합니다.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  expect(acceptKeys).toHaveLength(1);
+  await expect(
+    offerRow().getByText("복구 완료", { exact: false }),
+  ).toBeVisible();
+  const recoveredRow = page.getByTestId(`library-file-${recovery.versionId}`);
+  await expect(recoveredRow).toBeVisible();
+  await expect(
+    recoveredRow.getByRole("button", { name: "원본 받기", exact: true }),
+  ).toHaveCount(0);
+  expect(
+    (
+      await request.post(`${library}/files/${recovery.versionId}/download`, {
+        headers: successor.headers,
+        data: {},
+      })
+    ).status(),
+  ).toBe(403);
+  expect(
+    (
+      await request.get(`${library}/files/${recovery.versionId}`, {
+        headers: owner.headers,
+      })
+    ).status(),
+  ).toBe(404);
+  expect(
+    (
+      await request.get(
+        `${base}/projects/${project.id}/files/${hidden.versionId}`,
+        { headers: successor.headers },
+      )
+    ).status(),
+  ).toBe(404);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
 });

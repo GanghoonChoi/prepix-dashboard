@@ -16,6 +16,7 @@ import {
   TeamShell,
 } from "@/components/workspaces/shared";
 import { RecoverLead } from "./recover-lead";
+import { RecoverSteward } from "./file-stewards";
 import { InvitationPanel } from "./invitations";
 import { B2bError, definitivelyRejected, errorCode, useCopy } from "./shared";
 
@@ -120,6 +121,7 @@ export function TeamMembers() {
           ))}
           <InvitationPanel editable={b2b.team.currentState === "active"} />
           {data.role === "owner" && <RecoverLead people={roster.people} />}
+          <RecoverSteward />
         </>
       )}
     </TeamShell>
