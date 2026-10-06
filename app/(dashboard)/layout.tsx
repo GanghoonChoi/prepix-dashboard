@@ -59,6 +59,17 @@ export default function DashboardLayout({
   useEffect(() => {
     const accessToken = localStorage.getItem("accessToken");
     const refreshToken = localStorage.getItem("refreshToken");
+    // A restricted review share carries its token in the URL fragment, which
+    // never reaches a server and is dropped by the login redirect. Keep it for
+    // this tab only so the share opens after signing in.
+    const share = window.location.pathname.match(/^\/dashboard\/review-shares\/([0-9a-f-]{36})$/i);
+    const shareToken = new URLSearchParams(window.location.hash.slice(1)).get("t");
+    if (share && shareToken && /^[0-9a-f]{64}$/.test(shareToken))
+      try {
+        sessionStorage.setItem(`prepix-review-share:${share[1]}`, shareToken);
+      } catch {
+        /* the share page explains a missing link */
+      }
     if (!accessToken && !refreshToken) {
       // Arriving here with no session means any hint left on `.prepix.ai` is
       // stale — drop it, or the marketing site keeps offering a dashboard this

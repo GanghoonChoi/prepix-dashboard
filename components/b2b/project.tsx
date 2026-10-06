@@ -1,6 +1,7 @@
 "use client";
 import { InvitationPanel } from "./invitations";
 import { RequestWorkPanel } from "./request-work";
+import { ReviewWorkPanel } from "./review-work";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { apiClient } from "@/lib/api/client";
@@ -152,6 +153,12 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
         >
           {c("요청사항", "Requests")}
         </Link>
+        <Link
+          className={secondaryClass}
+          href={`/dashboard/workspaces/${id}/projects/${projectId}/reviews`}
+        >
+          {c("영상 검토", "Video reviews")}
+        </Link>
       </div>
       {editing && project.allowedActions.edit ? (
         <ProjectEditor
@@ -166,6 +173,7 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
       ) : (
         <>
           <RequestWorkPanel projectId={projectId} onDenied={deny} />
+          <ReviewWorkPanel projectId={projectId} onDenied={deny} />
           <section className="space-y-3 border-b border-border pb-8">
             <h2 className="font-medium">{c("작업 개요", "Brief")}</h2>
             <p className="max-w-3xl whitespace-pre-wrap break-words text-sm leading-6 text-muted">

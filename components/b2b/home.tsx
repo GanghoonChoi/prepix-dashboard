@@ -8,6 +8,7 @@ import {
 } from "@/components/workspaces/shared";
 import { StateBadge, useCopy } from "./shared";
 import { RequestWorkPanel } from "./request-work";
+import { ReviewWorkPanel } from "./review-work";
 
 export function B2bHome({
   status,
@@ -69,6 +70,7 @@ export function B2bHome({
         </div>
       </section>
       <RequestWorkPanel />
+      <ReviewWorkPanel />
     </TeamShell>
   );
 }
