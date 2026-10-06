@@ -26,6 +26,17 @@ PREPIX B2B v1.0 전체 구현의 작업 단위 12를 맡는다. F17 이용 종�
 
 현재 서버는 준비/활성/E 이후 열람/복구 보관/삭제 예정 상태를 계산하고 접근을 검사한다. E가 없는 준비 팀은 만료 삭제 대상이 아니다. 복구 원주문에는 원래 E별 한 번의 30분 보류와 수납 불명/미적용/운영 확인 삭제 차단이 있다. 실제 복구 수납은 기존 원주문 단회 적용으로 기간·정원·AI를 지급한다. 감사/outbox와 파일별 휴지통/정리는 있으나 팀 전체 실제 삭제·백업 파기·개인 알림·한정 지원의 전체 사용자 흐름은 미완이다. 콘솔은 기존 사용자/개인 결제 운영 도구이며 B2B 지원 권한이 없다. 현재 콘솔의 별도 best effort 감사 호출만으로 중요한 B2B 변경의 감사 완료를 계산하지 않는다.
 
+## 2026-10-06 착수 전 최신 의존성과 파일 소유
+
+이번 확인에서 F의 세 작업 폴더는 출발 커밋 그대로이며 변경이 없다. 아래 C/D는 최종 인계가 도착한 별도 분기이고 주 코드 통합/재검증 완료가 아니다. 자신의 출발 분기를 그대로 사용하고 다음 자료는 읽기 전용으로 참고한다. 다른 세션의 코드나 DB를 수정하지 않는다.
+
+- C 검토/검토본: 서버 `/Users/spagettimaker/My/Lasker/prepix-parallel/reviews/prepix-backend` `84ea122`, 웹 `reviews/prepix-dashboard` `865e945`. 상세는 웹 `HANDOFF.md`, 서버 `backend/docs/b2b-reviews.md`와 검토본 설계다. 실제 검토 사건은 `review.created`, `review.round_opened`, `review.approver_changed`, `review.approved`, `review.changes_requested`, `review.decision_cancelled`, `review.commented`, `review.shared`, `review.share_revoked` 등을 원코드에서 확인한다. 파생 객체는 `b2b_review_previews.output_key`와 작업 시도별 키 `workspaces/{workspaceId}/b2b-previews/{versionId}/{attempt}.mp4`다. 실패/중단된 시도의 고아 객체도 삭제 목록에 포함할 계약이 필요하다. 승인 증거와 고객 미디어를 함께 무조건 삭제하지 않는다.
+- D 팀 AI: 서버 `/Users/spagettimaker/My/Lasker/prepix-parallel/ai/prepix-backend` `ecaee72`, 웹 `ai/prepix-dashboard` `baa448f`, beta `ai/prepix` `597e8f5df`. 상세는 `/Users/spagettimaker/My/Lasker/prepix-parallel/ai/HANDOFF.md`, 각 repo `HANDOFF.md`, 서버 `backend/docs/b2b-ai-execution.md`다. 결과 객체는 `b2b_ai_results.object_key`, 저장 중/고아 객체 후보는 `b2b_ai_runs.result_key`이며 경로는 `b2b-ai/{workspaceId}/{jobId}/{hash}.json`이다. 실행 중 lease, 외부 공급자 단계/파일, 입력 `ai_input` 보존 근거의 종료/정리를 포함해 팀 삭제와 늦은 결과 확정이 경합하지 않게 연결한다. 최종 사건 이름과 현재 접근 accessor를 원코드에서 확인한다. 일반 결과 보존 기간/용량 산정의 미정 정책을 F가 임의 확정하지 않는다.
+- E 결제는 구현 중이며 미커밋 변경이 있다. `/Users/spagettimaker/My/Lasker/prepix-parallel/billing/prepix-backend/backend/src/b2b/notifications.service.ts`의 `B2bNotificationsService`는 **PG 웹훅 재대조**를 담당한다. F의 사용자 알림 서비스는 `user-notifications.service.ts` 등 별도 이름을 사용하고 이 파일/클래스를 재작성하지 않는다. 결제 사건은 기존 outbox로 연결하고 webhook/환불/자동결제를 재구현하지 않는다. E의 최종 인계 이후 공통 삭제 검사/운영 재처리 연결을 통합 담당이 대조한다.
+- Codex beta `bc5c0beba`는 로컬 작업 파일 저장과 별도 명시 전송을 검증했다. 아직 검토 공개 receipt/대상 확정/납품 완료 사건은 구현 전이다. 현재 단순 파일 업로드나 working 버전 등록으로 검토 공개 알림을 만들지 않는다. 후속 발행/완료 사건을 받을 확장 계약을 문서화한다.
+
+C는 0064/0065, D는 0064, E는 0064 이후와 명세 0070 등을 각 독립 분기에서 사용한다. 번호가 다르다는 이유로 다른 세션 SQL을 수정하지 않는다. F의 새 migration은 자신의 분기 안에서 의존 순서를 명시하고 최종 통합에서 번호와 journal을 조정할 수 있도록 인계한다. 위 객체/사건 연결의 실제 인수를 위해 다른 분기 코드가 필요한 경우 자신의 별도 통합 시험 복사본을 사용하고 복사한 커밋을 기록한다. 자기 작업 분기에 C/D/E를 임의 병합하지 않는다.
+
 ## 구현 범위
 
 ### 이용 종료 복구와 실제 삭제
