@@ -1004,6 +1004,8 @@ export type TeamNativePolicy = {
   maxSources: number;
 };
 export type TeamFileMetadata = {
+  /** Static, single-frame image measured from the scanned file. */
+  image?: { codec: "png" | "mjpeg" | "webp"; width: number; height: number };
   native?: { formatVersion: 1; documentVersion: 4; sourceCount: number };
   container: string;
   durationMs: number | null;
@@ -1888,4 +1890,227 @@ export type DeliveryCheck = {
 export type DeliveryReceiptLookup = {
   currentUserId: string; workspaceId: string; projectId: string; action: string; requestKey: string;
   inputHash: string; receipt: DeliveryMutationResult;
+};
+
+// F18/P14 monthly statement (월 이용명세서). Not a tax invoice. Money is KRW from
+// the original order copy; AI figures are units recorded against prepaid grants
+// and never added to a charge. SOT: backend/docs/b2b-monthly-statements.md
+export type StatementReason =
+  | "initial"
+  | "late_receipt"
+  | "application_recorded"
+  | "status_changed"
+  | "correction_recorded"
+  | "usage_recorded"
+  | "content_changed";
+export type TeamStatementPurchase = {
+  orderId: string;
+  target: QuoteTarget;
+  productVersion: string;
+  paidAt: string;
+  status: "applied" | "awaiting_application" | "review_required";
+  period: TeamQuote["period"];
+  lines: TeamQuote["lines"];
+  amounts: TeamQuote["amounts"];
+  receivedKrw: number;
+  application: {
+    appliedAt: string;
+    effectiveAt: string;
+    amounts: TeamQuote["amounts"];
+    overpaymentKrw: number;
+  } | null;
+};
+// Delayed-application overpayment debt on the original payment (information;
+// the money returned is only ever counted from a confirmed refund).
+export type TeamStatementAdjustment = {
+  orderId: string;
+  amountKrw: number;
+  state: "pending" | "confirming" | "unknown" | "refunded" | "review_required";
+  recordedAt: string;
+  refundedAt: string | null;
+};
+// A refund requested in, or confirmed in, the month. Only `returnedInMonthKrw`
+// (provider-confirmed money corrections dated in this month) is money returned;
+// reserved/cancelling/provider_unknown are "being confirmed", never refunded.
+export type TeamStatementRefund = {
+  refundId: string;
+  orderId: string;
+  orderPaidAt: string;
+  kind: "unused" | "overpayment";
+  state:
+    | "reserved"
+    | "cancelling"
+    | "provider_unknown"
+    | "refunded"
+    | "rejected"
+    | "failed"
+    | "review_required";
+  amounts: { supplyKrw: number; vatKrw: number; totalKrw: number };
+  allowances: { seats: number; storageBytes: number; aiUnits: number };
+  requestedAt: string;
+  refundedAt: string | null;
+  returnedInMonthKrw: number;
+};
+export type TeamStatementAiUnit = {
+  unitLabel: string;
+  unitDescription: string;
+  // Decimal strings: sums may exceed Number.MAX_SAFE_INTEGER.
+  grantedBasic: string;
+  grantedExtra: string;
+  reserved: string;
+  confirmed: string;
+  returned: string;
+  expired: string;
+  // Refund withholding (E1 0064): revoked never spendable; reinstated returns
+  // it after a rejected/failed refund (an expired grant re-expires at once).
+  revoked: string;
+  reinstated: string;
+  grants: {
+    kind: "basic" | "extra";
+    units: number;
+    startsAt: string;
+    expiresAt: string;
+  }[];
+};
+export type TeamStatementSnapshot = {
+  schemaVersion: 1;
+  // Bumped whenever how a figure is computed changes. A stored revision with
+  // another version is never auto-corrected; it goes to ops review instead.
+  calculationVersion: number;
+  document: "monthly_statement";
+  workspaceId: string;
+  teamName: string;
+  month: string;
+  range: { startsAt: string; endsAt: string };
+  // Latest business copy paid up to month end (the only recipient of a month
+  // without purchases). `recipients` lists the copies of this month's own
+  // purchases, one entry per distinct copy, so a mid-month profile change
+  // shows as two recipients.
+  recipient: (TeamBuyer & { sourceOrderId: string }) | null;
+  recipients: { buyer: TeamBuyer; sourceOrderIds: string[] }[];
+  purchases: TeamStatementPurchase[];
+  totals: {
+    supplyKrw: number;
+    vatKrw: number;
+    totalKrw: number;
+    receivedKrw: number;
+    // Provider-confirmed refunds dated in this month, any original month.
+    refundedKrw: number;
+  };
+  byKind: {
+    kind: TeamQuote["lines"][number]["kind"];
+    quantity: number;
+    listSupplyKrw: number;
+  }[];
+  adjustments: TeamStatementAdjustment[];
+  refunds: TeamStatementRefund[];
+  ai: TeamStatementAiUnit[];
+};
+export type TeamStatementRevisionSummary = {
+  id: string;
+  month: string;
+  revision: number;
+  previousId: string | null;
+  reasons: StatementReason[];
+  issuedAt: string;
+  issueOn: string;
+  calendarVersion: string;
+  snapshotHash: string;
+  pdf: { sha256: string; bytes: number };
+};
+export type TeamStatementRevision = TeamStatementRevisionSummary & {
+  snapshot: TeamStatementSnapshot;
+};
+export type TeamStatementMonthState =
+  | "collecting"
+  | "scheduled"
+  | "due"
+  | "blocked"
+  | "issued";
+export type TeamStatementMonth = {
+  month: string;
+  state: TeamStatementMonthState;
+  issueOn: string | null;
+  latest: TeamStatementRevisionSummary | null;
+  revisions: number;
+};
+export type TeamStatementCalendarStatus =
+  | { configured: true; version: string; issueBusinessDay: number }
+  | { configured: false; reason: "B2B_STATEMENT_CALENDAR_MISSING" };
+export type TeamStatementList = {
+  calendar: TeamStatementCalendarStatus;
+  taxInvoice: { available: false; reason: "B2B_TAX_INVOICE_NOT_CONFIGURED" };
+  months: TeamStatementMonth[];
+  serverTime: string;
+};
+export type TeamStatementDetail = {
+  month: string;
+  state: TeamStatementMonthState;
+  issueOn: string | null;
+  revisions: TeamStatementRevision[];
+  serverTime: string;
+};
+export type IssueTeamStatement = { requestKey: string };
+export type TeamStatementIssueResult = {
+  month: string;
+  revision: TeamStatementRevisionSummary;
+  created: boolean;
+};
+
+// One display mapping for statement labels, shared by the PDF and the web
+// screen (the dashboard copies this file). `ko` is what the PDF prints.
+type Label = { ko: string; en: string };
+export const statementLabels = {
+  kinds: {
+    base: { ko: "기본 팀 상품", en: "Base team product" },
+    extra_seat: { ko: "추가 편집 이용권", en: "Extra editing licence" },
+    ai_pack: { ko: "추가 AI", en: "AI pack" },
+    storage_pack: { ko: "저장 추가", en: "Storage pack" },
+  } satisfies Record<TeamQuote["lines"][number]["kind"], Label>,
+  targets: {
+    initial: { ko: "첫 구매", en: "First purchase" },
+    current: { ko: "현재 기간 추가", en: "Current-period add-on" },
+    next: { ko: "다음 기간 선구매", en: "Next-period prepurchase" },
+    restore: { ko: "종료 후 복구", en: "Restoration" },
+  } satisfies Record<QuoteTarget, Label>,
+  purchaseStates: {
+    applied: { ko: "반영 완료", en: "Applied" },
+    awaiting_application: {
+      ko: "수납 완료 · 반영 대기",
+      en: "Paid · awaiting application",
+    },
+    review_required: { ko: "운영 확인 중", en: "Under review" },
+  } satisfies Record<TeamStatementPurchase["status"], Label>,
+  adjustmentStates: {
+    pending: { ko: "반환 대기", en: "Return pending" },
+    confirming: { ko: "반환 확인 중", en: "Return being confirmed" },
+    unknown: { ko: "반환 확인 중", en: "Return being confirmed" },
+    refunded: { ko: "반환 완료", en: "Returned" },
+    review_required: { ko: "운영 확인 중", en: "Under review" },
+  } satisfies Record<TeamStatementAdjustment["state"], Label>,
+  // Only "refunded" reads as money returned; in-flight states never do.
+  refundStates: {
+    reserved: { ko: "환불 확인 중", en: "Refund being confirmed" },
+    cancelling: { ko: "환불 확인 중", en: "Refund being confirmed" },
+    provider_unknown: { ko: "환불 확인 중", en: "Refund being confirmed" },
+    refunded: { ko: "환불 완료", en: "Refunded" },
+    rejected: { ko: "환불 거절", en: "Refund rejected" },
+    failed: { ko: "환불 실패", en: "Refund failed" },
+    review_required: { ko: "운영 확인 중", en: "Under review" },
+  } satisfies Record<TeamStatementRefund["state"], Label>,
+  reasons: {
+    initial: { ko: "최초 발행", en: "First issue" },
+    late_receipt: { ko: "늦게 확인된 수납 반영", en: "Late payment receipt" },
+    application_recorded: {
+      ko: "이용권·제공량 반영 결과 확정",
+      en: "Application recorded",
+    },
+    status_changed: { ko: "수납 처리 상태 변경", en: "Payment status changed" },
+    correction_recorded: {
+      ko: "과납·환불 정정 기록 반영",
+      en: "Overpayment or refund changed",
+    },
+    usage_recorded: { ko: "AI 원장 기록 변경", en: "AI ledger changed" },
+    content_changed: { ko: "집계 내용 정정", en: "Content corrected" },
+  } satisfies Record<StatementReason, Label>,
 };

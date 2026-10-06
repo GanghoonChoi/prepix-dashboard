@@ -50,7 +50,13 @@ export function BillingOrder({ workspaceId, orderId }: { workspaceId: string; or
   const [preview, setPreview] = useState<TeamRefundPreview | null>(null);
   const [pendingRefund, setPendingRefund] = useState<BillingRecord | null>(null);
   const serial = useRef(0),
-    confirming = useRef(false);
+    confirming = useRef(false),
+    viewGeneration = useRef(0);
+  useEffect(() => {
+    const generation = ++viewGeneration.current;
+    confirming.current = false;
+    return () => { viewGeneration.current = generation + 1; };
+  }, [api, orderId]);
   const load = useCallback(async () => {
     if (!api) return;
     const call = ++serial.current;
@@ -71,6 +77,7 @@ export function BillingOrder({ workspaceId, orderId }: { workspaceId: string; or
   useEffect(() => {
     setOrder(null);
     setPreview(null);
+    setBusy("");
     const t = setTimeout(() => void load(), 0);
     if (scope)
       void store
@@ -99,18 +106,25 @@ export function BillingOrder({ workspaceId, orderId }: { workspaceId: string; or
       setFailure("B2B_PG_RETURN_MISMATCH");
       return;
     }
+    const generation = viewGeneration.current;
+    const path = window.location.pathname;
+    const current = () => {
+      if (viewGeneration.current !== generation || window.location.pathname !== path) return false;
+      try { api.assertScope(); return true; } catch { return false; }
+    };
     confirming.current = true;
     setBusy("confirm");
     void api
       .confirm(orderId, paymentKey)
       .then((r) => {
+        if (!current()) return;
         setOrder(r.order);
         window.history.replaceState(null, "", window.location.pathname);
       })
-      .catch((e) => setFailure(billingCode(e)))
+      .catch((e) => { if (current()) setFailure(billingCode(e)); })
       .finally(() => {
-        confirming.current = false;
-        setBusy("");
+        if (viewGeneration.current === generation) confirming.current = false;
+        if (current()) setBusy("");
       });
   }, [api, order, pg, params, orderId]);
   if (!order)

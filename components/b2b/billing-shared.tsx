@@ -45,6 +45,9 @@ export const refundLabels: Record<TeamRefundState, [string, string]> = {
   review_required: ["환불 운영 확인 중", "Refund under operations review"],
 };
 const messages: Record<string, [string, string]> = {
+  B2B_BILLING_OPERATION_PENDING: ["다른 창에서 시작한 결제 관련 요청이 확인 중입니다. 원래 요청의 결과를 먼저 확인해 주세요.", "A billing request started in another window is pending. Check the original request first."],
+  B2B_BILLING_OPERATION_INVALID: ["보관된 요청 기록을 확인할 수 없습니다. 새 결제를 보내지 않고 중단했습니다.", "The saved request cannot be verified. No new payment was sent."],
+  B2B_BILLING_SCOPE_CHANGED: ["다른 팀 화면으로 이동했습니다. 원래 팀에서 요청 결과를 확인해 주세요.", "The team changed. Check the request in the original team."],
   B2B_BILLING_SETTING_MISSING: ["판매나 결제에 필요한 설정이 확정되지 않아 이 동작을 할 수 없습니다.", "A required billing setting is not approved, so this action is unavailable."],
   B2B_BILLING_PAYMENT_NOT_CONFIGURED: ["자동결제 상점 설정이 준비되지 않았습니다.", "The automatic-payment merchant is not configured."],
   B2B_PAYMENT_NOT_CONFIGURED: ["결제 설정이 준비되지 않았습니다.", "Payment is not configured."],

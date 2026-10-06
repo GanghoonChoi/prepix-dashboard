@@ -105,6 +105,10 @@ export function workspaceLinks(
       ...(status.allowedActions.billing
         ? [{ href: `${base}/plan`, ko: "플랜과 결제", en: "Plan and billing" }]
         : []),
+      // S25: monthly statements are billing documents, not project content.
+      ...(status.allowedActions.billing
+        ? [{ href: `${base}/statements`, ko: "월 이용명세서", en: "Statements" }]
+        : []),
       { href: `${base}/status`, ko: "이용 상태", en: "Team status" },
       ...(status.allowedActions.manage
         ? [{ href: `${base}/settings`, ko: "설정", en: "Settings" }]

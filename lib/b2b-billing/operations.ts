@@ -67,6 +67,13 @@ export const inputHash = (input: unknown) =>
   bytesToHex(sha256(new TextEncoder().encode(JSON.stringify(canonical(input)))));
 export function validRecord(raw: unknown, scope: BillingScope): raw is BillingRecord {
   const r = raw as BillingRecord;
+  try { if (new URL(scope.origin).origin !== scope.origin) return false; } catch { return false; }
+  if (![scope.userId, scope.workspaceId].every((id) => typeof id === "string" && uuid.test(id))) return false;
+  if (r?.action === "order" && (!uuid.test((r.input as CreateTeamOrder)?.quoteId) || r.topic !== (r.input as CreateTeamOrder)?.quoteId)) return false;
+  if (r?.action === "refund" && (!uuid.test((r.input as CreateTeamRefund)?.orderId) || r.topic !== (r.input as CreateTeamRefund)?.orderId)) return false;
+  if (r?.action === "method.remove" && (!uuid.test((r.input as Inputs["method.remove"])?.methodId) || r.topic !== (r.input as Inputs["method.remove"])?.methodId)) return false;
+  const fixedTopics = { profile: "profile", renewal: "renewal", "renewal.stop": "stop", "method.start": "method" };
+  if (r?.action in fixedTopics && r.topic !== fixedTopics[r.action as keyof typeof fixedTopics]) return false;
   return (
     !!r &&
     r.schema === 1 &&
@@ -82,26 +89,52 @@ export function validRecord(raw: unknown, scope: BillingScope): raw is BillingRe
     r.attempts >= 0
   );
 }
+export const sameBillingIntent = (a: BillingRecord, b: BillingRecord) =>
+  recordKey(a) === recordKey(b) && inputHash({ ...a.input, requestKey: undefined }) === inputHash({ ...b.input, requestKey: undefined });
 export interface BillingStore {
   list(scope: BillingScope): Promise<BillingRecord[]>;
   get(key: Pick<BillingRecord, "scope" | "action" | "topic">): Promise<BillingRecord | null>;
-  put(record: BillingRecord): Promise<void>;
-  remove(record: Pick<BillingRecord, "scope" | "action" | "topic">): Promise<void>;
+  prepare(record: BillingRecord, assertCurrent?: () => void): Promise<BillingRecord>;
+  start(record: BillingRecord, assertCurrent?: () => void): Promise<BillingRecord>;
+  finish(record: BillingRecord, assertCurrent?: () => void): Promise<void>;
+  rejectFirst(record: BillingRecord, assertCurrent?: () => void): Promise<void>;
+}
+const invalid = () => new Error("B2B_BILLING_OPERATION_INVALID");
+const pending = () => new Error("B2B_BILLING_OPERATION_PENDING");
+function prepare(prior: BillingRecord | undefined, r: BillingRecord) {
+  if (prior && !sameBillingIntent(prior, r)) throw pending();
+  return prior ?? r;
+}
+function start(prior: BillingRecord | undefined, r: BillingRecord) {
+  if (!prior || prior.input.requestKey !== r.input.requestKey || !sameBillingIntent(prior, r)) throw pending();
+  return { ...prior, attempts: prior.attempts + 1 };
 }
 export class MemoryBillingStore implements BillingStore {
   rows = new Map<string, BillingRecord>();
   async list(scope: BillingScope) {
-    return [...this.rows.values()].filter((r) => validRecord(r, scope));
+    const prefix = JSON.stringify([scopeKey(scope)]).slice(0, -1) + ",";
+    const rows = [...this.rows.entries()].filter(([key]) => key.startsWith(prefix)).map(([, r]) => r);
+    if (rows.some((r) => !validRecord(r, scope))) throw invalid();
+    return rows.map((r) => structuredClone(r));
   }
   async get(k: Pick<BillingRecord, "scope" | "action" | "topic">) {
-    return this.rows.get(recordKey(k)) ?? null;
+    const r = this.rows.get(recordKey(k));
+    if (r && !validRecord(r, k.scope)) throw invalid();
+    return r ? structuredClone(r) : null;
   }
-  async put(r: BillingRecord) {
-    this.rows.set(recordKey(r), structuredClone(r));
+  private change(r: BillingRecord, apply: (prior?: BillingRecord) => BillingRecord | undefined, assertCurrent?: () => void) {
+    assertCurrent?.();
+    if (!validRecord(r, r.scope)) throw invalid();
+    const prior = this.rows.get(recordKey(r));
+    if (prior && !validRecord(prior, r.scope)) throw invalid();
+    const next = apply(prior);
+    if (next) this.rows.set(recordKey(r), structuredClone(next)); else this.rows.delete(recordKey(r));
+    return structuredClone(next);
   }
-  async remove(k: Pick<BillingRecord, "scope" | "action" | "topic">) {
-    this.rows.delete(recordKey(k));
-  }
+  async prepare(r: BillingRecord, assertCurrent?: () => void) { return this.change(r, (p) => prepare(p, r), assertCurrent)!; }
+  async start(r: BillingRecord, assertCurrent?: () => void) { return this.change(r, (p) => start(p, r), assertCurrent)!; }
+  async finish(r: BillingRecord, assertCurrent?: () => void) { this.change(r, (p) => p?.input.requestKey === r.input.requestKey ? undefined : p, assertCurrent); }
+  async rejectFirst(r: BillingRecord, assertCurrent?: () => void) { this.change(r, (p) => p?.input.requestKey === r.input.requestKey && p.attempts === 1 && r.attempts === 1 ? undefined : p, assertCurrent); }
 }
 export class BrowserBillingStore implements BillingStore {
   private opening?: Promise<IDBDatabase>;
@@ -109,60 +142,95 @@ export class BrowserBillingStore implements BillingStore {
     this.opening ??= new Promise<IDBDatabase>((resolve, reject) => {
       const r = indexedDB.open("prepix-b2b-billing", 1);
       r.onupgradeneeded = () => r.result.createObjectStore("operations");
-      r.onsuccess = () => {
-        r.result.onversionchange = () => r.result.close();
-        resolve(r.result);
-      };
-      r.onerror = r.onblocked = () =>
-        reject(new Error("B2B_BILLING_STORAGE_UNAVAILABLE"));
+      r.onsuccess = () => { r.result.onversionchange = () => r.result.close(); resolve(r.result); };
+      r.onerror = r.onblocked = () => reject(new Error("B2B_BILLING_STORAGE_UNAVAILABLE"));
     });
     return this.opening;
   }
-  private async tx<T>(mode: IDBTransactionMode, run: (s: IDBObjectStore) => IDBRequest | void, pick?: (r: IDBRequest) => T) {
+  private async read<T>(run: (s: IDBObjectStore) => IDBRequest, pick: (result: unknown) => T) {
     const db = await this.open();
     return new Promise<T>((resolve, reject) => {
-      const t = db.transaction("operations", mode);
-      const request = run(t.objectStore("operations"));
-      t.oncomplete = () => resolve(pick && request ? pick(request) : (undefined as T));
-      t.onabort = t.onerror = () => reject(new Error("B2B_BILLING_STORAGE_UNAVAILABLE"));
+      const tx = db.transaction("operations", "readonly"), request = run(tx.objectStore("operations"));
+      tx.oncomplete = () => { try { resolve(pick(request.result)); } catch (e) { reject(e); } };
+      tx.onabort = tx.onerror = () => reject(new Error("B2B_BILLING_STORAGE_UNAVAILABLE"));
     });
   }
   async list(scope: BillingScope) {
     const prefix = JSON.stringify([scopeKey(scope)]).slice(0, -1) + ",";
-    const rows = await this.tx<unknown[]>(
-      "readonly",
-      (s) => s.getAll(IDBKeyRange.bound(prefix, prefix + "￿")),
-      (r) => r.result as unknown[],
-    );
-    return rows.filter((r): r is BillingRecord => validRecord(r, scope));
+    return this.read((s) => s.getAll(IDBKeyRange.bound(prefix, prefix + "￿")), (raw) => {
+      const rows = raw as BillingRecord[];
+      if (rows.some((r) => !validRecord(r, scope))) throw invalid();
+      return rows;
+    });
   }
   async get(k: Pick<BillingRecord, "scope" | "action" | "topic">) {
-    const row = await this.tx<unknown>("readonly", (s) => s.get(recordKey(k)), (r) => r.result);
-    return validRecord(row, k.scope) ? row : null;
+    return this.read((s) => s.get(recordKey(k)), (r) => { if (r !== undefined && !validRecord(r, k.scope)) throw invalid(); return (r as BillingRecord | undefined) ?? null; });
   }
-  put(r: BillingRecord) {
-    return this.tx<void>("readwrite", (s) => void s.put(r, recordKey(r)));
+  private async change(r: BillingRecord, apply: (prior?: BillingRecord) => BillingRecord | undefined, assertCurrent?: () => void) {
+    if (!validRecord(r, r.scope)) throw invalid();
+    const db = await this.open();
+    assertCurrent?.();
+    return new Promise<BillingRecord | undefined>((resolve, reject) => {
+      const tx = db.transaction("operations", "readwrite"), store = tx.objectStore("operations"), read = store.get(recordKey(r));
+      let next: BillingRecord | undefined, error: unknown;
+      read.onsuccess = () => {
+        try {
+          assertCurrent?.();
+          if (read.result !== undefined && !validRecord(read.result, r.scope)) throw invalid();
+          next = apply(read.result);
+          if (next) store.put(next, recordKey(r)); else store.delete(recordKey(r));
+        } catch (e) { error = e; tx.abort(); }
+      };
+      tx.oncomplete = () => resolve(next);
+      tx.onabort = tx.onerror = () => reject(error ?? new Error("B2B_BILLING_STORAGE_UNAVAILABLE"));
+    });
   }
-  remove(k: Pick<BillingRecord, "scope" | "action" | "topic">) {
-    return this.tx<void>("readwrite", (s) => void s.delete(recordKey(k)));
-  }
+  async prepare(r: BillingRecord, assertCurrent?: () => void) { return (await this.change(r, (p) => prepare(p, r), assertCurrent))!; }
+  async start(r: BillingRecord, assertCurrent?: () => void) { return (await this.change(r, (p) => start(p, r), assertCurrent))!; }
+  async finish(r: BillingRecord, assertCurrent?: () => void) { await this.change(r, (p) => p?.input.requestKey === r.input.requestKey ? undefined : p, assertCurrent); }
+  async rejectFirst(r: BillingRecord, assertCurrent?: () => void) { await this.change(r, (p) => p?.input.requestKey === r.input.requestKey && p.attempts === 1 && r.attempts === 1 ? undefined : p, assertCurrent); }
 }
 
 export function billingApi(scope: Omit<BillingScope, "userId"> & { userId: string | null }) {
-  if (new URL(apiClient.defaults.baseURL!).origin !== scope.origin)
-    throw new Error("B2B_BILLING_SERVICE_CHANGED");
   const e = encodeURIComponent;
-  // Pin the account that started a flow; an unpinned first read learns it.
-  const headers: Record<string, string> = scope.userId
-    ? { "X-Prepix-Account-ID": scope.userId }
-    : {};
+  const localActor = () => {
+    if (typeof window === "undefined") return null;
+    try { return JSON.parse(localStorage.getItem("userInfo") ?? "null")?.id ?? null; }
+    catch { throw new Error("B2B_BILLING_ACCOUNT_CHANGED"); }
+  };
+  const assertScope = (r?: BillingRecord, allowUnpinned = false) => {
+    if (new URL(apiClient.defaults.baseURL!).origin !== scope.origin) throw new Error("B2B_BILLING_SERVICE_CHANGED");
+    if (r && scopeKey(r.scope) !== scopeKey(scope as BillingScope)) throw new Error("B2B_BILLING_SCOPE_CHANGED");
+    if (!scope.userId && !allowUnpinned) throw new Error("B2B_BILLING_ACCOUNT_CHANGED");
+    if (typeof window !== "undefined") {
+      const id = localActor();
+      if (!id || (scope.userId && id !== scope.userId)) throw new Error("B2B_BILLING_ACCOUNT_CHANGED");
+      const base = `/dashboard/workspaces/${scope.workspaceId}`;
+      if (window.location.pathname !== base && !window.location.pathname.startsWith(`${base}/`)) throw new Error("B2B_BILLING_SCOPE_CHANGED");
+    }
+  };
+  const headers = () => scope.userId ? { "X-Prepix-Account-ID": scope.userId } : {};
   const base = `/workspaces/${e(scope.workspaceId)}/b2b`;
-  const get = async <T>(path: string) =>
-    (await apiClient.get<{ data: T }>(path, { headers, timeout: 15_000 })).data.data;
-  const send = async <T>(method: "POST" | "PUT", path: string, data: unknown) =>
-    (await apiClient.request<{ data: T }>({ method, url: path, data, headers, timeout: 70_000 })).data.data;
+  const get = async <T>(path: string, learn = false) => {
+    assertScope(undefined, learn);
+    const initial = localActor();
+    const value = (await apiClient.get<{ data: T }>(path, { headers: headers(), timeout: 15_000 })).data.data;
+    assertScope(undefined, learn);
+    if (learn && typeof window !== "undefined" && localActor() !== initial) throw new Error("B2B_BILLING_ACCOUNT_CHANGED");
+    const actor = (value as { currentUserId?: string })?.currentUserId;
+    if (actor && scope.userId && actor !== scope.userId) throw new Error("B2B_BILLING_ACCOUNT_CHANGED");
+    if (learn && typeof window !== "undefined" && actor !== initial) throw new Error("B2B_BILLING_ACCOUNT_CHANGED");
+    return value;
+  };
+  const send = async <T>(method: "POST" | "PUT", path: string, data: unknown) => {
+    assertScope();
+    const value = (await apiClient.request<{ data: T }>({ method, url: path, data, headers: headers(), timeout: 70_000 })).data.data;
+    assertScope();
+    return value;
+  };
   return {
-    overview: () => get<TeamBilling>(`${base}/billing`),
+    assertScope,
+    overview: () => get<TeamBilling>(`${base}/billing`, true),
     commerce: () => get<TeamCommerce>(`${base}/commerce`),
     operation: (action: BillingOperationAction, requestKey: string, hash: string) =>
       get<BillingOperationReceipt>(
@@ -227,33 +295,34 @@ export const pendingOutcome = (error: unknown) => {
 };
 /** The stored server result of a lost change, or null when none exists yet. */
 export async function checkRecord(r: BillingRecord, api: BillingApi, store: BillingStore) {
+  api.assertScope?.(r);
   const found = await api.operation(operation[r.action], r.input.requestKey, inputHash(r.input));
+  api.assertScope?.(r);
   if (found.currentUserId !== r.scope.userId) throw new Error("B2B_BILLING_ACCOUNT_CHANGED");
-  if (found.receipt) await store.remove(r);
+  if (found.receipt) await store.finish(r, () => api.assertScope?.(r));
+  api.assertScope?.(r);
   return found.receipt;
 }
-/** Persist first, check for an earlier success, then send the same input. */
-export async function runRecord<A extends BillingAction>(
-  fresh: BillingRecord<A>,
-  api: BillingApi,
-  store: BillingStore,
-): Promise<Record<string, unknown>> {
-  const prior = (await store.get(fresh)) as BillingRecord<A> | null;
-  const record = prior ?? fresh;
-  if (prior && prior.attempts > 0) {
-    const found = await checkRecord(prior, api, store);
+/** Persist and start atomically, always preserving the first key for this intent. */
+export async function runRecord<A extends BillingAction>(fresh: BillingRecord<A>, api: BillingApi, store: BillingStore): Promise<Record<string, unknown>> {
+  api.assertScope?.(fresh);
+  const record = await store.prepare(fresh, () => api.assertScope?.(fresh));
+  api.assertScope?.(record);
+  if (record.attempts > 0) {
+    const found = await checkRecord(record, api, store);
     if (found) return found;
   }
-  const started = { ...record, attempts: record.attempts + 1 };
-  await store.put(started);
+  const started = await store.start(record, () => api.assertScope?.(record));
+  api.assertScope?.(started);
   try {
     const result = await sendFor(api, started);
-    await store.remove(started);
+    api.assertScope?.(started);
+    await store.finish(started, () => api.assertScope?.(started));
+    api.assertScope?.(started);
     return result;
   } catch (error) {
-    // Only a definitive rejection of the very first attempt frees the topic;
-    // a later 4xx cannot disprove an earlier lost success.
-    if (!pendingOutcome(error) && started.attempts === 1) await store.remove(started);
+    api.assertScope?.(started);
+    if (!pendingOutcome(error)) await store.rejectFirst(started, () => api.assertScope?.(started));
     throw error;
   }
 }

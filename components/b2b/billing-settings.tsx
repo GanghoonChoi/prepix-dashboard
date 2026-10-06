@@ -83,7 +83,12 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
   const [plan, setPlan] = useState<TeamRenewalPlan | null>(null);
   const [planConsent, setPlanConsent] = useState(false);
   const [removal, setRemoval] = useState("");
-  const completing = useRef(false);
+  const completing = useRef(false), viewGeneration = useRef(0);
+  useEffect(() => {
+    const generation = ++viewGeneration.current;
+    completing.current = false;
+    return () => { viewGeneration.current = generation + 1; };
+  }, [api]);
   const refreshPending = useCallback(async () => {
     if (!scope) return setPending([]);
     try {
@@ -97,6 +102,8 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
     setPlan(null);
     setCommerce(null);
     setFailure("");
+    setBusy("");
+    setNotice("");
     const t = setTimeout(() => void refreshPending(), 0);
     if (api) void api.commerce().then(setCommerce).catch((e) => setFailure(billingCode(e)));
     return () => clearTimeout(t);
@@ -139,11 +146,18 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
     const authKey = params.get("authKey"),
       customerKey = params.get("customerKey");
     if (!api || !registration || !authKey || !customerKey || completing.current) return;
+    const generation = viewGeneration.current;
+    const path = window.location.pathname;
+    const current = () => {
+      if (viewGeneration.current !== generation || window.location.pathname !== path) return false;
+      try { api.assertScope(); return true; } catch { return false; }
+    };
     completing.current = true;
     setBusy("method.complete");
     void api
       .completeMethod(registration, { requestKey: crypto.randomUUID(), customerKey, authKey })
       .then((r) => {
+        if (!current()) return;
         setNotice(
           r.method.state === "active"
             ? c("결제 수단을 등록했습니다.", "The payment method is registered.")
@@ -154,12 +168,14 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
         window.history.replaceState(null, "", window.location.pathname);
       })
       .catch((e) => {
+        if (!current()) return;
         setFailure(billingCode(e));
         const status = (e as { response?: { status?: number } })?.response?.status;
         if (status && status >= 400 && status < 500) window.history.replaceState(null, "", window.location.pathname);
       })
       .finally(() => {
-        completing.current = false;
+        if (viewGeneration.current === generation) completing.current = false;
+        if (!current()) return;
         setBusy("");
         void reload();
       });

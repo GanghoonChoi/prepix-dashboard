@@ -35,6 +35,53 @@ const buyer = {
   address: "서울 로컬구 1",
   receiptEmail: "finance@example.test",
 };
+
+test("a late payment return cannot clear the query of the next client-side view", async ({ page, request }) => {
+  const owner = await account(request, "billing-late-return");
+  const id = await team(request, owner.headers);
+  await login(page, owner.email, `/dashboard/workspaces/${id}/plan/settings`);
+  await saveProfile(page);
+  await expect(page.getByLabel("상호", { exact: true })).toBeEnabled();
+  await page.goto(`/dashboard/workspaces/${id}/plan`);
+  await page.getByRole("button", { name: "견적 확인", exact: true }).click();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  let received!: () => void;
+  const completed = new Promise<void>((resolve) => { received = resolve; });
+  let handled!: () => void;
+  const handlerDone = new Promise<void>((resolve) => { handled = resolve; });
+  let calls = 0;
+  await page.route(`${api}/v2/workspaces/${id}/b2b/commerce/orders/*/confirm`, async (route) => {
+    calls++;
+    const response = await route.fetch();
+    received();
+    await gate;
+    try { await route.fulfill({ response }); } finally { handled(); }
+  });
+  try {
+    await page.getByRole("button", { name: /^결제하기/ }).click();
+    await page.waitForURL(`${double}/checkout?**`);
+    await page.getByRole("link", { name: "결제 인증 완료" }).click();
+    await completed;
+    // Next Link keeps the original JS promise alive while unmounting the order.
+    await page.getByRole("link", { name: "플랜과 결제로 돌아가기", exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/workspaces/${id}/plan$`));
+    await page.evaluate(() => {
+      window.history.replaceState(null, "", `${window.location.pathname}?return_probe=preserve`);
+    });
+    release();
+    await handlerDone;
+    await expect(page.getByRole("heading", { name: "플랜과 결제", exact: true })).toBeVisible();
+    expect(new URL(page.url()).searchParams.get("return_probe")).toBe("preserve");
+    expect(calls).toBe(1);
+    const orders = (await (await request.get(`${api}/v2/workspaces/${id}/b2b/commerce/orders`, { headers: owner.headers })).json()).data;
+    expect(orders.items).toHaveLength(1);
+    await expect.poll(async () => {
+      const current = (await (await request.get(`${api}/v2/workspaces/${id}/b2b/commerce/orders`, { headers: owner.headers })).json()).data;
+      return current.items[0].state;
+    }).toBe("applied");
+  } finally { release(); }
+});
 async function saveProfile(page: Page) {
   await page.getByLabel("상호", { exact: true }).fill(buyer.businessName);
   await page.getByLabel("사업자등록번호", { exact: true }).fill(buyer.businessRegistrationNumber);
