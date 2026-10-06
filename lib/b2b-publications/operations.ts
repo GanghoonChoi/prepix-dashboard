@@ -2,6 +2,7 @@ import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import type { PublicationMutationLookup, PublicationMutationResult } from "../api/generated/b2b";
 import { releaseRejected } from "../api/session";
+import { validAudience } from "../b2b-reviews/operations";
 
 export type PublicationScope = { origin: string; userId: string; workspaceId: string; projectId: string };
 export type PublicationOperation = {
@@ -25,8 +26,8 @@ export function validPublicationOperation(raw: unknown, scope: PublicationScope)
   try { if (new URL(r.scope.origin).origin !== r.scope.origin) return false; } catch { return false; }
   if (r.action === "register") return r.target === undefined && uuid.test(String(r.input.participationId)) && uuid.test(String(r.input.uploadId)) && typeof r.input.originWorkId === "string" && !!r.input.originWorkId && typeof r.input.originResultId === "string" && !!r.input.originResultId && Number.isSafeInteger(r.input.basisRevision) && Number(r.input.basisRevision) >= 0;
   if (r.action !== "publish" || !uuid.test(r.target ?? "") || !uuid.test(r.versionId ?? "") || !Number.isSafeInteger(r.input.revision) || Number(r.input.revision) < 0) return false;
-  const audience = r.input.audienceUserIds;
-  return Array.isArray(audience) && audience.length > 0 && audience.every((v) => typeof v === "string" && uuid.test(v)) && new Set(audience).size === audience.length && typeof r.input.approverUserId === "string" && audience.includes(r.input.approverUserId);
+  // V: no list = everyone who can see the project.
+  return validAudience(r.input.audienceUserIds === undefined ? { ...r.input, audienceScope: "project" } : r.input);
 }
 export interface PublicationStore {
   list(s: PublicationScope): Promise<PublicationOperation[]>;
