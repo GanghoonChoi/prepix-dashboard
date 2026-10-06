@@ -437,6 +437,9 @@ export type CreateTeamRefund = {
   selection: TeamRefundSelection;
   reason: string;
   expectedTotalKrw: number;
+  // The preview's `basisAt`: the amount is measured at that instant (at most
+  // ten minutes old) so seconds of drift never void the request.
+  basisAt?: string;
 };
 // Team billing settings, payment methods and renewal (S21-S24).
 // SOT: backend/docs/b2b-billing-execution.md §1-7
@@ -523,6 +526,11 @@ export type TeamRenewalPlan = {
   pausedReason: string | null;
   revision: number;
   updatedAt: string | null;
+  // Automatic mode only: when the first automatic charge can happen. Consent
+  // given inside the charge lead window skips the upcoming period
+  // (`upcomingSkipped`) and starts with the following one.
+  firstChargeAt: string | null;
+  upcomingSkipped: boolean;
 };
 export type ChangeTeamRenewalPlan = {
   requestKey: string;
