@@ -38,6 +38,10 @@ export const approvalCopy: Record<ReviewApprovalState, Copy> = {
   changes_requested: ["수정 요청", "Changes requested"],
 };
 const reviewErrors: Record<string, Copy> = {
+  B2B_REVIEW_TARGET_CHANGED: [
+    "선택한 영상 버전의 검토를 열 수 없습니다. 검토 목록에서 현재 접근 가능한 버전을 확인해 주세요.",
+    "The selected version's review is unavailable. Check the accessible versions in the review list.",
+  ],
   B2B_REVIEW_NOT_FOUND: [
     "검토를 찾을 수 없거나 볼 수 있는 범위가 아닙니다.",
     "This review is unavailable to you.",

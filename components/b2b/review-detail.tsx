@@ -1,6 +1,9 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { assertExactReviewEntry, checkExactReviewTarget, parseExactReviewTarget, type ExactReviewTarget } from "@/lib/b2b-reviews/exact-target";
+import { homeEnvironment } from "@/lib/b2b-home/home";
 import type {
   ReviewComment,
   ReviewDetail,
@@ -46,16 +49,23 @@ type Copy = (ko: string, en: string) => string;
 const RENEW_BEFORE_MS = 30_000;
 
 export function ProjectReviewView({ projectId, reviewId }: { projectId: string; reviewId: string }) {
+  const query = useSearchParams();
+  const target = useMemo(() => {
+    try { return { value: parseExactReviewTarget(query), error: "" }; }
+    catch (e) { return { value: undefined, error: errorCode(e) }; }
+  }, [query]);
   const { team, me, permitted } = useTeamScope();
   const scope = useMemo<ReviewScope>(
     () => ({ origin: origin(), userId: me, kind: "project", workspaceId: team, projectId, reviewId }),
     [team, me, projectId, reviewId],
   );
   if (!permitted || !me) return <ReviewError code="B2B_REVIEW_NOT_FOUND" />;
+  if (target.error) return <ReviewError code={target.error} />;
   return (
     <ReviewScreen
-      key={JSON.stringify(scope)}
+      key={JSON.stringify([scope, target.value])}
       scope={scope}
+      exactTarget={target.value}
       back={`/dashboard/workspaces/${team}/projects/${projectId}/reviews`}
     />
   );
@@ -104,28 +114,40 @@ function ReviewScreen({
   back,
   notice,
   onReview,
+  exactTarget,
 }: {
   scope: ReviewScope;
   token?: string | null;
   back?: string;
   notice?: string;
   onReview?: (id: string) => void;
+  exactTarget?: ExactReviewTarget;
 }) {
   const c = useCopy();
-  const [round, setRound] = useState<number>();
+  const [round, setRound] = useState<number | undefined>(exactTarget?.round);
   const [pending, setPending] = useState<ReviewRecord[]>([]);
   const [pendingError, setPendingError] = useState("");
   const read = useCallback(async () => {
+    const checkEntry = () => {
+      if (exactTarget && scope.kind === "project")
+        assertExactReviewEntry(scope, exactTarget, homeEnvironment(origin()), window.location.search);
+    };
+    checkEntry();
     const detail = await reviewsService.detail(scope, round, token);
+    checkEntry();
+    if (exactTarget) checkExactReviewTarget(detail, scope.reviewId, exactTarget);
     // An unreadable device store is an error, never "nothing pending".
     try {
-      setPending(await reviewStore.list(scope));
+      const records = await reviewStore.list(scope);
+      checkEntry();
+      setPending(records);
       setPendingError("");
     } catch (e) {
       setPendingError(errorCode(e));
     }
+    checkEntry();
     return detail;
-  }, [scope, round, token]);
+  }, [scope, round, token, exactTarget]);
   const { data, error, stale, load } = useLoader(read);
   useEffect(() => {
     if (data) onReview?.(data.review.id);
@@ -146,6 +168,7 @@ function ReviewScreen({
       description={`V${selected.ordinal} · ${c("회차", "Round")} ${selected.round}${current ? "" : ` · ${c("이전 검토(읽기 전용)", "Previous round (read-only)")}`}`}
     >
       {notice && <p className="text-sm text-muted">{notice}</p>}
+      {exactTarget && <p className="text-sm text-muted">{c("앱에서 선택한 영상 버전의 검토입니다.", "Review of the video version selected in the app.")}</p>}
       {scope.reviewId !== NO_REVIEW && <ReviewPending scope={scope} token={token} currentRound={data.review.round} onConfirmed={() => void load()} />}
       {stale && <ReviewError code={error} retry={() => void load()} />}
       {pendingError && <ReviewError code={pendingError} retry={() => void load()} />}
@@ -173,6 +196,7 @@ function ReviewScreen({
               key={r.round}
               type="button"
               aria-pressed={r.round === data.selectedRound}
+              disabled={!!exactTarget && r.round !== exactTarget.round}
               className={`${secondaryClass} ${r.round === data.selectedRound ? "bg-surface font-medium" : ""}`}
               onClick={() => setRound(r.round)}
             >
@@ -206,8 +230,8 @@ function ReviewScreen({
           />
         </div>
       </div>
-      {data.allowedActions.download && <SharedDownload scope={scope} token={token ?? null} />}
-      {scope.kind === "project" && (data.allowedActions.setAudience || data.allowedActions.setApprover || data.allowedActions.replaceVersion) && (
+      {scope.kind === "share" && data.allowedActions.download && <SharedDownload scope={scope} token={token ?? null} />}
+      {!exactTarget && scope.kind === "project" && (data.allowedActions.setAudience || data.allowedActions.setApprover || data.allowedActions.replaceVersion) && (
         <LeadTools scope={scope} detail={data} reload={load} />
       )}
     </TeamShell>
