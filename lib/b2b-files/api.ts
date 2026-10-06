@@ -5,6 +5,7 @@ import type {
   TeamFileUploadLookup,
   TeamFileUploadStatus,
   TeamFileVersionList,
+  TeamFileVersion,
   TeamFileDownload,
   TeamFilePermissionList,
   ChangeTeamFilePermissionInput,
@@ -83,6 +84,8 @@ export function fileApi(scope: FileScope) {
       ),
     download: (id: string, signal?: AbortSignal) =>
       post<TeamFileDownload>(`/files/${e(id)}/download`, {}, signal),
+    version: (id: string, signal?: AbortSignal) =>
+      get<{ version: TeamFileVersion }>(`/files/${e(id)}`, signal),
     permissions: (assetId: string, signal?: AbortSignal) =>
       get<TeamFilePermissionList>(`/assets/${e(assetId)}/permissions`, signal),
     people: (signal?: AbortSignal) => get<ProjectPeople>("/people", signal),

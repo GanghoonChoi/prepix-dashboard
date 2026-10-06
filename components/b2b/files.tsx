@@ -9,6 +9,8 @@ import {
   type TeamFileVersionList,
 } from "@/lib/api/services/b2b.service";
 import { fileApi, fileError, type FileScope } from "@/lib/b2b-files/api";
+import { useFileDownloads } from "@/lib/b2b-files/use-downloads";
+import { FileDownloads } from "./file-downloads";
 import { scopeKey } from "@/lib/b2b-files/store";
 import { bytes } from "@/lib/workspaces/upload";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
@@ -61,14 +63,11 @@ function FilesView({ scope }: { scope: FileScope }) {
     [query, setQuery] = useState(""),
     [search, setSearch] = useState(""),
     [cursor, setCursor] = useState<string>();
-  const [downloadError, setDownloadError] = useState(""),
-    [downloading, setDownloading] = useState("");
   const [management, setManagement] = useState<{
     versionId: string;
     mode: FileManagementMode;
   } | null>(null);
   const serial = useRef(0),
-    downloadController = useRef<AbortController | null>(null),
     readController = useRef<AbortController | null>(null);
   const reload = useCallback(async () => {
     const sequence = ++serial.current,
@@ -88,15 +87,13 @@ function FilesView({ scope }: { scope: FileScope }) {
       setError("");
     } catch (e) {
       if (sequence !== serial.current) return;
-      downloadController.current?.abort();
       setData(null);
       setError(fileError(e));
     }
   }, [api, scope, search, cursor]);
   useEffect(() => {
     const sequence = serial,
-      reader = readController,
-      downloader = downloadController;
+      reader = readController;
     const start = window.setTimeout(() => void reload(), 0);
     const refresh = () => {
       if (document.visibilityState === "visible") void reload();
@@ -106,13 +103,13 @@ function FilesView({ scope }: { scope: FileScope }) {
     return () => {
       ++sequence.current;
       reader.current?.abort();
-      downloader.current?.abort();
       clearTimeout(start);
       clearInterval(interval);
       window.removeEventListener("focus", refresh);
     };
   }, [reload]);
   const operations = useFileOperations(scope, !!data, reload);
+  const downloads = useFileDownloads(scope, !!data, reload);
   if (error) return <B2bError code={error} retry={() => void reload()} />;
   if (!data) return <TeamLoading />;
   const { project, capabilities, list } = data;
@@ -150,6 +147,7 @@ function FilesView({ scope }: { scope: FileScope }) {
         versions={list.versions}
         changed={() => void reload()}
       />
+      <FileDownloads downloads={downloads} />
       <PendingFileOperations operations={operations} />
       {management &&
         managedVersion &&
@@ -196,7 +194,6 @@ function FilesView({ scope }: { scope: FileScope }) {
             {c("검색", "Search")}
           </button>
         </form>
-        {downloadError && <B2bError code={downloadError} />}
         {!list.versions.length && (
           <p className="py-8 text-sm text-muted">
             {c(
@@ -225,62 +222,16 @@ function FilesView({ scope }: { scope: FileScope }) {
                   <button
                     type="button"
                     className={secondaryClass}
-                    disabled={!!downloading}
-                    onClick={async () => {
-                      const controller = new AbortController();
-                      downloadController.current?.abort();
-                      downloadController.current = controller;
-                      setDownloading(version.id);
-                      setDownloadError("");
-                      try {
-                        const grant = await api.download(
-                          version.id,
-                          controller.signal,
-                        );
-                        controller.signal.throwIfAborted();
-                        const url = new URL(grant.url),
-                          local = ["localhost", "127.0.0.1", "[::1]"].includes(
-                            url.hostname,
-                          );
-                        if (
-                          grant.size !== version.size ||
-                          grant.sha256 !== version.sha256 ||
-                          url.username ||
-                          url.password ||
-                          (url.protocol !== "https:" &&
-                            !(
-                              process.env.NODE_ENV === "development" &&
-                              local &&
-                              url.protocol === "http:"
-                            ))
-                        )
-                          throw new Error("B2B_FILE_DOWNLOAD_INVALID");
-                        const anchor = document.createElement("a");
-                        anchor.href = url.href;
-                        anchor.rel = "noopener noreferrer";
-                        anchor.download = version.name;
-                        document.body.appendChild(anchor);
-                        anchor.click();
-                        anchor.remove();
-                      } catch (e) {
-                        if (!controller.signal.aborted) {
-                          setDownloadError(fileError(e));
-                          if (
-                            [401, 403, 404].includes(
-                              (e as { response?: { status?: number } })
-                                ?.response?.status ?? 0,
-                            )
-                          )
-                            void reload();
-                        }
-                      } finally {
-                        if (!controller.signal.aborted) setDownloading("");
-                      }
-                    }}
+                    disabled={downloads.jobs.some(
+                      (j) =>
+                        j.record.versionId === version.id &&
+                        ["checking", "receiving", "authorizing"].includes(
+                          j.state,
+                        ),
+                    )}
+                    onClick={() => void downloads.start(version)}
                   >
-                    {downloading === version.id
-                      ? c("권한 확인 중", "Checking access")
-                      : c("원본 다운로드", "Download original")}
+                    {c("원본 다운로드", "Download original")}
                   </button>
                 )}
               </div>

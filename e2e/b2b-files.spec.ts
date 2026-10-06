@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { randomUUID, createHash } from "node:crypto";
 import { resolve } from "node:path";
 import { readFile } from "node:fs/promises";
-const api = "http://127.0.0.1:3312",
+const api = process.env.B2B_E2E_API_URL ?? "http://127.0.0.1:3312",
   password = "LocalPreview123";
 async function account(request: APIRequestContext) {
   const email = `files-${randomUUID()}@example.test`;
@@ -280,17 +280,150 @@ test("real private upload resumes after reload, verifies immutable content and s
       ).json()
     ).data.storage.reservedBytes,
   ).toBe("0");
-  const downloading = page.waitForEvent("download");
+  // Stage real ranged bytes, pause before the second block and reload. The
+  // browser filesystem survives; the first block must not be fetched again.
+  const receivedRanges: string[] = [];
+  let secondRangeSeen!: () => void,
+    releaseRange!: () => void,
+    rangeHeld = false;
+  const waitingRange = new Promise<void>((resolve) => {
+      secondRangeSeen = resolve;
+    }),
+    continueRange = new Promise<void>((resolve) => {
+      releaseRange = resolve;
+    });
+  await page.context().route("http://127.0.0.1:3900/**", async (route) => {
+    const range = route.request().headers().range;
+    if (route.request().method() === "GET" && range) {
+      receivedRanges.push(range);
+      if (range.startsWith("bytes=8388608-") && !rangeHeld) {
+        rangeHeld = true;
+        secondRangeSeen();
+        await continueRange;
+      }
+    }
+    try {
+      await route.continue();
+    } catch {
+      /* paused worker transport */
+    }
+  });
   await page
     .getByRole("button", { name: "원본 다운로드", exact: true })
     .click();
+  await waitingRange;
+  const competing = await page.context().newPage();
+  await competing.goto(target);
+  await competing
+    .getByRole("button", { name: "원본 수령 재개", exact: true })
+    .click();
+  await expect(
+    competing.getByText("다른 탭에서 같은 원본을 수령하거나 정리 중입니다.", {
+      exact: false,
+    }),
+  ).toBeVisible();
+  await competing.close();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({
+    path: "/tmp/prepix-verified-download-mobile.png",
+    fullPage: true,
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await page.getByRole("button", { name: "수령 중단", exact: true }).click();
+  releaseRange();
+  await expect(
+    page.getByRole("button", { name: "수령 중단", exact: true }),
+  ).toHaveCount(0);
+  await page.setViewportSize({ width: 1360, height: 1100 });
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "원본 수령 재개", exact: true }),
+  ).toBeVisible();
+  const rangesBefore = receivedRanges.length;
+  let grants = 0,
+    exported = 0;
+  page.on("download", () => {
+    exported++;
+  });
+  // Revoke the steward's separate download grant after all bytes are received,
+  // immediately before the final real authorization. Cached bytes cannot export.
+  await page.route(`**/files/${catalogue[0].id}/download`, async (route) => {
+    grants++;
+    if (grants === 3)
+      expect(
+        (
+          await request.post(
+            `${root}/assets/${catalogue[0].assetId}/permissions`,
+            {
+              headers: user.headers,
+              data: {
+                requestKey: randomUUID(),
+                revision: 0,
+                userId: user.id,
+                canDownload: false,
+                canUseForAi: false,
+                reason: "Revoke before local export",
+              },
+            },
+          )
+        ).status(),
+      ).toBe(201);
+    await route.continue();
+  });
+  await page
+    .getByRole("button", { name: "원본 수령 재개", exact: true })
+    .click();
+  await expect(
+    page.getByText("현재 접근할 수 없는 수령 기록", { exact: true }),
+  ).toBeVisible();
+  expect(exported).toBe(0);
+  expect(receivedRanges.slice(rangesBefore)).toEqual([
+    `bytes=8388608-16777215`,
+    `bytes=16777216-${content.length - 1}`,
+  ]);
+  await page.unroute(`**/files/${catalogue[0].id}/download`);
+  expect(
+    (
+      await request.post(`${root}/assets/${catalogue[0].assetId}/permissions`, {
+        headers: user.headers,
+        data: {
+          requestKey: randomUUID(),
+          revision: 1,
+          userId: user.id,
+          canDownload: true,
+          canUseForAi: true,
+          reason: "Restore original receipt access",
+        },
+      })
+    ).status(),
+  ).toBe(201);
+  await page.reload();
+  const downloading = page.waitForEvent("download"),
+    beforeCached = receivedRanges.length;
+  await page
+    .getByRole("button", { name: "원본 수령 재개", exact: true })
+    .click();
   const received = await downloading;
+  expect(receivedRanges).toHaveLength(beforeCached);
   await received.saveAs("/tmp/prepix-b2b-file-downloaded.wav");
   expect(
     createHash("sha256")
       .update(await readFile("/tmp/prepix-b2b-file-downloaded.wav"))
       .digest("hex"),
   ).toBe(catalogue[0].sha256);
+  await expect(
+    page.getByText("검증 완료 · 파일 저장 시작됨", { exact: false }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "임시 수령 삭제", exact: true })
+    .click();
+  await expect(
+    page.getByRole("region", { name: "원본 수령", exact: true }),
+  ).toHaveCount(0);
   await page
     .getByRole("button", { name: "전송 기록 닫기", exact: true })
     .click();

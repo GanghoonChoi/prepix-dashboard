@@ -92,6 +92,13 @@ const invitationErrors: Record<string, [string, string]> = {
   ],
 };
 const errors: Record<string, [string, string]> = {
+  B2B_FILE_DOWNLOAD_INTEGRITY: ["받은 파일의 크기나 내용이 원본과 다릅니다. 검증하지 못한 파일은 저장하지 않습니다.", "The received size or content differs from the original. Unverified files are not saved."],
+  B2B_FILE_DOWNLOAD_RANGE_INVALID: ["서버의 부분 수령 응답을 확인할 수 없습니다. 브라우저 수령과 저장소 설정을 확인해 주세요.", "The partial response could not be verified. Check browser receipt and storage settings."],
+  B2B_FILE_DOWNLOAD_STORAGE_UNAVAILABLE: ["이 브라우저에서 임시 파일 수령을 사용할 수 없습니다. 최신 브라우저와 저장소 설정을 확인해 주세요.", "Staged receipt is unavailable in this browser. Check your browser version and storage settings."],
+  B2B_FILE_DOWNLOAD_STORAGE_FULL: ["브라우저 임시 저장 공간이 부족합니다. 다른 임시 수령을 정리한 뒤 재개해 주세요.", "Browser staging storage is full. Remove other staged receipts and resume."],
+  B2B_FILE_DOWNLOAD_BUSY: ["다른 탭에서 같은 원본을 수령하거나 정리 중입니다. 해당 작업을 마친 뒤 재시도해 주세요.", "Another tab is receiving or removing this original. Retry after it finishes."],
+  B2B_FILE_DOWNLOAD_INTERRUPTED: ["원본 수령이 중단되었습니다. 받은 부분을 확인한 뒤 이어 받을 수 있습니다.", "Receipt was interrupted. Received bytes can be checked before resuming."],
+  B2B_FILE_DOWNLOAD_DENIED: ["현재 계정에서 이 원본을 다운로드할 수 없습니다. 프로젝트와 자료의 다운로드 허용을 확인해 주세요.", "This account cannot download the original. Check project and file download permissions."],
   B2B_FILE_OPERATION_PENDING: ["이 변경의 처리 결과를 먼저 확인해 주세요. 처음 요청을 그대로 재시도할 수 있습니다.", "Confirm the pending change first. You can retry the original request."],
   B2B_FILE_OPERATION_INVALID: ["변경 요청과 처리 결과를 확인할 수 없습니다. 원래 요청 기록을 유지합니다.", "The operation or its receipt could not be verified. The original request is retained."],
   B2B_FILE_OPERATION_NOT_FOUND: ["현재 프로젝트에서 이 변경 요청을 확인할 수 없습니다.", "This operation is unavailable in the current project."],
