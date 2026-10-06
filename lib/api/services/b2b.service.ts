@@ -1,4 +1,5 @@
 import { apiClient } from "../client";
+import { mutationHeaders } from "../session";
 import { homeEnvironment, readHome, type HomeScope } from "../../b2b-home/home";
 import type {
   B2bStatus,
@@ -54,7 +55,10 @@ async function get<T>(path: string, account?: string): Promise<T> {
 }
 async function post<T>(path: string, input: unknown): Promise<T> {
   const result = (
-    await apiClient.post<{ data: T }>(path, input, { timeout: 30_000 })
+    await apiClient.post<{ data: T }>(path, input, {
+      timeout: 30_000,
+      ...mutationHeaders(),
+    })
   ).data.data;
   window.dispatchEvent(new Event("workspaces:changed"));
   return result;

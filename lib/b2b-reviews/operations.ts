@@ -5,7 +5,7 @@ import type {
   ReviewMutationLookup,
   ReviewMutationResult,
 } from "../api/generated/b2b";
-import { serverRejected } from "../api/session";
+import { releaseRejected } from "../api/session";
 
 // SOT: prepix-backend backend/docs/b2b-reviews.md "응답 유실".
 // A change is first recorded with its original input and request key, scoped
@@ -379,7 +379,7 @@ export async function runReview(
     await api.apply(started, signal);
     signal.throwIfAborted();
   } catch (e) {
-    if (serverRejected(e)) await store.rejectFirst(started);
+    await releaseRejected(e, started.attempts, () => store.rejectFirst(started), () => checkReview(started, api, store, signal), () => store.finish(started));
     throw e;
   }
   const receipt = await checkReview(started, api, store, signal);

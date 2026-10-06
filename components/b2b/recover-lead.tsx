@@ -12,7 +12,7 @@ import {
   primaryClass,
   secondaryClass,
 } from "@/components/workspaces/shared";
-import { B2bError, definitivelyRejected, errorCode, useCopy } from "./shared";
+import { B2bError, freeIntent, errorCode, useCopy } from "./shared";
 export function RecoverLead({ people }: { people: TeamPerson[] }) {
   const { data } = useWorkspace()!;
   const c = useCopy();
@@ -85,7 +85,7 @@ export function RecoverLead({ people }: { people: TeamPerson[] }) {
             }
           } catch (e) {
             setError(errorCode(e));
-            if (definitivelyRejected(e)) {
+            if (freeIntent(pending.current, e)) {
               pending.current = null;
               setLookup(null);
             }

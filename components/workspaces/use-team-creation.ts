@@ -1,12 +1,13 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { apiClient } from "@/lib/api/client";
 import {
   workspaceService,
   type Workspace,
   type Capabilities,
 } from "@/lib/api/services/workspace.service";
 import { workspaceError } from "@/lib/workspaces/onboarding";
-import { serverRejected } from "@/lib/api/session";
+import { freeIntent, readApiSession } from "@/lib/api/session";
 
 type Intent = {
   name: string;
@@ -18,10 +19,30 @@ type Intent = {
 /** Hold the original intent until creation and the destination transition are known. */
 export function useTeamCreation(capabilities: Capabilities | null) {
   const intent = useRef<Intent | null>(null);
+  // This page is outside WorkspaceProvider: it pins the account it was drawn
+  // for and drops its intent when another tab signs in as someone else.
+  const owner = useRef<ReturnType<typeof readApiSession> | null>(null);
+  owner.current ??= readApiSession(apiClient.defaults.baseURL!);
   const sending = useRef(false);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  useEffect(() => {
+    const moved = () => {
+      const now = readApiSession(apiClient.defaults.baseURL!);
+      if (
+        now.userId === owner.current!.userId &&
+        now.lineage === owner.current!.lineage
+      )
+        return;
+      owner.current = now;
+      intent.current = null;
+      setPending(false);
+      setError("");
+    };
+    window.addEventListener("storage", moved);
+    return () => window.removeEventListener("storage", moved);
+  }, []);
   async function submit(
     name: string,
     completed: (workspace: Workspace) => void | Promise<void>,
@@ -42,13 +63,14 @@ export function useTeamCreation(capabilities: Capabilities | null) {
         await workspaceService.create(
           request.name,
           request.keyed ? request.requestKey : undefined,
+          owner.current!.userId ?? undefined,
         )
       ).workspace;
       await completed(request.workspace);
       intent.current = null;
       setPending(false);
     } catch (e) {
-      if (!request.workspace && serverRejected(e)) {
+      if (!request.workspace && freeIntent(request, e)) {
         intent.current = null;
         setPending(false);
       }

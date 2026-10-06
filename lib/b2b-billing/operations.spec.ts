@@ -71,13 +71,24 @@ test("a lost reply keeps the original input; the retry asks for the receipt befo
   assert.deepEqual(retry.calls, [`lookup:${inputHash(record().input).slice(0, 8)}`]);
   assert.equal(await store.get(record()), null);
 });
-test("only a definitive first rejection frees the topic; a later 4xx cannot disprove a lost success", async () => {
+test("only a definitive first rejection frees the topic; a later 4xx frees only after the original key has no receipt", async () => {
   const store = new MemoryBillingStore();
   await assert.rejects(runRecord(record(), fakeApi({ send: [async () => Promise.reject(reject(409))] }).api, store));
   assert.equal(await store.get(record()), null);
   await assert.rejects(runRecord(record(), fakeApi({ send: [async () => Promise.reject(lost())] }).api, store));
-  await assert.rejects(runRecord(record(), fakeApi({ send: [async () => Promise.reject(reject(409))] }).api, store));
+  // Later attempt with the lookup unavailable: the earlier attempt may have landed.
+  const flaky = fakeApi({ send: [async () => Promise.reject(reject(409))] });
+  const lookup = flaky.api.operation.bind(flaky.api);
+  let lookups = 0;
+  flaky.api.operation = async (...a: Parameters<typeof lookup>) => {
+    if (++lookups === 2) throw new Error("offline");
+    return lookup(...a);
+  };
+  await assert.rejects(runRecord(record(), flaky.api, store));
   assert.equal((await store.get(record()))?.attempts, 2);
+  // The original key has no receipt: now the rejection is provably final.
+  await assert.rejects(runRecord(record(), fakeApi({ send: [async () => Promise.reject(reject(409))] }).api, store));
+  assert.equal(await store.get(record()), null);
 });
 test("records never cross accounts, teams or services", async () => {
   const store = new MemoryBillingStore();

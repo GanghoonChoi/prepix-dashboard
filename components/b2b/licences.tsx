@@ -30,7 +30,7 @@ import {
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
-import { B2bError, definitivelyRejected, errorCode, useCopy } from "./shared";
+import { B2bError, freeIntent, errorCode, useCopy } from "./shared";
 
 type Period = LicenceOverview["periods"][number];
 type Budget = LicenceOverview["budgets"][number];
@@ -81,7 +81,7 @@ function useLicenceMutation<T extends { requestKey: string }>(
       await onSaved();
     } catch (error) {
       setError(errorCode(error));
-      if (definitivelyRejected(error)) {
+      if (freeIntent(request.current, error)) {
         request.current = null;
         setPending(null);
         await onSaved();

@@ -26,6 +26,8 @@ const ALLOWED_HOSTS = new Set([
   "dashboard.laskerstudio.com", // Existing desktop dashboard URL.
 ]);
 
+import { isLang } from "./i18n/config";
+
 const DEFAULT = "/dashboard";
 
 export function safeReturnTo(
@@ -57,12 +59,24 @@ export function safeReturnTo(
   }
 }
 
+/** Carry the page's validated `?locale=` onto an internal destination that has none. */
+export function withLocale(target: string, search: string): string {
+  const locale = new URLSearchParams(search).get("locale");
+  if (!isLang(locale) || !target.startsWith("/") || target.startsWith("//"))
+    return target;
+  const url = new URL(target, "http://local.invalid");
+  if (url.searchParams.has("locale")) return target;
+  url.searchParams.set("locale", locale);
+  return url.pathname + url.search + url.hash;
+}
+
 /** Read `?returnTo=` off the current URL. Safe to call on the server (returns the fallback). */
 export function readReturnTo(fallback: string = DEFAULT): string {
   if (typeof window === "undefined") return fallback;
-  return safeReturnTo(
-    new URLSearchParams(window.location.search).get("returnTo"),
-    fallback,
+  const search = window.location.search;
+  return withLocale(
+    safeReturnTo(new URLSearchParams(search).get("returnTo"), fallback),
+    search,
   );
 }
 

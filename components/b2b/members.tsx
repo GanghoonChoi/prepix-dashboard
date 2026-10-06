@@ -18,7 +18,7 @@ import {
 import { RecoverLead } from "./recover-lead";
 import { RecoverSteward } from "./file-stewards";
 import { InvitationPanel } from "./invitations";
-import { B2bError, definitivelyRejected, errorCode, useCopy } from "./shared";
+import { B2bError, freeIntent, errorCode, useCopy } from "./shared";
 
 export function TeamMembers() {
   const { data, b2b } = useWorkspace()!;
@@ -176,7 +176,7 @@ function AffiliationEditor({
             await onSaved();
           } catch (e) {
             setError(errorCode(e));
-            if (definitivelyRejected(e)) pending.current = null;
+            if (freeIntent(pending.current, e)) pending.current = null;
           } finally {
             setBusy(false);
           }
@@ -276,7 +276,7 @@ function MemberActionEditor({
             await onSaved();
           } catch (e) {
             setError(errorCode(e));
-            if (definitivelyRejected(e)) pending.current = null;
+            if (freeIntent(pending.current, e)) pending.current = null;
           } finally {
             setBusy(false);
           }

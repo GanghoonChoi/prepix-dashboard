@@ -25,7 +25,7 @@ import {
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
-import { B2bError, accessEnded, definitivelyRejected, errorCode, useCopy } from "./shared";
+import { B2bError, accessEnded, freeIntent, errorCode, useCopy } from "./shared";
 import { ReviewPending } from "./review-pending";
 
 // SOT: prepix-backend backend/docs/b2b-reviews.md (S34)
@@ -277,7 +277,7 @@ export function useRun() {
       } catch (e) {
         const code = errorCode(e);
         setError(code);
-        if (definitivelyRejected(e)) pending.current = null;
+        if (freeIntent(pending.current, e)) pending.current = null;
         return null;
       } finally {
         setBusy(false);

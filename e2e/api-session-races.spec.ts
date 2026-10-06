@@ -47,11 +47,11 @@ test.beforeAll(async () => {
       resolveDir: root,
       loader: "tsx",
       contents: `
-      import React from "react";import {createRoot} from "react-dom/client";import {WorkspaceProvider,useWorkspace} from "./components/workspaces/workspace-context";import {apiClient} from "./lib/api/client";import axios,{AxiosError} from "axios";
-      window.client=apiClient;apiClient.defaults.baseURL=location.origin+"/v2";
+      import React from "react";import {createRoot} from "react-dom/client";import {WorkspaceProvider,useWorkspace} from "./components/workspaces/workspace-context";import {apiClient} from "./lib/api/client";import {b2bService} from "./lib/api/services/b2b.service";import axios,{AxiosError} from "axios";
+      window.client=apiClient;window.b2b=b2bService;apiClient.defaults.baseURL=location.origin+"/v2";
       window.configs=[];window.requests=[];window.retries=[];window.refreshes=[];window.privateReads=0;window.results={};window.release401={};window.releaseRefresh=[];window.hold401=[];window.holdSuccess=[];window.releaseSuccess={};window.refreshReject=false;window.retryFailure=false;
-      window.session=(id,access,refresh)=>{if(id===null)localStorage.removeItem("userInfo");else localStorage.setItem("userInfo",JSON.stringify({id}));if(access===null)localStorage.removeItem("accessToken");else localStorage.setItem("accessToken",access);if(refresh===null)localStorage.removeItem("refreshToken");else localStorage.setItem("refreshToken",refresh);document.cookie="px_signed_in=1; path=/"};
-      window.start=(name,account)=>{window.results[name]="pending";apiClient.get("/private/"+name,account?{headers:{"X-Prepix-Account-ID":account}}:undefined).then(()=>window.results[name]="success").catch(error=>{window.results[name]=error.message||String(error.response?.status);window.name=JSON.stringify({message:error.message,hasConfig:!!error.config,includesRefresh:JSON.stringify(error.toJSON?.()??error).includes("original-refresh")})})};
+      window.session=(id,access,refresh)=>{if(id===null&&access===null&&refresh===null)localStorage.removeItem("sessionLineage");else localStorage.setItem("sessionLineage",crypto.randomUUID());if(id===null)localStorage.removeItem("userInfo");else localStorage.setItem("userInfo",JSON.stringify({id}));if(access===null)localStorage.removeItem("accessToken");else localStorage.setItem("accessToken",access);if(refresh===null)localStorage.removeItem("refreshToken");else localStorage.setItem("refreshToken",refresh);document.cookie="px_signed_in=1; path=/"};
+      window.actor=id=>localStorage.setItem("userInfo",JSON.stringify({id}));window.rotate=(access,refresh)=>{localStorage.setItem("accessToken",access);localStorage.setItem("refreshToken",refresh)};window.start=(name,account)=>{window.results[name]="pending";apiClient.get("/private/"+name,account?{headers:{"X-Prepix-Account-ID":account}}:undefined).then(()=>window.results[name]="success").catch(error=>{window.results[name]=error.message||String(error.response?.status);window.name=JSON.stringify({message:error.message,hasConfig:!!error.config,includesRefresh:JSON.stringify(error.toJSON?.()??error).includes("original-refresh")})})};
       function PrivateChild(){const c=useWorkspace();const [mount]=React.useState(()=>++window.mounts);return <p data-mount={mount}>{c?.data.workspace.name}</p>};window.mounts=0;window.mountWorkspace=()=>createRoot(document.getElementById("root")).render(<WorkspaceProvider id="team"><PrivateChild/></WorkspaceProvider>);window.serialize=config=>new AxiosError("local proof","ERR_BAD_REQUEST",config).toJSON();
       apiClient.defaults.adapter=async config=>{window.configs.push(config);if(window.workspaceMode){let value;if(config.url==="/workspaces/team"){const saved={currentUserId:config.headers.Authorization==="Bearer new-access"?"new-actor":"original-actor",workspace:{id:"team",type:"team",name:"Original private workspace"}};window.privateReads++;if(window.holdWorkspace)await new Promise(r=>window.releaseWorkspace=r);value=saved}else if(config.url.endsWith("/b2b"))value={enabled:false,enrolled:false};else value={enabled:false};return {config,status:200,statusText:"OK",headers:{},data:{data:value}}}const name=config.url.split("/").at(-1);if(window.holdSuccess.includes(name)){await new Promise(r=>window.releaseSuccess[name]=r);return {config,status:200,statusText:"OK",headers:{},data:window.responseData??{data:{private:"old actor payload"}}}}window.requests.push({name,retry:!!config._retry,auth:config.headers.Authorization});if(config._retry){window.retries.push({name,auth:config.headers.Authorization,account:config.headers["X-Prepix-Account-ID"]});if(window.retryFailure)throw {config,response:{status:500}};return {config,status:200,statusText:"OK",headers:{},data:{ok:true}}}if(window.hold401.includes(name))await new Promise(r=>window.release401[name]=r);throw {config,response:{status:401,data:{message:"Unauthorized"}}}};
       axios.defaults.adapter=config=>new Promise((resolve,reject)=>{const index=window.refreshes.length;window.refreshes.push({url:config.url,token:JSON.parse(config.data).refreshToken});window.releaseRefresh[index]=()=>window.refreshReject?reject({config,response:{status:401}}):resolve({config,status:200,statusText:"OK",headers:{},data:{data:{accessToken:"rotated-access-"+index,refreshToken:"rotated-refresh-"+index}}})});
@@ -89,7 +89,7 @@ test.beforeAll(async () => {
   });
   bundle = result.outputFiles[0].text;
 });
-async function setup(page: import("@playwright/test").Page) {
+async function setup(page: import("@playwright/test").Page, login = true) {
   await page.route("http://localhost:3503/**", (route) =>
     route.fulfill({
       contentType: "text/html",
@@ -100,9 +100,11 @@ async function setup(page: import("@playwright/test").Page) {
     "http://localhost:3503/dashboard/workspaces/team/projects/project/ai",
   );
   await page.addScriptTag({ content: bundle });
-  await page.evaluate(
-    'window.session("original-actor","original-access","original-refresh")',
-  );
+  if (login)
+    await page.evaluate(
+      'window.session("original-actor","original-access","original-refresh")',
+    );
+  return page;
 }
 async function state(page: import("@playwright/test").Page) {
   return page.evaluate(() => ({
@@ -390,7 +392,7 @@ test("anonymous login response and authenticated profile bootstrap remain compat
     .toBe("function");
   // Another simultaneous profile read already confirmed exactly this actor.
   await page.evaluate(
-    'window.session("profile-actor","bootstrap-access","bootstrap-refresh");window.releaseSuccess.profile()',
+    'window.actor("profile-actor");window.releaseSuccess.profile()',
   );
   await expect
     .poll(() => page.evaluate("window.results.profile"))
@@ -413,7 +415,7 @@ test("unknown-actor profile bootstrap cannot be attributed to a different confir
     .poll(() => page.evaluate("typeof window.releaseSuccess.profile"))
     .toBe("function");
   await page.evaluate(
-    'window.session("different-actor","bootstrap-access","bootstrap-refresh");window.releaseSuccess.profile()',
+    'window.actor("different-actor");window.releaseSuccess.profile()',
   );
   await expect
     .poll(() => page.evaluate("window.results.profile"))
@@ -532,4 +534,115 @@ test("an account switch remounts private children so in-memory intents never cro
     'window.session("new-actor","new-access","new-refresh");window.dispatchEvent(new Event("focus"))',
   );
   await expect(child).toHaveAttribute("data-mount", "2");
+});
+
+// Another tab of the same browser: shared localStorage, its own page and adapters.
+const otherTab = async (page: import("@playwright/test").Page) =>
+  setup(await page.context().newPage(), false);
+test("another tab's normal refresh keeps this tab's in-flight 2xx and turns its later stale-token 401 into a retry without a second refresh", async ({
+  page,
+}) => {
+  await setup(page);
+  const b = await otherTab(page);
+  await b.evaluate('window.holdSuccess=["ok"];window.start("ok","original-actor")');
+  await expect.poll(() => b.evaluate("typeof window.releaseSuccess.ok")).toBe("function");
+  await page.evaluate('window.rotate("rotated-A","rotated-refresh-A")');
+  await b.evaluate("window.releaseSuccess.ok()");
+  await expect.poll(() => b.evaluate("window.results.ok")).toBe("success");
+  await b.evaluate('window.hold401=["late"];window.start("late","original-actor")');
+  await expect.poll(() => b.evaluate("typeof window.release401.late")).toBe("function");
+  await page.evaluate('window.rotate("rotated-A2","rotated-refresh-A2")');
+  await b.evaluate("window.release401.late()");
+  await expect.poll(() => b.evaluate("window.results.late")).toBe("success");
+  expect(await b.evaluate("window.refreshes.length")).toBe(0);
+  expect(await b.evaluate("window.retries")).toEqual([
+    { name: "late", auth: "Bearer rotated-A2", account: "original-actor" },
+  ]);
+  expect((await state(b)).access).toBe("rotated-A2");
+  // Signing in again as the same account is still fenced for work in flight.
+  await b.evaluate('window.hold401=["fenced"];window.start("fenced","original-actor")');
+  await expect.poll(() => b.evaluate("typeof window.release401.fenced")).toBe("function");
+  await page.evaluate('window.session("original-actor","relogin-access","relogin-refresh")');
+  await b.evaluate("window.release401.fenced()");
+  await expect.poll(() => b.evaluate("window.results.fenced")).toBe("API_SESSION_CHANGED");
+  expect(await b.evaluate("window.refreshes.length")).toBe(0);
+});
+test("two tabs whose tokens expire together spend the single-use refresh token once", async ({
+  page,
+}) => {
+  await setup(page);
+  const b = await otherTab(page);
+  await page.evaluate('window.start("a","original-actor")');
+  await expect.poll(() => page.evaluate("window.refreshes.length")).toBe(1);
+  await b.evaluate('window.start("b","original-actor")');
+  await b.waitForTimeout(400);
+  expect(await b.evaluate("window.refreshes.length")).toBe(0);
+  await page.evaluate("window.releaseRefresh[0]()");
+  await expect.poll(() => page.evaluate("window.results.a")).toBe("success");
+  await expect.poll(() => b.evaluate("window.results.b")).toBe("success");
+  expect(await b.evaluate("window.refreshes.length")).toBe(0);
+  expect(await b.evaluate("window.retries")).toEqual([
+    { name: "b", auth: "Bearer rotated-access-0", account: "original-actor" },
+  ]);
+  expect((await state(b)).refresh).toBe("rotated-refresh-0");
+});
+test("another tab signing in as someone else drops this tab's private children immediately and loads the new account", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.evaluate("window.workspaceMode=true;window.mountWorkspace()");
+  const child = page.getByText("Original private workspace", { exact: true });
+  await expect(child).toHaveAttribute("data-mount", "1");
+  const reads = (await page.evaluate("window.privateReads")) as number;
+  const b = await page.context().newPage();
+  await b.route("http://localhost:3503/**", (route) =>
+    route.fulfill({ contentType: "text/html", body: "<html><body>other tab</body></html>" }),
+  );
+  await b.goto("http://localhost:3503/dashboard");
+  await b.evaluate(() => {
+    localStorage.setItem("sessionLineage", "other-tab-login");
+    localStorage.setItem("accessToken", "new-access");
+    localStorage.setItem("refreshToken", "new-refresh");
+    localStorage.setItem("userInfo", JSON.stringify({ id: "new-actor" }));
+  });
+  // No focus event and no 30 s poll: the storage event alone remounts.
+  await expect(child).toHaveAttribute("data-mount", "2");
+  expect(await page.evaluate("window.privateReads")).toBeGreaterThan(reads);
+});
+test("a click before the reload, after another account signed in, is refused locally and sends nothing", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.evaluate("window.workspaceMode=true;window.mountWorkspace()");
+  await expect(page.getByText("Original private workspace", { exact: true })).toBeVisible();
+  // The same-document write fires no storage event: the view is still the old account's.
+  await page.evaluate(
+    'window.session("new-actor","new-access","new-refresh");window.b2b.createProject("team",{name:"x"}).catch(e=>window.mutation=e.message)',
+  );
+  await expect.poll(() => page.evaluate("window.mutation")).toBe("API_SESSION_CHANGED");
+  expect(
+    await page.evaluate("window.configs.filter(c=>c.method==='post').length"),
+  ).toBe(0);
+});
+test("credentials with a corrupt actor cache still refresh, and a failed refresh signs that session out", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.evaluate('localStorage.setItem("userInfo","{");window.start("c")');
+  await expect.poll(() => page.evaluate("window.refreshes.length")).toBe(1);
+  expect(await page.evaluate("window.refreshes[0].token")).toBe("original-refresh");
+  await page.evaluate("window.releaseRefresh[0]()");
+  await expect.poll(() => page.evaluate("window.results.c")).toBe("success");
+  expect(await page.evaluate('localStorage.getItem("accessToken")')).toBe("rotated-access-0");
+  await page.evaluate(
+    'window.refreshReject=true;window.rotate("stale","stale-refresh");localStorage.setItem("userInfo","{");window.start("d")',
+  );
+  await expect.poll(() => page.evaluate("window.refreshes.length")).toBe(2);
+  await page.evaluate("window.releaseRefresh[1]()");
+  await page.waitForURL(/\/login\?/);
+  expect(
+    await page.evaluate(
+      '["accessToken","refreshToken","userInfo","sessionLineage"].map(k=>localStorage.getItem(k))',
+    ),
+  ).toEqual([null, null, null, null]);
 });

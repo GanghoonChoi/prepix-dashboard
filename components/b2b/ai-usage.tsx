@@ -16,7 +16,7 @@ import {
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
-import { B2bError, definitivelyRejected, errorCode, useCopy } from "./shared";
+import { B2bError, freeIntent, errorCode, useCopy } from "./shared";
 
 type Job = TeamAiJobList["jobs"][number];
 const states: Record<Job["state"], [string, string]> = {
@@ -332,6 +332,7 @@ function AiJobRow({
   const count = (value: number) =>
     new Intl.NumberFormat(c("ko-KR", "en-US")).format(value);
   const request = useRef<string | null>(null);
+  const tries = useRef<object>({});
   const flight = useRef(false);
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -351,15 +352,17 @@ function AiJobRow({
         request.current,
       );
       request.current = null;
+      tries.current = {};
       setUnknown(false);
       setConfirm(false);
       await onChanged();
     } catch (error) {
       setError(errorCode(error));
-      const rejected = definitivelyRejected(error);
+      const rejected = freeIntent(tries.current, error);
       setUnknown(!rejected);
       if (rejected) {
         request.current = null;
+        tries.current = {};
         await onChanged();
       }
     } finally {

@@ -4,7 +4,7 @@ import { bytesToHex } from "@noble/hashes/utils.js";
 import type { ChangeTeamFilePermissionInput } from "../api/generated/b2b";
 import type { FileApi, FileScope } from "./api";
 import { scopeKey, teamFilePrefix } from "./store";
-import { serverRejected } from "../api/session";
+import { releaseRejected } from "../api/session";
 
 type Base = { schema: 1; scope: FileScope; attempts: number };
 export type FileMutation = Base &
@@ -329,7 +329,7 @@ export async function runMutation(
   } catch (e) {
     // Only a single first attempt with a definitive server rejection can free
     // the topic. A later 403/409 cannot disprove an earlier lost success reply.
-    if (serverRejected(e)) await store.rejectFirst(started);
+    await releaseRejected(e, started.attempts, () => store.rejectFirst(started), () => checkMutation(started, api, store, signal), () => store.finish(started));
     throw e;
   }
 }

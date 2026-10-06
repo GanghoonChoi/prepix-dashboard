@@ -26,7 +26,7 @@ import {
   StateBadge,
   useCopy,
   accessEnded,
-  definitivelyRejected,
+  freeIntent,
 } from "./shared";
 
 function useProject(projectId: string) {
@@ -273,7 +273,7 @@ function ProjectEditor({
           await onSaved();
         } catch (e) {
           setError(errorCode(e));
-          if (definitivelyRejected(e)) pending.current = null;
+          if (freeIntent(pending.current, e)) pending.current = null;
         } finally {
           setBusy(false);
         }
@@ -444,7 +444,7 @@ export function ProjectParticipants({ projectId }: { projectId: string }) {
       await loadPeople();
     } catch (e) {
       setRosterError(errorCode(e));
-      if (definitivelyRejected(e)) pending.current = null;
+      if (freeIntent(pending.current, e)) pending.current = null;
     } finally {
       setBusy(false);
     }

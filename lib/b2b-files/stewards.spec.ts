@@ -176,7 +176,7 @@ test("another account or a malformed receipt cannot clear a pending handoff", as
     assert.equal(store.row?.input.requestKey, r.input.requestKey);
   }
 });
-test("only the first definitive rejection clears a request; a later rejection cannot disprove a lost success", async () => {
+test("only the first definitive rejection clears a request; a later rejection frees only after the original key has no receipt", async () => {
   const r = record(),
     store = new MemoryStore();
   let first = true;
@@ -191,8 +191,19 @@ test("only the first definitive rejection clears a request; a later rejection ca
     },
   };
   await assert.rejects(runSteward(r, api, store, new AbortController().signal));
+  const op = api.operation.bind(api);
+  let lookups = 0;
+  api.operation = async (...a: Parameters<typeof op>) => {
+    if (++lookups === 2) throw new Error("offline");
+    return op(...a);
+  };
+  // Later attempt, lookup unavailable: kept.
   await assert.rejects(runSteward(r, api, store, new AbortController().signal));
   assert.equal(store.row?.attempts, 2);
+  // Lookup answers no receipt for the original key: provably unapplied.
+  api.operation = op;
+  await assert.rejects(runSteward(r, api, store, new AbortController().signal));
+  assert.equal(store.row, undefined);
   const clean = new MemoryStore();
   await assert.rejects(
     runSteward(record(), api, clean, new AbortController().signal),

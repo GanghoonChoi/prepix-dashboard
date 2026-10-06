@@ -1,11 +1,9 @@
 import type { TeamHome } from "../api/generated/b2b";
+import { localRefusal } from "../api/session";
 export type HomeScope = { origin: string; userId: string; workspaceId: string };
 export const homeScopeKey = (s: HomeScope) =>
   JSON.stringify([s.origin, s.userId, s.workspaceId]);
-const fail = () =>
-  Object.assign(new Error("B2B_HOME_SCOPE_CHANGED"), {
-    response: { status: 401, data: { message: "B2B_HOME_SCOPE_CHANGED" } },
-  });
+const fail = () => localRefusal("B2B_HOME_SCOPE_CHANGED");
 export type HomeEnvironment = {
   origin: string;
   userId: string | null;

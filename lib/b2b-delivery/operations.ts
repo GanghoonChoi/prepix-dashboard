@@ -1,7 +1,7 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import type { DeliveryMutationResult } from "../api/generated/b2b";
-import { serverRejected } from "../api/session";
+import { releaseRejected } from "../api/session";
 
 export type DeliveryScope = { origin: string; userId: string; workspaceId: string; projectId: string };
 export type DeliveryAction = "propose" | "confirm" | "withdraw" | "complete" | "reopen" | "archive" | "unarchive";
@@ -100,7 +100,9 @@ export async function runDelivery(r: DeliveryOperation, api: DeliveryApi, store:
   catch (e) {
     const recovered = await checkDelivery(started, api, store);
     if (recovered) return recovered;
-    if (serverRejected(e)) await store.rejectFirst(started, () => api.assertScope?.(started));
+    const guard = () => api.assertScope?.(started);
+    // The lookup above already found no receipt.
+    await releaseRejected(e, started.attempts, () => store.rejectFirst(started, guard), () => Promise.resolve(null), () => store.finish(started, guard));
     throw e;
   }
   const confirmed = await checkDelivery(started, api, store);

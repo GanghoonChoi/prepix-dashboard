@@ -1,9 +1,8 @@
 import type { ReviewDetail } from "../api/generated/b2b";
+import { localRefusal } from "../api/session";
 
 export type ExactReviewTarget = { round: number; versionId: string };
-const changed = () => Object.assign(new Error("B2B_REVIEW_TARGET_CHANGED"), {
-  response: { status: 404, data: { message: "B2B_REVIEW_TARGET_CHANGED" } },
-});
+const changed = () => localRefusal("B2B_REVIEW_TARGET_CHANGED", 404);
 export function parseExactReviewTarget(query: Pick<URLSearchParams, "getAll">): ExactReviewTarget | undefined {
   const rounds = query.getAll("round"), versions = query.getAll("versionId");
   if (!rounds.length && !versions.length) return undefined;

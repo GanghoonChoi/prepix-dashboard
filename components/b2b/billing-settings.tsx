@@ -17,6 +17,7 @@ import type {
 import {
   runRecord,
   checkRecord,
+  discardRecord,
   type BillingAction,
   type BillingRecord,
 } from "@/lib/b2b-billing/operations";
@@ -77,6 +78,7 @@ const runLabels: Record<string, [string, string]> = {
   stopped: ["자동결제 중지", "Stopped"],
 };
 
+const registrationOwnerKey = (methodId: string) => `prepix:card-registration:${methodId}`;
 /** S24: business details for future orders, team payment methods and the
  * renewal plan. Owner or current billing delegate only. */
 export function BillingSettings({ workspaceId }: { workspaceId: string }) {
@@ -156,6 +158,13 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
     const authKey = params.get("authKey"),
       customerKey = params.get("customerKey");
     if (!api || !registration || !authKey || !customerKey || completing.current) return;
+    let owner: string | null = null;
+    try { owner = sessionStorage.getItem(registrationOwnerKey(registration)); } catch { /* unknown owner */ }
+    if (owner && scope?.userId && owner !== scope.userId) {
+      // Another account came back: nothing is sent for it, and the one-time key leaves the address bar.
+      window.history.replaceState(null, "", window.location.pathname);
+      return;
+    }
     const generation = viewGeneration.current;
     const path = window.location.pathname;
     const current = () => {
@@ -192,7 +201,7 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
         setBusy("");
         void reload();
       });
-  }, [api, registration, params, reload, c]);
+  }, [api, scope, registration, params, reload, c]);
   const run = async <A extends BillingAction>(action: A, topic: string, input: BillingRecord<A>["input"]) => {
     if (!api || !scope || busy) return null;
     setBusy(action);
@@ -218,6 +227,19 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
       if (found) await reload();
       else await runRecord(r, api, store);
       await reload();
+    } catch (e) {
+      setFailure(billingCode(e));
+    } finally {
+      setBusy("");
+      await refreshPending();
+    }
+  };
+  const discard = async (r: BillingRecord) => {
+    if (!api) return;
+    setBusy("check");
+    try {
+      if (await discardRecord(r, api, store)) setNotice(c("이 변경을 버렸습니다. 서버에는 적용되지 않았습니다.", "The change was discarded. The server never applied it."));
+      else await reload();
     } catch (e) {
       setFailure(billingCode(e));
     } finally {
@@ -271,9 +293,14 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
             )}
           </p>
           {pending.map((p) => (
-            <button key={p.topic + p.action} type="button" className={secondaryClass} disabled={!!busy} onClick={() => void confirm(p)}>
-              {c("결과 확인", "Confirm result")} · {p.action}
-            </button>
+            <div key={p.topic + p.action} className="flex flex-wrap gap-2">
+              <button type="button" className={secondaryClass} disabled={!!busy} onClick={() => void confirm(p)}>
+                {c("결과 확인", "Confirm result")} · {p.action}
+              </button>
+              <button type="button" className={secondaryClass} disabled={!!busy} onClick={() => void discard(p)}>
+                {c("이 변경 버리기", "Discard this change")}
+              </button>
+            </div>
           ))}
         </section>
       )}
@@ -394,6 +421,8 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
                   return;
                 }
                 const back = `${window.location.origin}/dashboard/workspaces/${workspaceId}/plan/settings`;
+                // The provider's return carries no account: remember who started it.
+                try { sessionStorage.setItem(registrationOwnerKey(result.methodId), scope?.userId ?? ""); } catch { /* the return then completes as before */ }
                 await openBillingAuth({
                   client: result.checkout,
                   customerKey: result.customerKey,

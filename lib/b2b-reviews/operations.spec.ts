@@ -234,8 +234,14 @@ test("a dead resend blocks the slot until it is discarded; an applied change is 
   const r = comment();
   let mode: "lost" | "conflict" | "ok" = "lost";
   let stored: ReviewMutationResult | null = null;
+  // The lookup that follows the rejection is unavailable, so the later attempt
+  // cannot prove the change was never applied and the record stays pending.
+  let down = 0;
   const api: ReviewApi = {
-    operation: async () => ({ currentUserId: project.userId, receipt: stored }),
+    operation: async () => {
+      if (mode === "conflict" && ++down === 2) throw new Error("offline");
+      return { currentUserId: project.userId, receipt: stored };
+    },
     apply: async () => {
       if (mode === "lost") throw new Error("timeout");
       if (mode === "conflict")

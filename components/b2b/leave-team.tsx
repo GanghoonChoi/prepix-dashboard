@@ -8,7 +8,7 @@ import {
   inputClass,
   primaryClass,
 } from "@/components/workspaces/shared";
-import { B2bError, definitivelyRejected, errorCode, useCopy } from "./shared";
+import { B2bError, freeIntent, errorCode, useCopy } from "./shared";
 export function LeaveTeam() {
   const { data, b2b } = useWorkspace()!;
   const c = useCopy();
@@ -56,7 +56,7 @@ export function LeaveTeam() {
               router.replace("/dashboard/workspaces");
             } catch (e) {
               setError(errorCode(e));
-              if (definitivelyRejected(e)) pending.current = null;
+              if (freeIntent(pending.current, e)) pending.current = null;
             } finally {
               setBusy(false);
             }

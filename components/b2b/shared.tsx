@@ -30,7 +30,7 @@ export function errorCode(error: unknown): string {
 /** Mutations: the server itself refused, so the pending key may be freed. */
 export { serverRejected as definitivelyRejected } from "@/lib/api/session";
 /** Reads: the server or this browser's session fence ended access; clear it. */
-export { accessEnded } from "@/lib/api/session";
+export { accessEnded, freeIntent } from "@/lib/api/session";
 const invitationErrors: Record<string, [string, string]> = {
   B2B_DEVICE_RETIRED: [
     "이미 등록 해제가 요청된 장치입니다. 현재 장치 상태를 확인해 주세요.",

@@ -51,11 +51,24 @@ test("lost reply recovers through a scoped receipt; retry 4xx keeps the original
   await assert.rejects(runIssue(fresh, api, store), /lost/);
   status = 403;
   await assert.rejects(runIssue(freshIssue(scope, fresh.month), api, store), /rejected/);
+  // The original key has no receipt, so the later rejection is provably final.
+  assert.equal(await store.get(scope, fresh.month), null);
+  status = undefined;
+  await assert.rejects(runIssue(fresh, api, store), /lost/);
+  status = 403;
+  const op = api.operation;
+  let lookups = 0;
+  api.operation = async (...a: Parameters<typeof op>) => {
+    if (++lookups === 2) throw new Error("offline");
+    return op(...a);
+  };
+  await assert.rejects(runIssue(freshIssue(scope, fresh.month), api, store), /rejected/);
+  api.operation = op;
   assert.equal((await store.get(scope, fresh.month))?.requestKey, fresh.requestKey);
   assert.equal((await store.get(scope, fresh.month))?.attempts, 2);
   stored = { month: fresh.month, revision: { id: randomUUID(), month: fresh.month } as StatementReceipt["revision"], created: true, requestId: randomUUID() };
   assert.deepEqual(await runIssue(freshIssue(scope, fresh.month), api, store), stored);
-  assert.equal(sends.length, 2);
+  assert.equal(sends.length, 4);
   assert.equal(new Set(sends).size, 1);
   assert.equal(await store.get(scope, fresh.month), null);
 });

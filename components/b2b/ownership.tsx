@@ -13,7 +13,7 @@ import {
   secondaryClass,
 } from "@/components/workspaces/shared";
 import { ReauthForm } from "@/components/workspaces/reauth-form";
-import { B2bError, definitivelyRejected, errorCode, useCopy } from "./shared";
+import { B2bError, freeIntent, errorCode, useCopy } from "./shared";
 type Action = "request" | "accept" | "cancel" | "decline";
 type Intent = {
   action: Action;
@@ -102,7 +102,7 @@ export function OwnershipControls() {
       await reload();
     } catch (e) {
       setError(errorCode(e));
-      if (definitivelyRejected(e)) {
+      if (freeIntent(pending.current, e)) {
         pending.current = null;
         await reload();
       }

@@ -1,5 +1,6 @@
 "use client";
 
+import { endSession } from "@/lib/api/session";
 import { useState, useEffect } from "react";
 import { WorkspaceCapabilities } from "@/components/workspaces/capabilities";
 import { usePathname } from "next/navigation";
@@ -152,9 +153,7 @@ export default function DashboardLayout({
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("userInfo");
+    endSession();
     clearSignedIn();
     window.location.href = loginHref();
   };

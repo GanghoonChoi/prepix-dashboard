@@ -1,4 +1,5 @@
 import { apiClient } from "../client";
+import { mutationHeaders } from "../session";
 
 export type Role = "owner" | "admin" | "editor" | "reviewer";
 export type InviteRole = Exclude<Role, "owner">;
@@ -187,8 +188,11 @@ const e = encodeURIComponent;
 
 const teamClient = {
   get: <T>(path: string) => apiClient.get<T>(path, { timeout: 15_000 }),
-  post: async <T = unknown>(path: string, body?: unknown) => {
-    const response = await apiClient.post<T>(path, body, { timeout: 30_000 });
+  post: async <T = unknown>(path: string, body?: unknown, account?: string) => {
+    const response = await apiClient.post<T>(path, body, {
+      timeout: 30_000,
+      ...mutationHeaders(account),
+    });
     if (typeof window !== "undefined" && !path.endsWith("reauth-challenges"))
       window.dispatchEvent(new Event("workspaces:changed"));
     return response;
@@ -250,11 +254,15 @@ export const workspaceService = {
       .data.data,
   list: async () =>
     (await teamClient.get<{ data: WorkspaceList }>("/workspaces")).data.data,
-  create: async (name: string, requestKey?: string) =>
+  create: async (name: string, requestKey?: string, account?: string) =>
     (
       await teamClient.post<{
         data: { workspace: Workspace; resumed: boolean };
-      }>("/workspaces", { name, ...(requestKey ? { requestKey } : {}) })
+      }>(
+        "/workspaces",
+        { name, ...(requestKey ? { requestKey } : {}) },
+        account,
+      )
     ).data.data,
   detail: async (id: string) =>
     (await teamClient.get<{ data: WorkspaceDetail }>(`/workspaces/${e(id)}`))

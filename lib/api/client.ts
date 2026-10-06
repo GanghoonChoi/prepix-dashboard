@@ -5,11 +5,13 @@ import { clearSignedIn } from "../account-hint";
 import {
   readApiSession,
   sameApiSession,
-  apiSessionKey,
   sessionChanged,
+  endSession,
   type ApiSession,
 } from "./session";
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+const API_BASE_URL = (
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
+).replace(/\/+$/, "");
 export const apiClient = axios.create({
   baseURL: `${API_BASE_URL}/v2`,
   headers: { "Content-Type": "application/json" },
@@ -18,73 +20,42 @@ type SessionRequest = InternalAxiosRequestConfig & {
   _retry?: boolean;
   _prepixRequestId?: number;
 };
-type RefreshFlight = {
-  original: ApiSession;
-  updated?: ApiSession;
-  promise: Promise<ApiSession>;
-};
-const flights = new Map<string, RefreshFlight>();
 const requestSessions = new WeakMap<InternalAxiosRequestConfig, ApiSession>();
-const activeRequests = new Map<
-  number,
-  { session: ApiSession; retrySession?: ApiSession }
->();
+// Opaque ids keep the snapshot out of anything a caller can read or forge.
+const activeRequests = new Map<number, { session: ApiSession; retried?: boolean }>();
 let requestSequence = 0;
 const current = () => readApiSession(apiClient.defaults.baseURL!);
 /** The URL axios itself sends: a leading "/" stays under the /v2 base. */
 const target = (config: InternalAxiosRequestConfig, session: ApiSession) =>
   new URL(apiClient.getUri({ url: config.url, baseURL: session.serviceBase }));
 const owns = (session: ApiSession) => sameApiSession(session, current());
-const assertOwns = (session: ApiSession) => {
-  if (!owns(session)) throw sessionChanged();
+const assertOwns = (session: ApiSession, unsent = false) => {
+  if (!owns(session)) throw sessionChanged(unsent);
 };
-function currentRotation(session: ApiSession, needed?: Set<string>) {
-  const seen = new Set<string>();
-  let value = session;
-  while (true) {
-    const key = apiSessionKey(value);
-    needed?.add(key);
-    if (owns(value)) return value;
-    if (seen.has(key)) return null;
-    seen.add(key);
-    const updated = flights.get(key)?.updated;
-    if (!updated) return null;
-    value = updated;
-  }
-}
-function pruneFlights() {
-  // Keep only rotations needed by requests still in flight, including a
-  // chain through two rotations. Do not retain obsolete credentials forever.
-  const needed = new Set<string>();
-  for (const active of activeRequests.values())
-    currentRotation(active.session, needed);
-  for (const key of flights.keys()) if (!needed.has(key)) flights.delete(key);
-}
 function finish(request?: SessionRequest) {
-  if (request?._prepixRequestId !== undefined) {
+  if (request?._prepixRequestId !== undefined)
     activeRequests.delete(request._prepixRequestId);
-    pruneFlights();
-  }
 }
 apiClient.interceptors.request.use((config) => {
   const request = config as SessionRequest;
+  // A retry was sent once already, so refusing it is not an "unsent" proof.
+  const unsent = !request._retry;
   let session: ApiSession;
   if (request._retry) {
-    const grant = activeRequests.get(request._prepixRequestId!)?.retrySession;
-    if (!grant) throw sessionChanged();
-    assertOwns(grant);
-    session = grant;
+    const first = activeRequests.get(request._prepixRequestId!)?.session;
+    if (!first) throw sessionChanged();
+    assertOwns(first);
+    session = current();
   } else {
-    pruneFlights();
     session = readApiSession(config.baseURL ?? apiClient.defaults.baseURL!);
-    assertOwns(session);
+    assertOwns(session, true);
   }
   requestSessions.set(request, session);
   if (target(config, session).origin !== new URL(session.serviceBase).origin)
-    throw sessionChanged();
+    throw sessionChanged(unsent);
   const account = config.headers.get("X-Prepix-Account-ID");
   if (account && (!session.userId || account !== session.userId))
-    throw sessionChanged();
+    throw sessionChanged(unsent);
   if (session.accessToken)
     config.headers.Authorization = `Bearer ${session.accessToken}`;
   if (!request._retry) {
@@ -93,40 +64,44 @@ apiClient.interceptors.request.use((config) => {
   }
   return config;
 });
+/** The refresh failed or there is nothing to refresh with: end THIS session
+ * only. A newer login in this or another tab is never touched. */
 function handleAuthFailure(session: ApiSession) {
-  if (typeof window === "undefined" || !session.userId || !owns(session))
-    return;
+  if (typeof window === "undefined" || !owns(session)) return;
   const path = window.location.pathname;
   const returnTo =
     path === "/login" || path === "/signup"
       ? readReturnTo()
       : path + window.location.search;
-  localStorage.removeItem("accessToken");
-  localStorage.removeItem("refreshToken");
-  localStorage.removeItem("userInfo");
+  endSession();
   clearSignedIn();
   window.location.replace(loginHref({ returnTo }));
 }
-async function rotate(flight: RefreshFlight): Promise<ApiSession> {
-  const original = flight.original;
-  assertOwns(original);
-  if (!original.userId || !original.refreshToken) throw sessionChanged();
+/** One refresh per lineage and expired access token, across tabs: whoever
+ * holds the lock re-reads storage first, so a rotation another tab already
+ * made is adopted instead of spending the (single-use) refresh token twice. */
+const flights = new Map<string, Promise<ApiSession>>();
+async function rotate(session: ApiSession, failed: string | null) {
+  assertOwns(session);
+  const now = current();
+  if (now.accessToken && now.accessToken !== failed) return now;
+  if (!now.refreshToken) throw new Error("API_REFRESH_UNAVAILABLE");
   // Plain axios avoids retrying the refresh endpoint. It addresses the service
-  // captured by the original request, never a newly selected account/service.
+  // captured by the original request, never a newly selected service.
   let data: { data?: { accessToken?: unknown; refreshToken?: unknown } };
   try {
     data = (
-      await axios.post(`${original.serviceBase}/auth/refresh`, {
-        refreshToken: original.refreshToken,
+      await axios.post(`${session.serviceBase}/auth/refresh`, {
+        refreshToken: now.refreshToken,
       })
     ).data;
   } catch {
-    assertOwns(original);
+    assertOwns(session);
     // Axios config.data contains the refresh credential. Never forward that
     // request or a cause containing it to generic caller error logging.
     throw new Error("API_REFRESH_FAILED");
   }
-  assertOwns(original);
+  assertOwns(session);
   const accessToken = data?.data?.accessToken,
     refreshToken = data?.data?.refreshToken;
   if (
@@ -136,41 +111,34 @@ async function rotate(flight: RefreshFlight): Promise<ApiSession> {
     !refreshToken
   )
     throw new Error("API_REFRESH_RESPONSE_INVALID");
-  const updated = { ...original, accessToken, refreshToken };
   localStorage.setItem("accessToken", accessToken);
   localStorage.setItem("refreshToken", refreshToken);
-  assertOwns(updated);
-  flight.updated = updated;
-  return updated;
+  return current();
 }
-function refresh(session: ApiSession) {
-  const key = apiSessionKey(session),
-    existing = flights.get(key);
-  const rotated = currentRotation(session);
-  if (existing && rotated) {
-    if (!owns(session)) return Promise.resolve(rotated);
-    return existing.promise;
-  }
-  assertOwns(session);
-  const flight: RefreshFlight = {
-    original: session,
-    promise: undefined as unknown as Promise<ApiSession>,
-  };
+function refresh(session: ApiSession): Promise<ApiSession> {
+  const failed = session.accessToken,
+    key = JSON.stringify([session.serviceBase, session.lineage, failed]);
+  const existing = flights.get(key);
+  if (existing) return existing;
+  const run = () => rotate(session, failed);
+  // ponytail: without Web Locks only this tab is single-flight.
+  const flight: Promise<ApiSession> = Promise.resolve(
+    typeof navigator !== "undefined" && navigator.locks
+      ? navigator.locks.request(`prepix-refresh:${session.lineage}`, run)
+      : run(),
+  ).finally(() => flights.delete(key));
   flights.set(key, flight);
-  flight.promise = rotate(flight).catch((error) => {
-    if (flights.get(key) === flight) flights.delete(key);
-    throw error;
-  });
-  return flight.promise;
+  return flight;
 }
 function responseStillOwned(request: SessionRequest, responseData: unknown) {
   const original = requestSessions.get(request);
   if (!original) return false;
+  if (owns(original)) return true;
+  // Only a profile bootstrap can establish a previously unknown actor. The
+  // login lineage and service must be unchanged and the returned id must be
+  // the one now stored.
   const now = current();
-  if (currentRotation(original)) return true;
-  // Only a profile bootstrap can establish a previously unknown actor. A
-  // second profile read may finish after the first wrote that same identity;
-  // its unchanged credentials and returned id must both prove the actor.
+  const root = new URL(original.serviceBase).pathname.replace(/\/$/, "");
   const path = target(request, original).pathname;
   const data = responseData as { data?: { id?: unknown } };
   return (
@@ -178,10 +146,9 @@ function responseStillOwned(request: SessionRequest, responseData: unknown) {
     !!original.accessToken &&
     !!now.userId &&
     original.serviceBase === now.serviceBase &&
-    original.accessToken === now.accessToken &&
-    original.refreshToken === now.refreshToken &&
+    original.lineage === now.lineage &&
     request.method?.toLowerCase() === "get" &&
-    ["/v2/users/profile", "/v2/auth/me"].includes(path) &&
+    [`${root}/users/profile`, `${root}/auth/me`].includes(path) &&
     data?.data?.id === now.userId
   );
 }
@@ -202,22 +169,17 @@ apiClient.interceptors.response.use(
       return Promise.reject(error);
     }
     const session = requestSessions.get(original);
-    // Anonymous/null-actor errors, another login (including the same actor with
-    // new tokens), and another service have no authority to refresh or log out.
-    if (!session?.userId) {
+    // An anonymous request (no credentials at all) has nothing to refresh.
+    if (!session || (!session.accessToken && !session.refreshToken)) {
       finish(original);
       return Promise.reject(error);
     }
-    if (!currentRotation(session)) {
+    // Another login, logout or service has no authority to refresh or log out.
+    if (!owns(session)) {
       finish(original);
       return Promise.reject(sessionChanged());
     }
     original._retry = true;
-    if (!session.refreshToken) {
-      handleAuthFailure(session);
-      finish(original);
-      return Promise.reject(error);
-    }
     let updated: ApiSession;
     try {
       updated = await refresh(session);
@@ -225,14 +187,12 @@ apiClient.interceptors.response.use(
     } catch (refreshError) {
       handleAuthFailure(session);
       finish(original);
-      return Promise.reject(refreshError);
+      return Promise.reject(
+        (refreshError as Error)?.message === "API_REFRESH_UNAVAILABLE"
+          ? error
+          : refreshError,
+      );
     }
-    const active = activeRequests.get(original._prepixRequestId!);
-    if (!active) {
-      finish(original);
-      return Promise.reject(sessionChanged());
-    }
-    active.retrySession = updated;
     original.headers.Authorization = `Bearer ${updated.accessToken}`;
     // Return the retry outside the refresh catch. Its unrelated server failure
     // must not log out a successfully refreshed, currently valid session.

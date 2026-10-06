@@ -223,7 +223,7 @@ test("wrong account, exact version, trash entry, revision or state cannot clear 
     assert.ok(store.row);
   }
 });
-test("an ambiguous earlier POST is retained through permission failure while a definitively rejected first POST is cleared", async () => {
+test("an ambiguous earlier POST is retained through permission failure until the original key has no receipt, while a definitively rejected first POST is cleared", async () => {
   const r = record(),
     store = new MemoryStore();
   let first = true;
@@ -238,8 +238,19 @@ test("an ambiguous earlier POST is retained through permission failure while a d
     },
   };
   await assert.rejects(runTrash(r, api, store, new AbortController().signal));
+  const op = api.operation.bind(api);
+  let lookups = 0;
+  api.operation = async (...a: Parameters<typeof op>) => {
+    if (++lookups === 2) throw new Error("offline");
+    return op(...a);
+  };
+  // Later attempt, lookup unavailable: kept.
   await assert.rejects(runTrash(r, api, store, new AbortController().signal));
   assert.equal(store.row?.attempts, 2);
+  // Lookup answers no receipt for the original key: provably unapplied.
+  api.operation = op;
+  await assert.rejects(runTrash(r, api, store, new AbortController().signal));
+  assert.equal(store.row, undefined);
   const clean = new MemoryStore();
   await assert.rejects(
     runTrash(record(), api, clean, new AbortController().signal),

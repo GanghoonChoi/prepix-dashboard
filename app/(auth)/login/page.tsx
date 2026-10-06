@@ -1,5 +1,6 @@
 "use client";
 
+import { storeSession } from "@/lib/api/session";
 import { useState, useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -68,8 +69,7 @@ export default function LoginPage() {
       const data = await authService.login({ email, password });
 
       if (data.accessToken && data.refreshToken) {
-        localStorage.setItem("accessToken", data.accessToken);
-        localStorage.setItem("refreshToken", data.refreshToken);
+        storeSession(data.accessToken, data.refreshToken);
         // So prepix.ai's header can offer "dashboard" instead of "sign in".
         markSignedIn();
       }

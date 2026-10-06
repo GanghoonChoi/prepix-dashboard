@@ -28,7 +28,7 @@ import {
   StateBadge,
   stateLabels,
   useCopy,
-  definitivelyRejected,
+  freeIntent,
 } from "./shared";
 
 export function Projects() {
@@ -346,7 +346,7 @@ export function NewProject() {
             );
           } catch (e) {
             setError(errorCode(e));
-            if (definitivelyRejected(e)) pending.current = null;
+            if (freeIntent(pending.current, e)) pending.current = null;
           } finally {
             setBusy(false);
           }

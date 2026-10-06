@@ -192,7 +192,7 @@ test("a new key for the same intent recovers the first key; changed revision can
     /OPERATION_PENDING/,
   );
 });
-test("a later rejection cannot discard an earlier unknown attempt", async () => {
+test("a later rejection discards only when the original key has no receipt", async () => {
   const f = fixture();
   f.api.unlink = async () => {
     throw new Error("network unavailable");
@@ -201,8 +201,19 @@ test("a later rejection cannot discard an earlier unknown attempt", async () => 
   f.api.unlink = async () => {
     throw { response: { status: 403 } };
   };
+  const op = f.api.operation.bind(f.api);
+  let lookups = 0;
+  f.api.operation = async (...a: Parameters<typeof op>) => {
+    if (++lookups === 2) throw new Error("offline");
+    return op(...a);
+  };
+  // Later attempt, lookup unavailable: kept.
   await assert.rejects(runMutation(f.r, f.api, f.store, signal()));
   assert.equal((await f.store.list(scope))[0].attempts, 2);
+  // Lookup answers no receipt for the original key: provably unapplied.
+  f.api.operation = op;
+  await assert.rejects(runMutation(f.r, f.api, f.store, signal()));
+  assert.equal((await f.store.list(scope)).length, 0);
 });
 test("a definite first rejection allows correction, while 408 and 429 retain the intent", async () => {
   for (const status of [403, 409, 408, 429]) {

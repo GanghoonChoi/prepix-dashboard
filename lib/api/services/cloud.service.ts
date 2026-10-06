@@ -1,4 +1,5 @@
 import { apiClient } from "../client";
+import { mutationHeaders } from "../session";
 export type CloudCapabilities = {
   enabled: boolean;
   uploadsEnabled: boolean;
@@ -73,8 +74,12 @@ export type ArchiveDetail = {
 const get = async <T>(path: string) =>
   (await apiClient.get<{ data: T }>(path, { timeout: 15_000 })).data.data;
 const post = async <T = unknown>(path: string, body?: unknown) =>
-  (await apiClient.post<{ data: T }>(path, body, { timeout: 30_000 })).data
-    .data;
+  (
+    await apiClient.post<{ data: T }>(path, body, {
+      timeout: 30_000,
+      ...mutationHeaders(),
+    })
+  ).data.data;
 const base = (w: string) => `/workspaces/${encodeURIComponent(w)}`;
 export const cloudService = {
   capabilities: (w?: string) =>

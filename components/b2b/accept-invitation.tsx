@@ -1,4 +1,5 @@
 "use client";
+import { endSession } from "@/lib/api/session";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -67,9 +68,7 @@ export function AcceptInvitation({ token }: { token: string }) {
             <button
               className={secondaryClass}
               onClick={() => {
-                localStorage.removeItem("accessToken");
-                localStorage.removeItem("refreshToken");
-                localStorage.removeItem("userInfo");
+                endSession();
                 clearSignedIn();
                 window.location.assign(
                   loginHref({

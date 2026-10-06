@@ -1,3 +1,4 @@
+import { localRefusal } from "../api/session";
 import type { ProjectList } from "../api/generated/b2b";
 import type { HomeEnvironment, HomeScope } from "../b2b-home/home";
 
@@ -31,9 +32,7 @@ export function decodeNavigation(raw: string | null): ProjectNavigation {
 export function encodeNavigation(value: ProjectNavigation): string {
   return JSON.stringify(decodeNavigation(JSON.stringify(value)));
 }
-const changed = () => Object.assign(new Error("B2B_PROJECT_LIST_SCOPE_CHANGED"), {
-  response: { status: 401, data: { message: "B2B_PROJECT_LIST_SCOPE_CHANGED" } },
-});
+const changed = () => localRefusal("B2B_PROJECT_LIST_SCOPE_CHANGED");
 export function assertProjectListScope(scope: ProjectListScope, current: HomeEnvironment, signal?: AbortSignal) {
   signal?.throwIfAborted();
   const path = `/dashboard/workspaces/${scope.workspaceId}/projects`;

@@ -271,6 +271,12 @@ test("prior ambiguous attempts stay pending after revoked access, while a first 
   api.apply = async () => {
     throw denied;
   };
+  // Later attempt, lookup unavailable: the earlier attempt may have landed.
+  let lookups = 0;
+  api.operation = async () => {
+    if (++lookups === 2) throw new Error("offline");
+    return { currentUserId: scope.userId, receipt: null };
+  };
   await assert.rejects(
     runRequest(
       { ...r, input: { ...r.input, requestKey: randomUUID() } },
@@ -281,6 +287,10 @@ test("prior ambiguous attempts stay pending after revoked access, while a first 
   );
   assert.equal(store.row?.input.requestKey, r.input.requestKey);
   assert.equal(store.row?.attempts, 2);
+  // Later attempt, the original key has no receipt: now it is provably unapplied.
+  api.operation = async () => ({ currentUserId: scope.userId, receipt: null });
+  await assert.rejects(runRequest(r, api, store, signal()));
+  assert.equal(store.row, undefined);
   const fresh = new MemoryStore();
   await assert.rejects(runRequest(record("submit"), api, fresh, signal()));
   assert.equal(fresh.row, undefined);

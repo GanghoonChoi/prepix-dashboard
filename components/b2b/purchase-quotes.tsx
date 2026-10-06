@@ -14,7 +14,7 @@ import {
   secondaryClass,
   TeamLoading,
 } from "@/components/workspaces/shared";
-import { B2bError, definitivelyRejected, errorCode, useCopy } from "./shared";
+import { B2bError, freeIntent, errorCode, useCopy } from "./shared";
 import { runRecord, type BillingRecord } from "@/lib/b2b-billing/operations";
 import {
   BillingError,
@@ -176,7 +176,7 @@ export function PurchaseQuotes({
             setQuote(result.quote);
             pending.current = null;
           } catch (e) {
-            if (definitivelyRejected(e)) pending.current = null;
+            if (freeIntent(pending.current, e)) pending.current = null;
             setError(errorCode(e));
           } finally {
             setBusy(false);

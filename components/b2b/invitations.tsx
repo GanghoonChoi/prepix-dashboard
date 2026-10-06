@@ -12,7 +12,7 @@ import {
   secondaryClass,
   SpaceBadge,
 } from "@/components/workspaces/shared";
-import { B2bError, definitivelyRejected, errorCode, useCopy } from "./shared";
+import { B2bError, freeIntent, errorCode, useCopy } from "./shared";
 
 export function InvitationPanel({
   projectId,
@@ -98,7 +98,7 @@ export function InvitationPanel({
       await load();
     } catch (e) {
       setError(errorCode(e));
-      if (definitivelyRejected(e)) pendingChange.current = null;
+      if (freeIntent(pendingChange.current, e)) pendingChange.current = null;
     } finally {
       setBusy(false);
     }
@@ -153,7 +153,7 @@ export function InvitationPanel({
               await load();
             } catch (e) {
               setError(errorCode(e));
-              if (definitivelyRejected(e)) pending.current = null;
+              if (freeIntent(pending.current, e)) pending.current = null;
             } finally {
               setBusy(false);
             }

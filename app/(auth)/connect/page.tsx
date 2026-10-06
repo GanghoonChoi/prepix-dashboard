@@ -1,5 +1,6 @@
 "use client";
 
+import { endSession } from "@/lib/api/session";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@heroui/react";
 import { LoadingScreen } from "@/components/loading-screen";
@@ -86,9 +87,7 @@ export default function ConnectPage() {
   }, [t]);
 
   function switchAccount() {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("userInfo");
+    endSession();
     clearSignedIn();
     window.location.replace(
       loginHref({ returnTo: window.location.pathname + window.location.search }),

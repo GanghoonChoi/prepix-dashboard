@@ -52,13 +52,14 @@ test("wrong immutable result, target or malformed review cannot clear pending pu
     assert.ok(store.row);
   }
 });
-test("new revision/audience is a new intent and cannot replace earlier uncertainty", async () => {
+test("new revision/audience is a new intent; a later rejection frees the original only once it has no receipt", async () => {
   const r = operation(), store = new Memory();
   const api: PublicationApi = { lookup: async () => empty(), apply: async () => { throw new Error("lost response"); } };
   await assert.rejects(runPublication(r, api, store));
   await assert.rejects(runPublication({ ...r, input: { ...r.input, revision: 4, requestKey: randomUUID() } }, api, store), /pending/);
   await assert.rejects(runPublication(r, { ...api, apply: async () => { throw Object.assign(new Error("conflict"), { response: { status: 409 } }); } }, store));
-  assert.equal(store.row?.attempts, 2);
+  // The lookup found no receipt for the original key: provably unapplied.
+  assert.equal(store.row, undefined);
 });
 test("first definite rejection permits a corrected new key; durable storage failure prevents all network calls", async () => {
   const r = operation(), store = new Memory();

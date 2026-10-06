@@ -1,4 +1,5 @@
 "use client";
+import { endSession } from "@/lib/api/session";
 import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -50,9 +51,7 @@ function InvitationContent({ token }: { token: string }) {
     void load();
   }, [load]);
   function switchAccount() {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("userInfo");
+    endSession();
     clearSignedIn();
     window.location.assign(
       loginHref({ returnTo: `/dashboard/invitations/${token}`, lang })

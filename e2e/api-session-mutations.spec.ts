@@ -63,7 +63,7 @@ test.beforeAll(async () => {
       import {reviewApi} from "./lib/api/services/b2b-reviews.service";
       import {BrowserReviewStore,runReview} from "./lib/b2b-reviews/operations";
       apiClient.defaults.baseURL=location.origin+"/v2";
-      window.session=(id,access,refresh)=>{localStorage.setItem("userInfo",JSON.stringify({id}));localStorage.setItem("accessToken",access);localStorage.setItem("refreshToken",refresh)};
+      window.session=(id,access,refresh)=>{localStorage.setItem("sessionLineage",crypto.randomUUID());localStorage.setItem("userInfo",JSON.stringify({id}));localStorage.setItem("accessToken",access);localStorage.setItem("refreshToken",refresh)};
       const s=window.server={posts:[],gets:[],applied:{},hold:true};
       const uuid=()=>crypto.randomUUID();
       const ok=(config,data)=>({config,status:200,statusText:"OK",headers:{},data:{data}});

@@ -49,12 +49,14 @@ test("unknown or access-denied lookup never sends; first proven rejection permit
   await assert.rejects(runDelivery(r, { lookup: async () => { throw missing(); }, apply: async () => { sends++; throw Object.assign(new Error("conflict"), { response: { status: 409 } }); } }, store), /conflict/);
   assert.equal((await store.list(scope)).length, 0);
 });
-test("a later rejection cannot erase an earlier uncertain attempt", async () => {
+test("a later rejection frees the record only after the original key has no receipt", async () => {
   const r = operation(), store = new MemoryStore();
   const api: DeliveryApi = { lookup: async () => { throw missing(); }, apply: async () => { throw new Error("lost"); } };
   await assert.rejects(runDelivery(r, api, store));
   await assert.rejects(runDelivery(r, { ...api, apply: async () => { throw Object.assign(new Error("conflict"), { response: { status: 409 } }); } }, store));
-  assert.equal((await store.list(scope))[0].attempts, 2);
+  // The lookup already found no receipt for the original key: provably unapplied.
+  assert.equal((await store.list(scope)).length, 0);
+  await assert.rejects(runDelivery(r, api, store));
   await assert.rejects(runDelivery({ ...r, input: { ...r.input, revision: 3 } }, api, store), /PENDING/);
 });
 test("unavailable durable storage prevents lookups and writes", async () => {

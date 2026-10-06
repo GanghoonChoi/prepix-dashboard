@@ -22,7 +22,7 @@ import type {
   TeamRefundPreview,
   TeamRefundSelection,
 } from "../api/generated/b2b";
-import { serverRejected } from "../api/session";
+import { releaseRejected, discardUnapplied, freeable } from "../api/session";
 
 // Billing changes are written to this browser's store, keyed by service,
 // account and team, BEFORE they are sent. A lost reply is resolved by asking
@@ -290,7 +290,7 @@ const sendFor = (api: BillingApi, r: BillingRecord): Promise<Record<string, unkn
     }
   }
 };
-export const pendingOutcome = (error: unknown) => !serverRejected(error);
+export const pendingOutcome = (error: unknown) => !freeable(error);
 /** The stored server result of a lost change, or null when none exists yet. */
 export async function checkRecord(r: BillingRecord, api: BillingApi, store: BillingStore) {
   api.assertScope?.(r);
@@ -300,6 +300,11 @@ export async function checkRecord(r: BillingRecord, api: BillingApi, store: Bill
   if (found.receipt) await store.finish(r, () => api.assertScope?.(r));
   api.assertScope?.(r);
   return found.receipt;
+}
+/** Drop a change this account's server never applied. The lookup runs first, so
+ * an applied change is cleared as confirmed. Returns true only when discarded. */
+export async function discardRecord(r: BillingRecord, api: BillingApi, store: BillingStore) {
+  return discardUnapplied(() => checkRecord(r, api, store), () => store.finish(r, () => api.assertScope?.(r)));
 }
 /** Persist and start atomically, always preserving the first key for this intent. */
 export async function runRecord<A extends BillingAction>(fresh: BillingRecord<A>, api: BillingApi, store: BillingStore): Promise<Record<string, unknown>> {
@@ -320,7 +325,8 @@ export async function runRecord<A extends BillingAction>(fresh: BillingRecord<A>
     return result;
   } catch (error) {
     api.assertScope?.(started);
-    if (!pendingOutcome(error)) await store.rejectFirst(started, () => api.assertScope?.(started));
+    const guard = () => api.assertScope?.(started);
+    await releaseRejected(error, started.attempts, () => store.rejectFirst(started, guard), () => checkRecord(started, api, store), () => store.finish(started, guard));
     throw error;
   }
 }
