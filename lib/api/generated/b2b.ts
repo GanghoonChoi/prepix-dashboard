@@ -1157,6 +1157,42 @@ export type TeamDeletionOpsView = {
     blockedSince: string | null;
   }[];
 };
+// The accessor contract F3 calls and F1's B2bTeamDeletionOpsService
+// implements (SOT: backend/docs/b2b-team-lifecycle-deletion.md §10).
+export type TeamDeletionOps = {
+  view(workspaceId: string): Promise<TeamDeletionOpsView>;
+  hold(input: {
+    workspaceId: string;
+    periodEndsAt: string;
+    expectedState: "none" | "waiting" | "ops_check";
+    operator: TeamDeletionOperator;
+  }): Promise<TeamDeletionOpsReceipt>;
+  release(input: {
+    workspaceId: string;
+    jobId: string;
+    expectedState: "held" | "ops_check";
+    operator: TeamDeletionOperator;
+  }): Promise<TeamDeletionOpsReceipt>;
+  assign(input: {
+    workspaceId: string;
+    jobId: string;
+    expectedState: "ops_check";
+    assignee: string;
+    operator: TeamDeletionOperator;
+  }): Promise<TeamDeletionOpsReceipt>;
+  retry(input: {
+    workspaceId: string;
+    jobId: string;
+    expectedState: "running";
+    operator: TeamDeletionOperator;
+  }): Promise<TeamDeletionOpsReceipt & { objects: number }>;
+  reprocessRecoveryOrder(input: {
+    workspaceId: string;
+    orderId: string;
+    expectedOrderState: "received" | "review_required";
+    operator: TeamDeletionOperator;
+  }): Promise<TeamRecoveryReprocessReceipt>;
+};
 
 // F19/S27 user notifications. SOT: backend/docs/b2b-user-notifications.md.
 // Names are resolved at read time only while access is current; `lost` items
