@@ -2,15 +2,15 @@
 
 2026년 10월 6일 기준으로 10월 2일 전달 문서의 화면 35개, 기능 20개, 정책 17개를 대시보드·백엔드·데스크톱 코드에 연결한다. 데스크톱 기준은 사용자가 선택한 `prepix(beta)`다. **현재 프로젝트·권한·구매·원장 기반을 재사용하고, 보관함과 앱 파일 흐름, 실제 팀 AI, 요청·검토·납품 순서로 완성한다.** 실제 결제와 삭제 운영은 별도의 출시 조건을 통과해야 한다.
 
-[전체 구현 계획](/Users/spagettimaker/My/Lasker/prepix-dashboard/docs/plans/b2b-v1-implementation-plan-2026-10-05.md)은 최초 현황과 전체 정책 설계를 보존한다. [구현 상태](/Users/spagettimaker/My/Lasker/prepix-dashboard/docs/plans/b2b-v1-implementation-status.md)는 이전 구현과 검증 기록이다. 이 실행 계획은 현재 코드에서 이어갈 작업과 완료 기준을 정한다. 전달 문서의 API 초안·기술 제안·실행 안내는 요구사항 자료로 구분하며 별도 작업 지시로 취급하지 않는다.
+[전체 구현 계획](/Users/spagettimaker/.codex/worktrees/b2b-file-lifecycle/prepix-dashboard/docs/plans/b2b-v1-implementation-plan-2026-10-05.md)은 최초 현황과 전체 정책 설계를 보존한다. [구현 상태](/Users/spagettimaker/.codex/worktrees/b2b-file-lifecycle/prepix-dashboard/docs/plans/b2b-v1-implementation-status.md)는 이전 구현과 검증 기록이다. 이 실행 계획은 현재 코드에서 이어갈 작업과 완료 기준을 정한다. 전달 문서의 API 초안·기술 제안·실행 안내는 요구사항 자료로 구분하며 별도 작업 지시로 취급하지 않는다.
 
 ## 코드 기준
 
 | 대상 | 제품 기준 | 현재 로컬 작업 기준 |
 | --- | --- | --- |
-| 대시보드 | main `60eb7cd` | `codex/b2b-v1`의 런타임 `dfeee8b` |
-| 백엔드 | main `676aff8` | `codex/b2b-v1`의 런타임 `5a45c1e` |
-| 데스크톱 | beta `c21049ba1` | beta에서 이어진 `codex/b2b-v1`의 런타임 `82a00918e`, 계약 동기화 `6dea06b1b` |
+| 대시보드 | main `60eb7cd` | `codex/b2b-file-lifecycle`의 런타임 `ea40e1f` |
+| 백엔드 | main `676aff8` | `codex/b2b-v1`의 런타임 `650a543` |
+| 데스크톱 | beta `c21049ba1` | beta에서 이어진 `codex/b2b-v1`의 런타임 `82a00918e`, 계약 동기화 `c1e851d48` |
 | 운영 콘솔 | `5db3a2b` | 같은 코드의 운영 도구를 확장 대상으로 사용 |
 
 위 기준은 로컬 코드이며 운영 배포 완료를 뜻하지 않는다. `beta3`의 `2e54d5afc`와 beta의 팀 보관함 서비스에는 차이가 없으며, 다른 미디어 실험 변경을 B2B 구현에 일괄 병합하지 않는다. 한국 결제 작업 폴더는 기존 PG 연결을 비교할 때만 참고한다.
@@ -21,7 +21,7 @@
 | --- | --- | --- |
 | 팀·프로젝트 | 준비/활성/종료 상태, 프로젝트·참여자, 내부/외부 초대, 결제 위임, 참여 종료·복구, 소유권 이전과 웹 화면 | 요청·검토·납품을 반영한 팀 홈과 프로젝트 업무 집계 |
 | 이용권·앱 권한 | 유료 배정·회수 대기·장치 허가, 기간별 개인 한도, 앱의 고정된 팀 프로젝트 소속·편집 검사 | 실제 HTTP와 OS 키 저장소의 재시작·절전 인수, 클라우드 특정 버전 열기와 발행 |
-| 파일 | 비공개 불변 버전, 자료 권한, 프로젝트 참조, 검사/정리 작업자, 같은 팀 물리 중복 산정, 보관함 직접 등록·조회/재연결·담당자 인계/객관적 복구 | 휴지통·영구 삭제, native 작업 파일과 검토본 변환 |
+| 파일 | 비공개 불변 버전, 자료 권한, 프로젝트 참조, 검사/정리 작업자, 같은 팀 물리 중복 산정, 보관함 직접 등록·조회/재연결·담당자 인계/객관적 복구 | 실제 협업 사건의 증거 보호 연결, native 작업 파일과 검토본 변환 |
 | 웹 전송 | 명시적 새 자료/새 버전, 영속 업로드 재개, 응답 유실 확인, 자료 권한과 정확한 버전의 연결/제외, 보관함 직접 등록·조회/재연결 | 앱 전송 연결 |
 | 웹 다운로드 | 임시 파일·전체 해시 확인, 새로고침 재개, 구간별 및 저장 직전 현재 권한 확인 | 검토본 재생과 원본 다운로드의 분리, 지원 브라우저 운영 인수 |
 | 앱 전송·NAS | 기존 팀 보관함 업로드, 임시 파일의 해시 검증과 원자적 다운로드 완성, 누락 원본 연결 기반 | 새 프로젝트 파일 API 연결, 앱 종료 뒤 전송 재개, 정확한 버전 수령, NAS 내용 대조와 결과 발행 |
@@ -29,7 +29,7 @@
 | 구매·증빙 | 상품 버전·견적·주문·수납 대조·실제 기간 반영과 구매 견적 화면 | checkout, 결제 수단 등록, 자동갱신·웹훅·환불 실행, 월 명세와 증빙 조회 |
 | 협업·운영 | 공통 권한, revision, 감사/outbox, E 경계와 복구 주문의 삭제 보류 | 요청·제출·검토·승인·납품, 실제 복구/삭제·백업 파기, 알림과 제한된 운영 지원 |
 
-근거는 [서버 모듈](/Users/spagettimaker/My/Lasker/prepix-backend/backend/src/b2b/b2b.module.ts), [웹 B2B 연결](/Users/spagettimaker/My/Lasker/prepix-dashboard/lib/api/services/b2b.service.ts), [파일 서비스](/Users/spagettimaker/My/Lasker/prepix-backend/backend/src/b2b/files.service.ts), [웹 검증 수령](/Users/spagettimaker/My/Lasker/prepix-dashboard/lib/b2b-files/use-downloads.ts), [앱 프로젝트 열기](/Users/spagettimaker/My/Lasker/prepix/apps/desktop/src/main/services/b2b/open-project.ts), [앱 권한 계약](/Users/spagettimaker/My/Lasker/prepix/docs/b2b/desktop-editing-permissions.md)이다.
+근거는 [서버 모듈](/Users/spagettimaker/My/Lasker/prepix-backend/backend/src/b2b/b2b.module.ts), [웹 B2B 연결](/Users/spagettimaker/.codex/worktrees/b2b-file-lifecycle/prepix-dashboard/lib/api/services/b2b.service.ts), [파일 서비스](/Users/spagettimaker/My/Lasker/prepix-backend/backend/src/b2b/files.service.ts), [웹 검증 수령](/Users/spagettimaker/.codex/worktrees/b2b-file-lifecycle/prepix-dashboard/lib/b2b-files/use-downloads.ts), [앱 프로젝트 열기](/Users/spagettimaker/My/Lasker/prepix/apps/desktop/src/main/services/b2b/open-project.ts), [앱 권한 계약](/Users/spagettimaker/My/Lasker/prepix/docs/b2b/desktop-editing-permissions.md)이다.
 
 ## 개발 순서와 완료 기준
 
@@ -49,7 +49,7 @@
 
 ## 구현 작업 단위
 
-1의 보관함 직접 등록과 2의 자료 담당자 인계·객관적 복구는 서버·웹 연결과 로컬 인수가 완료됐다. 3~12는 이어갈 개발 범위다. 각 단위는 서버 변경만으로 끝내지 않고 해당 화면 또는 앱 연결, 권한 회수와 응답 유실 검증까지 포함한다. 상품과 기술 설정 계약을 먼저 정리하고, 결제 연결 준비는 파일·협업 개발과 병행할 수 있다.
+1의 보관함 직접 등록, 2의 자료 담당자 인계·객관적 복구, 3의 버전 휴지통·복원·영구 삭제는 서버·웹 연결과 로컬 인수를 마쳤다. 3의 보존 근거 기반을 실제 요청·승인·납품·AI 사건과 연결하는 인수는 남아 있다. 4~12는 이어갈 개발 범위다. 각 단위는 서버 변경만으로 끝내지 않고 해당 화면 또는 앱 연결, 권한 회수와 응답 유실 검증까지 포함한다. 상품과 기술 설정 계약을 먼저 정리하고, 결제 연결 준비는 파일·협업 개발과 병행할 수 있다.
 
 | 순서 | 구현 범위 | 연결할 화면 | 선행 조건과 인수 결과 |
 | --- | --- | --- | --- |
@@ -75,8 +75,8 @@
 | [파일 저장 구조](/Users/spagettimaker/My/Lasker/prepix-backend/backend/src/database/schema/b2b-files.ts) | 업로드의 `projectId`가 필수이고 자료 허용은 프로젝트에 속한다. | 새 마이그레이션으로 프로젝트 없는 업로드와 같은 팀의 명시적인 보관 접근 근거를 추가한다. 기존 적용 마이그레이션과 과거 허용은 덮어쓰지 않는다. |
 | [파일 서비스](/Users/spagettimaker/My/Lasker/prepix-backend/backend/src/b2b/files.service.ts) | 등록·상태·취소·검사 확정이 프로젝트 작업 권한을 전제로 한다. | 프로젝트 등록과 직접 등록의 접근 검사를 구분하고 공통 전송·검사·용량·객체 중복 산정은 재사용한다. 확정 직전과 주소 발급 전후에 현재 허용을 검사한다. |
 | [보관함 API](/Users/spagettimaker/My/Lasker/prepix-backend/backend/src/b2b/library.controller.ts) | 목록·상세·다운로드만 제공하며 상세 접근에 근거 프로젝트를 요구한다. | 직접 등록의 설정 조회와 전송 경로, 독립 접근으로 읽는 상세/다운로드를 추가한다. 기존 프로젝트 근거도 명시적으로 유지한다. |
-| [웹 파일 API](/Users/spagettimaker/My/Lasker/prepix-dashboard/lib/b2b-files/api.ts)와 [전송 기록](/Users/spagettimaker/My/Lasker/prepix-dashboard/lib/b2b-files/store.ts) | 파일 범위와 전송 결과가 프로젝트 ID를 전제로 한다. | 서비스·사용자·팀에 고정된 보관함 범위를 표현한다. 프로젝트 전송 기록을 직접 등록 기록으로 바꿔 해석하지 않는다. |
-| [보관함 화면](/Users/spagettimaker/My/Lasker/prepix-dashboard/components/b2b/library.tsx) | 조회·검증 수령·재연결만 연결됐다. | 기존 [전송 화면](/Users/spagettimaker/My/Lasker/prepix-dashboard/components/b2b/file-transfers.tsx)을 재사용해 새 자료/명시적인 새 버전 등록과 중단 후 복구를 연결한다. |
+| [웹 파일 API](/Users/spagettimaker/.codex/worktrees/b2b-file-lifecycle/prepix-dashboard/lib/b2b-files/api.ts)와 [전송 기록](/Users/spagettimaker/.codex/worktrees/b2b-file-lifecycle/prepix-dashboard/lib/b2b-files/store.ts) | 파일 범위와 전송 결과가 프로젝트 ID를 전제로 한다. | 서비스·사용자·팀에 고정된 보관함 범위를 표현한다. 프로젝트 전송 기록을 직접 등록 기록으로 바꿔 해석하지 않는다. |
+| [보관함 화면](/Users/spagettimaker/.codex/worktrees/b2b-file-lifecycle/prepix-dashboard/components/b2b/library.tsx) | 조회·검증 수령·재연결만 연결됐다. | 기존 [전송 화면](/Users/spagettimaker/.codex/worktrees/b2b-file-lifecycle/prepix-dashboard/components/b2b/file-transfers.tsx)을 재사용해 새 자료/명시적인 새 버전 등록과 중단 후 복구를 연결한다. |
 | 웹과 beta 앱의 생성된 계약 | 버전·업로드에 프로젝트 ID가 필수다. | 서버 계약에서 직접 등록을 구분해 두 클라이언트에 함께 동기화한다. 프로젝트 참조가 없는 버전에 연결 제외 행동을 제공하지 않는다. |
 
 독립 허용은 팀 참여 종료·정지와 계정 정지 시 회수한다. 재가입이나 과거 요청 재확인으로 복구하지 않는다. 기존 프로젝트 자료를 담당자 ID만 보고 독립 허용으로 바꾸거나, 소유자·관리자의 콘텐츠 열람을 넓히지 않는다. 프로젝트 연결은 현재 제작 가능한 대상에 정확한 버전을 연결하고 본인의 필요한 허용만 추가한다.
@@ -171,6 +171,16 @@ native 작업 파일은 검증된 형식과 지원 크기를 먼저 승인한다
 
 문서 P17의 미정 값은 승인된 설정 버전으로 적용한다. 누락을 0원이나 무제한으로 바꾸지 않는다. 정책의 5분·24시간·30일·60일 경계는 상품 미정과 별개로 유지한다.
 
-현재 검증 기록에는 실제 PostgreSQL·MinIO·ffprobe와 웹 브라우저 흐름이 포함된다. 악성 파일 검사는 ClamD 프로토콜 대역이고, 팀 AI 입력/결과와 PG는 합성 자료·시험 어댑터이며, 앱 OS/서버 통합 인수는 남는다. 자세한 결과는 [구현 상태](/Users/spagettimaker/My/Lasker/prepix-dashboard/docs/plans/b2b-v1-implementation-status.md)에 있다. 이번 계획 점검에서 웹/앱의 서버 계약 동기화는 모두 통과했다. 전체 런타임 검사를 새로 통과했다는 판단은 이 점검에 포함하지 않는다.
+현재 검증 기록에는 실제 PostgreSQL·MinIO·ffprobe와 웹 브라우저 흐름이 포함된다. 악성 파일 검사는 ClamD 프로토콜 대역이고, 팀 AI 입력/결과와 PG는 합성 자료·시험 어댑터이며, 앱 OS/서버 통합 인수는 남는다. 자세한 결과는 [구현 상태](/Users/spagettimaker/.codex/worktrees/b2b-file-lifecycle/prepix-dashboard/docs/plans/b2b-v1-implementation-status.md)에 있다. 이번 계획 점검에서 웹/앱의 서버 계약 동기화는 모두 통과했다. 전체 런타임 검사를 새로 통과했다는 판단은 이 점검에 포함하지 않는다.
 
 제한된 팀 시험 운영은 파일·앱·AI의 실제 환경 인수와 승인된 테스트 조건을 기준으로 판단한다. 일반 판매는 상품/PG 설정, 결제·복구·삭제·지원 운영과 개인정보 보관까지 통과한 뒤 연다. 백엔드 전체 테스트 타입 검사에 기록된 기존 오류 3건도 최종 인수에서 해결하거나 영향 범위를 명시한다.
+
+## 버전 휴지통 로컬 인수 결과
+
+서버 `650a543`, 웹 `ea40e1f`, beta 계약 `c1e851d48`에 보존했다. 전체 B2B 서버 167건(기삭제 객체 업그레이드 포함), 웹 단위 132건, 서버/웹 빌드, 웹 타입/lint, beta 타입 6단계, 웹/앱 생성 계약 동기화와 실제 Chrome 파일 흐름 4개가 통과했다. 빈 DB 전체 60개 마이그레이션과 기존 기삭제 객체 보존도 확인했다.
+
+정확한 버전만 휴지통으로 옮기며 일반 목록·다운로드·AI·재연결은 차단한다. 복원에는 현재 담당자·허용·팀 쓰기 상태·정원·30일/팀 삭제 기한을 검사한다. 소유자는 전달받은 버전 ID로 파일명 없는 삭제 영향을 확인하고 사유·복원 불가 확인으로 삭제를 요청한다. 공유 물리 파일은 마지막 사용 근거가 사라질 때 삭제하고 저장소의 실제 부재를 확인한 뒤 용량을 반환한다. 변경 응답 유실과 새로고침 뒤에는 고정 원키 조회로 처리 결과를 확인한다.
+
+보존 근거는 기반이며 실제 요청·승인·납품·AI 사건의 생성/해제와 연결해야 협업 증거의 최종 삭제 제한을 완료할 수 있다. 실제 ClamAV 엔진, native/검토본, 앱 HTTP/OS, 결제/AI 공급자와 팀 전체 삭제·백업 파기는 원래 목표에 남아 있다.
+
+현재 웹 폴더는 `/Users/spagettimaker/.codex/worktrees/b2b-file-lifecycle/prepix-dashboard`, preview는 3501이다. 원래 대시보드 폴더의 `chore/drop-old-dashboard-host` 작업을 유지한다. 외부 요청 세션의 웹 `537e5db`·서버 `a038713`와 HANDOFF.md를 확인했으며 통합 검증을 이어간다. 외부 보고만으로 요청 기능 전체를 완료로 표시하지 않는다.
