@@ -13,6 +13,7 @@ import {
   assertExistingAiScope,
   checkExistingAi,
 } from "@/lib/b2b-home/existing-ai";
+import type { AiResultDocument, AiResultBasis } from "@/lib/b2b-ai/result";
 import { homeEnvironment } from "@/lib/b2b-home/home";
 import { apiClient } from "@/lib/api/client";
 import type {
@@ -20,11 +21,11 @@ import type {
   TeamAiExecution,
   TeamAiOperation,
   TeamAiQuote,
-  TeamAiResultDocument,
   TeamFileVersion,
 } from "@/lib/api/services/b2b.service";
 import {
   aiApi,
+  assertAiScope,
   checkExecution,
   checkQuote,
   notReached,
@@ -58,8 +59,8 @@ const messages: Record<string, [string, string]> = {
     "This job type is not configured.",
   ],
   B2B_AI_OPERATION_UNSUPPORTED: [
-    "팀 에이전트 작업은 아직 지원하지 않습니다.",
-    "Team agent jobs are not supported yet.",
+    "이 서비스에서 해당 AI 작업을 지원하지 않습니다.",
+    "This AI operation is not supported by the service.",
   ],
   B2B_AI_INPUT_STREAM_MISSING: [
     "선택한 입력에 이 작업에 필요한 음성 또는 영상이 없습니다.",
@@ -190,7 +191,7 @@ function AiError({ code: c, retry }: { code: string; retry?: () => void }) {
 const operations: Record<TeamAiOperation, [string, string]> = {
   transcript: ["음성 전사", "Transcription"],
   vision: ["영상 분석", "Video analysis"],
-  agent: ["에이전트 작업", "Agent task"],
+  agent: ["러프컷 구성", "Build a rough cut"],
 };
 const states: Record<TeamAiExecution["job"]["state"], [string, string]> = {
   queued: ["접수됨 · 대기", "Queued"],
@@ -369,6 +370,7 @@ function ExistingAiRun({ scope, jobId }: { scope: AiScope; jobId: string }) {
           pollError=""
           onPoll={poll}
           onNew={() => {}}
+          scope={scope}
           existingOnly
           assertCurrent={assertCurrent}
           beforeSave={async () => {
@@ -389,7 +391,20 @@ function ExistingAiRun({ scope, jobId }: { scope: AiScope; jobId: string }) {
 function ScopedAiRun({ scope }: { scope: AiScope }) {
   const c = useCopy();
   const { data } = useWorkspace()!;
-  const [api] = useState(() => aiApi(scope));
+  const lifetime = useRef<AbortController | null>(null);
+  const owned = () => {
+    if (!lifetime.current) throw new Error("B2B_AI_RESPONSE_SCOPE_MISMATCH");
+    lifetime.current.signal.throwIfAborted();
+    assertAiScope(scope);
+  };
+  const [api] = useState(() =>
+    aiApi(scope, owned, () => lifetime.current!.signal),
+  );
+  useLayoutEffect(() => {
+    const controller = new AbortController();
+    lifetime.current = controller;
+    return () => controller.abort();
+  }, []);
   const [record, setRecord] = useState<AiRunRecord | null | undefined>();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -397,6 +412,7 @@ function ScopedAiRun({ scope }: { scope: AiScope }) {
   const [execution, setExecution] = useState<TeamAiExecution | null>(null);
   const [pollError, setPollError] = useState("");
   const persist = (next: AiRunRecord | null) => {
+    owned();
     if (next) runStore.write(next);
     else runStore.clear(scope);
     setRecord(next);
@@ -654,6 +670,7 @@ function ScopedAiRun({ scope }: { scope: AiScope }) {
         />
       ) : execution ? (
         <JobView
+          scope={scope}
           api={api}
           view={execution}
           cancelKey={record.submit.cancelKey}
@@ -730,7 +747,10 @@ function Draft({
   const [language, setLanguage] = useState("");
   const load = useCallback(async () => {
     try {
-      const [capabilities, list] = await Promise.all([api.capabilities(), api.versions()]);
+      const [capabilities, list] = await Promise.all([
+        api.capabilities(),
+        api.versions(),
+      ]);
       setCaps(capabilities);
       setVersions(list.versions);
       setNextCursor(list.nextCursor);
@@ -754,7 +774,9 @@ function Draft({
       // Append without duplicates; a failed page keeps what is already listed.
       setVersions((current) => [
         ...(current ?? []),
-        ...page.versions.filter((v) => !(current ?? []).some((x) => x.id === v.id)),
+        ...page.versions.filter(
+          (v) => !(current ?? []).some((x) => x.id === v.id),
+        ),
       ]);
       setNextCursor(page.nextCursor);
     } catch (e) {
@@ -770,8 +792,33 @@ function Draft({
     (v) =>
       v.allowedActions.ai &&
       v.metadata.durationMs !== null &&
-      (capability.requiredStream === "video" ? v.metadata.video : v.metadata.audio).length > 0,
+      (capability.requiredStream === "video"
+        ? v.metadata.video
+        : v.metadata.audio
+      ).length > 0,
   );
+  const chosen = usable.filter((v) => selected.includes(v.id));
+  const combinedBytes = chosen.reduce((sum, v) => sum + v.size, 0);
+  const combinedDuration = chosen.reduce(
+    (sum, v) =>
+      sum +
+      ((capability.requiredStream === "audio" &&
+        v.metadata.audio[0]?.durationMs) ||
+        v.metadata.durationMs!),
+    0,
+  );
+  const exceeds =
+    chosen.some(
+      (v) =>
+        v.size > capability.maxInputBytes ||
+        ((capability.requiredStream === "audio" &&
+          v.metadata.audio[0]?.durationMs) ||
+          v.metadata.durationMs!) > capability.maxDurationMs,
+    ) ||
+    (capability.maxTotalInputBytes !== undefined &&
+      combinedBytes > capability.maxTotalInputBytes) ||
+    (capability.maxTotalDurationMs !== undefined &&
+      combinedDuration > capability.maxTotalDurationMs);
   const lang = language || capability.languages[0] || "";
   return (
     <Block
@@ -783,10 +830,15 @@ function Draft({
     >
       {caps.blockedReason && <AiError code={caps.blockedReason} />}
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium">{c("작업 종류", "Job type")}</legend>
+        <legend className="text-sm font-medium">
+          {c("작업 종류", "Job type")}
+        </legend>
         <div className="flex flex-wrap gap-4">
           {caps.operations.map((o) => (
-            <label key={o.operation} className="flex items-center gap-2 text-sm">
+            <label
+              key={o.operation}
+              className="flex items-center gap-2 text-sm"
+            >
               <input
                 type="radio"
                 name="operation"
@@ -801,7 +853,9 @@ function Draft({
               />
               {c(...operations[o.operation])}
               {!o.available && (
-                <span className="text-xs text-muted">({c("사용 불가", "unavailable")})</span>
+                <span className="text-xs text-muted">
+                  ({c("사용 불가", "unavailable")})
+                </span>
               )}
             </label>
           ))}
@@ -839,7 +893,10 @@ function Draft({
                       <input
                         type="checkbox"
                         checked={selected.includes(v.id)}
-                        disabled={!selected.includes(v.id) && selected.length >= capability.maxInputs}
+                        disabled={
+                          !selected.includes(v.id) &&
+                          selected.length >= capability.maxInputs
+                        }
                         onChange={(event) =>
                           setSelected(
                             event.target.checked
@@ -852,7 +909,8 @@ function Draft({
                       <span className="tabular-nums text-muted">
                         v{v.ordinal} ·{" "}
                         {seconds(
-                          (capability.requiredStream === "audio" && v.metadata.audio[0]?.durationMs) ||
+                          (capability.requiredStream === "audio" &&
+                            v.metadata.audio[0]?.durationMs) ||
                             v.metadata.durationMs!,
                         )}{" "}
                         · sha256 {v.sha256.slice(0, 12)}…
@@ -870,8 +928,14 @@ function Draft({
                     "This project has more versions; only part of the list is loaded.",
                   )}
                 </p>
-                {moreFailure && <AiError code={moreFailure} retry={() => void loadMore()} />}
-                <button className={secondaryClass} disabled={loadingMore} onClick={() => void loadMore()}>
+                {moreFailure && (
+                  <AiError code={moreFailure} retry={() => void loadMore()} />
+                )}
+                <button
+                  className={secondaryClass}
+                  disabled={loadingMore}
+                  onClick={() => void loadMore()}
+                >
                   {c("버전 더 불러오기", "Load more versions")}
                 </button>
               </div>
@@ -885,10 +949,46 @@ function Draft({
               </p>
             )}
           </fieldset>
+          {operation === "agent" && (
+            <div className="space-y-2 rounded-lg border border-border p-3 text-sm leading-6">
+              <p>
+                {c(
+                  "선택한 영상을 함께 분석해 컷 순서와 원본 범위를 담은 러프컷 편집안을 만듭니다. 받은 편집안은 앱에서 검토하고 적용할 수 있습니다.",
+                  "Analyze the selected videos together to build an ordered rough cut with exact source ranges. Review and apply the received edit plan in the app.",
+                )}
+              </p>
+              <p className="tabular-nums text-xs text-muted">
+                {c("선택 길이", "Selected duration")}:{" "}
+                {seconds(combinedDuration)}
+                {capability.maxTotalDurationMs !== undefined
+                  ? ` / ${seconds(capability.maxTotalDurationMs)}`
+                  : ""}{" "}
+                · {c("선택 크기", "Selected bytes")}:{" "}
+                {combinedBytes.toLocaleString()}
+                {capability.maxTotalInputBytes !== undefined
+                  ? ` / ${capability.maxTotalInputBytes.toLocaleString()}`
+                  : ""}{" "}
+                bytes
+              </p>
+              {capability.maxClips !== undefined &&
+                capability.maxTimelineDurationMs !== undefined && (
+                  <p className="text-xs tabular-nums text-muted">
+                    {c("편집안 최대", "Edit plan maximum")}:{" "}
+                    {capability.maxClips} {c("컷", "cuts")} ·{" "}
+                    {seconds(capability.maxTimelineDurationMs)}
+                  </p>
+                )}
+            </div>
+          )}
+          {exceeds && <AiError code="B2B_AI_INPUT_LIMIT_EXCEEDED" />}
           {capability.languages.length > 0 && (
             <label className="block space-y-2 text-sm">
               <span className="font-medium">{c("언어", "Language")}</span>
-              <select className={inputClass} value={lang} onChange={(e) => setLanguage(e.target.value)}>
+              <select
+                className={inputClass}
+                value={lang}
+                onChange={(e) => setLanguage(e.target.value)}
+              >
                 {capability.languages.map((l) => (
                   <option key={l} value={l}>
                     {l === "auto" ? c("자동 감지", "Detect") : l}
@@ -917,7 +1017,9 @@ function Draft({
           </p>
           <button
             className={primaryClass}
-            disabled={busy || !selected.length || !instruction.trim()}
+            disabled={
+              busy || !selected.length || !instruction.trim() || exceeds
+            }
             onClick={() =>
               void onQuote({
                 operation,
@@ -960,7 +1062,11 @@ function QuoteView({
         `${c(...operations[quote.operation])} · expires ${instant(quote.expiresAt)} · settings ${quote.catalogVersion}`,
       )}
       actions={
-        <button className={secondaryClass} disabled={busy} onClick={() => void onRefresh()}>
+        <button
+          className={secondaryClass}
+          disabled={busy}
+          onClick={() => void onRefresh()}
+        >
           {c("최신 상태 확인", "Refresh")}
         </button>
       }
@@ -968,17 +1074,23 @@ function QuoteView({
       <table className="w-full text-sm">
         <thead className="text-left text-muted">
           <tr>
-            <th className="py-1 font-normal">{c("입력 버전", "Input version")}</th>
+            <th className="py-1 font-normal">
+              {c("입력 버전", "Input version")}
+            </th>
             <th className="py-1 font-normal">{c("길이", "Length")}</th>
-            <th className="py-1 text-right font-normal">{c("완료 단계 사용량", "Stage units")}</th>
+            <th className="py-1 text-right font-normal">
+              {c("완료 단계 사용량", "Stage units")}
+            </th>
           </tr>
         </thead>
         <tbody className="tabular-nums">
           {quote.inputs.map((i) => (
             <tr key={i.versionId} className="border-t border-border">
-              <td className="py-2">
+              <td className="min-w-0 break-words py-2">
                 {i.name}
-                <span className="block text-xs text-muted">sha256 {i.sha256.slice(0, 16)}…</span>
+                <span className="block text-xs text-muted">
+                  sha256 {i.sha256.slice(0, 16)}…
+                </span>
               </td>
               <td className="py-2">{seconds(i.durationMs)}</td>
               <td className="py-2 text-right">{i.units}</td>
@@ -986,6 +1098,19 @@ function QuoteView({
           ))}
         </tbody>
       </table>
+      {quote.operation === "agent" && quote.roughcut && (
+        <p className="rounded-lg border border-border p-3 text-sm leading-6 tabular-nums">
+          {c("이 견적의 러프컷 제한", "This quote’s rough cut limits")}:{" "}
+          {quote.roughcut!.maxClips} {c("컷", "cuts")} ·{" "}
+          {seconds(quote.roughcut!.maxTimelineDurationMs)}
+          <span className="block text-xs text-muted">
+            {c(
+              "결과는 이 견적에 고정된 설정과 입력 버전을 기준으로 확인합니다.",
+              "Results are checked against the settings and input versions fixed in this quote.",
+            )}
+          </span>
+        </p>
+      )}
       <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
         <div>
           <dt className="text-muted">{c("예상 사용량", "Estimate")}</dt>
@@ -994,19 +1119,37 @@ function QuoteView({
           </dd>
         </div>
         <div>
-          <dt className="text-muted">{c("최대 차감량 (예약)", "Maximum (reserved)")}</dt>
+          <dt className="text-muted">
+            {c("최대 차감량 (예약)", "Maximum (reserved)")}
+          </dt>
           <dd className="text-xl font-medium tabular-nums">
             {quote.maximumUnits} {unit}
           </dd>
         </div>
         <div>
-          <dt className="text-muted">{c("팀 공동 사용 가능량", "Shared team balance")}</dt>
-          <dd className="tabular-nums">{a.reconciled && a.teamAvailableUnits !== null ? a.teamAvailableUnits : c("확인 필요", "Needs review")}</dd>
-          <dd className="text-xs text-muted">{c("팀 전체가 함께 쓰는 잔액입니다.", "The balance the whole team shares.")}</dd>
+          <dt className="text-muted">
+            {c("팀 공동 사용 가능량", "Shared team balance")}
+          </dt>
+          <dd className="tabular-nums">
+            {a.reconciled && a.teamAvailableUnits !== null
+              ? a.teamAvailableUnits
+              : c("확인 필요", "Needs review")}
+          </dd>
+          <dd className="text-xs text-muted">
+            {c(
+              "팀 전체가 함께 쓰는 잔액입니다.",
+              "The balance the whole team shares.",
+            )}
+          </dd>
         </div>
         <div>
-          <dt className="text-muted">{c("내 이번 기간 잔여 한도", "My remaining period limit")}</dt>
-          <dd className="tabular-nums">{a.personalRemainingUnits ?? c("없음 또는 확인 필요", "None or needs review")}</dd>
+          <dt className="text-muted">
+            {c("내 이번 기간 잔여 한도", "My remaining period limit")}
+          </dt>
+          <dd className="tabular-nums">
+            {a.personalRemainingUnits ??
+              c("없음 또는 확인 필요", "None or needs review")}
+          </dd>
           <dd className="text-xs text-muted">
             {c(
               "팀 잔액을 쓸 수 있는 내 상한이며 별도로 지급된 양이 아닙니다.",
@@ -1023,11 +1166,17 @@ function QuoteView({
       </p>
       {a.blockedReason && <AiError code={a.blockedReason} />}
       {quote.jobId ? (
-        <p role="status" className="text-sm">{c("이미 실행한 견적입니다.", "This quote was already run.")}</p>
+        <p role="status" className="text-sm">
+          {c("이미 실행한 견적입니다.", "This quote was already run.")}
+        </p>
       ) : (
         <>
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={agree}
+              onChange={(e) => setAgree(e.target.checked)}
+            />
             {c(
               `최대 ${quote.maximumUnits} ${unit} 예약에 동의합니다.`,
               `I approve reserving up to ${quote.maximumUnits} ${unit}.`,
@@ -1041,7 +1190,11 @@ function QuoteView({
             >
               {c("실행", "Run")}
             </button>
-            <button className={secondaryClass} disabled={busy} onClick={onDiscard}>
+            <button
+              className={secondaryClass}
+              disabled={busy}
+              onClick={onDiscard}
+            >
               {c("견적 버리기", "Discard quote")}
             </button>
           </div>
@@ -1059,6 +1212,7 @@ function JobView({
   pollError,
   onPoll,
   onNew,
+  scope,
   existingOnly = false,
   assertCurrent,
   beforeSave,
@@ -1070,6 +1224,7 @@ function JobView({
   pollError: string;
   onPoll: () => Promise<void>;
   onNew: () => void;
+  scope: AiScope;
   existingOnly?: boolean;
   assertCurrent?: () => void;
   beforeSave?: () => Promise<void>;
@@ -1083,7 +1238,7 @@ function JobView({
   const [error, setError] = useState("");
   const [received, setReceived] = useState<{
     sha256: string;
-    document: TeamAiResultDocument;
+    document: AiResultDocument;
     bytes: Uint8Array;
   } | null>(null);
   const cancel = async () => {
@@ -1114,19 +1269,51 @@ function JobView({
       setBusy(false);
     }
   };
+  const resultLifetime = useRef<AbortController | null>(null);
+  useLayoutEffect(() => {
+    const controller = new AbortController();
+    resultLifetime.current = controller;
+    return () => controller.abort();
+  }, []);
+  const resultApi = aiApi(
+    scope,
+    () => {
+      resultLifetime.current?.signal.throwIfAborted();
+      assertCurrent?.();
+    },
+    () => resultLifetime.current!.signal,
+  );
+  const [receivedBasis, setReceivedBasis] = useState<AiResultBasis | null>(
+    null,
+  );
   const receive = async () => {
     if (!result) return;
     setBusy(true);
     setError("");
     try {
-      const meta = (await api.result(result.id)).result;
+      const fresh = await resultApi.execution(job.id);
+      const checked = checkExistingAi(fresh, scope, job.id);
+      if (
+        checked.result?.id !== result.id ||
+        checked.result.sha256 !== result.sha256
+      )
+        throw new Error("B2B_AI_RESULT_ACCESS_ENDED");
+      const currentQuote = (await resultApi.getQuote(job.quoteId)).quote;
+      const basis: AiResultBasis = {
+        scope,
+        job: checked.job,
+        quote: currentQuote,
+      };
+      const meta = (await resultApi.result(result.id)).result;
       if (meta.sha256 !== result.sha256)
         throw new Error("B2B_AI_RESULT_HASH_MISMATCH");
       const received = verifyResultContent(
-        await api.content(result.id, result.sha256),
+        await resultApi.content(result.id, result.sha256),
         meta,
+        basis,
       );
       assertCurrent?.();
+      setReceivedBasis(basis);
       setReceived(received);
     } catch (e) {
       setReceived(null);
@@ -1140,6 +1327,18 @@ function JobView({
     try {
       setBusy(true);
       if (beforeSave) await beforeSave();
+      const fresh = await resultApi.execution(job.id);
+      checkExistingAi(fresh, scope, job.id);
+      if (
+        !receivedBasis ||
+        fresh.result?.sha256 !== received.sha256 ||
+        fresh.result.id !== result?.id
+      )
+        throw new Error("B2B_AI_RESULT_ACCESS_ENDED");
+      const meta = (await resultApi.result(fresh.result.id)).result;
+      if (meta.sha256 !== received.sha256)
+        throw new Error("B2B_AI_RESULT_HASH_MISMATCH");
+      resultLifetime.current?.signal.throwIfAborted();
       assertCurrent?.();
       const url = URL.createObjectURL(
         new Blob([received.bytes.slice().buffer as ArrayBuffer], {
@@ -1294,6 +1493,7 @@ function JobView({
                 {received && (
                   <button
                     className={secondaryClass}
+                    disabled={busy}
                     onClick={() => void save()}
                   >
                     {c("JSON 파일로 저장", "Save JSON file")}
@@ -1304,6 +1504,7 @@ function JobView({
                 <ResultPreview
                   sha256={received.sha256}
                   document={received.document}
+                  quote={receivedBasis?.quote}
                 />
               )}
             </>
@@ -1326,48 +1527,156 @@ function JobView({
   );
 }
 
-function ResultPreview({ sha256, document }: { sha256: string; document: TeamAiResultDocument }) {
+function ResultPreview({
+  sha256,
+  document,
+  quote,
+}: {
+  sha256: string;
+  document: AiResultDocument;
+  quote?: TeamAiQuote;
+}) {
   const c = useCopy();
   return (
     <div className="space-y-3">
       <p role="status" className="break-all text-xs text-muted">
-        {c("받은 바이트의 SHA-256 확인됨", "SHA-256 of received bytes verified")}: {sha256}
+        {c(
+          "받은 바이트의 SHA-256 확인됨",
+          "SHA-256 of received bytes verified",
+        )}
+        : {sha256}
       </p>
-      {document.items.map((item) => (
-        <article key={item.ordinal} className="space-y-2 rounded-lg border border-border p-3 text-sm">
-          <p className="text-xs text-muted">
-            {c("입력", "Input")} {item.ordinal + 1} · sha256 {item.inputSha256.slice(0, 12)}…
-          </p>
-          {item.output.kind === "transcript" ? (
-            <ol className="space-y-1">
-              {item.output.segments.slice(0, 50).map((s, i) => (
-                <li key={i} className="tabular-nums">
-                  <span className="text-muted">
-                    {clock(s.start)}–{clock(s.end)}
-                    {s.speaker ? ` [${s.speaker}]` : ""}
-                  </span>{" "}
-                  {s.text}
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <>
-              <p>{item.output.summary}</p>
+      {document.format === "prepix.team-ai.roughcut/v1" ? (
+        <RoughcutPreview document={document} quote={quote} />
+      ) : (
+        document.items.map((item) => (
+          <article
+            key={item.ordinal}
+            className="space-y-2 rounded-lg border border-border p-3 text-sm"
+          >
+            <p className="text-xs text-muted">
+              {c("입력", "Input")} {item.ordinal + 1} · sha256{" "}
+              {item.inputSha256.slice(0, 12)}…
+            </p>
+            {item.output.kind === "transcript" ? (
               <ol className="space-y-1">
                 {item.output.segments.slice(0, 50).map((s, i) => (
                   <li key={i} className="tabular-nums">
                     <span className="text-muted">
                       {clock(s.start)}–{clock(s.end)}
+                      {s.speaker ? ` [${s.speaker}]` : ""}
                     </span>{" "}
-                    {s.description}
-                    {s.tags?.length ? <span className="text-xs text-muted"> · {s.tags.join(", ")}</span> : null}
+                    {s.text}
                   </li>
                 ))}
               </ol>
-            </>
-          )}
-        </article>
-      ))}
+            ) : (
+              <>
+                <p>{item.output.summary}</p>
+                <ol className="space-y-1">
+                  {item.output.segments.slice(0, 50).map((s, i) => (
+                    <li key={i} className="tabular-nums">
+                      <span className="text-muted">
+                        {clock(s.start)}–{clock(s.end)}
+                      </span>{" "}
+                      {s.description}
+                      {s.tags?.length ? (
+                        <span className="text-xs text-muted">
+                          {" "}
+                          · {s.tags.join(", ")}
+                        </span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ol>
+              </>
+            )}
+          </article>
+        ))
+      )}
     </div>
+  );
+}
+
+function RoughcutPreview({
+  document,
+  quote,
+}: {
+  document: import("@/lib/api/generated/b2b").TeamAiRoughcutResultDocument;
+  quote?: TeamAiQuote;
+}) {
+  const c = useCopy();
+  const time = (ms: number) =>
+    `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}.${String(ms % 1000).padStart(3, "0")}`;
+  const duration = document.plan.clips.reduce(
+    (n, clip) => n + clip.endMs - clip.startMs,
+    0,
+  );
+  const placements = document.plan.clips.reduce<
+    { start: number; end: number }[]
+  >((rows, clip) => {
+    const start = rows.at(-1)?.end ?? 0;
+    return [...rows, { start, end: start + clip.endMs - clip.startMs }];
+  }, []);
+  return (
+    <section
+      className="space-y-4"
+      aria-label={c("러프컷 편집안", "Rough cut edit plan")}
+    >
+      <div className="space-y-2">
+        <h3 className="font-medium">
+          {c("러프컷 편집안", "Rough cut edit plan")}
+        </h3>
+        <p className="text-pretty text-sm leading-6">{document.plan.summary}</p>
+        <p className="text-xs leading-5 text-muted">
+          {c(
+            "등록된 입력 버전으로 구성한 편집안입니다. 앱에서 컷 순서와 범위를 확인한 뒤 적용하세요.",
+            "This edit plan uses registered input versions. Review its ordered cuts and ranges in the app before applying it.",
+          )}
+        </p>
+        <p className="text-sm tabular-nums">
+          {document.plan.clips.length} {c("컷", "cuts")} ·{" "}
+          {c("전체 길이", "Timeline duration")} {time(duration)}
+        </p>
+      </div>
+      <ol className="divide-y divide-border rounded-lg border border-border">
+        {document.plan.clips.map((clip, i) => {
+          const { start, end } = placements[i];
+          const source = quote?.inputs.find(
+            (v) => v.versionId === clip.inputVersionId,
+          );
+          return (
+            <li
+              key={i}
+              className="space-y-2 p-4 text-sm"
+              aria-label={`${c("컷", "Cut")} ${i + 1}`}
+            >
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <span className="min-w-0 break-words font-medium tabular-nums">
+                  {c("컷", "Cut")} {i + 1} ·{" "}
+                  {source?.name ??
+                    `${c("입력", "Input")} ${(document.inputs.find((v) => v.inputVersionId === clip.inputVersionId)?.ordinal ?? 0) + 1}`}
+                </span>
+                <span className="tabular-nums text-muted">
+                  {c("길이", "Duration")} {time(clip.endMs - clip.startMs)}
+                </span>
+              </div>
+              <p className="tabular-nums">
+                {c("원본 범위", "Source range")}: {time(clip.startMs)} —{" "}
+                {time(clip.endMs)}
+              </p>
+              <p className="tabular-nums text-muted">
+                {c("편집안 위치", "Timeline position")}: {time(start)} —{" "}
+                {time(end)}
+              </p>
+              <p className="break-all text-xs text-muted">
+                {c("입력 버전", "Input version")}: {clip.inputVersionId} ·
+                sha256 {clip.inputSha256.slice(0, 16)}…
+              </p>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }

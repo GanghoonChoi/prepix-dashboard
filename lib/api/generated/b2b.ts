@@ -835,6 +835,11 @@ export type TeamAiOperationCapability = {
   minimumUnits: number;
   rounding: "ceil";
   languages: string[];
+  // Present for the configured whole-job roughcut operation only.
+  maxClips?: number;
+  maxTimelineDurationMs?: number;
+  maxTotalInputBytes?: number;
+  maxTotalDurationMs?: number;
 };
 export type TeamAiCapabilities = {
   catalogVersion: string | null;
@@ -878,6 +883,9 @@ export type TeamAiQuote = {
   projectId: string;
   operation: TeamAiOperation;
   catalogVersion: string;
+  instructionSha256?: string;
+  /** Present for agent quotes; immutable conditions from this quote's catalog. */
+  roughcut?: { model: string; maxClips: number; maxTimelineDurationMs: number };
   language: string | null;
   inputs: TeamAiQuoteInput[];
   estimatedUnits: number;
@@ -894,7 +902,7 @@ export type SubmitTeamAiJob = {
   quoteId: string;
   approvedMaximumUnits: number;
 };
-export type TeamAiResultFormat = "prepix.team-ai.result/v1";
+export type TeamAiResultFormat = "prepix.team-ai.result/v1" | "prepix.team-ai.roughcut/v1";
 export type TeamAiResultSummary = {
   id: string;
   jobId: string;
@@ -965,7 +973,7 @@ export type TeamAiVisionOutput = {
 };
 // The exact bytes behind TeamAiResultSummary.sha256 parse as this document.
 export type TeamAiResultDocument = {
-  format: TeamAiResultFormat;
+  format: "prepix.team-ai.result/v1";
   operation: TeamAiOperation;
   catalogVersion: string;
   complete: boolean;
@@ -975,6 +983,40 @@ export type TeamAiResultDocument = {
     inputSha256: string;
     output: TeamAiTranscriptOutput | TeamAiVisionOutput;
   }[];
+};
+
+// A whole-job edit plan. Millisecond integers address the measured input;
+// array order is timeline order. Local sequence settings remain in the app.
+export type TeamAiRoughcutPlan = {
+  kind: "roughcut";
+  provider: "gemini";
+  model: string;
+  summary: string;
+  clips: {
+    inputVersionId: string;
+    inputSha256: string;
+    startMs: number;
+    endMs: number;
+  }[];
+};
+export type TeamAiRoughcutResultDocument = {
+  format: "prepix.team-ai.roughcut/v1";
+  operation: "agent";
+  workspaceId: string;
+  projectId: string;
+  jobId: string;
+  quoteId: string;
+  catalogVersion: string;
+  instructionSha256: string;
+  complete: true;
+  inputs: {
+    ordinal: number;
+    inputVersionId: string;
+    inputSha256: string;
+    size: number;
+    durationMs: number;
+  }[];
+  plan: TeamAiRoughcutPlan;
 };
 
 export type TeamFileKind = "original" | "output" | "working";

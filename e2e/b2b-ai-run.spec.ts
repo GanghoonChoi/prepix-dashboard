@@ -88,8 +88,12 @@ test("S30: registered input, quote, explicit run, response loss, refresh, verifi
   await page.getByRole("link", { name: "AI 작업", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`${target}/ai`));
   await expect(page.getByRole("heading", { name: "AI 작업", exact: true })).toBeVisible();
-  await expect(page.getByText("에이전트 작업")).toBeVisible();
-  await expect(page.getByRole("radio", { name: /에이전트 작업/ })).toBeDisabled();
+  const capabilities = (await (await request.get(`${endpoint}/ai/capabilities`, { headers: owner.headers })).json()).data;
+  const roughcut = page.getByRole("radio", { name: /러프컷 구성/ });
+  await expect(roughcut).toBeVisible();
+  if (capabilities.operations.find((o: { operation: string }) => o.operation === "agent")?.available)
+    await expect(roughcut).toBeEnabled();
+  else await expect(roughcut).toBeDisabled();
   await page.getByRole("checkbox", { name: /인터뷰\.wav/ }).check();
   await page.getByLabel("작업 지시").fill("인터뷰를 그대로 받아 적어 주세요.");
 

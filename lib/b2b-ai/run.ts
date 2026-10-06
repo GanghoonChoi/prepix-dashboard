@@ -1,5 +1,8 @@
-import { sha256 } from "@noble/hashes/sha2.js";
-import { bytesToHex } from "@noble/hashes/utils.js";
+import {
+  verifyAiResult,
+  type AiResultBasis,
+  type VerifiedAiResult,
+} from "./result";
 import { apiClient } from "../api/client";
 import type {
   CreateTeamAiQuote,
@@ -84,7 +87,8 @@ export const runStore = {
     } catch {
       parsed = null;
     }
-    if (!validRecord(parsed, scope)) throw new Error("B2B_AI_RUN_RECORD_INVALID");
+    if (!validRecord(parsed, scope))
+      throw new Error("B2B_AI_RUN_RECORD_INVALID");
     return parsed;
   },
   write(record: AiRunRecord) {
@@ -106,21 +110,82 @@ export const runStore = {
   },
 };
 
-export function aiApi(scope: AiScope) {
+export function assertAiScope(scope: AiScope) {
+  if (new URL(apiClient.defaults.baseURL!).origin !== scope.origin)
+    throw new Error("B2B_FILE_SERVICE_CHANGED");
+  if (!scope.userId) throw new Error("B2B_FILE_ACCOUNT_CHANGED");
+  if (typeof window !== "undefined") {
+    let actor: string | undefined;
+    try {
+      actor = JSON.parse(localStorage.getItem("userInfo") ?? "null")?.id;
+    } catch {
+      /* refuse an unconfirmed actor */
+    }
+    if (
+      !actor ||
+      actor !== scope.userId ||
+      !localStorage.getItem("accessToken")
+    )
+      throw new Error("B2B_FILE_ACCOUNT_CHANGED");
+    const path = `/dashboard/workspaces/${scope.workspaceId}/projects/${scope.projectId}/ai`;
+    if (window.location.pathname !== path)
+      throw new Error("B2B_AI_RESPONSE_SCOPE_MISMATCH");
+  }
+}
+
+export function aiApi(
+  scope: AiScope,
+  assertCurrent?: () => void,
+  currentSignal?: () => AbortSignal,
+) {
   const e = encodeURIComponent,
     team = `/workspaces/${e(scope.workspaceId)}/b2b`,
     root = `${team}/projects/${e(scope.projectId)}`;
-  const options = (signal?: AbortSignal, timeout = 15_000) => {
-    // A changed service origin or account must not continue this scope's run.
-    if (new URL(apiClient.defaults.baseURL!).origin !== scope.origin)
-      throw new Error("B2B_FILE_SERVICE_CHANGED");
-    return { signal, timeout, headers: { "X-Prepix-Account-ID": scope.userId } };
+  const owned = () => {
+    assertCurrent?.();
+    assertAiScope(scope);
   };
-  const get = async <T>(path: string, signal?: AbortSignal) =>
-    (await apiClient.get<{ data: T }>(path, options(signal))).data.data;
-  const post = async <T>(path: string, body: unknown, signal?: AbortSignal) =>
-    (await apiClient.post<{ data: T }>(path, body, options(signal, 30_000)))
-      .data.data;
+  const options = (signal?: AbortSignal, timeout = 15_000) => {
+    owned();
+    const active = currentSignal?.();
+    return {
+      signal:
+        signal && active
+          ? AbortSignal.any([signal, active])
+          : (signal ?? active),
+      timeout,
+      headers: { "X-Prepix-Account-ID": scope.userId },
+    };
+  };
+  const request = async <T>(
+    method: "get" | "post",
+    path: string,
+    body?: unknown,
+    signal?: AbortSignal,
+  ) => {
+    const config = options(signal, method === "post" ? 30_000 : 15_000);
+    try {
+      const value = (
+        await apiClient.request<{ data: T }>({
+          method,
+          url: path,
+          data: body,
+          ...config,
+        })
+      ).data.data;
+      config.signal?.throwIfAborted();
+      owned();
+      return value;
+    } catch (error) {
+      config.signal?.throwIfAborted();
+      owned();
+      throw error;
+    }
+  };
+  const get = <T>(path: string, signal?: AbortSignal) =>
+    request<T>("get", path, undefined, signal);
+  const post = <T>(path: string, body: unknown, signal?: AbortSignal) =>
+    request<T>("post", path, body, signal);
   return {
     capabilities: (signal?: AbortSignal) =>
       get<TeamAiCapabilities>(`${team}/ai/capabilities`, signal),
@@ -132,11 +197,18 @@ export function aiApi(scope: AiScope) {
     quote: (input: CreateTeamAiQuote, signal?: AbortSignal) =>
       post<TeamAiQuoteReceipt>(`${root}/ai/quotes`, input, signal),
     quoteByRequest: (requestKey: string, signal?: AbortSignal) =>
-      get<TeamAiQuoteReceipt>(`${root}/ai/quote-requests/${e(requestKey)}`, signal),
+      get<TeamAiQuoteReceipt>(
+        `${root}/ai/quote-requests/${e(requestKey)}`,
+        signal,
+      ),
     getQuote: (id: string, signal?: AbortSignal) =>
       get<{ quote: TeamAiQuote }>(`${root}/ai/quotes/${e(id)}`, signal),
     submit: (
-      input: { requestKey: string; quoteId: string; approvedMaximumUnits: number },
+      input: {
+        requestKey: string;
+        quoteId: string;
+        approvedMaximumUnits: number;
+      },
       signal?: AbortSignal,
     ) => post<TeamAiSubmission>(`${root}/ai/jobs`, input, signal),
     submissionByRequest: (requestKey: string, signal?: AbortSignal) =>
@@ -144,7 +216,9 @@ export function aiApi(scope: AiScope) {
     execution: (jobId: string, signal?: AbortSignal) =>
       get<TeamAiExecution>(`${root}/ai/jobs/${e(jobId)}/execution`, signal),
     cancel: (jobId: string, requestKey: string) =>
-      post<{ jobId: string }>(`${root}/ai/jobs/${e(jobId)}/cancel`, { requestKey }),
+      post<{ jobId: string }>(`${root}/ai/jobs/${e(jobId)}/cancel`, {
+        requestKey,
+      }),
     result: (id: string, signal?: AbortSignal) =>
       get<TeamAiResultReceipt>(`${root}/ai/results/${e(id)}`, signal),
     content: (id: string, sha: string, signal?: AbortSignal) =>
@@ -184,7 +258,8 @@ export function checkQuote(
     quote.workspaceId !== record.scope.workspaceId ||
     quote.projectId !== record.scope.projectId ||
     quote.operation !== record.quote.input.operation ||
-    JSON.stringify(ids) !== JSON.stringify(record.quote.input.inputVersionIds) ||
+    JSON.stringify(ids) !==
+      JSON.stringify(record.quote.input.inputVersionIds) ||
     (record.quote.id !== undefined && quote.id !== record.quote.id)
   )
     throw new Error("B2B_AI_RESPONSE_SCOPE_MISMATCH");
@@ -206,36 +281,20 @@ export function checkExecution(
   return view;
 }
 
-/** Hash of the exact received bytes; display only after it matches the server summary. */
+/** Legacy callers receive analysis documents; roughcut requires an exact basis. */
 export function verifyResultContent(
   content: TeamAiResultContent,
   expected: TeamAiResultSummary,
-): { bytes: Uint8Array; sha256: string; document: TeamAiResultDocument } {
-  let bytes: Uint8Array;
-  try {
-    bytes = Uint8Array.from(atob(content.contentBase64), (c) => c.charCodeAt(0));
-  } catch {
-    throw new Error("B2B_AI_RESULT_HASH_MISMATCH");
-  }
-  const actual = bytesToHex(sha256(bytes));
-  if (
-    actual !== expected.sha256 ||
-    content.result?.sha256 !== expected.sha256 ||
-    content.result.id !== expected.id ||
-    bytes.length !== expected.size
-  )
-    throw new Error("B2B_AI_RESULT_HASH_MISMATCH");
-  let document: TeamAiResultDocument;
-  try {
-    document = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
-  } catch {
-    throw new Error("B2B_AI_RESULT_FORMAT_INVALID");
-  }
-  if (
-    document?.format !== "prepix.team-ai.result/v1" ||
-    !Array.isArray(document.items) ||
-    document.items.length !== expected.completedStages
-  )
-    throw new Error("B2B_AI_RESULT_FORMAT_INVALID");
-  return { bytes, sha256: actual, document };
+): { bytes: Uint8Array; sha256: string; document: TeamAiResultDocument };
+export function verifyResultContent(
+  content: TeamAiResultContent,
+  expected: TeamAiResultSummary,
+  basis: AiResultBasis,
+): VerifiedAiResult;
+export function verifyResultContent(
+  content: TeamAiResultContent,
+  expected: TeamAiResultSummary,
+  basis?: AiResultBasis,
+): VerifiedAiResult {
+  return verifyAiResult(content, expected, basis);
 }
