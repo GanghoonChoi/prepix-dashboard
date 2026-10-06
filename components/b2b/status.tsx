@@ -9,12 +9,12 @@ import {
   secondaryClass,
 } from "@/components/workspaces/shared";
 import { apiClient } from "@/lib/api/client";
+import { accessEnded } from "@/lib/api/session";
 import { b2bService, type TeamLifecycle } from "@/lib/api/services/b2b.service";
 import { useI18n } from "@/lib/i18n/context";
 import { deletionCopy, kst, reasonCopy } from "@/lib/b2b-lifecycle/view";
 import {
   B2bError,
-  definitivelyRejected,
   errorCode,
   StateBadge,
   useCopy,
@@ -55,9 +55,9 @@ function Lifecycle({ scope }: { scope: Scope }) {
     } catch (e) {
       if (!mounted.current || ticket !== serial.current) return;
       // A failed read is never shown as deleted, recoverable or empty: a
-      // network failure keeps the last answer with a retry; a definitive
-      // refusal clears it.
-      if (definitivelyRejected(e)) setView(null);
+      // network failure keeps the last answer with a retry; a 4xx (the
+      // server's, or this browser's own session fence) clears it.
+      if (accessEnded(e)) setView(null);
       setError(errorCode(e));
     }
   }, [scope]);

@@ -7,7 +7,7 @@ const password = "LocalPreview123";
 const suffix = () => `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const DAY = 86400;
 function fixture(input: object) {
-  execFileSync(process.execPath, [resolve("../prepix-backend/backend/scripts/b2b-team-lifecycle-fixture.cjs"), JSON.stringify(input)], { timeout: 15_000 });
+  execFileSync(process.execPath, [resolve(process.env.B2B_E2E_FIXTURE_DIR ?? "../prepix-backend/backend/scripts", "b2b-team-lifecycle-fixture.cjs"), JSON.stringify(input)], { timeout: 15_000 });
 }
 async function account(request: APIRequestContext, label: string) {
   const email = `${label}-${suffix()}@example.test`;

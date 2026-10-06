@@ -10,6 +10,7 @@ import {
   scopeKey,
   type NotificationScope,
 } from "./notifications";
+import { parseExactReviewTarget } from "../b2b-reviews/exact-target";
 import type { UserNotification } from "../api/generated/b2b";
 
 const scope: NotificationScope = {
@@ -102,6 +103,12 @@ test("destinations map to the screens that recheck access themselves", () => {
     href({ kind: "library", workspaceId: w }),
     `/dashboard/workspaces/${w}/library`,
   );
+  // A review notice opens the exact round and version the exact-entry check pins.
+  const v = randomUUID();
+  const review = href({ kind: "review", workspaceId: w, projectId: p, reviewId: r, round: 3, versionId: v });
+  const url = new URL(review, "http://local.test");
+  assert.equal(url.pathname, `/dashboard/workspaces/${w}/projects/${p}/reviews/${r}`);
+  assert.deepEqual(parseExactReviewTarget(url.searchParams), { round: 3, versionId: v });
 });
 
 test("a missing date never leaves a dangling clause", () => {
