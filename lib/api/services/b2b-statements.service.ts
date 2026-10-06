@@ -1,10 +1,11 @@
 import { apiClient } from "../client";
+import { localRefusal } from "../session";
 import type { TeamStatementDetail, TeamStatementList } from "../generated/b2b";
 import { scopeKey } from "../../b2b-statements/statements";
 import type { StatementScope, StatementReceipt, StatementIssueLookup } from "../../b2b-statements/statements";
 
 const e = encodeURIComponent;
-const fail = (code: string) => Object.assign(new Error(code), { response: { status: 401, data: { message: code } } });
+const fail = (code: string) => localRefusal(code);
 /** A fixed origin/account/team owns every call, including its delayed body. */
 export function statementApi(scope: StatementScope, signal?: AbortSignal | (() => AbortSignal), assertCurrent?: () => void) {
   const base = `/workspaces/${e(scope.workspaceId)}/b2b/statements`;

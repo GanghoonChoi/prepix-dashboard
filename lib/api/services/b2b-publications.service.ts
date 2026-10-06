@@ -1,9 +1,10 @@
 import { apiClient } from "../client";
+import { localRefusal } from "../session";
 import type { PublicationList, PublicationMutationLookup, PublishPublication, RegisterPublication, TeamPublication } from "../generated/b2b";
 import { BrowserPublicationStore, publicationHash, publicationScopeKey, runPublication, checkPublication, type PublicationApi, type PublicationOperation, type PublicationScope } from "../../b2b-publications/operations";
 
 const e = encodeURIComponent, store = new BrowserPublicationStore();
-const deny = (message: string): never => { throw Object.assign(new Error(message), { response: { status: 403, data: { message } } }); };
+const deny = (message: string): never => { throw localRefusal(message, 403); };
 export const publicationOrigin = () => new URL(apiClient.defaults.baseURL!).origin;
 const root = (s: PublicationScope) => `/workspaces/${e(s.workspaceId)}/b2b/projects/${e(s.projectId)}`;
 function headers(s: PublicationScope) {

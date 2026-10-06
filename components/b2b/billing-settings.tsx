@@ -27,7 +27,7 @@ import {
   openBillingAuth,
   useTeamBilling,
 } from "./billing-shared";
-import { useCopy } from "./shared";
+import { definitivelyRejected, useCopy } from "./shared";
 
 const fields: [keyof TeamBuyer, string, string, string][] = [
   ["businessName", "상호", "Business name", "organization"],
@@ -183,8 +183,8 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
       .catch((e) => {
         if (!current()) return;
         setFailure(billingCode(e));
-        const status = (e as { response?: { status?: number } })?.response?.status;
-        if (status && status >= 400 && status < 500) window.history.replaceState(null, "", window.location.pathname);
+        // A local session fence is not the server's answer: keep the return.
+        if (definitivelyRejected(e)) window.history.replaceState(null, "", window.location.pathname);
       })
       .finally(() => {
         if (viewGeneration.current === generation) completing.current = false;

@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { sessionChanged } from "../api/session";
 import { createHash, randomUUID } from "node:crypto";
 import {
   checkReview,
@@ -266,4 +267,25 @@ test("a dead resend blocks the slot until it is discarded; an applied change is 
   await store.prepare(applied);
   assert.equal(await discardReview(applied, api, store, signal), false);
   assert.equal((await store.list(project)).length, 0);
+});
+// SOT: one shared policy (lib/api/session.ts serverRejected). A local session
+// fence may sit over a POST the server already applied, so it never frees a key.
+test("a review change fenced by a local session change keeps its key and recovers once", async () => {
+  const store = new MemoryStore(), r = comment(), done = receipt();
+  let posts = 0, applied = false;
+  const api: ReviewApi = {
+    operation: async (x) => {
+      assert.equal(x.input.requestKey, r.input.requestKey);
+      return { currentUserId: project.userId, receipt: applied ? done : null };
+    },
+    apply: async () => {
+      posts++;
+      applied = true;
+      throw sessionChanged();
+    },
+  };
+  await assert.rejects(runReview(r, api, store, new AbortController().signal), /API_SESSION_CHANGED/);
+  assert.equal((await store.list(project))[0]?.input.requestKey, r.input.requestKey);
+  assert.deepEqual(await runReview({ ...r, input: { ...r.input, requestKey: randomUUID() } }, api, store, new AbortController().signal), done);
+  assert.equal(posts, 1);
 });

@@ -6,6 +6,7 @@ import type {
   ProjectRequestMutationLookup,
   ProjectRequestMutationResult,
 } from "../api/generated/b2b";
+import { serverRejected } from "../api/session";
 export type RequestScope = {
   origin: string;
   userId: string;
@@ -366,15 +367,7 @@ export async function runRequest(
     await api.apply(started, signal);
     signal.throwIfAborted();
   } catch (e) {
-    const status = (e as { response?: { status?: number } })?.response?.status;
-    if (
-      status &&
-      status >= 400 &&
-      status < 500 &&
-      status !== 408 &&
-      status !== 429
-    )
-      await store.rejectFirst(started);
+    if (serverRejected(e)) await store.rejectFirst(started);
     throw e;
   }
   // Only this actor's server receipt clears an intent, including after a lost

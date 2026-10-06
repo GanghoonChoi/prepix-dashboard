@@ -1,5 +1,6 @@
 "use client";
 import {
+  Fragment,
   createContext,
   useContext,
   useState,
@@ -116,7 +117,9 @@ export function WorkspaceProvider({
           <CloudError code={error} retry={reload} />
         </div>
       )}
-      {children}
+      {/* Another account is another view: its in-memory intents (pending
+          request keys, drafts) never carry over. Same account keeps them. */}
+      <Fragment key={data.currentUserId}>{children}</Fragment>
     </Context.Provider>
   );
 }

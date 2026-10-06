@@ -16,7 +16,7 @@ import { useWorkspace } from "@/components/workspaces/workspace-context";
 import { inputClass, secondaryClass } from "@/components/workspaces/shared";
 import {
   B2bError,
-  definitivelyRejected,
+  accessEnded,
   errorCode,
   StateBadge,
   useCopy,
@@ -145,7 +145,7 @@ function WorkPage({
       // A network failure preserves the last response with an explicit retry.
       // Any definitive refusal clears both cards and counts together.
       if (
-        definitivelyRejected(e) ||
+        accessEnded(e) ||
         (e instanceof Error && e.message === "B2B_FILE_ACCOUNT_CHANGED")
       )
         setData(null);

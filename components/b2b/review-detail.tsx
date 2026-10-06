@@ -27,7 +27,7 @@ import {
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
-import { definitivelyRejected, errorCode, useCopy } from "./shared";
+import { accessEnded, errorCode, useCopy } from "./shared";
 import {
   approvalCopy,
   Badge,
@@ -270,7 +270,7 @@ function ReviewPlayer({
         setSource({ url: p.url, expiresAt: Date.parse(p.expiresAt) });
         setError("");
       } catch (e) {
-        if (definitivelyRejected(e)) {
+        if (accessEnded(e)) {
           video.current?.pause();
           setSource(null);
           setEnded(errorCode(e));

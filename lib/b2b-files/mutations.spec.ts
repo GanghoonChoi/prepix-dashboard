@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { sessionChanged } from "../api/session";
 import { randomUUID } from "node:crypto";
 import {
   BrowserMutationStore,
@@ -335,4 +336,18 @@ test("a direct library relink pins independent provenance and cannot become a pr
     ),
     false,
   );
+});
+// SOT: one shared policy (lib/api/session.ts serverRejected). A local session
+// fence may sit over a POST the server already applied, so it never frees a key.
+test("a local session fence over an applied unlink keeps the original key; its receipt settles it once", async () => {
+  const f = fixture(),
+    unlink = f.api.unlink;
+  f.api.unlink = async (...args: Parameters<typeof unlink>) => {
+    await unlink(...args).catch(() => undefined);
+    throw sessionChanged();
+  };
+  await assert.rejects(runMutation(f.r, f.api, f.store, signal()), /API_SESSION_CHANGED/);
+  assert.equal((await f.store.list(scope))[0]?.input.requestKey, f.r.input.requestKey);
+  assert.deepEqual(await runMutation(f.r, f.api, f.store, signal()), f.receipt);
+  assert.equal(f.posts(), 1);
 });

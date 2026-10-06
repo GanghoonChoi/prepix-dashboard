@@ -17,6 +17,7 @@ import type {
   TeamAiSubmission,
   TeamFileVersionList,
 } from "../api/generated/b2b";
+import { serverRejected } from "../api/session";
 
 // S30 (SOT: prepix-backend backend/docs/b2b-ai-execution.md). One run per
 // service origin, account, team and project. The record is written before every
@@ -241,10 +242,7 @@ export const notReached = (error: unknown) =>
     String(message(error)),
   );
 /** A processed rejection: the same key would only be rejected again. */
-export const rejected = (error: unknown) => {
-  const s = status(error);
-  return typeof s === "number" && s >= 400 && s < 500 && s !== 408 && s !== 429;
-};
+export const rejected = serverRejected;
 
 /** Responses must belong to this scope and, for a recovery, to its request. */
 export function checkQuote(

@@ -25,6 +25,7 @@ import {
   errorCode,
   StateBadge,
   useCopy,
+  accessEnded,
   definitivelyRejected,
 } from "./shared";
 
@@ -49,7 +50,7 @@ function useProject(projectId: string) {
     } catch (e) {
       if (request === serial.current) {
         setError(errorCode(e));
-        if (definitivelyRejected(e)) setProject(null);
+        if (accessEnded(e)) setProject(null);
       }
     }
   }, [id, projectId, permitted, account]);

@@ -10,6 +10,7 @@ import type {
   TeamFileStewardRecoveryList,
   TransferTeamFileStewardInput,
 } from "../api/generated/b2b";
+import { serverRejected } from "../api/session";
 
 export type StewardScope = Pick<FileScope, "origin" | "userId" | "workspaceId">;
 export type StewardRecord = {
@@ -353,15 +354,7 @@ export async function runSteward(
     await store.finish(started);
     return result;
   } catch (e) {
-    const status = (e as { response?: { status?: number } })?.response?.status;
-    if (
-      status &&
-      status >= 400 &&
-      status < 500 &&
-      status !== 408 &&
-      status !== 429
-    )
-      await store.rejectFirst(started);
+    if (serverRejected(e)) await store.rejectFirst(started);
     throw e;
   }
 }

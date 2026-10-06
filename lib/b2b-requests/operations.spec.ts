@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { sessionChanged } from "../api/session";
 import { randomUUID } from "node:crypto";
 import {
   checkRequest,
@@ -348,4 +349,20 @@ test("original reference selections bind the persisted intent, including ordered
         scope,
       ),
     );
+});
+// SOT: one shared policy (lib/api/session.ts serverRejected). A local session
+// fence may sit over a POST the server already applied, so it never frees a key.
+test("a local session fence keeps the first POST pending; only the server's own 403 frees it", async () => {
+  for (const [failure, kept] of [[sessionChanged(), true], [{ response: { status: 403 } }, false]] as const) {
+    const r = record("submit"),
+      store = new MemoryStore();
+    const api = {
+      operation: async () => ({ currentUserId: scope.userId, receipt: null }),
+      apply: async () => {
+        throw failure;
+      },
+    };
+    await assert.rejects(runRequest(r, api, store, signal()));
+    assert.equal(store.row?.input.requestKey === r.input.requestKey, kept);
+  }
 });

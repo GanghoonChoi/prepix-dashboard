@@ -10,6 +10,7 @@ import type {
   TeamFileTrashList,
   TeamFileTrashImpact,
 } from "../api/generated/b2b";
+import { serverRejected } from "../api/session";
 export type TrashScope = Pick<FileScope, "origin" | "userId" | "workspaceId">;
 export type TrashRecord = {
   schema: 1;
@@ -318,15 +319,7 @@ export async function runTrash(
     await store.finish(started);
     return result;
   } catch (e) {
-    const status = (e as { response?: { status?: number } })?.response?.status;
-    if (
-      status &&
-      status >= 400 &&
-      status < 500 &&
-      status !== 408 &&
-      status !== 429
-    )
-      await store.rejectFirst(started);
+    if (serverRejected(e)) await store.rejectFirst(started);
     throw e;
   }
 }

@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { sessionChanged } from "../api/session";
 import { randomUUID, createHash } from "node:crypto";
 import { checkPublication, publicationHash, runPublication, samePublicationIntent, type PublicationApi, type PublicationOperation, type PublicationScope, type PublicationStore } from "./operations";
 import type { PublicationMutationLookup } from "../api/generated/b2b";
@@ -77,4 +78,13 @@ test("scope is fenced inside the durable finish transaction after an asynchronou
   store.finish = async (intent, assertCurrent) => { await Promise.resolve(); current = false; assertCurrent?.(); if (store.row?.input.requestKey === intent.input.requestKey) store.row = undefined; };
   await assert.rejects(checkPublication(r, { assertScope: () => { if (!current) throw new Error("scope changed"); }, lookup: async () => receipt(r), apply: async () => undefined }, store), /scope changed/);
   assert.equal(store.row, r);
+});
+// SOT: one shared policy (lib/api/session.ts serverRejected). A local session
+// fence may sit over a POST the server already applied, so it never frees a key.
+test("a local session fence keeps the first publish pending; only the server's own 409 frees it", async () => {
+  for (const [failure, kept] of [[sessionChanged(), true], [Object.assign(new Error("stale"), { response: { status: 409 } }), false]] as const) {
+    const r = operation(), store = new Memory();
+    await assert.rejects(runPublication(r, { lookup: async () => empty(), apply: async () => { throw failure; } }, store));
+    assert.equal(store.row?.input.requestKey === r.input.requestKey, kept);
+  }
 });

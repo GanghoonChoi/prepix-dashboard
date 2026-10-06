@@ -22,6 +22,7 @@ import type {
   TeamRefundPreview,
   TeamRefundSelection,
 } from "../api/generated/b2b";
+import { serverRejected } from "../api/session";
 
 // Billing changes are written to this browser's store, keyed by service,
 // account and team, BEFORE they are sent. A lost reply is resolved by asking
@@ -289,10 +290,7 @@ const sendFor = (api: BillingApi, r: BillingRecord): Promise<Record<string, unkn
     }
   }
 };
-export const pendingOutcome = (error: unknown) => {
-  const status = (error as { response?: { status?: number } })?.response?.status;
-  return !(typeof status === "number" && status >= 400 && status < 500 && status !== 408 && status !== 429);
-};
+export const pendingOutcome = (error: unknown) => !serverRejected(error);
 /** The stored server result of a lost change, or null when none exists yet. */
 export async function checkRecord(r: BillingRecord, api: BillingApi, store: BillingStore) {
   api.assertScope?.(r);

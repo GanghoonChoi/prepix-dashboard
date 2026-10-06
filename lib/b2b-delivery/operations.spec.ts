@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { sessionChanged } from "../api/session";
 import { randomUUID } from "node:crypto";
 import { checkDelivery, deliveryInputHash, deliveryScopeKey, runDelivery, sameDeliveryIntent, validDeliveryOperation, type DeliveryApi, type DeliveryOperation, type DeliveryReceipt, type DeliveryScope, type DeliveryStore } from "./operations";
 const scope: DeliveryScope = { origin: "https://api.example.test", userId: randomUUID(), workspaceId: randomUUID(), projectId: randomUUID() };
@@ -75,5 +76,14 @@ test("account or project navigation during lookup or durable deletion retains th
     store.finish = async (_r?: DeliveryOperation, assertCurrent?: () => void) => { if (phase === "finish") current = false; assertCurrent?.(); store.row = undefined; };
     await assert.rejects(checkDelivery(r, api, store), /SCOPE_CHANGED/);
     assert.equal((await store.list(scope))[0].input.requestKey, r.input.requestKey);
+  }
+});
+// SOT: one shared policy (lib/api/session.ts serverRejected). A local session
+// fence may sit over a POST the server already applied, so it never frees a key.
+test("a local session fence keeps the first completion pending; only the server's own 409 frees it", async () => {
+  for (const [failure, kept] of [[sessionChanged(), true], [Object.assign(new Error("conflict"), { response: { status: 409 } }), false]] as const) {
+    const r = operation(), store = new MemoryStore();
+    await assert.rejects(runDelivery(r, { lookup: async () => { throw missing(); }, apply: async () => { throw failure; } }, store));
+    assert.equal((await store.list(scope)).length, kept ? 1 : 0);
   }
 });

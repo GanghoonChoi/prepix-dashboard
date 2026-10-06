@@ -25,7 +25,7 @@ import {
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
-import { B2bError, definitivelyRejected, errorCode, useCopy } from "./shared";
+import { B2bError, accessEnded, definitivelyRejected, errorCode, useCopy } from "./shared";
 import { ReviewPending } from "./review-pending";
 
 // SOT: prepix-backend backend/docs/b2b-reviews.md (S34)
@@ -231,7 +231,7 @@ export function useLoader<T>(read: () => Promise<T>, poll = 15000) {
     } catch (e) {
       if (!mounted.current || ticket !== sequence.current) return;
       setError(errorCode(e));
-      if (definitivelyRejected(e)) setData(null);
+      if (accessEnded(e)) setData(null);
       else setStale(true);
     }
   }, [read]);

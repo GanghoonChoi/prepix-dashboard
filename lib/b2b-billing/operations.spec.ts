@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { sessionChanged } from "../api/session";
 import { apiClient } from "../api/client";
 import {
   inputHash,
@@ -137,14 +138,16 @@ test("browser APIs block null users, changed accounts, changed teams and changed
     const api = billingApi(scope);
     await assert.rejects(billingApi({ ...scope, userId: null }).changeProfile(record().input), /B2B_BILLING_ACCOUNT_CHANGED/);
     assert.equal(sends, 0);
-    for (const alter of [() => { user = other.userId; }, () => { user = ""; }, () => { path = "/dashboard/workspaces/other/plan"; }, () => { apiClient.defaults.baseURL = "http://localhost:9999/v2"; }]) {
+    // An account or service change is fenced by the session layer before the
+    // body reaches billing code; only the route is billing's own check.
+    for (const [alter, code] of [[() => { user = other.userId; }, /API_SESSION_CHANGED/], [() => { user = ""; }, /API_SESSION_CHANGED/], [() => { path = "/dashboard/workspaces/other/plan"; }, /B2B_BILLING_SCOPE_CHANGED/], [() => { apiClient.defaults.baseURL = "http://localhost:9999/v2"; }, /API_SESSION_CHANGED/]] as const) {
       user = scope.userId; path = `/dashboard/workspaces/${scope.workspaceId}/plan`; apiClient.defaults.baseURL = `${scope.origin}/v2`;
       change = alter;
-      await assert.rejects(api.changeProfile(record().input), /B2B_BILLING_(ACCOUNT|SCOPE|SERVICE)_CHANGED/);
+      await assert.rejects(api.changeProfile(record().input), code);
     }
     user = scope.userId; path = `/dashboard/workspaces/${scope.workspaceId}/plan`; apiClient.defaults.baseURL = `${scope.origin}/v2`;
     change = () => { user = other.userId; };
-    await assert.rejects(billingApi({ ...scope, userId: null }).overview(), /B2B_BILLING_ACCOUNT_CHANGED/);
+    await assert.rejects(billingApi({ ...scope, userId: null }).overview(), /API_SESSION_CHANGED/);
   } finally {
     apiClient.defaults.baseURL = oldBase; apiClient.defaults.adapter = oldAdapter;
     Object.assign(globalThis, { window: oldWindow, localStorage: oldStorage });
@@ -175,4 +178,14 @@ test("corrupt or path-mismatched pending records fail closed instead of opening 
   await assert.rejects(store.prepare(record()), /B2B_BILLING_OPERATION_INVALID/);
   const bad = { ...record(), action: "method.remove", topic: scope.workspaceId, input: { requestKey: record().input.requestKey, methodId: other.userId } } as BillingRecord;
   await assert.rejects(store.prepare(bad), /B2B_BILLING_OPERATION_INVALID/);
+});
+// SOT: one shared policy (lib/api/session.ts serverRejected). A local session
+// fence may sit over a POST the server already applied, so it never frees a key.
+test("a paid change fenced by a local session change stays pending and recovers by its original key without a second send", async () => {
+  const store = new MemoryBillingStore();
+  await assert.rejects(runRecord(record(), fakeApi({ send: [async () => Promise.reject(sessionChanged())] }).api, store), /API_SESSION_CHANGED/);
+  assert.equal((await store.get(record()))?.attempts, 1);
+  const retry = fakeApi({ send: [], receipt: { revision: 0, requestId: "x" } });
+  assert.deepEqual(await runRecord(record("7f1f5b7e-0d7a-4a3c-9a52-2f7e0c1d9e10"), retry.api, store), { revision: 0, requestId: "x" });
+  assert.deepEqual(retry.calls, [`lookup:${inputHash(record().input).slice(0, 8)}`]);
 });

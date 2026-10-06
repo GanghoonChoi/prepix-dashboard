@@ -39,7 +39,7 @@ import {
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
-import { B2bError, definitivelyRejected, errorCode, useCopy } from "./shared";
+import { B2bError, accessEnded, errorCode, useCopy } from "./shared";
 
 // SOT: prepix-backend backend/docs/b2b-requests.md
 type Copy = [string, string];
@@ -251,7 +251,7 @@ function useLoader<T>(read: () => Promise<T>) {
       setError("");
     } catch (e) {
       if (!mounted.current || ticket !== sequence.current) return;
-      if (!loaded.current || definitivelyRejected(e)) {
+      if (!loaded.current || accessEnded(e)) {
         loaded.current = false;
         setData(null);
         setError(errorCode(e));

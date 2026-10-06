@@ -1,6 +1,7 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import type { PublicationMutationLookup, PublicationMutationResult } from "../api/generated/b2b";
+import { serverRejected } from "../api/session";
 
 export type PublicationScope = { origin: string; userId: string; workspaceId: string; projectId: string };
 export type PublicationOperation = {
@@ -101,8 +102,7 @@ export async function runPublication(r: PublicationOperation, api: PublicationAp
   catch (e) {
     const recovered = await checkPublication(started, api, store);
     if (recovered) return recovered;
-    const status = (e as { response?: { status?: number } })?.response?.status;
-    if (status && status >= 400 && status < 500 && status !== 408 && status !== 429) await store.rejectFirst(started, () => api.assertScope?.(started));
+    if (serverRejected(e)) await store.rejectFirst(started, () => api.assertScope?.(started));
     throw e;
   }
   const confirmed = await checkPublication(started, api, store);

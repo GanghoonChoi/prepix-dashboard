@@ -6,6 +6,7 @@ import {
   type Capabilities,
 } from "@/lib/api/services/workspace.service";
 import { workspaceError } from "@/lib/workspaces/onboarding";
+import { serverRejected } from "@/lib/api/session";
 
 type Intent = {
   name: string;
@@ -47,16 +48,7 @@ export function useTeamCreation(capabilities: Capabilities | null) {
       intent.current = null;
       setPending(false);
     } catch (e) {
-      const status = (e as { response?: { status?: number } })?.response
-        ?.status;
-      if (
-        !request.workspace &&
-        typeof status === "number" &&
-        status >= 400 &&
-        status < 500 &&
-        status !== 408 &&
-        status !== 429
-      ) {
+      if (!request.workspace && serverRejected(e)) {
         intent.current = null;
         setPending(false);
       }

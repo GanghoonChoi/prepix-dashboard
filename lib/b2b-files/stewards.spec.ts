@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { sessionChanged } from "../api/session";
 import { randomUUID } from "node:crypto";
 import {
   checkSteward,
@@ -266,4 +267,20 @@ test("acceptance receipts must identify the same recovery request; a designation
     /OPERATION_INVALID/,
   );
   assert.ok(requestStore.row);
+});
+// SOT: one shared policy (lib/api/session.ts serverRejected). A local session
+// fence may sit over a POST the server already applied, so it never frees a key.
+test("a local session fence keeps the first POST pending; only the server's own 403 frees it", async () => {
+  for (const [failure, kept] of [[sessionChanged(), true], [{ response: { status: 403 } }, false]] as const) {
+    const r = record(),
+      store = new MemoryStore();
+    const api = {
+      operation: async () => ({ currentUserId: scope.userId, receipt: null }),
+      apply: async () => {
+        throw failure;
+      },
+    };
+    await assert.rejects(runSteward(r, api, store, new AbortController().signal));
+    assert.equal(store.row?.input.requestKey === r.input.requestKey, kept);
+  }
 });

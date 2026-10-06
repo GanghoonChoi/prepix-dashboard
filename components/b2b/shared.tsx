@@ -27,17 +27,10 @@ export function errorCode(error: unknown): string {
     ?.response?.data?.message;
   return typeof message === "string" ? message : "REQUEST_FAILED";
 }
-export function definitivelyRejected(error: unknown): boolean {
-  const status = (error as { response?: { status?: number } })?.response
-    ?.status;
-  return (
-    typeof status === "number" &&
-    status >= 400 &&
-    status < 500 &&
-    status !== 408 &&
-    status !== 429
-  );
-}
+/** Mutations: the server itself refused, so the pending key may be freed. */
+export { serverRejected as definitivelyRejected } from "@/lib/api/session";
+/** Reads: the server or this browser's session fence ended access; clear it. */
+export { accessEnded } from "@/lib/api/session";
 const invitationErrors: Record<string, [string, string]> = {
   B2B_DEVICE_RETIRED: [
     "이미 등록 해제가 요청된 장치입니다. 현재 장치 상태를 확인해 주세요.",

@@ -1,5 +1,6 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
+import { serverRejected } from "../api/session";
 
 // Every view and stored request is pinned to service origin, account and team
 // so a switch or a late response can never show another team's statement.
@@ -192,9 +193,7 @@ export async function runIssue(fresh: PendingIssue, api: StatementIssueApi, stor
     return result;
   } catch (error) {
     api.assertScope(started);
-    const status = (error as {response?: {status?: number}})?.response?.status;
-    if (status && status >= 400 && status < 500 && status !== 408 && status !== 429)
-      await store.rejectFirst(started, () => api.assertScope(started));
+    if (serverRejected(error)) await store.rejectFirst(started, () => api.assertScope(started));
     throw error;
   }
 }

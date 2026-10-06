@@ -5,7 +5,7 @@ import type { ReviewWorkList, ReviewWorkQuery } from "@/lib/api/generated/b2b";
 import { origin, reviewEvents, reviewsService } from "@/lib/api/services/b2b-reviews.service";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import { inputClass, secondaryClass } from "@/components/workspaces/shared";
-import { B2bError, definitivelyRejected, errorCode, useCopy } from "./shared";
+import { B2bError, accessEnded, errorCode, useCopy } from "./shared";
 import { approvalCopy } from "./reviews";
 
 // SOT: prepix-backend backend/docs/b2b-reviews.md "업무 API". Independent of
@@ -46,7 +46,7 @@ function ScopedPanel({ scope, onDenied }: { scope: Scope; onDenied?: () => Promi
       if (!mounted.current || ticket !== serial.current) return;
       // Transient failures keep the last answer with a retry; a definitive
       // refusal clears counts and cards together.
-      if (definitivelyRejected(e) || (e instanceof Error && e.message === "B2B_FILE_ACCOUNT_CHANGED")) {
+      if (accessEnded(e) || (e instanceof Error && e.message === "B2B_FILE_ACCOUNT_CHANGED")) {
         setData(null);
         const status = (e as { response?: { status?: number } })?.response?.status;
         if (status === 403 || status === 404) void onDenied?.();

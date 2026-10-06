@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { sessionChanged } from "../api/session";
 import { createHash, randomUUID } from "node:crypto";
 import {
   MemoryStatementStore,
@@ -186,4 +187,24 @@ test("statement APIs fence actor, workspace route, origin and lifetime before an
     apiClient.defaults.baseURL = oldBase; apiClient.defaults.adapter = oldAdapter;
     Object.assign(globalThis, { window: oldWindow, localStorage: oldStorage });
   }
+});
+// SOT: one shared policy (lib/api/session.ts serverRejected). A local session
+// fence may sit over a POST the server already applied, so it never frees a key.
+test("a statement issue fenced by a local session change keeps its key and recovers once", async () => {
+  const store = new MemoryStatementStore(), fresh = freshIssue(scope, "2027-01");
+  const sends: string[] = [];
+  let stored: StatementReceipt | null = null;
+  const api: StatementIssueApi = {
+    assertScope: () => {},
+    operation: async (month, requestKey, inputHash) => ({ currentUserId: scope.userId, workspaceId: scope.workspaceId, month, requestKey, inputHash, receipt: stored }),
+    issue: async (month, requestKey) => {
+      sends.push(requestKey);
+      stored = { month, revision: { id: randomUUID(), month } as StatementReceipt["revision"], created: true, requestId: randomUUID() };
+      throw sessionChanged();
+    },
+  };
+  await assert.rejects(runIssue(fresh, api, store), /API_SESSION_CHANGED/);
+  assert.equal((await store.get(scope, fresh.month))?.requestKey, fresh.requestKey);
+  assert.deepEqual(await runIssue(freshIssue(scope, fresh.month), api, store), stored);
+  assert.deepEqual(sends, [fresh.requestKey]);
 });
