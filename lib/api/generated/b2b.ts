@@ -811,6 +811,7 @@ export type ProjectRequest = {
   dueAt: string | null;
   requestRevision: number;
   submissionCount: number;
+  evidenceMissing: boolean;
   resolution: {
     reason: string;
     by: ProjectRequestPerson;
@@ -958,6 +959,7 @@ export type ProjectRequestCompletionEvidence = {
     state: "open" | "submitted" | "confirmed" | "waived";
     submissionId: string | null;
     confirmationId: string | null;
+    code: "B2B_REQUEST_EVIDENCE_MISSING" | null;
     waiver: { reason: string; by: string; at: string } | null;
   }[];
 };

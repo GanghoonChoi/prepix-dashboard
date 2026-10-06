@@ -761,6 +761,133 @@ test("F13 requests by role: exact-version submission after a lost response, conf
       ).json()
     ).data.revisions[0].references,
   ).toEqual([{ position: 0, access: "restricted" }]);
+  // Current completion evidence follows the exact project link, not this
+  // viewer's grants. Its historical confirmation and deletion hold remain.
+  const evidenceCreated = await request.post(`${root}/requests`, {
+    headers: lead.headers,
+    data: {
+      requestKey: randomUUID(),
+      title: "근거 전달 확인",
+      body: "정확한 버전이 프로젝트에 남아 있어야 함",
+      required: true,
+      criteria: "정확한 원본",
+      shared: true,
+      confirmerId: lead.id,
+    },
+  });
+  expect(evidenceCreated.status()).toBe(201);
+  const evidenceId = (await evidenceCreated.json()).data.request.id;
+  const evidenceSubmitted = await request.post(
+    `${root}/requests/${evidenceId}/submissions`,
+    {
+      headers: lead.headers,
+      data: {
+        requestKey: randomUUID(),
+        requestRevision: 1,
+        versionIds: [referenceFile.versionId],
+        note: "",
+      },
+    },
+  );
+  expect(evidenceSubmitted.status()).toBe(201);
+  const evidenceSubmissionId = (await evidenceSubmitted.json()).data
+    .submissionId;
+  expect(
+    (
+      await request.post(
+        `${root}/requests/${evidenceId}/submissions/${evidenceSubmissionId}/confirmations`,
+        {
+          headers: lead.headers,
+          data: { requestKey: randomUUID(), decision: "confirmed", note: "" },
+        },
+      )
+    ).status(),
+  ).toBe(201);
+  const evidenceRead = async (headers = lead.headers) =>
+    (
+      await (
+        await request.get(`${root}/requests/${evidenceId}`, { headers })
+      ).json()
+    ).data;
+  const privateEvidence = await evidenceRead(external.headers);
+  expect(privateEvidence.submissions[0].files).toEqual([
+    { position: 0, access: "restricted" },
+  ]);
+  expect(privateEvidence.request.evidenceMissing).toBe(false);
+  expect(privateEvidence.submissions[0].confirmation.current).toBe(true);
+  const progress = async () =>
+    (
+      await (
+        await request.get(`${root}/request-work`, { headers: lead.headers })
+      ).json()
+    ).data.required.satisfied;
+  const satisfiedBefore = await progress();
+  const linkedFile = (
+    await (
+      await request.get(`${root}/files/${referenceFile.versionId}`, {
+        headers: lead.headers,
+      })
+    ).json()
+  ).data.version;
+  expect(
+    (
+      await request.post(`${root}/files/${referenceFile.versionId}/unlink`, {
+        headers: lead.headers,
+        data: {
+          requestKey: randomUUID(),
+          revision: linkedFile.referenceRevision,
+          reason: "근거 연결 제외 인수",
+        },
+      })
+    ).status(),
+  ).toBe(201);
+  const unavailableEvidence = await evidenceRead();
+  expect(unavailableEvidence.request.state).toBe("confirmed");
+  expect(unavailableEvidence.request.evidenceMissing).toBe(true);
+  expect(unavailableEvidence.submissions[0].confirmation.current).toBe(false);
+  expect(await progress()).toBe(satisfiedBefore - 1);
+  await L.goto(`${base}/requests/${evidenceId}`);
+  await expect(
+    L.getByText("확인 이력은 보존되어 있지만", { exact: false }),
+  ).toBeVisible();
+  await expect(
+    L.getByText("이전 확인 · 현재 완료 근거로 사용되지 않음", { exact: false }),
+  ).toBeVisible();
+  await L.screenshot({
+    path: "/tmp/prepix-request-evidence-mobile.png",
+    fullPage: true,
+  });
+  await L.goto(`${base}/requests`);
+  await expect(
+    L.getByText("제출 근거 사용 불가 · 완료 조건 미충족", { exact: true }),
+  ).toBeVisible();
+  expect(
+    (
+      await request.post(`${root}/files/link`, {
+        headers: lead.headers,
+        data: {
+          requestKey: randomUUID(),
+          versionId: referenceFile.versionId,
+          fromLibrary: true,
+          sourceProjectId: project,
+        },
+      })
+    ).status(),
+  ).toBe(201);
+  const restoredEvidence = await evidenceRead();
+  expect(restoredEvidence.request.evidenceMissing).toBe(false);
+  expect(restoredEvidence.submissions[0].confirmation.current).toBe(true);
+  expect(restoredEvidence.submissions[0].confirmation.id).toBe(
+    unavailableEvidence.submissions[0].confirmation.id,
+  );
+  expect(await progress()).toBe(satisfiedBefore);
+  await L.goto(`${base}/requests/${evidenceId}`);
+  await expect(
+    L.getByText("확인 완료 · 현재 유효", { exact: false }),
+  ).toBeVisible();
+  await expect(
+    L.getByText("확인 이력은 보존되어 있지만", { exact: false }),
+  ).toHaveCount(0);
   for (const view of [leadView, externalView, memberView, reviewerView]) {
     expect(view.errors).toEqual([]);
     await view.close();

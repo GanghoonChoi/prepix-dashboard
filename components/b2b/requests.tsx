@@ -672,6 +672,14 @@ function ProjectRequestsInner({ projectId }: { projectId: string }) {
                 {" · "}
                 {r.dueAt ? kst(r.dueAt) : c("기한 없음", "No due date")}
               </p>
+              {r.evidenceMissing && (
+                <p className="mt-1 text-xs text-muted">
+                  {c(
+                    "제출 근거 사용 불가 · 완료 조건 미충족",
+                    "Submission evidence unavailable · completion requirement unmet",
+                  )}
+                </p>
+              )}
             </div>
             <Badge>{c(...stateCopy[r.state])}</Badge>
           </li>
@@ -782,6 +790,17 @@ function ProjectRequestViewInner({
           </button>
         )}
       </div>
+      {request.evidenceMissing && (
+        <div
+          role="status"
+          className="rounded-lg border border-border p-4 text-sm"
+        >
+          {c(
+            "확인 이력은 보존되어 있지만 제출 버전을 현재 프로젝트에서 사용할 수 없어 현재 완료 근거가 아닙니다. 담당자가 정확한 제출 버전을 다시 연결하거나 사유를 남겨 요청을 다시 열어 주세요.",
+            "The confirmation history is preserved, but the submitted version is unavailable in this project and cannot serve as current completion evidence. Ask the lead to relink the exact version or reopen the request with a reason.",
+          )}
+        </div>
+      )}
       <RequestReferenceFiles
         files={basis.references}
         scope={scope}
@@ -891,6 +910,9 @@ function ProjectRequestViewInner({
               key={s.id}
               submission={s}
               current={request.requestRevision}
+              missingEvidence={
+                request.evidenceMissing && s.number === request.submissionCount
+              }
             />
           ))}
         </ol>
@@ -928,9 +950,11 @@ function ProjectRequestViewInner({
 function SubmissionItem({
   submission: s,
   current,
+  missingEvidence,
 }: {
   submission: ProjectRequestSubmission;
   current: number;
+  missingEvidence: boolean;
 }) {
   const c = useCopy();
   const person = usePerson();
@@ -970,10 +994,15 @@ function SubmissionItem({
             ? c("보완 요청", "Returned")
             : decision.current
               ? c("확인 완료 · 현재 유효", "Confirmed · current")
-              : c(
-                  "이전 확인 · 기준 변경 또는 새 제출로 재확인 필요",
-                  "Earlier confirmation · superseded",
-                )}
+              : missingEvidence
+                ? c(
+                    "이전 확인 · 현재 완료 근거로 사용되지 않음",
+                    "Earlier confirmation · not current completion evidence",
+                  )
+                : c(
+                    "이전 확인 · 기준 변경 또는 새 제출로 재확인 필요",
+                    "Earlier confirmation · superseded",
+                  )}
           {" · "}
           {person(decision.confirmer)} · {kst(decision.createdAt)}
           {decision.selfConfirmed &&
