@@ -13,8 +13,8 @@ function withCookie(value: string) {
 /**
  * The other way it can arrive, and the one the cross-domain move needs.
  *
- * A cookie cannot travel from `prepix.ai` to `dashboard.laskerstudio.com`, so
- * the site puts the hand-off in the fragment instead. `window` is stubbed
+ * A cookie cannot travel between unrelated domains, so the site also puts the
+ * hand-off in the fragment. `window` is stubbed
  * rather than mocked wholesale: `readHandoff` only looks at
  * `location.hash`, and `clearHandoff` only at `history.replaceState`.
  */

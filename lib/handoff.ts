@@ -3,11 +3,10 @@
  * arrive from.
  *
  * IT USED TO BE A COOKIE ONLY. `Domain=.prepix.ai` is what made it readable
- * here, which worked for exactly as long as the dashboard answered to a
- * `prepix.ai` name. It now also answers to `dashboard.laskerstudio.com`, and a
- * cookie cannot cross two unrelated registrable domains — no amount of
- * configuration makes `.prepix.ai` reach `laskerstudio.com`. So the site
- * passes the hand-off in the URL as well, and this reads whichever showed up.
+ * here, which only works while the dashboard answers to a `prepix.ai` name —
+ * a cookie cannot cross two unrelated registrable domains. The dashboard was
+ * once served from another domain, so the site passes the hand-off in the URL
+ * as well, and this reads whichever showed up.
  *
  * IT IS THE FRAGMENT, NOT THE QUERY STRING, and that is the whole reason this
  * is acceptable. The objection to a URL parameter — written into this file
