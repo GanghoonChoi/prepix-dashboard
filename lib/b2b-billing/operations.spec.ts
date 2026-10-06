@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { sessionChanged } from "../api/session";
+import { localRefusal, sessionChanged } from "../api/session";
 import { apiClient } from "../api/client";
 import {
   inputHash,
@@ -252,6 +252,21 @@ test("termination: a stale basis on a resend frees the record (no copy can ever 
     await assert.rejects(runRecord(termination(), legalApi({ terminate: [async () => { throw serverRefusal(409, code); }] }).api, store), new RegExp(code));
     assert.equal(await store.get(termination()) === null, freed, code);
   }
+});
+test("termination: a browser-raised refusal that merely carries a final code never frees the key; a closed consent on a resend frees it only after the lookup found no receipt", async () => {
+  // Local fence wearing the server's code: the request may still have succeeded behind it.
+  const fenced = new MemoryBillingStore();
+  await assert.rejects(runRecord(termination(), legalApi({ terminate: [async () => { throw lost(); }] }).api, fenced));
+  const resend = legalApi({ terminate: [async () => { throw localRefusal("B2B_REFUND_BASIS_STALE"); }] });
+  await assert.rejects(runRecord(termination(), resend.api, fenced), /B2B_REFUND_BASIS_STALE/);
+  assert.equal((await fenced.get(termination()))?.attempts, 2, "a local refusal keeps the original key pending");
+  // A server CLOSED on a resend releases the topic, and the lookup came first.
+  const closed = new MemoryBillingStore();
+  await assert.rejects(runRecord(accept("6f1f5b7e-0d7a-4a3c-9a52-2f7e0c1d9e10", 110000), legalApi({ accept: [async () => { throw lost(); }] }).api, closed));
+  const again = legalApi({ accept: [async () => { throw serverRefusal(409, "B2B_RENEWAL_CONSENT_CLOSED"); }] });
+  await assert.rejects(runRecord(accept("7f1f5b7e-0d7a-4a3c-9a52-2f7e0c1d9e10", 110000), again.api, closed), /B2B_RENEWAL_CONSENT_CLOSED/);
+  assert.equal(await closed.get(accept("x", 0)), null);
+  assert.deepEqual(again.calls.map((c) => c.split(":")[0]), ["lookup", "accept"], "the receipt lookup precedes the resend");
 });
 test("re-consent: the consent ID is hashed with the body but sent only in the path; a changed total frees the key and a fresh confirmation sends the new total", async () => {
   const store = new MemoryBillingStore();

@@ -41,6 +41,15 @@ async function account(request: APIRequestContext, prefix: string) {
   expect((await request.post(`${api}/v2/auth/email/verify/confirm`, { data: { token: new URL(verifyUrl!).searchParams.get("token") } })).status()).toBe(200);
   return { email, id: session.user.id as string, headers };
 }
+async function payOrder(request: APIRequestContext, h: { Authorization: string }, base: string, orderId: string) {
+  const checkout = (await (await request.get(`${base}/commerce/orders/${orderId}/checkout`, { headers: h })).json()).data;
+  const back = await request.get(`${double}/checkout/approve?${new URLSearchParams({ clientKey: checkout.client.clientKey, orderId: checkout.providerOrderId, amount: String(checkout.amount), orderName: checkout.orderName, successUrl: `${web}/r`, failUrl: `${web}/f` })}`, { maxRedirects: 0 });
+  const paymentKey = new URL(back.headers().location).searchParams.get("paymentKey");
+  await request.post(`${base}/commerce/orders/${orderId}/confirm`, { headers: h, data: { paymentKey } });
+  await expect
+    .poll(async () => (await (await request.get(`${base}/commerce/orders/${orderId}`, { headers: h })).json()).data.order.state, { timeout: 30_000 })
+    .toBe("applied");
+}
 /** A team with business details and a paid, applied first month. */
 async function paidTeam(request: APIRequestContext, prefix: string) {
   test.skip(!container, "Set B2B_E2E_PG_CONTAINER to the disposable test database container");
@@ -57,15 +66,20 @@ async function paidTeam(request: APIRequestContext, prefix: string) {
   const product = (await (await request.get(`${base}/commerce`, { headers: h })).json()).data.product;
   const quote = (await (await request.post(`${base}/commerce/quotes`, { headers: h, data: { requestKey: randomUUID(), productVersion: product.version, target: "initial", renewal: "one_off", extraSeats: 0, aiPacks: 0, storagePacks: 0 } })).json()).data.quote;
   const order = (await (await request.post(`${base}/commerce/orders`, { headers: h, data: { requestKey: randomUUID(), quoteId: quote.id, buyer: { schemaVersion, ...buyer } } })).json()).data;
-  const checkout = (await (await request.get(`${base}/commerce/orders/${order.orderId}/checkout`, { headers: h })).json()).data;
-  const back = await request.get(`${double}/checkout/approve?${new URLSearchParams({ clientKey: checkout.client.clientKey, orderId: checkout.providerOrderId, amount: String(checkout.amount), orderName: checkout.orderName, successUrl: `${web}/r`, failUrl: `${web}/f` })}`, { maxRedirects: 0 });
-  const paymentKey = new URL(back.headers().location).searchParams.get("paymentKey");
-  await request.post(`${base}/commerce/orders/${order.orderId}/confirm`, { headers: h, data: { paymentKey } });
-  await expect
-    .poll(async () => (await (await request.get(`${base}/commerce/orders/${order.orderId}`, { headers: h })).json()).data.order.state, { timeout: 30_000 })
-    .toBe("applied");
+  await payOrder(request, h, base, order.orderId);
   return { owner, h, id, base, product, schemaVersion, orderId: order.orderId as string, total: quote.amounts.totalKrw as number };
 }
+/** The next month bought ahead (not started), optionally paid. */
+async function nextMonth(request: APIRequestContext, t: Awaited<ReturnType<typeof paidTeam>>, pay: boolean) {
+  const sourcePeriodId = sql(`select id from b2b_entitlement_periods where workspace_id = '${t.id}' and state = 'active'`);
+  const quote = (await (await request.post(`${t.base}/commerce/quotes`, { headers: t.h, data: { requestKey: randomUUID(), productVersion: t.product.version, target: "next", renewal: "one_off", extraSeats: 0, aiPacks: 0, storagePacks: 0, sourcePeriodId } })).json()).data.quote;
+  const order = (await (await request.post(`${t.base}/commerce/orders`, { headers: t.h, data: { requestKey: randomUUID(), quoteId: quote.id, buyer: { schemaVersion: t.schemaVersion, ...buyer } } })).json()).data;
+  expect(order.orderId).toMatch(uuid);
+  if (pay) await payOrder(request, t.h, t.base, order.orderId);
+  return { orderId: order.orderId as string, total: quote.amounts.totalKrw as number };
+}
+const useService = (t: Awaited<ReturnType<typeof paidTeam>>) =>
+  sql(`insert into b2b_editing_devices (id, workspace_id, user_id, public_key) values ('${randomUUID()}', '${t.id}', '${t.owner.id}', 'e2e-legal-floor-device-${randomUUID()}')`);
 async function login(page: Page, email: string, path: string) {
   await page.goto(`/login?returnTo=${encodeURIComponent(path)}&locale=ko`);
   await page.getByLabel("이메일", { exact: true }).fill(email);
@@ -92,7 +106,8 @@ test("termination within the withdrawal period refunds everything; a lost reply 
   const submit = form.getByRole("button", { name: `중도해지 · ${won(t.total)}`, exact: true });
   await form.getByLabel("해지 사유", { exact: true }).fill("팀 운영 종료");
   await expect(submit).toBeDisabled();
-  await form.getByRole("checkbox", { name: /환불 예정 금액 110,000원을 확인했고/ }).check();
+  await fits390(page, "termination-preview-390.png");
+  await form.getByRole("checkbox", { name: new RegExp(`환불 예정 금액 ${won(t.total)}을 확인했고`) }).check();
   // The first reply is lost after the server applied it.
   const sent: string[] = [];
   const looked: string[] = [];
@@ -148,12 +163,17 @@ test("termination within the withdrawal period refunds everything; a lost reply 
 test("termination after the team has used the service refunds the unused time pro rata", async ({ page, request }) => {
   const t = await paidTeam(request, "legal-prorata");
   // Use: a registered editing device after the order took effect.
-  sql(`insert into b2b_editing_devices (id, workspace_id, user_id, public_key) values ('${randomUUID()}', '${t.id}', '${t.owner.id}', 'e2e-legal-floor-device')`);
+  useService(t);
   await login(page, t.owner.email, `/dashboard/workspaces/${t.id}/plan`);
   const section = page.getByRole("region", { name: "중도해지" });
   await section.getByRole("button", { name: "해지 환불 금액 확인", exact: true }).click();
   const form = page.getByRole("form", { name: "중도해지 확인" });
-  await expect(form.locator('[data-withdrawal="false"]')).toContainText("일할 환불");
+  await expect(form.locator('[data-withdrawal="false"]')).toContainText("미사용분 환불");
+  await expect(form.locator('[data-order-withdrawal="false"]')).toContainText("미사용분 환불");
+  await expect(form).not.toContainText("일할");
+  await expect(form).not.toContainText("법정");
+  await expect(form).not.toContainText("7일");
+  await fits390(page, "termination-prorata-preview-390.png");
   const shown = Number((await form.locator("[data-termination-total]").innerText()).replace(/[^0-9]/g, ""));
   expect(shown).toBeGreaterThan(0);
   expect(shown).toBeLessThan(t.total);
@@ -161,7 +181,7 @@ test("termination after the team has used the service refunds the unused time pr
   await form.getByRole("checkbox", { name: /지금 팀 이용을 끝내는 데 동의합니다/ }).check();
   await form.getByRole("button", { name: `중도해지 · ${won(shown)}`, exact: true }).click();
   const status = section.locator("[data-termination-status]");
-  await expect(status).toContainText("남은 기간을 일할 환불합니다.");
+  await expect(status).toContainText("쓰지 않은 부분을 환불합니다.");
   await expect(status.locator('[data-money="pending"]')).toHaveText(won(shown));
   const billing = (await (await request.get(`${t.base}/billing`, { headers: t.h })).json()).data;
   expect(billing.termination).toMatchObject({ withdrawal: false, requestedTotalKrw: shown, refundedKrw: 0 });
@@ -222,7 +242,9 @@ test("re-consent to a price increase: a changed total needs a fresh confirmation
   await login(page, t.owner.email, `/dashboard/workspaces/${t.id}/plan`);
   const card = page.getByRole("region", { name: "갱신 금액 변경 · 동의가 필요합니다" });
   await expect(card).toContainText("다음 갱신 금액이 올라갑니다.");
-  await expect(card).toContainText(`${old} → ${t.product.version}`);
+  await expect(card.locator("[data-consent-product]")).toHaveText("상품 조건 변경");
+  await expect(card).not.toContainText(old);
+  await expect(card).not.toContainText(t.product.version);
   await expect(card.locator("[data-consent-total]")).toHaveText("88,000원 → 99,000원");
   await expect(card.locator("[data-short-notice]")).toBeVisible();
   const box = card.getByRole("checkbox", { name: /자동결제하는 데 동의합니다/ });
@@ -243,6 +265,18 @@ test("re-consent to a price increase: a changed total needs a fresh confirmation
   const billing = (await (await request.get(`${t.base}/billing`, { headers: t.h })).json()).data;
   expect(billing.renewalConsent.state).toBe("consented");
   expect(billing.renewal).toMatchObject({ mode: "automatic", consentedProductVersion: t.product.version, pausedReason: null });
+  // The answer matters only until the charge time; the server keeps returning the
+  // answered request forever, so after chargeAt the card must be gone.
+  await page.route(`${t.base}/billing`, async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const response = await route.fetch();
+    const body = await response.json();
+    body.data.serverTime = new Date(Date.parse(body.data.renewalConsent.chargeAt) + 1_000).toISOString();
+    return route.fulfill({ response, json: body });
+  });
+  await page.reload();
+  await expect(page.getByRole("region", { name: "중도해지" })).toBeVisible();
+  await expect(page.locator("[data-consent-state]")).toHaveCount(0);
 });
 
 test("re-consent from free to paid: not answerable before it opens; a lost decline is recovered by its key; the team ends with the period; other members see none of it", async ({ page, request }) => {
@@ -312,4 +346,85 @@ test("re-consent from free to paid: not answerable before it opens; a lost decli
   await expect(page.getByText("중도해지")).toHaveCount(0);
   await expect(page.getByText(/갱신 금액/)).toHaveCount(0);
   expect((await request.post(`${t.base}/billing/termination/preview`, { headers: member.headers, data: {} })).status()).toBe(403);
+});
+
+test("termination refused while a payment is in progress shows termination copy, drops the preview and keeps nothing pending", async ({ page, request }) => {
+  const t = await paidTeam(request, "legal-paying");
+  await nextMonth(request, t, false); // a live checkout, not paid
+  await login(page, t.owner.email, `/dashboard/workspaces/${t.id}/plan`);
+  const section = page.getByRole("region", { name: "중도해지" });
+  await section.getByRole("button", { name: "해지 환불 금액 확인", exact: true }).click();
+  const form = page.getByRole("form", { name: "중도해지 확인" });
+  // The server refuses either at the preview or at the submit; both show termination copy.
+  const previewed = await form.waitFor({ timeout: 5_000 }).then(() => true, () => false);
+  if (previewed) {
+    await form.getByLabel("해지 사유", { exact: true }).fill("결제 중 해지");
+    await form.getByRole("checkbox").check();
+    await form.getByRole("button", { name: /^중도해지/ }).click();
+  }
+  const alert = section.getByRole("alert");
+  await expect(alert).toContainText("진행 중인 결제가 끝난 뒤 해지 금액을 다시 확인해 주세요.");
+  await expect(alert).not.toContainText("다시 결제하지 마세요");
+  await expect(form).toHaveCount(0);
+  await expect(section.getByRole("button", { name: "해지 요청 결과 확인", exact: true })).toHaveCount(0);
+  await expect(section.getByRole("button", { name: "해지 환불 금액 확인", exact: true })).toBeVisible();
+  expect((await (await request.get(`${t.base}/billing`, { headers: t.h })).json()).data.termination).toBeNull();
+});
+
+test("a period bought ahead is refunded in full and each order is labelled by what the server says, never as pro rata; orders are named by payment date", async ({ page, request }) => {
+  const t = await paidTeam(request, "legal-prebought");
+  useService(t);
+  const ahead = await nextMonth(request, t, true);
+  await login(page, t.owner.email, `/dashboard/workspaces/${t.id}/plan`);
+  const section = page.getByRole("region", { name: "중도해지" });
+  await section.getByRole("button", { name: "해지 환불 금액 확인", exact: true }).click();
+  const form = page.getByRole("form", { name: "중도해지 확인" });
+  const rows = form.locator("[data-order-withdrawal]");
+  await expect(rows).toHaveCount(2);
+  await expect(rows.filter({ hasText: won(ahead.total) })).toHaveCount(1);
+  // The server decides the basis per order: the used first month is the unused part,
+  // the month bought ahead comes back whole (withdrawal). The screen only repeats it.
+  await expect(rows.filter({ hasText: won(ahead.total) })).toContainText("청약철회 전액");
+  await expect(rows.filter({ hasNotText: won(ahead.total) })).toContainText("미사용분 환불");
+  await expect(rows.first()).toContainText("결제");
+  await expect(form).not.toContainText("일할");
+  await expect(form).not.toContainText(ahead.orderId.slice(0, 8));
+  await fits390(page, "termination-prebought-390.png");
+  await form.getByLabel("해지 사유", { exact: true }).fill("선구매 포함 해지");
+  await form.getByRole("checkbox").check();
+  await form.getByRole("button", { name: /^중도해지 ·/ }).click();
+  const status = section.locator("[data-termination-status]");
+  await expect(status.locator("[data-refund-state]")).toHaveCount(2);
+  await expect(status.getByRole("link", { name: /^주문 보기/ })).toHaveCount(2);
+  await expect(status).not.toContainText(ahead.orderId.slice(0, 8));
+  const billing = (await (await request.get(`${t.base}/billing`, { headers: t.h })).json()).data;
+  expect(billing.termination.refunds.find((r: { orderId: string }) => r.orderId === ahead.orderId).totalKrw).toBe(ahead.total);
+});
+
+test("a termination with nothing to refund says so, asks for no amount and ends the team", async ({ page, request }) => {
+  const t = await paidTeam(request, "legal-zero");
+  useService(t);
+  await login(page, t.owner.email, `/dashboard/workspaces/${t.id}/plan`);
+  const section = page.getByRole("region", { name: "중도해지" });
+  const open = section.getByRole("button", { name: "해지 환불 금액 확인", exact: true });
+  await expect(open).toBeVisible();
+  // The period is nearly over (ends in 10 seconds): the unused part rounds to 0 won.
+  sql(`set session_replication_role = replica;
+       update b2b_entitlement_applications set effective_at = now() + interval '10 seconds' - interval '30 days' where workspace_id = '${t.id}';
+       update b2b_entitlement_periods set starts_at = now() + interval '10 seconds' - interval '30 days', ends_at = now() + interval '10 seconds' where workspace_id = '${t.id}' and state = 'active';
+       update b2b_teams set period_ends_at = now() + interval '10 seconds' where workspace_id = '${t.id}'`);
+  await open.click();
+  const form = page.getByRole("form", { name: "중도해지 확인" });
+  await expect(form.locator('[data-zero="true"]')).toContainText("돌려드릴 금액이 없습니다. 해지하면 지금 이용이 끝납니다.");
+  await expect(form.locator("[data-order-withdrawal]")).toHaveCount(0);
+  await form.getByLabel("해지 사유", { exact: true }).fill("기간 끝 무렵 해지");
+  await form.getByRole("checkbox", { name: /환불받을 금액이 없음을 확인했고/ }).check();
+  await fits390(page, "termination-zero-390.png");
+  await form.getByRole("button", { name: "중도해지", exact: true }).click();
+  const status = section.locator("[data-termination-status]");
+  await expect(status).toContainText("돌려드릴 금액이 없어 환불 없이 해지했습니다.");
+  await expect(status.locator("[data-money]")).toHaveCount(0);
+  await expect(status.locator("[data-refund-state]")).toHaveCount(0);
+  const billing = (await (await request.get(`${t.base}/billing`, { headers: t.h })).json()).data;
+  expect(billing.termination).toMatchObject({ requestedTotalKrw: 0, refundedKrw: 0, pendingKrw: 0, refunds: [] });
 });

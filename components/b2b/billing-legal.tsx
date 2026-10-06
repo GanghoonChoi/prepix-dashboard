@@ -58,6 +58,9 @@ export function RenewalConsentCard({ billing }: { billing: Billing }) {
     return () => clearTimeout(t);
   }, [api, refreshPending]);
   if (!view || !consent || consent.state === "superseded") return null;
+  // An answered request lingers on the server forever; the answer matters only
+  // until the charge time. Later, the paused reason on billing details speaks.
+  const answeredVisible = (consent.state === "consented" || consent.state === "declined") && Date.parse(view.serverTime) < Date.parse(consent.chargeAt);
   const answer = async (record: BillingRecord, recheck = false) => {
     if (!api || busy) return;
     const g = generation.current;
@@ -87,31 +90,38 @@ export function RenewalConsentCard({ billing }: { billing: Billing }) {
           {p.action === "renewal.consent.accept" ? c("동의 결과 확인", "Confirm consent result") : c("거절 결과 확인", "Confirm decline result")}
         </button>
       ))}
+      {failure && (
+        <p className="text-muted">
+          {c(
+            "아직 확인되지 않았습니다. 잠시 뒤 다시 확인해 주세요. 갱신 동의 요청이 닫히면 이 요청도 풀리고 최신 안내를 볼 수 있습니다.",
+            "Still unconfirmed. Check again shortly. When the renewal consent closes, this request is released and the latest notice shows.",
+          )}
+        </p>
+      )}
     </div>
   );
-  if (consent.state !== "required")
+  if (consent.state !== "required") {
+    if (!answeredVisible && pending.length === 0 && !failure) return null;
     return (
       <div className="space-y-3 rounded-lg border border-border p-4 text-sm leading-6">
         <p role="status" data-consent-state={consent.state}>
-          {consent.state === "consented"
+          {!answeredVisible
+            ? null
+            : consent.state === "consented"
             ? c(
                 `바뀐 갱신 금액 ${won(consent.toTotalKrw)}에 동의했습니다 (${kst(consent.answeredAt!)}). ${kst(consent.chargeAt)} 이후 등록 카드로 결제합니다.`,
                 `You consented to the new renewal price of ${won(consent.toTotalKrw)} (${kst(consent.answeredAt!)}). The card is charged after ${kst(consent.chargeAt)}.`,
               )
-            : consent.state === "declined"
-              ? c(
-                  `바뀐 갱신 금액에 동의하지 않았습니다 (${kst(consent.answeredAt!)}). 결제하지 않으며, 팀은 이번 이용기간 끝에 종료됩니다.`,
-                  `You declined the new renewal price (${kst(consent.answeredAt!)}). Nothing is charged; the team ends with this period.`,
-                )
-              : c(
-                  "결제 시각 전까지 바뀐 갱신 금액에 동의가 없어 자동결제하지 않았습니다. 계속 쓰려면 직접 구매해 주세요.",
-                  "No consent to the new renewal price arrived before the charge, so nothing was charged. Buy directly to continue.",
-                )}
+            : c(
+                `바뀐 갱신 금액에 동의하지 않았습니다 (${kst(consent.answeredAt!)}). 결제하지 않으며, 팀은 이번 이용기간 끝에 종료됩니다.`,
+                `You declined the new renewal price (${kst(consent.answeredAt!)}). Nothing is charged; the team ends with this period.`,
+              )}
         </p>
         {failure && <BillingError code={failure} />}
         {recovery}
       </div>
     );
+  }
   const terms = `${consent.id}|${consent.toProductVersion}|${consent.toTotalKrw}`;
   const opened = Date.parse(view.serverTime) >= Date.parse(consent.opensAt);
   const record = <A extends "renewal.consent.accept" | "renewal.consent.decline">(action: A, input: BillingRecord<A>["input"]): BillingRecord<A> => ({
@@ -131,8 +141,8 @@ export function RenewalConsentCard({ billing }: { billing: Billing }) {
       <dl className="grid gap-3 text-sm sm:grid-cols-2">
         <div>
           <dt className="text-muted">{c("상품 조건", "Product")}</dt>
-          <dd className="break-all font-mono text-xs">
-            {consent.fromProductVersion ?? c("이전 조건 확인 불가", "previous unknown")} → {consent.toProductVersion}
+          <dd data-consent-product>
+            {consent.fromProductVersion === consent.toProductVersion ? c("상품 조건은 그대로입니다", "Product terms unchanged") : c("상품 조건 변경", "Product terms changed")}
           </dd>
         </div>
         <div>
@@ -179,8 +189,8 @@ export function RenewalConsentCard({ billing }: { billing: Billing }) {
             <input type="checkbox" checked={agreed === terms} disabled={busy} onChange={(e) => setAgreed(e.target.checked ? terms : "")} />
             <span>
               {c(
-                `상품 조건 ${consent.toProductVersion}, 한 달 ${won(consent.toTotalKrw)}(부가세 포함)으로 ${kst(consent.chargeAt)} 이후 등록 카드로 자동결제하는 데 동의합니다.`,
-                `I agree to automatic charges of ${won(consent.toTotalKrw)} a month (VAT incl.) under ${consent.toProductVersion}, from ${kst(consent.chargeAt)}.`,
+                `바뀐 상품 조건과 한 달 ${won(consent.toTotalKrw)}(부가세 포함)으로 ${kst(consent.chargeAt)} 이후 등록 카드로 자동결제하는 데 동의합니다.`,
+                `I agree to automatic charges of ${won(consent.toTotalKrw)} a month (VAT incl.) under the changed terms, from ${kst(consent.chargeAt)}.`,
               )}
             </span>
           </label>
@@ -217,6 +227,9 @@ export function RenewalConsentCard({ billing }: { billing: Billing }) {
   );
 }
 
+const day = (value: string) => new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", dateStyle: "medium" }).format(new Date(value));
+type OrderTag = { paidAt: string | null; from: string | null; to: string | null };
+
 const lineNames: Record<TeamRefundLine["kind"], [string, string]> = {
   base: ["기본", "Base"],
   extra_seat: ["추가 이용권", "Extra licences"],
@@ -247,6 +260,8 @@ export function TeamTermination({
   const [busy, setBusy] = useState("");
   const [failure, setFailure] = useState("");
   const [ended, setEnded] = useState(false);
+  // Orders are named by payment date and period, never by their internal ID.
+  const [tags, setTags] = useState<Record<string, OrderTag>>({});
   const generation = useRef(0);
   const refreshPending = useCallback(async () => {
     if (!scope) return setPending(null);
@@ -283,7 +298,7 @@ export function TeamTermination({
       const code = billingCode(e);
       setFailure(code);
       // The amount or its basis no longer holds: measure again before asking.
-      if (code === "B2B_REFUND_AMOUNT_CHANGED" || code === "B2B_REFUND_BASIS_STALE") setPreview(null);
+      if (code === "B2B_REFUND_AMOUNT_CHANGED" || code === "B2B_REFUND_BASIS_STALE" || code === "B2B_PAYMENT_PENDING") setPreview(null);
     } finally {
       if (g === generation.current) {
         setBusy("");
@@ -294,8 +309,32 @@ export function TeamTermination({
     }
   };
   const t = view?.termination ?? null;
-  const active = status.team.currentState === "active" && !ended;
+  // A restored team may be terminated again: the flag follows the team state.
+  const teamState = status.team.currentState;
+  useEffect(() => setEnded(false), [teamState]);
+  const needTags = !!preview || !!t;
+  useEffect(() => {
+    if (!api || !needTags) return;
+    let live = true;
+    api
+      .orders()
+      .then((list) => {
+        if (live) setTags(Object.fromEntries(list.items.map((o) => [o.id, { paidAt: o.receipt?.approvedAt ?? null, from: o.period.startsAt, to: o.period.endsAt }])));
+      })
+      .catch(() => undefined); // names are a convenience; the amounts come from the termination itself
+    return () => {
+      live = false;
+    };
+  }, [api, needTags]);
+  const orderName = (id: string) => {
+    const o = tags[id];
+    if (!o?.paidAt) return c("주문", "Order");
+    const span = o.from && o.to ? ` · ${day(o.from)} ~ ${day(o.to)}` : "";
+    return c(`${day(o.paidAt)} 결제${span}`, `Paid ${day(o.paidAt)}${span}`);
+  };
+  const active = teamState === "active" && !ended;
   if (!view) return null;
+  const zero = preview?.amounts.totalKrw === 0;
   return (
     <section aria-labelledby="termination" className="space-y-4 border-b border-border pb-8">
       <h2 id="termination" className="font-medium">
@@ -308,8 +347,13 @@ export function TeamTermination({
               `${kst(t.endedAt)}에 중도해지했습니다. 원래 종료 시각은 ${kst(t.previousEndsAt)}이었습니다.`,
               `Terminated at ${kst(t.endedAt)}; the period would have ended at ${kst(t.previousEndsAt)}.`,
             )}{" "}
-            {t.withdrawal ? c("청약철회로 원주문 전액을 환불합니다.", "Withdrawal: the original orders are refunded in full.") : c("남은 기간을 일할 환불합니다.", "The unused time is refunded pro rata.")}
+            {t.requestedTotalKrw === 0
+              ? c("돌려드릴 금액이 없어 환불 없이 해지했습니다.", "There was nothing to refund, so the team ended without a refund.")
+              : t.withdrawal
+                ? c("청약철회로 원주문 전액을 환불합니다.", "Withdrawal: the original orders are refunded in full.")
+                : c("쓰지 않은 부분을 환불합니다.", "The unused part is refunded.")}
           </p>
+          {t.requestedTotalKrw > 0 && (
           <dl className="grid gap-3 sm:grid-cols-3">
             <div>
               <dt className="text-muted">{c("요청한 환불", "Requested")}</dt>
@@ -326,17 +370,26 @@ export function TeamTermination({
               </div>
             )}
           </dl>
+          )}
           {t.refunds.length > 0 && (
             <ul className="space-y-2">
               {t.refunds.map((r) => (
                 <li key={r.refundId} className="flex flex-wrap justify-between gap-2 rounded-md border border-border p-3" data-refund-state={r.state}>
-                  <Link className="underline-offset-4 hover:underline" href={`/dashboard/workspaces/${workspaceId}/plan/orders/${r.orderId}`}>
+                  <span>
                     {r.state === "refunded"
                       ? c("환불 완료", "Refunded")
                       : openRefund.includes(r.state)
                         ? `${c("환불 확인 중", "Refund being confirmed")} · ${c(...refundLabels[r.state])}`
                         : c(...refundLabels[r.state])}
-                  </Link>
+                    {" · "}
+                    <Link
+                      className="underline underline-offset-4"
+                      aria-label={`${c("주문 보기", "View order")} · ${orderName(r.orderId)}`}
+                      href={`/dashboard/workspaces/${workspaceId}/plan/orders/${r.orderId}`}
+                    >
+                      {c("주문 보기", "View order")} ({orderName(r.orderId)})
+                    </Link>
+                  </span>
                   <span className="tabular-nums">{won(r.totalKrw)}</span>
                 </li>
               ))}
@@ -347,18 +400,26 @@ export function TeamTermination({
       {active && (
         <p className="text-sm leading-6 text-muted">
           {c(
-            "자동결제 중지는 이번 이용기간 끝까지 쓰고 다음 결제만 멈춥니다(환불 없음). 중도해지는 지금 바로 이용을 끝내고 남은 기간을 원결제로 환불합니다. 법정 청약철회 기간(결제 후 7일) 안에 팀이 아직 아무것도 쓰지 않았다면 원주문 전액을 환불합니다. 위약금은 없습니다. 해지하면 팀은 즉시 열람·다운로드만 가능해지고, 이후 보관·삭제 일정은 해지 시각부터 계산합니다.",
-            "Stopping renewal keeps the team until the period ends and only stops the next charge (no refund). Termination ends the team now and refunds the unused time to the original payment; within the statutory 7-day withdrawal period, if the team has used nothing, the original orders are refunded in full. No penalty. After termination the team is read and export only, and the retention schedule starts from that moment.",
+            "자동결제 중지는 이번 이용기간 끝까지 쓰고 다음 결제만 멈춥니다(환불 없음). 중도해지는 지금 바로 이용을 끝내고 환불 가능한 금액을 원결제로 돌려드립니다. 청약철회가 적용되는 주문은 전액을, 그 밖의 주문은 쓰지 않은 부분을 환불하며, 어느 쪽인지와 금액은 해지 전에 주문마다 보여 드립니다. 위약금은 없습니다. 해지하면 팀은 즉시 열람·다운로드만 가능해지고, 이후 보관·삭제 일정은 해지 시각부터 계산합니다.",
+            "Stopping renewal keeps the team until the period ends and only stops the next charge (no refund). Termination ends the team now and refunds what is refundable to the original payment: orders under withdrawal in full, the others for the unused part, shown per order before you confirm. No penalty. After termination the team is read and export only, and the retention schedule starts from that moment.",
           )}{" "}
           <Link className="underline underline-offset-4" href={`/dashboard/workspaces/${workspaceId}/plan/settings`}>
             {c("자동결제 중지는 결제 정보에서", "Stop renewal in billing details")}
           </Link>
         </p>
       )}
-      {failure && <BillingError code={failure} />}
+      {failure && <BillingError code={failure === "B2B_PAYMENT_PENDING" ? "B2B_TERMINATION_PAYMENT_PENDING" : failure} />}
       {pending ? (
         <div className="space-y-2 rounded-md border border-border p-3 text-sm">
           <p>{c("해지 요청의 결과를 확인하지 못했습니다. 같은 요청으로 결과를 확인하며 새 해지를 보내지 않습니다.", "The termination has no confirmed result. The original request is checked; no new termination is sent.")}</p>
+          {failure && (
+            <p className="text-muted" data-pending-hint>
+              {c(
+                "아직 확인되지 않았습니다. 잠시 뒤 다시 확인해 주세요. 환불 금액을 확인한 시각에서 10분이 지나면 이 요청이 풀리고 새로 시작할 수 있습니다.",
+                "Still unconfirmed. Check again shortly. Ten minutes after the refund amount was measured, this request is released and you can start over.",
+              )}
+            </p>
+          )}
           <button
             type="button"
             className={secondaryClass}
@@ -429,26 +490,30 @@ export function TeamTermination({
             );
           }}
         >
-          <p className="text-sm leading-6" data-withdrawal={preview.withdrawal}>
-            {preview.withdrawal
-              ? c("청약철회 적용: 결제 뒤 팀이 아직 쓰지 않아 원주문 전액을 환불합니다.", "Withdrawal applies: the team has not used anything since payment, so the original orders are refunded in full.")
-              : c("일할 환불: 청약철회 기간이 지났거나 이용 기록이 있어 남은 이용 시간만큼 환불합니다.", "Pro rata: the withdrawal period has passed or the team has used the service, so the unused time is refunded.")}
+          <p className="text-sm leading-6" data-withdrawal={preview.withdrawal} data-zero={zero}>
+            {zero
+              ? c("돌려드릴 금액이 없습니다. 해지하면 지금 이용이 끝납니다.", "There is nothing to refund. Terminating ends the team now.")
+              : preview.withdrawal
+                ? c("청약철회 적용: 기간 안에 팀이 아직 쓰지 않아 원주문 전액을 환불합니다.", "Withdrawal applies: the team has not used the service within the period, so the original orders are refunded in full.")
+                : c("미사용분 환불: 청약철회 대상이 아니어서 쓰지 않은 부분을 환불합니다. 시작 전에 미리 구매한 기간은 전액 환불됩니다.", "Unused part refunded: withdrawal does not apply, so the part not used is refunded. A period bought ahead that has not started is refunded in full.")}
           </p>
           <ul className="space-y-1 text-sm leading-6">
             <li>{c(`지금 해지하면 이용이 바로 끝납니다. 원래 종료 시각은 ${kst(preview.previousEndsAt)}입니다.`, `Terminating ends the team now instead of at ${kst(preview.previousEndsAt)}.`)}</li>
             <li>{preview.renewalStops ? c("자동결제도 함께 멈춥니다. 다음 결제는 없습니다.", "Automatic renewal stops too. Nothing more is charged.") : c("예정된 자동결제가 없습니다. 다음 결제는 없습니다.", "No automatic renewal is scheduled. Nothing more is charged.")}</li>
           </ul>
+          {!zero && (
           <ul className="space-y-2 text-sm" aria-label={c("원주문별 환불", "Refund per original order")}>
             {preview.orders.map((o) => (
               <li key={o.orderId} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-3" data-order-withdrawal={o.withdrawal}>
                 <span>
-                  <span className="font-mono text-xs">{o.orderId.slice(0, 8)}</span> · {o.withdrawal ? c("청약철회 전액", "Withdrawal, full") : c("일할", "Pro rata")} ·{" "}
+                  {orderName(o.orderId)} · {o.withdrawal ? c("청약철회 전액", "Withdrawal, full") : c("미사용분 환불", "Unused part refunded")} ·{" "}
                   {o.lines.map((l) => `${c(...lineNames[l.kind])}${l.kind === "base" ? "" : ` ${l.quantity}`}`).join(", ")}
                 </span>
                 <span className="tabular-nums">{won(o.amounts.totalKrw)}</span>
               </li>
             ))}
           </ul>
+          )}
           <p className="text-sm tabular-nums" role="status">
             {c("공급가액", "Supply")} {won(preview.amounts.supplyKrw)} · {c("부가세", "VAT")} {won(preview.amounts.vatKrw)} · {c("환불 예정 합계", "Refund total")}{" "}
             <strong data-termination-total>{won(preview.amounts.totalKrw)}</strong>
@@ -463,15 +528,17 @@ export function TeamTermination({
           <label className="flex items-start gap-2 text-sm leading-6">
             <input type="checkbox" checked={agreed} disabled={!!busy} onChange={(e) => setAgreed(e.target.checked)} />
             <span>
-              {c(
-                `환불 예정 금액 ${won(preview.amounts.totalKrw)}을 확인했고, 지금 팀 이용을 끝내는 데 동의합니다. 해지는 되돌릴 수 없습니다.`,
-                `I reviewed the refund of ${won(preview.amounts.totalKrw)} and agree to end the team now. This cannot be undone.`,
-              )}
+              {zero
+                ? c("환불받을 금액이 없음을 확인했고, 환불 없이 지금 팀 이용을 끝내는 데 동의합니다. 해지는 되돌릴 수 없습니다.", "I understand there is nothing to refund and agree to end the team now. This cannot be undone.")
+                : c(
+                    `환불 예정 금액 ${won(preview.amounts.totalKrw)}을 확인했고, 지금 팀 이용을 끝내는 데 동의합니다. 해지는 되돌릴 수 없습니다.`,
+                    `I reviewed the refund of ${won(preview.amounts.totalKrw)} and agree to end the team now. This cannot be undone.`,
+                  )}
             </span>
           </label>
           <div className="flex flex-wrap gap-3">
             <button className={primaryClass} disabled={!!busy || !agreed || !reason.trim()}>
-              {busy === "terminate" ? c("해지 중…", "Terminating…") : `${c("중도해지", "Terminate")} · ${won(preview.amounts.totalKrw)}`}
+              {busy === "terminate" ? c("해지 중…", "Terminating…") : zero ? c("중도해지", "Terminate") : `${c("중도해지", "Terminate")} · ${won(preview.amounts.totalKrw)}`}
             </button>
             <button type="button" className={secondaryClass} disabled={!!busy} onClick={() => setPreview(null)}>
               {c("취소", "Cancel")}

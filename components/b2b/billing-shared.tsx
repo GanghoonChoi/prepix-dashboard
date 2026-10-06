@@ -55,6 +55,7 @@ const messages: Record<string, [string, string]> = {
   B2B_BILLING_KEY_CIPHER_NOT_CONFIGURED: ["결제 수단 보관 설정이 준비되지 않았습니다.", "Payment-method storage is not configured."],
   B2B_CHECKOUT_NOT_READY: ["결제가 아직 열리지 않았습니다.", "Checkout is not open yet."],
   B2B_PAYMENT_PENDING: ["확인 중인 결제가 있습니다. 결과를 확인한 뒤 진행해 주세요. 다시 결제하지 마세요.", "A payment is still being checked. Wait for its result; do not pay again."],
+  B2B_TERMINATION_PAYMENT_PENDING: ["진행 중인 결제가 끝난 뒤 해지 금액을 다시 확인해 주세요.", "Check the termination amount again after the payment in progress has finished."],
   B2B_NEXT_PERIOD_ALREADY_PURCHASED: ["다음 한 달은 이미 구매되었습니다.", "The next month is already purchased."],
   B2B_ORDER_NOT_PAYABLE: ["이 주문은 지금 결제할 수 없습니다. 주문 상태를 확인해 주세요.", "This order cannot be paid now. Check its state."],
   B2B_ORDER_EXPIRED: ["주문 유효시간이 지났습니다. 견적부터 다시 확인해 주세요.", "The order expired. Start from a new quote."],

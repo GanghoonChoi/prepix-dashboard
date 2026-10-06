@@ -36,6 +36,18 @@ const fields: [keyof TeamBuyer, string, string, string][] = [
   ["address", "사업장 주소", "Business address", "street-address"],
   ["receiptEmail", "증빙 수신 이메일", "Receipt email", "email"],
 ];
+const actionLabels: Record<BillingAction, [string, string]> = {
+  order: ["주문", "Order"],
+  profile: ["사업자 정보 저장", "Business details"],
+  renewal: ["자동결제 설정", "Renewal settings"],
+  "renewal.stop": ["자동결제 중지", "Stop renewal"],
+  refund: ["환불 요청", "Refund request"],
+  "method.start": ["결제 수단 등록", "Payment method registration"],
+  "method.remove": ["결제 수단 삭제", "Payment method removal"],
+  termination: ["중도해지", "Termination"],
+  "renewal.consent.accept": ["갱신 금액 동의", "Renewal consent"],
+  "renewal.consent.decline": ["갱신 금액 거절", "Renewal consent decline"],
+};
 const methodLabels: Record<string, [string, string]> = {
   pending: ["등록 대기", "Pending"],
   issuing: ["등록 확인 중", "Registering"],
@@ -276,7 +288,7 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
           </p>
           {pending.map((p) => (
             <button key={p.topic + p.action} type="button" className={secondaryClass} disabled={!!busy} onClick={() => void confirm(p)}>
-              {c("결과 확인", "Confirm result")} · {p.action}
+              {c("결과 확인", "Confirm result")} · {c(...actionLabels[p.action])}
             </button>
           ))}
         </section>
