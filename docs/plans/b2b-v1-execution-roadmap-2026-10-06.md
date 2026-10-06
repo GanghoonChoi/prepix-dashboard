@@ -8,9 +8,9 @@
 
 | 대상 | 최초 비교 기준 | 현재 확인한 작업 기준 | 적용 원칙 |
 | --- | --- | --- | --- |
-| 대시보드 | `main`, `60eb7cd` | `codex/b2b-v1`, `621ebb6` | 현재 공간 경로와 B2B 화면을 확장한다. |
-| 백엔드 | `main`, `676aff8` | `codex/b2b-v1`, `2772c31` | 서버 계약을 원본으로 삼고 추가형 마이그레이션을 사용한다. |
-| 데스크톱 | `beta`, `c21049ba1` | beta에서 이어진 `codex/b2b-v1`, `82a00918e`의 런타임과 `64e295888`의 파일/전송 복구 계약 동기화 | beta의 편집·미디어 구조를 기준으로 연결한다. |
+| 대시보드 | `main`, `60eb7cd` | `codex/b2b-v1`, `1208ff1` | 현재 공간 경로와 B2B 화면을 확장한다. |
+| 백엔드 | `main`, `676aff8` | `codex/b2b-v1`, `cdb93c7` | 서버 계약을 원본으로 삼고 추가형 마이그레이션을 사용한다. |
+| 데스크톱 | `beta`, `c21049ba1` | beta에서 이어진 `codex/b2b-v1`, `82a00918e`의 런타임과 `5bd672e8b`의 파일/전송/자료 관리 계약 동기화 | beta의 편집·미디어 구조를 기준으로 연결한다. |
 | 운영 콘솔 | `5db3a2b` | `codex/b2b-v1`, `5db3a2b` | 기존 운영 도구에 팀 지원 기능을 추가한다. |
 
 `beta3`의 `2e54d5afc`와 beta를 비교한 팀 보관함 서비스·deep link·공간 IPC·공간 화면 경로에는 변경이 없다. 확인한 미디어 분석 및 타임라인 타입 차이는 팀 협업 도메인을 대신하지 않는다. beta3와 다른 미디어 실험 브랜치를 일괄 병합하지 않는다. 한국 결제 작업 폴더는 기존 계획처럼 참고 대상으로 유지한다.
@@ -25,7 +25,7 @@
 | 구매와 이용권 | 상품 설정·견적·주문·수납 대조·실제 기간 반영, 기본/추가 AI 지급, 이용권 배정·회수 대기·장치 해제·개인 한도, 관련 웹 화면 | 실제 구매 흐름, 결제 수단 등록, 자동갱신·웹훅·환불 실행, 월 명세 |
 | 앱 권한 | 서명 허가 검증·신뢰 시각·암호화 장치 기록·영속 반납, 로컬 파일/목록의 서버 소속 고정, 편집 큐·메타데이터·자료 변경 검사, 읽기 전용 화면·재확인 | 실제 HTTP/OS 통합 인수, 팀 AI·발행·파일 버전 연결 |
 | AI | 지급 건·기간별 개인 한도·동시 예약·확정·반환·원장 대조·24시간 종료·작업 조회/취소·웹 사용량/본인 내역 | 검증된 입력 버전 accessor의 견적/접수 연결·견적 발급·공급자 실행과 결과 저장·beta 앱·S30 실행 연결 |
-| 파일과 협업 | 비공개 미디어 버전·실제 전송/검사/정리·물리 중복 산정·자료 권한·프로젝트 참조·원본 다운로드 서버, 웹 자료 목록·명시 버전 등록·영속 전송 재개·원본 수령 | 웹 자료 허용/참조 관리·검증 수령·앱 영속 전송·native 작업 파일·실제 검사 엔진·검토본/휴지통/담당자 복구·발행/NAS, 요청·검토·승인·납품 |
+| 파일과 협업 | 비공개 미디어 버전·실제 전송/검사/정리·물리 중복 산정·자료 권한·프로젝트 참조·원본 다운로드 서버, 웹 자료 목록·명시 버전 등록·영속 전송 재개·원본 수령·자료 권한과 정확한 버전 연결/제외·변경 결과 복구 | 검증 수령·S10 개인 보관함/마지막 연결 제외 자료 재연결·앱 영속 전송·native 작업 파일·실제 검사 엔진·검토본/휴지통/담당자 복구·발행/NAS, 요청·검토·승인·납품 |
 | 종료와 운영 | E 경계 계산, 복구 주문의 단회 삭제 보류, 업무 감사와 outbox | 실제 복구/삭제 작업, 백업 파기, 알림·명세 PDF, 콘솔 지원 권한 |
 
 근거: [프로젝트 API](/Users/spagettimaker/My/Lasker/prepix-backend/backend/src/b2b/b2b.controller.ts), [구매 적용](/Users/spagettimaker/My/Lasker/prepix-backend/backend/src/b2b/entitlement-application.service.ts), [이용권과 개인 한도](/Users/spagettimaker/My/Lasker/prepix-backend/backend/src/database/schema/b2b-licences.ts), [대시보드 B2B 연동](/Users/spagettimaker/My/Lasker/prepix-dashboard/lib/api/services/b2b.service.ts), [앱 권한 기반](/Users/spagettimaker/My/Lasker/prepix/docs/b2b/desktop-editing-permissions.md).
@@ -83,7 +83,7 @@
 
 1~3은 하나의 웹 사용 흐름으로 검증한다. 4는 앱 전송 인수를 별도로 통과해야 하며 웹 새로고침 재개만으로 F08의 앱 재시작 조건을 완료 처리하지 않는다. 5의 작업은 파일 정책과 운영 환경에 따라 진행하되 실제 엔진 검증 전에는 프로토콜 대역 검사만으로 운영 업로드를 공개하지 않는다. 파일 접근과 버전 고정이 준비되면 3번 묶음의 실제 팀 AI 견적·접수를 연결한다.
 
-현재 1의 원등록 결과 조회와 늦은 등록을 차단하는 요청 키 취소, 2의 웹 영속 전송, 3의 자료 목록·검색·명시 버전 등록·원본 수령을 연결했다. 현재 자료 허용 관리와 프로젝트 연결/제외 UI는 남아 있다. 브라우저 기본 원본 수령을 제품의 전체 해시 검증·수령 재개 완료로 간주하지 않는다. 다음 파일 작업은 이 관리 화면과 웹/앱의 검증 수령 및 앱 영속 전송이다.
+현재 1의 원등록 결과 조회와 늦은 등록을 차단하는 요청 키 취소, 2의 웹 영속 전송, 3의 자료 목록·검색·명시 버전 등록·원본 수령을 연결했다. 자료 허용 관리와 정확한 버전의 프로젝트 연결/제외 및 응답 유실 복구도 연결했다. 브라우저 기본 원본 수령을 제품의 전체 해시 검증·수령 재개 완료로 간주하지 않는다. 다음 파일 작업은 웹/앱 검증 수령·S10 개인 보관함과 마지막 연결 제외 자료의 재연결·앱 영속 전송이다. 마지막 연결을 제외한 바이트를 보존하는 현재 동작만으로 팀 보관함/휴지통/담당자 이전까지 완료한 것으로 표시하지 않는다.
 
 변경의 출발점은 [웹 API 연결](/Users/spagettimaker/My/Lasker/prepix-dashboard/lib/api/services/b2b.service.ts), [프로젝트 화면](/Users/spagettimaker/My/Lasker/prepix-dashboard/components/b2b/project.tsx), [기존 파일 해시 계산과 부분 전송](/Users/spagettimaker/My/Lasker/prepix-dashboard/lib/workspaces/upload.ts), [파일 API](/Users/spagettimaker/My/Lasker/prepix-backend/backend/src/b2b/files.controller.ts), [파일 서비스](/Users/spagettimaker/My/Lasker/prepix-backend/backend/src/b2b/files.service.ts)다. 앱은 [팀 프로젝트 열기](/Users/spagettimaker/My/Lasker/prepix/apps/desktop/src/main/services/b2b/open-project.ts), [기존 전송](/Users/spagettimaker/My/Lasker/prepix/apps/desktop/src/main/services/workspaces/upload.ts), [검증 다운로드](/Users/spagettimaker/My/Lasker/prepix/apps/desktop/src/main/services/workspaces/download.ts)를 재사용하고 프로젝트별 B2B 계약으로 연결한다.
 
@@ -129,3 +129,5 @@
 비공개 파일 서버 기반은 `5648977`에서 B2B 132개·기존 회귀 159개·빈 DB 55개 마이그레이션·실제 Nest/JWT/엄격한 DTO와 전체 모듈 HTTP·웹 타입·앱 타입 6단계·계약 동기화를 통과했다. 저장은 실제 MinIO, 미디어 정보는 실제 ffprobe를 사용했으며 ClamD는 명시적인 Unix protocol 대역이다. 실제 엔진/최신 signature·native 파일·웹/앱 영속 전송·검토본·발행/NAS·담당자 복구·휴지통/파기 인수는 남아 있다. 상세 범위는 [파일 서버 계약](/Users/spagettimaker/My/Lasker/prepix-backend/backend/docs/b2b-files.md)에 있다.
 
 웹 자료/전송 연결은 대시보드 `621ebb6`, 원등록 복구/취소와 계정 고정 서버는 `2772c31`, beta 계약 동기화는 `64e295888`에 있다. 전체 B2B 135개·웹 단위 99개·실제 로컬 서버/Chrome 인수 1개·웹 빌드/타입/lint·앱 타입 6단계·계약 검사를 통과했다. 브라우저 인수는 실제 저장소·ffprobe와 ClamD 프로토콜 대역으로 수행했으며, 새로고침 후 남은 조각·불변 버전/새 계열·중복 물리 용량·응답 유실/취소·원본 수령 해시·모바일/키보드·계정 변경을 확인했다. 앱 영속 전송과 웹/앱 제품의 검증 수령·실제 검사 엔진은 남아 있다.
+
+웹 자료 관리는 대시보드 `1208ff1`, 변경 결과 확인 서버는 `cdb93c7`, beta 계약은 `5bd672e8b`에 있다. B2B 137개·웹 단위 107개·확장한 실제 서버/Chrome 흐름 1개·서버/웹 빌드·웹 타입/lint·beta 타입 6단계·계약 동기화가 통과했다. 실제 초대 수락자에게 권한을 따로 부여하고, 권한 변경/마지막 연결 제외의 응답을 유실시켜 새로고침 뒤 중복 변경 없이 결과를 확인했다. 정확한 버전 연결의 허용 비복사/저장량 유지, 열린 관리 화면의 계정 변경 정보 제거, 모바일/키보드를 확인했다. ClamD 실제 엔진·웹/앱 검증 수령·S10 보관함과 재연결·담당자 이전/휴지통은 다음 인수 기준으로 유지한다.
