@@ -685,6 +685,38 @@ export type TeamFileVersion = {
     unlink: boolean;
   };
 };
+// Review preview of one immutable video version (F10/F14). Registration
+// success never implies a preview; state is reported separately and only
+// `ready` can produce a playback URL. Errors: B2B_PREVIEW_UNSUPPORTED (not a
+// team video version), B2B_PREVIEW_SOURCE_UNAVAILABLE (version trashed or
+// purged), B2B_PREVIEW_NOT_READY, B2B_PREVIEW_NOT_FOUND (retry without a
+// preview), B2B_PREVIEW_TTL_INVALID, B2B_PREVIEW_VERSION_INVALID.
+export type TeamPreviewState = "pending" | "processing" | "ready" | "failed";
+export type TeamPreviewFailureCode =
+  | "B2B_PREVIEW_SOURCE_TOO_LARGE"
+  | "B2B_PREVIEW_SOURCE_UNSUPPORTED"
+  | "B2B_PREVIEW_SOURCE_TOO_LONG"
+  | "B2B_PREVIEW_TRANSCODE_FAILED"
+  | "B2B_PREVIEW_TIMEOUT"
+  | "B2B_PREVIEW_OUTPUT_TOO_LARGE"
+  | "B2B_PREVIEW_OUTPUT_INVALID"
+  | "B2B_PREVIEW_ATTEMPTS_EXHAUSTED"
+  | "B2B_PREVIEW_SOURCE_REMOVED";
+export type TeamPreviewStatus = {
+  versionId: string;
+  state: TeamPreviewState;
+  /** Attempts ever started; a retry keeps counting. */
+  attempts: number;
+  /** Set only when failed. SOURCE_* means the media, not the transcoder. */
+  failureCode: TeamPreviewFailureCode | null;
+  durationMs: number | null;
+  width: number | null;
+  height: number | null;
+  updatedAt: string;
+};
+/** Inline, Range-seekable H.264/AAC MP4. Expires within 300 s; an issued URL
+ * stays usable until expiresAt even after access is revoked. */
+export type TeamPreviewPlayback = { url: string; expiresAt: string };
 export type TeamFileVersionList = {
   versions: TeamFileVersion[];
   nextCursor: string | null;
@@ -1021,4 +1053,262 @@ export type ProjectRequestMutationAction =
 export type ProjectRequestMutationLookup = {
   currentUserId: string;
   receipt: ProjectRequestMutationResult | null;
+};
+
+// Video reviews, comments, restricted shares and one designated approver
+// (F14/F15). SOT: backend/docs/b2b-reviews.md
+// "not_requested": no preview row yet (same literal the file domain reports).
+export type ReviewPreviewState = "not_requested" | TeamPreviewState;
+export type ReviewPreview = {
+  versionId: string;
+  state: ReviewPreviewState;
+  attempts: number;
+  failureCode: TeamPreviewFailureCode | null;
+  durationMs: number | null;
+  updatedAt: string | null;
+};
+export type ReviewApprovalState =
+  | "no_approver"
+  | "approver_inactive"
+  | "awaiting"
+  | "approved"
+  | "changes_requested";
+export type ReviewPerson = { userId: string; name: string | null };
+export type ReviewSummary = {
+  id: string;
+  projectId: string;
+  title: string;
+  round: number;
+  versionId: string;
+  ordinal: number;
+  revision: number;
+  approval: ReviewApprovalState;
+  approver: ReviewPerson | null;
+  previousRounds: number;
+  createdAt: string;
+  updatedAt: string;
+};
+export type ReviewList = {
+  currentUserId: string;
+  reviews: ReviewSummary[];
+  nextCursor: string | null;
+  allowedActions: { create: boolean };
+};
+export type ReviewRound = {
+  round: number;
+  versionId: string;
+  ordinal: number;
+  openedAt: string;
+  closedAt: string | null;
+  current: boolean;
+};
+export type ReviewComment = {
+  id: string;
+  round: number;
+  versionId: string;
+  startMs: number;
+  endMs: number | null;
+  author: ReviewPerson;
+  body: string;
+  revision: number;
+  history: { number: number; body: string; createdAt: string }[];
+  createdAt: string;
+  updatedAt: string;
+  // Present once converted. state/title only when the viewer can see the request.
+  request: { requestId: string; state: string | null; title: string | null } | null;
+  canEdit: boolean;
+  canConvert: boolean;
+};
+export type ReviewDecision = {
+  id: string;
+  round: number;
+  versionId: string;
+  reviewRevision: number;
+  decision: "approved" | "changes_requested";
+  reason: string;
+  approver: ReviewPerson;
+  decidedAt: string;
+  cancelled: { at: string; by: ReviewPerson; reason: string } | null;
+  current: boolean;
+};
+export type ReviewApprover = {
+  designationId: string;
+  person: ReviewPerson;
+  basis: "participant" | "share";
+  active: boolean;
+  assignedAt: string;
+};
+export type ReviewDetail = {
+  currentUserId: string;
+  access: "participant" | "share";
+  review: {
+    id: string;
+    projectId: string | null;
+    title: string;
+    round: number;
+    versionId: string;
+    revision: number;
+    createdAt: string;
+    updatedAt: string;
+  };
+  rounds: ReviewRound[];
+  selectedRound: number;
+  preview: ReviewPreview;
+  approver: ReviewApprover | null;
+  approval: ReviewApprovalState;
+  decisions: ReviewDecision[];
+  comments: ReviewComment[];
+  share: { id: string; expiresAt: string; allowDownload: boolean } | null;
+  allowedActions: {
+    comment: boolean;
+    decide: boolean;
+    cancelDecision: boolean;
+    setApprover: boolean;
+    replaceVersion: boolean;
+    share: boolean;
+    retryPreview: boolean;
+    download: boolean;
+  };
+};
+export type ReviewPlayback = TeamPreviewPlayback;
+export type CreateReview = Mutation & { title: string; versionId: string };
+export type ReplaceReviewVersion = RevisionMutation & { versionId: string };
+export type SetReviewApprover = RevisionMutation & {
+  userId: string | null;
+  reason: string;
+};
+export type DecideReview = RevisionMutation & {
+  round: number;
+  versionId: string;
+  decision: "approved" | "changes_requested";
+  reason: string;
+};
+export type CancelReviewDecision = RevisionMutation & { reason: string };
+export type CreateReviewComment = Mutation & {
+  round: number;
+  versionId: string;
+  startMs: number;
+  endMs: number | null;
+  body: string;
+};
+export type EditReviewComment = RevisionMutation & { body: string };
+// `revision` pins the exact comment text the converter saw.
+export type ConvertReviewComment = Mutation & {
+  revision: number;
+  title: string;
+};
+export type CreateReviewShare = Mutation & {
+  round: number;
+  versionId: string;
+  recipients: string[];
+  // Omitted: DB time + 7 days.
+  expiresAt?: string;
+  allowDownload: boolean;
+};
+export type RevokeReviewShare = Mutation & { reason: string };
+export type ReviewShare = {
+  id: string;
+  round: number;
+  versionId: string;
+  ordinal: number;
+  recipients: { email: string; ended: boolean }[];
+  expiresAt: string;
+  allowDownload: boolean;
+  createdBy: ReviewPerson;
+  createdAt: string;
+  revoked: { at: string; by: ReviewPerson; reason: string } | null;
+  state: "active" | "expired" | "revoked";
+};
+export type ReviewShareList = { currentUserId: string; shares: ReviewShare[] };
+// The token is shown once on creation and reconstructed for the lead on
+// request; it is never part of a stored receipt, audit row or list.
+export type ReviewShareLink = {
+  shareId: string;
+  token: string;
+  expiresAt: string;
+};
+export type ReviewApproverCandidate = {
+  userId: string;
+  label: string;
+  basis: "participant" | "share";
+};
+export type ReviewApproverCandidates = {
+  currentUserId: string;
+  candidates: ReviewApproverCandidate[];
+};
+export type ReviewDownload = {
+  url: string;
+  expiresIn: number;
+  size: number;
+  sha256: string;
+};
+export type ReviewMutationAction =
+  | "create"
+  | "round"
+  | "approver"
+  | "decide"
+  | "cancel"
+  | "comment"
+  | "edit"
+  | "convert"
+  | "share"
+  | "revoke";
+export type ReviewMutationResult = {
+  requestId: string;
+  review: { id: string; revision: number; round: number };
+  commentId?: string;
+  commentRevision?: number;
+  decisionId?: string;
+  designationId?: string | null;
+  shareId?: string;
+  projectRequestId?: string;
+};
+export type ReviewMutationLookup = {
+  currentUserId: string;
+  receipt: ReviewMutationResult | null;
+};
+export type ReviewWorkQuery = {
+  view?: "all" | "approvals" | "changes";
+  search?: string;
+  cursor?: string;
+};
+export type ReviewWorkList = {
+  currentUserId: string;
+  workspaceId: string;
+  projectId: string | null;
+  asOf: string;
+  teamState: string;
+  revision: string;
+  counts: {
+    approvals: number;
+    awaiting: number;
+    changes: number;
+    unassigned: number;
+  };
+  cards: {
+    id: string;
+    projectId: string;
+    projectName: string;
+    title: string;
+    round: number;
+    approval: ReviewApprovalState;
+    myApproval: boolean;
+    updatedAt: string;
+  }[];
+  nextCursor: string | null;
+};
+// Read by the delivery domain (F16) inside its own team-locked transaction.
+export type ReviewApprovalEvidence = {
+  approved: boolean;
+  approvals: {
+    reviewId: string;
+    round: number;
+    reviewRevision: number;
+    versionId: string;
+    decisionId: string;
+    approverId: string;
+    designationId: string;
+    decidedAt: string;
+    retentionId: string;
+  }[];
 };
