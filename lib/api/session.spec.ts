@@ -135,18 +135,29 @@ test("every mutation path classifies outcomes through the one shared policy", ()
   // of "final" server codes: only releaseRejected's lookup decides.
   const ownRule = files.filter((f) => {
     const src = readFileSync(f, "utf8");
-    // Any direct finish shortly after a catch (a callback handed to
-    // releaseRejected, `() => store.finish(...)`, is the shared rule's own).
-    const block = (from: number) => {
-      // The catch body by brace depth (balanced in these sources).
-      const open = src.indexOf("{", from);
+    // Text from `open` to its matching close (balanced in these sources).
+    const span = (from: number, open: string, close: string) => {
+      const start = src.indexOf(open, from);
       let depth = 0;
-      for (let i = open; i < src.length; i++)
-        if (src[i] === "{") depth++;
-        else if (src[i] === "}" && --depth === 0) return src.slice(open, i);
-      return src.slice(open);
+      for (let i = start; i < src.length; i++)
+        if (src[i] === open) depth++;
+        else if (src[i] === close && --depth === 0) return src.slice(start, i + 1);
+      return src.slice(start);
     };
-    return [...src.matchAll(/catch\s*\([^)]*\)\s*\{/g)].some((m) => /(?<!=>\s?)\bstore\.finish\(/.test(block(m.index!)));
+    // A direct finish in a catch body, outside the callbacks handed to
+    // releaseRejected (the shared rule's own discard), frees a record itself.
+    return [...src.matchAll(/catch\s*\([^)]*\)\s*\{/g)].some((m) => {
+      let body = span(m.index!, "{", "}");
+      for (let at = body.indexOf("releaseRejected("); at >= 0; at = body.indexOf("releaseRejected(")) {
+        const local = body.indexOf("(", at);
+        let depth = 0, end = local;
+        for (; end < body.length; end++)
+          if (body[end] === "(") depth++;
+          else if (body[end] === ")" && --depth === 0) break;
+        body = body.slice(0, at) + body.slice(end + 1);
+      }
+      return /\bstore\.finish\(/.test(body);
+    });
   });
   assert.deepEqual(ownRule, [], "a failed send frees its record only through releaseRejected()");
   assert.ok(guarded.includes("lib/b2b-billing/operations.ts"), "billing (incl. termination and re-consent) uses the shared rule");

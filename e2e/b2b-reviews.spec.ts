@@ -387,15 +387,16 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   await expect(L.page.getByRole("button", { name: "코멘트 남기기", exact: true })).toHaveCount(0);
 
   // M1: the lead swapped to V2 while the comment was pending. The resend is
-  // rejected (version changed); only discarding frees the review again, and
-  // the text comes back as a draft for the new round.
+  // rejected (version changed). (integration) The one shared release rule
+  // (lib/api/session.ts releaseRejected): a refused resend frees the record
+  // once the original-key lookup proves nothing was applied, so no manual
+  // discard is needed, and the text comes back as a draft for the new round.
   await P.page.goto(reviewUrl);
   await expect(P.page.getByText("결과 확인이 필요한 변경", { exact: true }).first()).toBeVisible({ timeout: 30_000 });
   await expect(P.page.getByRole("button", { name: "이 변경 버리기", exact: true })).toHaveCount(0);
   await P.page.getByRole("button", { name: "같은 내용으로 다시 보내기", exact: true }).click();
-  await expect(P.page.getByRole("button", { name: "이 변경 버리기", exact: true })).toBeVisible({ timeout: 30_000 });
-  await P.page.getByRole("button", { name: "이 변경 버리기", exact: true }).click();
-  await expect(P.page.getByText("결과 확인이 필요한 변경", { exact: true })).toHaveCount(0);
+  await expect(P.page.getByText("결과 확인이 필요한 변경", { exact: true })).toHaveCount(0, { timeout: 30_000 });
+  await expect(P.page.getByRole("button", { name: "이 변경 버리기", exact: true })).toHaveCount(0);
   await expect(P.page.getByRole("textbox", { name: "코멘트 내용", exact: true })).toHaveValue(lostBody, { timeout: 30_000 });
   await P.page.getByRole("button", { name: "코멘트 남기기", exact: true }).click();
   await expect(P.page.getByRole("listitem").getByText(lostBody, { exact: true })).toBeVisible({ timeout: 30_000 });

@@ -295,3 +295,40 @@ test("a review change fenced by a local session change keeps its key and recover
   assert.deepEqual(await runReview({ ...r, input: { ...r.input, requestKey: randomUUID() } }, api, store, new AbortController().signal), done);
   assert.equal(posts, 1);
 });
+
+// (integration) The shared release rule frees a refused resend once the
+// original-key lookup proves nothing applied; the caller's beforeDiscard runs
+// first (the pending panel puts a comment's text back into the draft), and
+// never when the lookup finds the change applied.
+test("a refused resend proven unapplied is freed after beforeDiscard; an applied one is confirmed, not discarded", async () => {
+  const signal = new AbortController().signal;
+  for (const applied of [false, true]) {
+    const store = new MemoryStore();
+    let mode: "lost" | "conflict" = "lost",
+      lookups = 0,
+      kept = 0;
+    const api: ReviewApi = {
+      operation: async () => ({
+        currentUserId: project.userId,
+        // Lookups: before send #1, before the resend, then after its refusal.
+        receipt: applied && ++lookups === 3 ? receipt() : null,
+      }),
+      apply: async () => {
+        if (mode === "lost") throw new Error("timeout");
+        throw Object.assign(new Error("409"), { response: { status: 409 } });
+      },
+    };
+    await assert.rejects(runReview(comment(), api, store, signal), /timeout/);
+    mode = "conflict";
+    const [pending] = await store.list(project);
+    await assert.rejects(
+      runReview(pending, api, store, signal, async () => {
+        kept++;
+        assert.equal((await store.list(project)).length, 1, "the text is kept while the record still exists");
+      }),
+      /409/,
+    );
+    assert.equal((await store.list(project)).length, 0, applied ? "confirmed by its receipt" : "freed");
+    assert.equal(kept, applied ? 0 : 1);
+  }
+});

@@ -52,6 +52,23 @@ export function ReviewPending({
     [busy, setBusy] = useState(false),
     [dead, setDead] = useState<string[]>([]);
   const mounted = useRef(false);
+  // Unsent comment text goes back to the draft, never lost. A comment is tied
+  // to its version's timeline, so a new round gets the text only, not the old
+  // time range.
+  const keepDraft = useCallback(
+    async (r: ReviewRecord) => {
+      if (r.action !== "comment" || typeof r.input.body !== "string") return;
+      const same = currentRound === undefined || currentRound === r.input.round;
+      const round = same ? (r.input.round as number) : currentRound;
+      const kept = await reviewStore.draft(r.scope, round).catch(() => null);
+      await reviewStore.saveDraft(r.scope, round, {
+        body: kept?.body ? `${kept.body}\n${r.input.body}` : r.input.body,
+        startMs: kept?.body ? kept.startMs : same ? (r.input.startMs as number) : 0,
+        endMs: kept?.body ? kept.endMs : same ? ((r.input.endMs as number | null) ?? null) : null,
+      });
+    },
+    [currentRound],
+  );
   const refresh = useCallback(async () => {
     const abort = new AbortController();
     try {
@@ -124,16 +141,20 @@ export function ReviewPending({
                 onClick={async () => {
                   setBusy(true);
                   try {
-                    await runReview(r, api, reviewStore, new AbortController().signal);
+                    // A refusal the original-key lookup proves unapplied frees
+                    // the record (shared rule); its text returns to the draft.
+                    await runReview(r, api, reviewStore, new AbortController().signal, () => keepDraft(r));
                   } catch (e) {
                     setError(errorCode(e));
-                    // The server answered and did not apply it (for example
-                    // the version changed): only discarding frees the slot.
+                    // Refused but not freed (the lookup could not answer):
+                    // the person may discard it explicitly.
                     if (definitivelyRejected(e))
                       setDead((d) => [...new Set([...d, r.input.requestKey])]);
                   } finally {
                     setBusy(false);
                     void refresh();
+                    // The draft and the review may have changed either way.
+                    window.dispatchEvent(new CustomEvent(reviewEvents, { detail: scope }));
                   }
                 }}
               >
@@ -148,19 +169,7 @@ export function ReviewPending({
                     setBusy(true);
                     try {
                       const dropped = await discardReview(r, api, reviewStore, new AbortController().signal);
-                      // Unsent comment text goes back to the draft, never lost.
-                      if (dropped && r.action === "comment" && typeof r.input.body === "string") {
-                        // A comment is tied to its version's timeline, so a new
-                        // round gets the text only, not the old time range.
-                        const same = currentRound === undefined || currentRound === r.input.round;
-                        const round = same ? (r.input.round as number) : currentRound;
-                        const kept = await reviewStore.draft(r.scope, round).catch(() => null);
-                        await reviewStore.saveDraft(r.scope, round, {
-                          body: kept?.body ? `${kept.body}\n${r.input.body}` : r.input.body,
-                          startMs: kept?.body ? kept.startMs : same ? (r.input.startMs as number) : 0,
-                          endMs: kept?.body ? kept.endMs : same ? ((r.input.endMs as number | null) ?? null) : null,
-                        });
-                      }
+                      if (dropped) await keepDraft(r);
                       setDead((d) => d.filter((k) => k !== r.input.requestKey));
                       setError("");
                     } catch (e) {

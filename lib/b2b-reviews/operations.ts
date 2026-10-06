@@ -362,12 +362,16 @@ export async function checkReview(
   }
   return result.receipt;
 }
-/** Record first, look up, send once, then require this account's receipt. */
+/** Record first, look up, send once, then require this account's receipt.
+ * `beforeDiscard` runs when the shared release rule frees a resent record the
+ * server refused and never applied (lookup found no receipt), before the
+ * record goes: the caller keeps what the person wrote (a comment's text). */
 export async function runReview(
   r: ReviewRecord,
   api: ReviewApi,
   store: ReviewStore,
   signal: AbortSignal,
+  beforeDiscard?: () => Promise<void>,
 ) {
   const prepared = await store.prepare(r);
   signal.throwIfAborted();
@@ -379,7 +383,10 @@ export async function runReview(
     await api.apply(started, signal);
     signal.throwIfAborted();
   } catch (e) {
-    await releaseRejected(e, started.attempts, () => store.rejectFirst(started), () => checkReview(started, api, store, signal), () => store.finish(started));
+    await releaseRejected(e, started.attempts, () => store.rejectFirst(started), () => checkReview(started, api, store, signal), async () => {
+      await beforeDiscard?.();
+      await store.finish(started);
+    });
     throw e;
   }
   const receipt = await checkReview(started, api, store, signal);
