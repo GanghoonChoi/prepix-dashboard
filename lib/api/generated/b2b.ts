@@ -1105,12 +1105,20 @@ export type TeamStatementAiUnit = {
 };
 export type TeamStatementSnapshot = {
   schemaVersion: 1;
+  // Bumped whenever how a figure is computed changes. A stored revision with
+  // another version is never auto-corrected; it goes to ops review instead.
+  calculationVersion: number;
   document: "monthly_statement";
   workspaceId: string;
   teamName: string;
   month: string;
   range: { startsAt: string; endsAt: string };
+  // Latest business copy paid up to month end (the only recipient of a month
+  // without purchases). `recipients` lists the copies of this month's own
+  // purchases, one entry per distinct copy, so a mid-month profile change
+  // shows as two recipients.
   recipient: (TeamBuyer & { sourceOrderId: string }) | null;
+  recipients: { buyer: TeamBuyer; sourceOrderIds: string[] }[];
   purchases: TeamStatementPurchase[];
   totals: {
     supplyKrw: number;
@@ -1178,4 +1186,62 @@ export type TeamStatementIssueResult = {
   month: string;
   revision: TeamStatementRevisionSummary;
   created: boolean;
+};
+
+// One display mapping for statement labels, shared by the PDF and the web
+// screen (the dashboard copies this file). `ko` is what the PDF prints.
+type Label = { ko: string; en: string };
+export const statementLabels = {
+  kinds: {
+    base: { ko: "기본 팀 상품", en: "Base team product" },
+    extra_seat: { ko: "추가 편집 이용권", en: "Extra editing licence" },
+    ai_pack: { ko: "추가 AI", en: "AI pack" },
+    storage_pack: { ko: "저장 추가", en: "Storage pack" },
+  } satisfies Record<TeamQuote["lines"][number]["kind"], Label>,
+  targets: {
+    initial: { ko: "첫 구매", en: "First purchase" },
+    current: { ko: "현재 기간 추가", en: "Current-period add-on" },
+    next: { ko: "다음 기간 선구매", en: "Next-period prepurchase" },
+    restore: { ko: "종료 후 복구", en: "Restoration" },
+  } satisfies Record<QuoteTarget, Label>,
+  purchaseStates: {
+    applied: { ko: "반영 완료", en: "Applied" },
+    awaiting_application: {
+      ko: "수납 완료 · 반영 대기",
+      en: "Paid · awaiting application",
+    },
+    review_required: { ko: "운영 확인 중", en: "Under review" },
+  } satisfies Record<TeamStatementPurchase["status"], Label>,
+  adjustmentStates: {
+    pending: { ko: "반환 대기", en: "Return pending" },
+    confirming: { ko: "반환 확인 중", en: "Return being confirmed" },
+    unknown: { ko: "반환 확인 중", en: "Return being confirmed" },
+    refunded: { ko: "반환 완료", en: "Returned" },
+    review_required: { ko: "운영 확인 중", en: "Under review" },
+  } satisfies Record<TeamStatementAdjustment["state"], Label>,
+  // Only "refunded" reads as money returned; in-flight states never do.
+  refundStates: {
+    reserved: { ko: "환불 확인 중", en: "Refund being confirmed" },
+    cancelling: { ko: "환불 확인 중", en: "Refund being confirmed" },
+    provider_unknown: { ko: "환불 확인 중", en: "Refund being confirmed" },
+    refunded: { ko: "환불 완료", en: "Refunded" },
+    rejected: { ko: "환불 거절", en: "Refund rejected" },
+    failed: { ko: "환불 실패", en: "Refund failed" },
+    review_required: { ko: "운영 확인 중", en: "Under review" },
+  } satisfies Record<TeamStatementRefund["state"], Label>,
+  reasons: {
+    initial: { ko: "최초 발행", en: "First issue" },
+    late_receipt: { ko: "늦게 확인된 수납 반영", en: "Late payment receipt" },
+    application_recorded: {
+      ko: "이용권·제공량 반영 결과 확정",
+      en: "Application recorded",
+    },
+    status_changed: { ko: "수납 처리 상태 변경", en: "Payment status changed" },
+    correction_recorded: {
+      ko: "과납·환불 정정 기록 반영",
+      en: "Overpayment or refund changed",
+    },
+    usage_recorded: { ko: "AI 원장 기록 변경", en: "AI ledger changed" },
+    content_changed: { ko: "집계 내용 정정", en: "Content corrected" },
+  } satisfies Record<StatementReason, Label>,
 };
