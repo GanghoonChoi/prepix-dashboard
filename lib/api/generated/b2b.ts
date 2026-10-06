@@ -415,6 +415,10 @@ export type TeamRefund = {
   requestedAt: string;
   decidedAt: string | null;
   refundedAt: string | null;
+  // Legal floor: reserved by a mid-term termination; returned whole as a
+  // withdrawal. SOT: backend/docs/b2b-legal-floor.md §1
+  terminationId: string | null;
+  withdrawal: boolean;
 };
 export type BillingCorrection = {
   id: string;
@@ -571,7 +575,93 @@ export type TeamBilling = {
   runs: TeamAutopayRun[];
   // Only for owners/administrators who can choose retained licence holders.
   retainedCandidates: { userId: string; name: string | null; email: string }[] | null;
+  // Legal floor: the open (or latest) re-consent to a changed renewal price,
+  // and the latest mid-term termination. SOT: backend/docs/b2b-legal-floor.md
+  renewalConsent: TeamRenewalConsent | null;
+  termination: TeamTerminationStatus | null;
   serverTime: string;
+};
+export type TeamRenewalConsent = {
+  id: string;
+  state: "required" | "consented" | "declined" | "expired" | "superseded";
+  reason: "price_increase" | "free_to_paid" | "terms_changed";
+  fromProductVersion: string | null;
+  toProductVersion: string;
+  selection: { extraSeats: number; aiPacks: number; storagePacks: number };
+  // Supply + VAT of the renewal at each version for the same selection.
+  fromTotalKrw: number | null;
+  toTotalKrw: number;
+  // Consent counts only in [opensAt, chargeAt); no consent means no charge.
+  opensAt: string;
+  chargeAt: string;
+  // Found later than the notice lead: fewer than the full window days remain.
+  shortNotice: boolean;
+  answeredAt: string | null;
+  createdAt: string;
+};
+export type AcceptRenewalConsent = {
+  requestKey: string;
+  productVersion: string;
+  expectedTotalKrw: number;
+};
+export type DeclineRenewalConsent = { requestKey: string };
+export type TeamTerminationPreviewOrder = TeamRefundPreview & {
+  withdrawal: boolean;
+};
+export type TeamTerminationPreview = {
+  // Unused time is measured at basisAt; the period ends when the request lands.
+  basisAt: string;
+  previousEndsAt: string;
+  renewalStops: boolean;
+  withdrawal: boolean;
+  settingsVersion: string;
+  orders: TeamTerminationPreviewOrder[];
+  amounts: { supplyKrw: number; vatKrw: number; totalKrw: number; currency: "KRW" };
+};
+export type CreateTeamTermination = {
+  requestKey: string;
+  reason: string;
+  basisAt: string;
+  expectedTotalKrw: number;
+};
+export type TeamTerminationResult = {
+  terminationId: string;
+  endedAt: string;
+  previousEndsAt: string;
+  withdrawal: boolean;
+  totalKrw: number;
+  refunds: { refundId: string; orderId: string; totalKrw: number; withdrawal: boolean }[];
+  inFlightOrderId: string | null;
+};
+export type TeamTerminationStatus = {
+  id: string;
+  endedAt: string;
+  previousEndsAt: string;
+  withdrawal: boolean;
+  requestedTotalKrw: number;
+  // Only provider-confirmed refunds count as returned money.
+  refundedKrw: number;
+  pendingKrw: number;
+  refunds: { refundId: string; orderId: string; state: TeamRefundState; totalKrw: number }[];
+};
+// Monthly personal-data access-log review (안전성 확보조치 기준 제8조).
+export type LegalAccessReview = {
+  month: string;
+  state: "pending" | "reviewed";
+  summary: Record<string, unknown>;
+  summarySha256: string;
+  reviewer: string | null;
+  outcome: "no_issue" | "follow_up" | null;
+  notes: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+  retainUntil: string;
+};
+// The reviewer is the verified console operator (F3 assertion), not a body field.
+export type SignLegalAccessReview = {
+  outcome: "no_issue" | "follow_up";
+  notes: string;
+  summarySha256: string;
 };
 export type TeamOrderSummary = {
   id: string;
@@ -613,7 +703,10 @@ export type BillingOperationAction =
   | "method.remove"
   | "renewal"
   | "renewal.stop"
-  | "refund";
+  | "refund"
+  | "termination"
+  | "renewal.consent.accept"
+  | "renewal.consent.decline";
 export type BillingOperationReceipt = {
   currentUserId: string;
   receipt: Record<string, unknown> | null;
@@ -2218,7 +2311,13 @@ export type TeamDeletionBlockReason =
   | "order_pending"
   | "settings_missing"
   | "operator_hold"
-  | "operator_released";
+  | "operator_released"
+  // (integration) E+ legal floor pre-deletion hook: retention settings or the
+  // archive key are missing, a statement month is not issued yet (waiting),
+  // or a refund is still open (ops_check).
+  | "retention_settings_missing"
+  | "statement_pending"
+  | "refund_open";
 export type TeamDeletionObjectState = "pending" | "deleted" | "failed";
 export type TeamBackupPurgeState = "pending" | "purged" | "unverified" | "failed";
 export type TeamBackupPurgeResultState =
@@ -2393,6 +2492,10 @@ export type UserNotificationKind =
   | "payment.review_required"
   | "payment.failed"
   | "payment.applied"
+  // (integration) E+ legal floor, billing audience only.
+  | "payment.renewal_consent_required"
+  | "payment.terminated"
+  | "payment.statement_issued"
   | "lifecycle.period_ended"
   | "lifecycle.recovery_storage"
   | "lifecycle.deletion_due"

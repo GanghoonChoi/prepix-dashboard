@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { PurchaseQuotes } from "./purchase-quotes";
+import { RenewalConsentCard, TeamTermination } from "./billing-legal";
 import type { TeamOrderList } from "@/lib/api/services/b2b.service";
 import {
   BillingError,
@@ -52,6 +53,7 @@ export function B2bPlan({
         <SpaceBadge workspace={workspace} />
         <StateBadge state={status.team.currentState} />
       </div>
+      <RenewalConsentCard billing={billing} />
       <section className="space-y-3 border-b border-border pb-8">
         <h2 className="font-medium">{c("팀 이용기간", "Team period")}</h2>
         <p className="text-sm leading-6 text-muted">
@@ -90,6 +92,7 @@ export function B2bPlan({
           <BillingError code={billing.error} retry={() => void billing.reload()} />
         ) : null}
       </section>
+      <TeamTermination workspaceId={workspace.id} status={status} billing={billing} />
       <section aria-labelledby="orders" className="space-y-3 border-b border-border pb-8">
         <h2 id="orders" className="font-medium">{c("주문과 결제", "Orders and payments")}</h2>
         {failure && <BillingError code={failure} />}

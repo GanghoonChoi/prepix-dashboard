@@ -37,6 +37,18 @@ const fields: [keyof TeamBuyer, string, string, string][] = [
   ["address", "사업장 주소", "Business address", "street-address"],
   ["receiptEmail", "증빙 수신 이메일", "Receipt email", "email"],
 ];
+const actionLabels: Record<BillingAction, [string, string]> = {
+  order: ["주문", "Order"],
+  profile: ["사업자 정보 저장", "Business details"],
+  renewal: ["자동결제 설정", "Renewal settings"],
+  "renewal.stop": ["자동결제 중지", "Stop renewal"],
+  refund: ["환불 요청", "Refund request"],
+  "method.start": ["결제 수단 등록", "Payment method registration"],
+  "method.remove": ["결제 수단 삭제", "Payment method removal"],
+  termination: ["중도해지", "Termination"],
+  "renewal.consent.accept": ["갱신 금액 동의", "Renewal consent"],
+  "renewal.consent.decline": ["갱신 금액 거절", "Renewal consent decline"],
+};
 const methodLabels: Record<string, [string, string]> = {
   pending: ["등록 대기", "Pending"],
   issuing: ["등록 확인 중", "Registering"],
@@ -68,6 +80,10 @@ const reasons: Record<string, [string, string]> = {
   method_unavailable: ["결제 카드를 쓸 수 없음", "Card unavailable"],
   method_environment_changed: ["결제 환경이 바뀜 · 카드를 다시 등록", "Payment environment changed · register the card again"],
   renewal_stopped: ["갱신 방식이 자동이 아님", "Renewal is no longer automatic"],
+  terminated: ["중도해지로 자동결제 종료", "Ended by mid-term termination"],
+  renewal_consent_declined: ["바뀐 갱신 금액에 동의하지 않음 · 이번 기간 끝에 종료", "Changed renewal price declined · ends with this period"],
+  renewal_consent_missing: ["결제 전까지 바뀐 갱신 금액에 동의하지 않아 결제하지 않음", "No consent to the changed renewal price before the charge · not charged"],
+  renewal_consent_required: ["바뀐 갱신 금액에 동의가 없어 결제하지 않음", "No consent to the changed renewal price · not charged"],
 };
 const runLabels: Record<string, [string, string]> = {
   scheduled: ["자동결제 예정", "Scheduled"],
@@ -295,7 +311,7 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
           {pending.map((p) => (
             <div key={p.topic + p.action} className="flex flex-wrap gap-2">
               <button type="button" className={secondaryClass} disabled={!!busy} onClick={() => void confirm(p)}>
-                {c("결과 확인", "Confirm result")} · {p.action}
+                {c("결과 확인", "Confirm result")} · {c(...actionLabels[p.action])}
               </button>
               <button type="button" className={secondaryClass} disabled={!!busy} onClick={() => void discard(p)}>
                 {c("이 변경 버리기", "Discard this change")}

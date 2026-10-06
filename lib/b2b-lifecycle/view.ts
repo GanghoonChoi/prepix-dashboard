@@ -74,6 +74,10 @@ const reasons: Record<TeamDeletionBlockReason, Copy> = {
   settings_missing: ["삭제 운영 설정 확인 대기", "Waiting for approved deletion settings"],
   operator_hold: ["운영 보류", "Held by operations"],
   operator_released: ["운영 확인 후 재검사 대기", "Released by operations, rechecking"],
+  // Legal floor (E+) pre-deletion checks.
+  retention_settings_missing: ["법정 보존 설정 확인 대기", "Waiting for approved retention settings"],
+  statement_pending: ["마지막 명세 발행 대기", "Waiting for the final statement to be issued"],
+  refund_open: ["진행 중인 환불 확인 필요", "An open refund is being settled"],
 };
 export const reasonCopy = (reason: TeamDeletionBlockReason): Copy =>
   reasons[reason] ?? ["확인 중", "Under review"];
