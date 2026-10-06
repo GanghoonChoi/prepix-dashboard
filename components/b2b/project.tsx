@@ -98,6 +98,9 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
         >
           {c("프로젝트 목록", "Projects")}
         </Link>
+        <Link className={secondaryClass} href={`/dashboard/workspaces/${id}/projects/${projectId}/files`}>
+          {c("자료", "Files")}
+        </Link>
         {project.role !== "reviewer" && (
           <Link
             className={secondaryClass}

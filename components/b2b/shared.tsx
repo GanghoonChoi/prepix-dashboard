@@ -92,6 +92,19 @@ const invitationErrors: Record<string, [string, string]> = {
   ],
 };
 const errors: Record<string, [string, string]> = {
+  B2B_FILE_RESELECT_REQUIRED: ["원본 파일을 다시 선택해 주세요. 크기와 전체 해시를 확인한 뒤 남은 부분부터 전송합니다.", "Choose the source file again. Its size and full hash are checked before remaining parts are sent."],
+  UPLOAD_RESUME_MISMATCH: ["처음 등록한 파일과 내용이 다릅니다. 같은 원본을 선택하거나 새 자료로 등록해 주세요.", "This file differs from the original upload. Choose the same source or register a new asset."],
+  B2B_FILE_SIZE_INVALID: ["빈 파일이거나 현재 파일당 크기 제한을 초과했습니다.", "The file is empty or exceeds the current per-file size limit."],
+  B2B_FILE_NAME_INVALID: ["파일 이름이 너무 길거나 경로·제어 문자가 포함되어 있습니다. 이름을 변경해 주세요.", "The filename is too long or contains path or control characters. Rename the file."],
+  B2B_FILE_STORAGE_FULL: ["팀 저장 정원이 부족합니다. 보관된 자료와 진행 중 예약을 함께 확인해 주세요.", "Team storage is full. Check both stored files and pending reservations."],
+  B2B_FILE_TRANSFER_STORAGE_UNAVAILABLE: ["이 브라우저에서 전송 기록을 보존할 수 없습니다. 브라우저 저장소를 확인한 뒤 다시 시도해 주세요.", "Transfer records cannot be saved in this browser. Check browser storage and retry."],
+  B2B_FILE_ACCOUNT_CHANGED: ["로그인 계정이 바뀌었습니다. 현재 계정으로 프로젝트를 다시 열어 주세요.", "The signed-in account changed. Reopen the project for the current account."],
+  B2B_FILE_CANCEL_PENDING: ["취소 결과를 확인해야 합니다. 같은 전송의 취소 결과 재확인을 이용해 주세요.", "Cancellation needs confirmation. Retry cancellation for this transfer."],
+  B2B_FILE_BEGIN_CANCELLED: ["이 등록 요청은 취소되었습니다. 새 자료로 다시 등록할 수 있습니다.", "This registration was cancelled. You can register a new asset."],
+  B2B_FILE_ALREADY_REGISTERED: ["이미 보관이 확정된 버전입니다. 전송 취소로 보관 자료를 삭제할 수 없습니다.", "This version is already stored. Cancelling a transfer cannot delete it."],
+  B2B_FILE_NOT_FOUND: ["현재 계정에서 이 자료에 접근할 수 없습니다.", "This file is unavailable to the current account."],
+  B2B_FILE_UPLOAD_EXPIRED: ["전송이 만료되었습니다. 현재 상태를 확인한 뒤 새 자료로 등록해 주세요.", "The transfer expired. Check its state before registering a new asset."],
+  B2B_FILE_TRANSFER_RECORD_CONFLICT: ["전송 기록과 서버의 자료 정보가 일치하지 않습니다. 이 전송을 자동으로 이어 보내지 않습니다.", "The transfer record differs from the server. This transfer cannot resume automatically."],
   B2B_AI_ACCOUNTING_REVIEW_REQUIRED: [
     "사용량 기록을 확인하고 있습니다. 확인이 끝날 때까지 새 작업과 정산을 진행할 수 없습니다.",
     "Usage records need review. New jobs and settlement are unavailable until this is resolved.",

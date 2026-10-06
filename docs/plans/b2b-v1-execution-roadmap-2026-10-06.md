@@ -32,7 +32,7 @@
 
 ## 개발 순서와 완료 기준
 
-각 묶음은 서버 동작·연결 화면·인수 검증까지 끝낸다. 서버 기반이나 화면의 존재만으로 기능 전체를 완료 처리하지 않는다. 개인 프로젝트의 오프라인 편집과 개인 결제는 계속 지원한다.
+각 묶음은 서버 동작·연결 화면·인수 검증까지 끝낸다. 서버 기반이나 화면의 존재만으로 기능 전체를 완료 처리하지 않는다. 개인 프로젝트의 오프라인 편집과 개인 결제는 계속 지원한다. 웹 프로젝트 자료 목록·명시 버전 등록·영속 전송 재개·응답 유실 복구·원본 수령은 연결했으며, 자료 허용/프로젝트 참조 화면과 앱 전송·검증 수령을 이어간다.
 
 | 순서 | 작업 묶음 | 주 작업 영역 | 완료 기준 |
 | --- | --- | --- | --- |
@@ -82,6 +82,8 @@
 | 5 | 자료 수명과 검사 운영. native 작업 파일 검사, 실제 악성 파일 검사 엔진, 검토본 변환, 담당자 이전, 보관함·휴지통·영구 정리를 완성한다. | 격리 자료는 공유하지 않는다. 검토본 실패는 원본 재전송을 요구하지 않는다. 마지막 프로젝트 연결 해제는 바이트를 삭제하지 않는다. 휴지통 용량과 실제 복구 마감, 다른 참조·완료 증거 보호를 검사한다. |
 
 1~3은 하나의 웹 사용 흐름으로 검증한다. 4는 앱 전송 인수를 별도로 통과해야 하며 웹 새로고침 재개만으로 F08의 앱 재시작 조건을 완료 처리하지 않는다. 5의 작업은 파일 정책과 운영 환경에 따라 진행하되 실제 엔진 검증 전에는 프로토콜 대역 검사만으로 운영 업로드를 공개하지 않는다. 파일 접근과 버전 고정이 준비되면 3번 묶음의 실제 팀 AI 견적·접수를 연결한다.
+
+현재 1의 원등록 결과 조회와 늦은 등록을 차단하는 요청 키 취소, 2의 웹 영속 전송, 3의 자료 목록·검색·명시 버전 등록·원본 수령을 연결했다. 현재 자료 허용 관리와 프로젝트 연결/제외 UI는 남아 있다. 브라우저 기본 원본 수령을 제품의 전체 해시 검증·수령 재개 완료로 간주하지 않는다. 다음 파일 작업은 이 관리 화면과 웹/앱의 검증 수령 및 앱 영속 전송이다.
 
 변경의 출발점은 [웹 API 연결](/Users/spagettimaker/My/Lasker/prepix-dashboard/lib/api/services/b2b.service.ts), [프로젝트 화면](/Users/spagettimaker/My/Lasker/prepix-dashboard/components/b2b/project.tsx), [기존 파일 해시 계산과 부분 전송](/Users/spagettimaker/My/Lasker/prepix-dashboard/lib/workspaces/upload.ts), [파일 API](/Users/spagettimaker/My/Lasker/prepix-backend/backend/src/b2b/files.controller.ts), [파일 서비스](/Users/spagettimaker/My/Lasker/prepix-backend/backend/src/b2b/files.service.ts)다. 앱은 [팀 프로젝트 열기](/Users/spagettimaker/My/Lasker/prepix/apps/desktop/src/main/services/b2b/open-project.ts), [기존 전송](/Users/spagettimaker/My/Lasker/prepix/apps/desktop/src/main/services/workspaces/upload.ts), [검증 다운로드](/Users/spagettimaker/My/Lasker/prepix/apps/desktop/src/main/services/workspaces/download.ts)를 재사용하고 프로젝트별 B2B 계약으로 연결한다.
 

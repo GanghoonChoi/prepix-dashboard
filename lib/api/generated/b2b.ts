@@ -577,6 +577,7 @@ export type TeamFilePolicy = {
   inspectionTimeoutSeconds: number;
 };
 export type TeamFileCapabilities = {
+  currentUserId: string;
   uploadsEnabled: boolean;
   policy: TeamFilePolicy | null;
   partSize: number;
@@ -605,6 +606,11 @@ export type TeamFileUploadStatus = {
   upload: TeamFileUpload;
   parts: { number: number; size: number; etag: string; checksum?: string }[];
   needsCompletion: boolean;
+};
+export type TeamFileUploadLookup = {
+  currentUserId: string;
+  upload: TeamFileUpload | null;
+  cancelled: boolean;
 };
 export type BeginTeamFileUploadInput = {
   requestKey: string;
