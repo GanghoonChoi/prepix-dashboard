@@ -2,7 +2,29 @@
 
 기준 문서: `b2b-v1-implementation-plan-2026-10-05.md`. 목표는 계획 전체 구현이며 아래 첫 묶음으로 범위를 축소하지 않는다. 데스크톱 기준은 사용자 지정 `prepix(beta)`다. 서버와 beta 앱은 `codex/b2b-v1`, 현재 웹은 `/Users/spagettimaker/.codex/worktrees/b2b-file-lifecycle/prepix-dashboard`의 `codex/b2b-file-lifecycle`에서 작업한다. 원래 웹 폴더의 별도 작업 브랜치는 유지한다.
 
-## 최신 요약: 2026-10-06 결과 발행·납품 완료 검증 후
+## 최신 요약: 2026-10-06 리뷰 수정본 통합·실제 인수
+
+전체 개발 완성도는 **약 65%**로 추정한다. 이전 60% 상태에서 C·D·E 리뷰 수정본, 구매/자동갱신/환불·월 명세, beta F12/F16 native 연결과 실제 앱 인수를 추가로 통과했다. F 운영·G 개인 AI 전환과 팀 agent/일괄 분석·보존/삭제·전체 정책/실 환경 인수는 남았다. 시험 건수는 개발 진행률이나 운영 출시 준비율이 아니다. 데스크톱은 계속 prepix(beta) 기준이다.
+
+| 범위 | 현재 확인 상태 |
+| --- | --- |
+| C 리뷰 | 서버 `945d130`→통합 `09e3c39`, 웹 `2b2d1ef`→통합 `05001e9`. PostgreSQL/S3/미디어 검증 148개와 DB 시각 접근 회귀 23개 통과 |
+| D 팀 AI | 서버 `0cecc6a`→통합 `cf2b87d`, 웹 `19d803e`→통합 `8277fa0`. dedicated team keys, remote cleanup, global cap/한 연결 TX 보존. 실제 DB/스토리지·입력 91개, AI 보강 30개, 파일 입력 56개 통과. beta `5e1aa9a8f`→통합 `669608603`, 최종 실제 인수/계약 `2a2ddbb54`. 회귀 261개, 타입 6개·빌드 통과; 원본 중간 바이트/mtime 복원 거절까지 보강 |
+| E 결제·명세 | 서버 `7f64cee`→통합 `133484f` 및 캐시 차단 `172c851`, 웹 `3c58e20`→통합 `9b88f40` 및 명세 복구 `8d90270`. 기존 DB 시각·환불 보류·현재 결제 권한·미세 시각 pagination 보존. 명세 발급 원키의 atomic 저장/조회 복구 및 지연 PDF 권한 회수 인수 완료 |
+| F12 beta 결과 발행 | `92488f8e`: 실제 렌더→고정 로컬 사본→명시 서버 기준→등록. 응답 유실 뒤 MAIN 재시작/원키 복구 실제 Electron 인수 통과 |
+| F16 beta native 납품 | `c7ed7dcb6`: 두 built Electron profile, 실제 AV/PNG/JPEG/WebP 작업 사본 열기·전체 바이트 대조. 위조 hash/token 거절, 미전송 확인/응답 유실/MAIN 두 차례 재시작 뒤 같은 원키로 확인 1회 인수 통과. 단위 41개·타입 6개·빌드 통과 |
+| F 운영 | Claude 별도 세션 진행 중. 아직 완료 인계를 받지 않았으므로 주 코드 통합 완료로 계산하지 않음. 재배정하거나 해당 독립 폴더를 변경하지 않음 |
+| G 개인 AI | 사용자가 개인 AI도 서버 호출로 전환하고 공급자 원키 발급 제거를 승인. 독립 서버/앱 작업 폴더와 큰 작업 인계 문서 준비 완료. 아직 구현 완료가 아님 |
+
+C 원본 0065와 E 원본 0065(통합 번호 0071)는 리뷰에서 수정된 draft이므로 기존 시험 DB를 재사용하지 않았다. 새로운 `prepix-b2b-cde-reviewed-fresh`(55678)에 **76개 migration(0000~0075)**을 적용했고 전체 SQL hash·journal when 일치를 확인했다. 0064 이후 journal은 0063보다 큰 비미래 단조 값으로 통합했다. 이미 배포된 운영 DB를 다시 만드는 절차가 아니다.
+
+공통 `core.team()`과 legacy cloud의 팀 접근 판단은 기본 PostgreSQL 시각으로 통일했다. 명시적인 fixture 시각만 테스트 seam으로 유지한다. 공급자 원키 노출은 G 서버 프록시 전환으로 제거할 예정이며, 팀 전용 키 분리는 D에 반영했다. 운영 공급자 key 회전·기발급 키 철회는 실제 운영 이행 근거가 필요하다.
+
+최종 서버 결제·명세·receipt 조회 회귀 **83/83**, 동시 기간 전환/PG 시각 **17/17**이 통과했다. production 대시보드 **191/191**, 타입·lint·빌드 통과. 실제 Chrome은 검토/공유/승인 1, 팀 AI 3, 결제 4, 명세 1 각각 통과했다. 별도 실제 Chrome 두 탭 원키 및 지연 PDF 권한 회수 **9/9**도 통과했다. 실제 HTTP 구매→환불→명세 정정/PDF 검증도 통과했다. 기간 전환의 stale read-only race는 결정적으로 실패 재현 후 잠금/재조회로 수정했다. 추가 실제 서버 연결 앱 서비스 **11/11**, built Electron 파일 2·F12 1·F16 1·AI 1 총 **5/5**도 통과했다. AI는 실제 원본 중간 바이트+mtime 복원 거절, 응답 유실, running SIGKILL, 같은 작업 복구, 검증 hash 및 명시 적용을 확인했다. F12 첫 실패는 허가 완료 대기 누락을 보완했으며, 재검사 후반의 inspector context 오류는 단독 재실행에서 정상 main/정확 dashboard URL까지 통과했다. 이 초기 실패들을 완료 로그에서 숨기지 않는다. 실제 PostgreSQL/MinIO/ffprobe/ffmpeg/Nest/JWT/Chrome/Electron과 로컬 AI/PG/ClamD/OS vault 대역을 구분한다. 전체 35화면/20기능/17정책 대조, 팀 agent/일괄 분석·AI 보존/삭제, F 운영 통합, G 전환, Windows·운영 저장소·실 공급자 인수는 유지한다.
+
+G 인계: [개인 AI 서버 호출 전환 배정 문서](/Users/spagettimaker/My/Lasker/prepix-parallel/HANDOFF-claude-personal-ai-proxy-2026-10-06.md). 로그는 `/tmp/prepix-cde-reviewed-fresh-final-third.log`, `/tmp/prepix-core-expired-barrier-and-clock-final.log`, `/tmp/prepix-cde-reviewed-*-browser.log`, `/tmp/prepix-statements-final-chrome.log`, `/tmp/prepix-statement-races.log`, `/tmp/prepix-d-final-{ai-unit,ai-electron,native-live,f12-second-live}.log`, `/tmp/prepix-statement-no-store-http-proof.log`다. 마지막 GET 캐시 차단도 production 빌드 재시작 뒤 실제 JWT HTTP 200/no-store로 확인했다. 서비스 타입/빌드는 통과했고 전체 서버 spec 타입의 기존 3건은 별도 기준선으로 유지한다. 달력 fixture와 실 서버 worker의 전역 주문 처리 경합을 피하기 위해 결정적 기간 전환/시계 17건은 worker를 중지한 상태에서 검증했다.
+
+## 이전 요약: 2026-10-06 결과 발행·납품 완료 검증 후
 
 전체 개발 완성도는 계속 **약 60%**로 추정한다. 공개 대상 선택·F12·F16 서버/웹의 새 구현과 인수는 진전이지만, 앱 native 납품 확인·결제 전체 통합·실제 삭제/백업/알림/지원과 전체 요구사항 대조가 남았다. 검증 건수로 진행률을 계산하거나 최근 결과만으로 출시 준비율을 올리지 않는다. 데스크톱 기준은 계속 prepix(beta)다.
 
