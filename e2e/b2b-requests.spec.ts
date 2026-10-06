@@ -13,6 +13,9 @@ import { resolve } from "node:path";
 // Local acceptance only: start the backend preview harness with
 // B2B_TEST_ENABLED, TEAM_TEST_STORAGE and B2B_TEST_FILES, and the request
 // tables applied to the same explicit WORKSPACES_TEST_DATABASE_URL.
+// Serve the web with `next dev`: the reference receipt downloads from the
+// local http MinIO, and the download engine accepts a loopback http storage
+// URL only in development (a production build requires https, by design).
 const api = process.env.B2B_E2E_API_URL ?? "http://127.0.0.1:3308";
 const password = "LocalPreview123";
 type Account = Awaited<ReturnType<typeof account>>;
