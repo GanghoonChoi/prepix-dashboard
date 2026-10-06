@@ -4,11 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiClient } from "@/lib/api/client";
 import { statementService } from "@/lib/api/services/b2b-statements.service";
 import type {
-  StatementReason,
   TeamStatementMonthState,
-  TeamStatementRefund,
   TeamStatementRevision,
 } from "@/lib/api/services/b2b.service";
+import { statementLabels } from "@/lib/api/generated/b2b";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
   Block,
@@ -55,6 +54,10 @@ const messages: Record<string, [string, string]> = {
     "받은 PDF의 크기나 해시가 발행본과 다릅니다. 검증하지 못한 파일은 저장하지 않습니다.",
     "The received PDF differs from the issued size or hash. Unverified files are not saved.",
   ],
+  B2B_ACCOUNT_REQUIRED: [
+    "로그인 계정을 확인할 수 없어 명세를 요청하지 않았습니다. 다시 로그인한 뒤 열어 주세요.",
+    "The signed-in account could not be determined, so nothing was requested. Sign in again and reopen this page.",
+  ],
   B2B_STATEMENT_STORAGE_UNAVAILABLE: [
     "이 브라우저에 요청 기록을 저장할 수 없어 발행 요청을 보내지 않았습니다.",
     "The request could not be recorded in this browser, so it was not sent.",
@@ -78,41 +81,14 @@ function StatementError({ code, retry }: { code: string; retry?: () => void }) {
   );
 }
 
-const reasonLabels: Record<StatementReason, [string, string]> = {
-  initial: ["최초 발행", "First issue"],
-  late_receipt: ["늦게 확인된 수납 반영", "Late payment receipt"],
-  application_recorded: ["이용권·제공량 반영 결과 확정", "Application recorded"],
-  status_changed: ["수납 처리 상태 변경", "Payment status changed"],
-  correction_recorded: ["과납·환불 기록 변경", "Overpayment or refund changed"],
-  usage_recorded: ["AI 원장 기록 변경", "AI ledger changed"],
-  content_changed: ["집계 내용 정정", "Content corrected"],
-};
-const refundStates: Record<TeamStatementRefund["state"], [string, string]> = {
-  reserved: ["환불 확인 중", "Refund being confirmed"],
-  cancelling: ["환불 확인 중", "Refund being confirmed"],
-  provider_unknown: ["환불 확인 중", "Refund being confirmed"],
-  refunded: ["환불 완료", "Refunded"],
-  rejected: ["환불 거절", "Refund rejected"],
-  failed: ["환불 실패", "Refund failed"],
-  review_required: ["운영 확인 중", "Under review"],
-};
-const kinds = {
-  base: ["기본 팀 상품", "Base team product"],
-  extra_seat: ["추가 편집 이용권", "Extra editing licence"],
-  ai_pack: ["추가 AI", "AI pack"],
-  storage_pack: ["저장 추가", "Storage pack"],
-} as const;
-const targets = {
-  initial: ["첫 구매", "First purchase"],
-  current: ["현재 기간 추가", "Current-period add-on"],
-  next: ["다음 기간 선구매", "Next-period prepurchase"],
-  restore: ["종료 후 복구", "Restoration"],
-} as const;
-const purchaseStates = {
-  applied: ["반영 완료", "Applied"],
-  awaiting_application: ["수납 완료 · 반영 대기", "Paid · awaiting application"],
-  review_required: ["운영 확인 중", "Under review"],
-} as const;
+// Labels live in the server contract so the PDF and this screen cannot drift.
+const L = statementLabels;
+const bytesText = (bytes: number) =>
+  bytes >= 1_073_741_824
+    ? `${(bytes / 1_073_741_824).toFixed(2)} GB`
+    : bytes >= 1_048_576
+      ? `${(bytes / 1_048_576).toFixed(1)} MB`
+      : `${new Intl.NumberFormat("en-US").format(bytes)} B`;
 
 function useScope() {
   const { data, b2b } = useWorkspace()!;
@@ -285,14 +261,14 @@ function Figures({ rows }: { rows: [string, string][] }) {
 function Snapshot({ revision }: { revision: TeamStatementRevision }) {
   const c = useCopy();
   const s = revision.snapshot;
-  const pick = (pair: readonly [string, string]) => c(pair[0], pair[1]);
+  const pick = (label: { ko: string; en: string }) => c(label.ko, label.en);
   return (
     <>
       <Block
         title={c("결제 금액 요약", "Payment summary")}
         description={c(
-          "이 달에 수납이 승인된 원주문의 금액입니다. 환불 완료는 이 달에 결제사 취소가 확인된 금액만 셉니다.",
-          "Original orders paid this month. Refunded counts only provider-confirmed cancellations this month.",
+          "이 달에 수납이 승인된 원주문의 금액입니다. 환불 완료는 이 달에 결제사 취소가 확인된 금액만 세며 이전 달 주문의 환불일 수 있습니다. 이 달 순수납은 이 달 수납 확인에서 이 달 환불 완료를 뺀 값으로, 특정 주문의 최종 순액이 아닙니다.",
+          "Original orders paid this month. Refunded counts only provider-confirmed cancellations this month and may relate to earlier months. Net received this month is received minus refunded this month, not the final net of any one order.",
         )}
       >
         <Figures
@@ -302,7 +278,7 @@ function Snapshot({ revision }: { revision: TeamStatementRevision }) {
             [c("합계", "Total"), won(s.totals.totalKrw)],
             [c("수납 확인", "Received"), won(s.totals.receivedKrw)],
             [c("환불 완료", "Refunded"), won(s.totals.refundedKrw)],
-            [c("수납 − 환불", "Received − refunded"), won(s.totals.receivedKrw - s.totals.refundedKrw)],
+            [c("이 달 순수납", "Net received this month"), won(s.totals.receivedKrw - s.totals.refundedKrw)],
           ]}
         />
         {s.byKind.length > 0 && (
@@ -310,7 +286,7 @@ function Snapshot({ revision }: { revision: TeamStatementRevision }) {
             {s.byKind.map((k) => (
               <li key={k.kind} className="flex justify-between gap-4">
                 <span>
-                  {pick(kinds[k.kind])} × {k.quantity}
+                  {pick(L.kinds[k.kind])} × {k.quantity}
                 </span>
                 <span className="text-muted">
                   {c("비례 전 정가", "List")} {won(k.listSupplyKrw)}
@@ -320,6 +296,35 @@ function Snapshot({ revision }: { revision: TeamStatementRevision }) {
           </ul>
         )}
       </Block>
+      {(s.recipients.length > 0 || s.recipient) && (
+        <Block
+          title={c("수신 사업자 정보", "Recipient")}
+          description={c(
+            s.recipients.length > 1
+              ? "이 달에 결제 시 제출된 사업자 정보 사본이 둘 이상입니다. 사본마다 나누어 표시합니다."
+              : "결제 시 제출된 원주문의 사업자 정보 사본입니다.",
+            s.recipients.length > 1
+              ? "More than one business copy was submitted this month; each is shown separately."
+              : "The business copy submitted with the original order.",
+          )}
+        >
+          {(s.recipients.length > 0
+            ? s.recipients
+            : [{ buyer: s.recipient!, sourceOrderIds: [s.recipient!.sourceOrderId] }]
+          ).map((r) => (
+            <div key={r.sourceOrderIds.join()} className="space-y-1 text-sm">
+              <p className="font-medium">{r.buyer.businessName}</p>
+              <p className="text-muted tabular-nums">
+                {r.buyer.businessRegistrationNumber} · {r.buyer.representative} · {r.buyer.receiptEmail}
+              </p>
+              <p className="text-muted">{r.buyer.address}</p>
+              <p className="text-muted">
+                {c("주문", "Orders")} {r.sourceOrderIds.map((id) => id.slice(0, 8)).join(", ")}
+              </p>
+            </div>
+          ))}
+        </Block>
+      )}
       <Block title={c("주문별 내역", "Orders")}>
         {s.purchases.length === 0 ? (
           <p className="text-sm text-muted">{c("이 달에 수납된 주문이 없습니다.", "No orders were paid this month.")}</p>
@@ -329,7 +334,7 @@ function Snapshot({ revision }: { revision: TeamStatementRevision }) {
               <li key={p.orderId} className="space-y-1 py-3 text-sm">
                 <p className="flex flex-wrap justify-between gap-2">
                   <span className="font-medium">
-                    {pick(targets[p.target])} · {pick(purchaseStates[p.status])}
+                    {pick(L.targets[p.target])} · {pick(L.purchaseStates[p.status])}
                   </span>
                   <span className="tabular-nums">{won(p.amounts.totalKrw)}</span>
                 </p>
@@ -337,7 +342,7 @@ function Snapshot({ revision }: { revision: TeamStatementRevision }) {
                   {kst(p.paidAt)} {c("결제", "paid")} · {c("공급가액", "supply")} {won(p.amounts.supplyKrw)} · {c("부가세", "VAT")} {won(p.amounts.vatKrw)}
                 </p>
                 <p className="text-muted">
-                  {p.lines.map((l) => `${pick(kinds[l.kind])} × ${l.quantity}`).join(", ")}
+                  {p.lines.map((l) => `${pick(L.kinds[l.kind])} × ${l.quantity}`).join(", ")}
                 </p>
               </li>
             ))}
@@ -357,18 +362,23 @@ function Snapshot({ revision }: { revision: TeamStatementRevision }) {
           <ul className="divide-y divide-border text-sm tabular-nums">
             {s.adjustments.map((a) => (
               <li key={`a-${a.orderId}`} className="flex flex-wrap justify-between gap-2 py-3">
-                <span>{c("반영 지연 과납 차액", "Delayed-application overpayment")} · {a.state === "refunded" ? c("반환 완료", "Returned") : c("반환 대기·확인 중", "Pending")}</span>
+                <span>{c("반영 지연 과납 차액", "Delayed-application overpayment")} · {pick(L.adjustmentStates[a.state])}</span>
                 <span>{won(a.amountKrw)}</span>
               </li>
             ))}
             {s.refunds.map((r) => (
-              <li key={r.refundId} className="flex flex-wrap justify-between gap-2 py-3">
-                <span>
-                  {r.kind === "overpayment" ? c("과납 반환", "Overpayment return") : c("미사용분 환불", "Unused refund")} · {pick(refundStates[r.state])}
-                </span>
-                <span>
-                  {c("요청", "Requested")} {won(r.amounts.totalKrw)} · {c("이 달 환불 완료", "Refunded this month")} {won(r.returnedInMonthKrw)}
-                </span>
+              <li key={r.refundId} className="space-y-1 py-3">
+                <p className="flex flex-wrap justify-between gap-2">
+                  <span>
+                    {r.kind === "overpayment" ? c("과납 반환", "Overpayment return") : c("미사용분 환불", "Unused refund")} · {pick(L.refundStates[r.state])}
+                  </span>
+                  <span>
+                    {c("요청", "Requested")} {won(r.amounts.totalKrw)} · {c("이 달 환불 완료", "Refunded this month")} {won(r.returnedInMonthKrw)}
+                  </span>
+                </p>
+                <p className="text-muted">
+                  {c("회수한 제공량", "Allowances reclaimed")}: {c("편집 이용권", "editing licences")} {r.allowances.seats} · {c("저장", "storage")} {bytesText(r.allowances.storageBytes)} · AI {units(String(r.allowances.aiUnits))}
+                </p>
               </li>
             ))}
           </ul>
@@ -567,7 +577,7 @@ export function TeamStatementMonth({ month }: { month: string }) {
                         </button>
                       </p>
                       <p className="text-muted">
-                        {r.reasons.map((reason) => c(...reasonLabels[reason])).join(", ")}
+                        {r.reasons.map((reason) => c(L.reasons[reason].ko, L.reasons[reason].en)).join(", ")}
                       </p>
                       <p className="break-all font-mono text-xs text-muted">
                         SHA-256 {r.pdf.sha256} · {new Intl.NumberFormat(lang === "ko" ? "ko-KR" : "en-US").format(r.pdf.bytes)} bytes

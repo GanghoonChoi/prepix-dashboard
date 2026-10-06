@@ -9,8 +9,14 @@ const e = encodeURIComponent;
 const base = (id: string) => `/workspaces/${e(id)}/b2b/statements`;
 // Every call carries the signed-in account it was started for; the server
 // refuses it if the session has since switched to another account.
-const pinned = (account: string) =>
-  account ? { "X-Prepix-Account-ID": account } : undefined;
+// A call without an account id is refused here, never sent unpinned.
+const pinned = (account: string) => {
+  if (!account)
+    throw Object.assign(new Error("B2B_ACCOUNT_REQUIRED"), {
+      response: { status: 401, data: { message: "B2B_ACCOUNT_REQUIRED" } },
+    });
+  return { "X-Prepix-Account-ID": account };
+};
 
 export const statementService = {
   list: async (id: string, account: string) =>

@@ -57,3 +57,15 @@ test("labels use the Korean calendar month and KST", () => {
   assert.equal(kst("2027-01-31T15:00:00.000Z"), "2027-02-01 00:00");
   assert.equal(kst(null), "-");
 });
+
+test("statement calls refuse to leave without an account id", async () => {
+  const { statementService } = await import("../api/services/b2b-statements.service");
+  const id = randomUUID();
+  for (const call of [
+    () => statementService.list(id, ""),
+    () => statementService.detail(id, "2027-01", ""),
+    () => statementService.issue(id, "2027-01", randomUUID(), ""),
+    () => statementService.pdf(id, randomUUID(), ""),
+  ])
+    await assert.rejects(call(), /B2B_ACCOUNT_REQUIRED/);
+});
