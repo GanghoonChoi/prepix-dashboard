@@ -15,6 +15,13 @@ import {
   TeamLoading,
 } from "@/components/workspaces/shared";
 import { B2bError, definitivelyRejected, errorCode, useCopy } from "./shared";
+import { runRecord, type BillingRecord } from "@/lib/b2b-billing/operations";
+import {
+  BillingError,
+  billingCode,
+  openPaymentWindow,
+  type useTeamBilling,
+} from "./billing-shared";
 const number = (value: number) => new Intl.NumberFormat("ko-KR").format(value);
 const instant = (value: string) =>
   new Intl.DateTimeFormat("ko-KR", {
@@ -25,9 +32,11 @@ const instant = (value: string) =>
 export function PurchaseQuotes({
   workspaceId,
   status,
+  billing,
 }: {
   workspaceId: string;
   status: Extract<B2bStatus, { enrolled: true }>;
+  billing?: ReturnType<typeof useTeamBilling>;
 }) {
   const c = useCopy();
   const [catalogue, setCatalogue] = useState<TeamCommerce | null>(null);
@@ -342,12 +351,21 @@ export function PurchaseQuotes({
             {c("견적 유효 시각", "Quote expires")} {instant(quote.expiresAt)} ·{" "}
             {c("상품 조건", "Product conditions")} {quote.productVersion}
           </p>
-          <p role="status" className="text-sm leading-6 text-muted">
-            {c(
-              "견적을 확인했습니다. 결제와 수납 확인 연결이 준비되면 이 조건으로 구매할 수 있습니다.",
-              "Your quote is saved. Purchasing becomes available when checkout and payment verification are ready.",
-            )}
-          </p>
+          {catalogue.checkoutReady && billing && quote.renewal === "one_off" ? (
+            <Checkout workspaceId={workspaceId} quoteId={quote.id} total={quote.amounts.totalKrw} billing={billing} />
+          ) : (
+            <p role="status" className="text-sm leading-6 text-muted">
+              {quote.renewal === "automatic"
+                ? c(
+                    "매월 자동결제는 결제 정보에서 카드와 갱신 방식을 설정합니다. 이 견적은 결제하지 않습니다.",
+                    "Monthly automatic payment is set up under billing details. This quote is not charged.",
+                  )
+                : c(
+                    "견적을 확인했습니다. 결제와 수납 확인 연결이 준비되면 이 조건으로 구매할 수 있습니다.",
+                    "Your quote is saved. Purchasing becomes available when checkout and payment verification are ready.",
+                  )}
+            </p>
+          )}
           <button
             type="button"
             className={secondaryClass}
@@ -357,6 +375,120 @@ export function PurchaseQuotes({
           </button>
         </section>
       )}
+    </div>
+  );
+}
+
+/** Order from the saved quote with the confirmed business copy, then open the
+ * provider's window. The order request is stored before it is sent. */
+function Checkout({
+  workspaceId,
+  quoteId,
+  total,
+  billing,
+}: {
+  workspaceId: string;
+  quoteId: string;
+  total: number;
+  billing: ReturnType<typeof useTeamBilling>;
+}) {
+  const c = useCopy();
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState("");
+  const [pending, setPending] = useState<BillingRecord | null>(null);
+  const [method, setMethod] = useState<"카드" | "계좌이체">("카드");
+  const { scope, api, store } = billing;
+  const profile = billing.billing?.profile;
+  useEffect(() => {
+    if (!scope) return;
+    let live = true;
+    void store
+      .get({ scope, action: "order", topic: quoteId })
+      .then((r) => live && setPending(r))
+      .catch((e) => live && setFailure(billingCode(e)));
+    return () => {
+      live = false;
+    };
+  }, [scope, store, quoteId]);
+  if (!profile)
+    return (
+      <p role="status" className="text-sm leading-6">
+        {c("결제 전에 사업자 정보를 저장해 주세요.", "Save business details before paying.")}{" "}
+        <a className="underline" href={`/dashboard/workspaces/${workspaceId}/plan/settings`}>
+          {c("결제 정보로 이동", "Open billing details")}
+        </a>
+      </p>
+    );
+  const buyer = {
+    schemaVersion: profile.schemaVersion,
+    businessName: profile.businessName,
+    businessRegistrationNumber: profile.businessRegistrationNumber,
+    representative: profile.representative,
+    address: profile.address,
+    receiptEmail: profile.receiptEmail,
+  };
+  const pay = async () => {
+    if (!api || !scope || busy) return;
+    setBusy(true);
+    setFailure("");
+    try {
+      const record: BillingRecord<"order"> = (pending as BillingRecord<"order"> | null) ?? {
+        schema: 1,
+        scope,
+        action: "order",
+        topic: quoteId,
+        attempts: 0,
+        input: { requestKey: crypto.randomUUID(), quoteId, buyer },
+      };
+      const created = (await runRecord(record, api, store)) as { orderId: string };
+      setPending(null);
+      const checkout = await api.checkout(created.orderId);
+      const back = `${window.location.origin}/dashboard/workspaces/${workspaceId}/plan/orders/${created.orderId}`;
+      if (!checkout.methods.includes(method)) throw new Error("B2B_PAYMENT_NOT_CONFIGURED");
+      await openPaymentWindow({
+        client: checkout.client,
+        orderId: checkout.providerOrderId,
+        orderName: checkout.orderName,
+        amount: checkout.amount,
+        method,
+        successUrl: `${back}?pg=success`,
+        failUrl: `${back}?pg=fail`,
+        intent: { scope, orderId: created.orderId, providerOrderId: checkout.providerOrderId, amount: checkout.amount },
+      });
+    } catch (e) {
+      setFailure(billingCode(e));
+      setPending(await store.get({ scope, action: "order", topic: quoteId }).catch(() => null));
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="space-y-3">
+      <dl className="grid gap-2 text-sm sm:grid-cols-2">
+        <div>
+          <dt className="text-muted">{c("구매자 (이 주문에 고정)", "Buyer (fixed on this order)")}</dt>
+          <dd>{buyer.businessName} · {buyer.businessRegistrationNumber.replace(/^(\d{3})(\d{2})(\d{5})$/, "$1-$2-$3")}</dd>
+        </div>
+        <div>
+          <dt className="text-muted">{c("증빙 수신", "Receipt email")}</dt>
+          <dd>{buyer.receiptEmail}</dd>
+        </div>
+      </dl>
+      <label className="block max-w-xs space-y-2 text-sm">
+        <span>{c("결제 수단", "Method")}</span>
+        <select className={inputClass} value={method} disabled={busy} onChange={(e) => setMethod(e.target.value as "카드" | "계좌이체")}>
+          <option value="카드">{c("카드", "Card")}</option>
+          <option value="계좌이체">{c("계좌이체", "Bank transfer")}</option>
+        </select>
+      </label>
+      {failure && <BillingError code={failure} />}
+      {pending && !busy && (
+        <p role="status" className="text-sm leading-6">
+          {c("주문 생성 결과를 확인하지 못했습니다. 같은 주문 요청으로 결과를 확인합니다.", "The order result is unknown. The same order request is checked.")}
+        </p>
+      )}
+      <button type="button" className={primaryClass} disabled={busy} onClick={() => void pay()}>
+        {busy ? c("결제 준비 중…", "Preparing payment…") : pending ? c("같은 주문 결과 확인", "Confirm the same order") : `${c("결제하기", "Pay")} · ${new Intl.NumberFormat("ko-KR").format(total)}${c("원", " KRW")}`}
+      </button>
     </div>
   );
 }

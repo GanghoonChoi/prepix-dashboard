@@ -1,7 +1,23 @@
 "use client";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { PurchaseQuotes } from "./purchase-quotes";
+import type { TeamOrderList } from "@/lib/api/services/b2b.service";
+import {
+  BillingError,
+  billingCode,
+  kst,
+  orderLabels,
+  refundLabels,
+  useTeamBilling,
+  won,
+} from "./billing-shared";
 import type { B2bStatus } from "@/lib/api/services/b2b.service";
-import { SpaceBadge, TeamShell } from "@/components/workspaces/shared";
+import {
+  secondaryClass,
+  SpaceBadge,
+  TeamShell,
+} from "@/components/workspaces/shared";
 import { B2bError, StateBadge, useCopy } from "./shared";
 
 export function B2bPlan({
@@ -12,6 +28,22 @@ export function B2bPlan({
   workspace: { id: string; name: string };
 }) {
   const c = useCopy();
+  const billing = useTeamBilling(workspace.id);
+  const [orders, setOrders] = useState<TeamOrderList | null>(null);
+  const [failure, setFailure] = useState("");
+  const { api } = billing;
+  useEffect(() => {
+    if (!api) return;
+    let live = true;
+    void api
+      .orders()
+      .then((r) => live && (setOrders(r), setFailure("")))
+      // A failed list is not "no orders".
+      .catch((e) => live && (setOrders(null), setFailure(billingCode(e))));
+    return () => {
+      live = false;
+    };
+  }, [api]);
   if (!status.allowedActions.billing)
     return <B2bError code="B2B_BILLING_PERMISSION_REQUIRED" />;
   return (
@@ -35,9 +67,56 @@ export function B2bPlan({
               )}
         </p>
       </section>
+      <section className="space-y-3 border-b border-border pb-8">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-medium">{c("결제 정보와 갱신", "Billing and renewal")}</h2>
+          <Link className={secondaryClass} href={`/dashboard/workspaces/${workspace.id}/plan/settings`}>
+            {c("결제 정보", "Billing details")}
+          </Link>
+        </div>
+        {billing.billing ? (
+          <p className="text-sm leading-6 text-muted">
+            {billing.billing.renewal.mode === "automatic"
+              ? c("매월 자동결제", "Monthly automatic payment")
+              : c("한 달 단건", "One month at a time")}
+            {" · "}
+            {billing.billing.methods.some((m) => m.state === "active")
+              ? c("자동결제 카드 등록됨", "Card registered")
+              : c("등록 카드 없음", "No card")}
+            {" · "}
+            {billing.billing.profile ? c("사업자 정보 저장됨", "Business details saved") : c("사업자 정보 없음", "No business details")}
+          </p>
+        ) : billing.error ? (
+          <BillingError code={billing.error} retry={() => void billing.reload()} />
+        ) : null}
+      </section>
+      <section aria-labelledby="orders" className="space-y-3 border-b border-border pb-8">
+        <h2 id="orders" className="font-medium">{c("주문과 결제", "Orders and payments")}</h2>
+        {failure && <BillingError code={failure} />}
+        {orders && orders.items.length === 0 && (
+          <p className="text-sm text-muted">{c("아직 주문이 없습니다.", "No orders yet.")}</p>
+        )}
+        {orders && orders.items.length > 0 && (
+          <ul className="space-y-2 text-sm">
+            {orders.items.map((o) => (
+              <li key={o.id}>
+                <Link
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-3 hover:bg-surface"
+                  href={`/dashboard/workspaces/${workspace.id}/plan/orders/${o.id}`}
+                >
+                  <span>{c(...orderLabels[o.state])}</span>
+                  <span className="tabular-nums">{won(o.amounts.totalKrw)}</span>
+                  <span className="text-xs text-muted">{kst(o.createdAt)}</span>
+                  {o.refund && <span className="text-xs">{c(...refundLabels[o.refund.state])}</span>}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
       <section className="space-y-3">
         <h2 className="font-medium">{c("팀 상품", "Team product")}</h2>
-        <PurchaseQuotes workspaceId={workspace.id} status={status} />
+        <PurchaseQuotes workspaceId={workspace.id} status={status} billing={billing} />
         <p className="text-sm leading-6 text-muted">
           {c(
             "팀 참여와 웹 검토에는 편집 이용권을 배정하지 않습니다. 편집 이용권은 팀 앱 편집과 팀 AI에 사용합니다.",
