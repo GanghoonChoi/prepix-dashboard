@@ -67,6 +67,10 @@ const reasons: Record<string, [string, string]> = {
   method_unavailable: ["결제 카드를 쓸 수 없음", "Card unavailable"],
   method_environment_changed: ["결제 환경이 바뀜 · 카드를 다시 등록", "Payment environment changed · register the card again"],
   renewal_stopped: ["갱신 방식이 자동이 아님", "Renewal is no longer automatic"],
+  terminated: ["중도해지로 자동결제 종료", "Ended by mid-term termination"],
+  renewal_consent_declined: ["바뀐 갱신 금액에 동의하지 않음 · 이번 기간 끝에 종료", "Changed renewal price declined · ends with this period"],
+  renewal_consent_missing: ["결제 전까지 바뀐 갱신 금액에 동의하지 않아 결제하지 않음", "No consent to the changed renewal price before the charge · not charged"],
+  renewal_consent_required: ["바뀐 갱신 금액에 동의가 없어 결제하지 않음", "No consent to the changed renewal price · not charged"],
 };
 const runLabels: Record<string, [string, string]> = {
   scheduled: ["자동결제 예정", "Scheduled"],

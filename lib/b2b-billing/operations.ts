@@ -2,6 +2,7 @@ import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { apiClient } from "../api/client";
 import type {
+  AcceptRenewalConsent,
   BillingOperationAction,
   BillingOperationReceipt,
   ChangeTeamBillingProfile,
@@ -9,6 +10,8 @@ import type {
   CompletePaymentMethodRegistration,
   CreateTeamOrder,
   CreateTeamRefund,
+  CreateTeamTermination,
+  DeclineRenewalConsent,
   PaymentMethodRegistration,
   RemovePaymentMethod,
   StartPaymentMethodRegistration,
@@ -21,6 +24,9 @@ import type {
   TeamRefund,
   TeamRefundPreview,
   TeamRefundSelection,
+  TeamRenewalConsent,
+  TeamTerminationPreview,
+  TeamTerminationResult,
 } from "../api/generated/b2b";
 import { serverRejected } from "../api/session";
 
@@ -36,6 +42,11 @@ type Inputs = {
   refund: CreateTeamRefund;
   "method.start": StartPaymentMethodRegistration;
   "method.remove": RemovePaymentMethod & { methodId: string };
+  // Legal floor (SOT: backend/docs/b2b-legal-floor.md). The consent ID is part
+  // of the server's request hash, so it is stored with the body it answers.
+  termination: CreateTeamTermination;
+  "renewal.consent.accept": AcceptRenewalConsent & { consentId: string };
+  "renewal.consent.decline": DeclineRenewalConsent & { consentId: string };
 };
 export type BillingAction = keyof Inputs;
 export type BillingRecord<A extends BillingAction = BillingAction> = {
@@ -73,14 +84,15 @@ export function validRecord(raw: unknown, scope: BillingScope): raw is BillingRe
   if (r?.action === "order" && (!uuid.test((r.input as CreateTeamOrder)?.quoteId) || r.topic !== (r.input as CreateTeamOrder)?.quoteId)) return false;
   if (r?.action === "refund" && (!uuid.test((r.input as CreateTeamRefund)?.orderId) || r.topic !== (r.input as CreateTeamRefund)?.orderId)) return false;
   if (r?.action === "method.remove" && (!uuid.test((r.input as Inputs["method.remove"])?.methodId) || r.topic !== (r.input as Inputs["method.remove"])?.methodId)) return false;
-  const fixedTopics = { profile: "profile", renewal: "renewal", "renewal.stop": "stop", "method.start": "method" };
+  if ((r?.action === "renewal.consent.accept" || r?.action === "renewal.consent.decline") && (!uuid.test((r.input as { consentId: string })?.consentId) || r.topic !== (r.input as { consentId: string })?.consentId)) return false;
+  const fixedTopics = { profile: "profile", renewal: "renewal", "renewal.stop": "stop", "method.start": "method", termination: "termination" };
   if (r?.action in fixedTopics && r.topic !== fixedTopics[r.action as keyof typeof fixedTopics]) return false;
   return (
     !!r &&
     r.schema === 1 &&
     !!r.scope &&
     scopeKey(r.scope) === scopeKey(scope) &&
-    ["order", "profile", "renewal", "renewal.stop", "refund", "method.start", "method.remove"].includes(r.action) &&
+    ["order", "profile", "renewal", "renewal.stop", "refund", "method.start", "method.remove", "termination", "renewal.consent.accept", "renewal.consent.decline"].includes(r.action) &&
     typeof r.topic === "string" &&
     r.topic.length > 0 &&
     r.topic.length <= 200 &&
@@ -263,6 +275,13 @@ export function billingApi(scope: Omit<BillingScope, "userId"> & { userId: strin
       send<{ refundId: string; state: string; requestId: string }>("POST", `${base}/commerce/refunds`, input),
     refunds: (orderId: string) =>
       get<{ currentUserId: string; items: TeamRefund[] }>(`${base}/commerce/refunds?orderId=${e(orderId)}`),
+    terminationPreview: () => send<TeamTerminationPreview>("POST", `${base}/billing/termination/preview`, {}),
+    terminate: (input: CreateTeamTermination) =>
+      send<TeamTerminationResult & { requestId: string }>("POST", `${base}/billing/termination`, input),
+    acceptConsent: (consentId: string, input: AcceptRenewalConsent) =>
+      send<{ consent: TeamRenewalConsent; requestId: string }>("POST", `${base}/billing/renewal/consents/${e(consentId)}/accept`, input),
+    declineConsent: (consentId: string, input: DeclineRenewalConsent) =>
+      send<{ consent: TeamRenewalConsent; requestId: string }>("POST", `${base}/billing/renewal/consents/${e(consentId)}/decline`, input),
   };
 }
 export type BillingApi = ReturnType<typeof billingApi>;
@@ -274,6 +293,9 @@ const operation: Record<BillingAction, BillingOperationAction> = {
   refund: "refund",
   "method.start": "method.start",
   "method.remove": "method.remove",
+  termination: "termination",
+  "renewal.consent.accept": "renewal.consent.accept",
+  "renewal.consent.decline": "renewal.consent.decline",
 };
 const sendFor = (api: BillingApi, r: BillingRecord): Promise<Record<string, unknown>> => {
   const i = r.input as never;
@@ -288,9 +310,27 @@ const sendFor = (api: BillingApi, r: BillingRecord): Promise<Record<string, unkn
       const { methodId, ...input } = r.input as Inputs["method.remove"];
       return api.removeMethod(methodId, input);
     }
+    case "termination": return api.terminate(i);
+    // The consent ID travels in the path; the strict DTO refuses it in the body.
+    case "renewal.consent.accept": {
+      const { consentId, ...input } = r.input as Inputs["renewal.consent.accept"];
+      return api.acceptConsent(consentId, input);
+    }
+    case "renewal.consent.decline": {
+      const { consentId, ...input } = r.input as Inputs["renewal.consent.decline"];
+      return api.declineConsent(consentId, input);
+    }
   }
 };
 export const pendingOutcome = (error: unknown) => !serverRejected(error);
+// Server refusals no later copy of the same body can turn into success: a
+// measured basis only grows older, and an answered or past-due consent never
+// reopens. The same key would have replayed a stored success instead, so even
+// a retry (attempt > 1) may free the topic and let a fresh preview start.
+const finalRefusals = ["B2B_REFUND_BASIS_STALE", "B2B_RENEWAL_CONSENT_CLOSED"];
+const finalRefusal = (error: unknown) =>
+  serverRejected(error) &&
+  finalRefusals.includes((error as { response?: { data?: { message?: unknown } } }).response?.data?.message as string);
 /** The stored server result of a lost change, or null when none exists yet. */
 export async function checkRecord(r: BillingRecord, api: BillingApi, store: BillingStore) {
   api.assertScope?.(r);
@@ -320,7 +360,8 @@ export async function runRecord<A extends BillingAction>(fresh: BillingRecord<A>
     return result;
   } catch (error) {
     api.assertScope?.(started);
-    if (!pendingOutcome(error)) await store.rejectFirst(started, () => api.assertScope?.(started));
+    if (finalRefusal(error)) await store.finish(started, () => api.assertScope?.(started));
+    else if (!pendingOutcome(error)) await store.rejectFirst(started, () => api.assertScope?.(started));
     throw error;
   }
 }

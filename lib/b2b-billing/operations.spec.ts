@@ -189,3 +189,85 @@ test("a paid change fenced by a local session change stays pending and recovers 
   assert.deepEqual(await runRecord(record("7f1f5b7e-0d7a-4a3c-9a52-2f7e0c1d9e10"), retry.api, store), { revision: 0, requestId: "x" });
   assert.deepEqual(retry.calls, [`lookup:${inputHash(record().input).slice(0, 8)}`]);
 });
+
+// Legal floor (SOT: backend/docs/b2b-legal-floor.md): mid-term termination and
+// renewal re-consent ride the same original-key policy as every billing change.
+const serverRefusal = (status: number, message: string) =>
+  Object.assign(new Error(message), { response: { status, data: { message } } });
+const termination = (requestKey = "6f1f5b7e-0d7a-4a3c-9a52-2f7e0c1d9e10"): BillingRecord<"termination"> => ({
+  schema: 1,
+  scope,
+  action: "termination",
+  topic: "termination",
+  attempts: 0,
+  input: { requestKey, reason: "팀 운영 종료", basisAt: "2026-10-06T12:00:00.000Z", expectedTotalKrw: 110000 },
+});
+const consentId = "55555555-5555-4555-8555-555555555555";
+const accept = (requestKey: string, expectedTotalKrw: number): BillingRecord<"renewal.consent.accept"> => ({
+  schema: 1,
+  scope,
+  action: "renewal.consent.accept",
+  topic: consentId,
+  attempts: 0,
+  input: { requestKey, productVersion: "local-v2", expectedTotalKrw, consentId },
+});
+function legalApi(plan: { terminate?: (() => Promise<Record<string, unknown>>)[]; accept?: (() => Promise<Record<string, unknown>>)[]; receipt?: Record<string, unknown> | null; user?: string }) {
+  const calls: string[] = [];
+  const api = {
+    terminate: async (input: { requestKey: string }) => { calls.push(`terminate:${input.requestKey.slice(0, 2)}`); return plan.terminate!.shift()!(); },
+    acceptConsent: async (id: string, input: Record<string, unknown>) => { calls.push(`accept:${id === consentId}:${"consentId" in input}:${input.expectedTotalKrw}`); return plan.accept!.shift()!(); },
+    operation: async (action: string, key: string, hash: string) => {
+      calls.push(`lookup:${action}:${key.slice(0, 2)}:${hash.slice(0, 8)}`);
+      return { currentUserId: plan.user ?? scope.userId, receipt: plan.receipt ?? null };
+    },
+  } as unknown as BillingApi;
+  return { api, calls };
+}
+test("termination: a lost reply keeps the original key and body; recovery is one lookup by that key, never a second termination", async () => {
+  const store = new MemoryBillingStore();
+  const first = legalApi({ terminate: [async () => { throw lost(); }] });
+  await assert.rejects(runRecord(termination(), first.api, store));
+  assert.deepEqual(first.calls, ["terminate:6f"]);
+  assert.equal((await store.get(termination()))?.attempts, 1);
+  // The person presses again later: a new key is generated, the stored one wins.
+  const retry = legalApi({ terminate: [], receipt: { terminationId: "t", totalKrw: 110000 } });
+  assert.deepEqual(await runRecord(termination("7f1f5b7e-0d7a-4a3c-9a52-2f7e0c1d9e10"), retry.api, store), { terminationId: "t", totalKrw: 110000 });
+  assert.deepEqual(retry.calls, [`lookup:termination:6f:${inputHash(termination().input).slice(0, 8)}`]);
+  assert.equal(await store.get(termination()), null);
+});
+test("termination: a local session fence keeps the key pending; only the same account may settle it", async () => {
+  const store = new MemoryBillingStore();
+  await assert.rejects(runRecord(termination(), legalApi({ terminate: [async () => { throw sessionChanged(); }] }).api, store), /API_SESSION_CHANGED/);
+  assert.equal((await store.get(termination()))?.attempts, 1, "a browser-raised 401 is not the server's refusal");
+  await assert.rejects(checkRecord((await store.get(termination()))!, legalApi({ receipt: { terminationId: "t" }, user: other.userId }).api, store), /B2B_BILLING_ACCOUNT_CHANGED/);
+  assert.equal((await store.get(termination()))?.attempts, 1);
+  const same = legalApi({ receipt: { terminationId: "t" } });
+  assert.deepEqual(await checkRecord((await store.get(termination()))!, same.api, store), { terminationId: "t" });
+  assert.equal(await store.get(termination()), null);
+});
+test("termination: a stale basis on a resend frees the record (no copy can ever succeed); another refusal on a resend does not", async () => {
+  for (const [code, freed] of [["B2B_REFUND_BASIS_STALE", true], ["B2B_REFUND_PENDING", false]] as const) {
+    const store = new MemoryBillingStore();
+    await assert.rejects(runRecord(termination(), legalApi({ terminate: [async () => { throw lost(); }] }).api, store));
+    await assert.rejects(runRecord(termination(), legalApi({ terminate: [async () => { throw serverRefusal(409, code); }] }).api, store), new RegExp(code));
+    assert.equal(await store.get(termination()) === null, freed, code);
+  }
+});
+test("re-consent: the consent ID is hashed with the body but sent only in the path; a changed total frees the key and a fresh confirmation sends the new total", async () => {
+  const store = new MemoryBillingStore();
+  const changed = legalApi({ accept: [async () => { throw serverRefusal(409, "B2B_RENEWAL_CONSENT_CHANGED"); }] });
+  await assert.rejects(runRecord(accept("6f1f5b7e-0d7a-4a3c-9a52-2f7e0c1d9e10", 110000), changed.api, store), /B2B_RENEWAL_CONSENT_CHANGED/);
+  assert.deepEqual(changed.calls, ["accept:true:false:110000"]);
+  assert.equal(await store.get(accept("x", 0)), null, "the server's own first refusal frees the topic");
+  const fresh = legalApi({ accept: [async () => ({ consent: { state: "consented" } })] });
+  assert.deepEqual(await runRecord(accept("7f1f5b7e-0d7a-4a3c-9a52-2f7e0c1d9e10", 132000), fresh.api, store), { consent: { state: "consented" } });
+  assert.deepEqual(fresh.calls, ["accept:true:false:132000"]);
+  // A lost accept is recovered by the hash over {...body, consentId}, the server's request.
+  const lostStore = new MemoryBillingStore();
+  await assert.rejects(runRecord(accept("6f1f5b7e-0d7a-4a3c-9a52-2f7e0c1d9e10", 132000), legalApi({ accept: [async () => { throw lost(); }] }).api, lostStore));
+  const recovery = legalApi({ receipt: { consent: { state: "consented" } } });
+  await runRecord(accept("8f1f5b7e-0d7a-4a3c-9a52-2f7e0c1d9e10", 132000), recovery.api, lostStore);
+  assert.deepEqual(recovery.calls, [`lookup:renewal.consent.accept:6f:${inputHash({ requestKey: "6f1f5b7e-0d7a-4a3c-9a52-2f7e0c1d9e10", productVersion: "local-v2", expectedTotalKrw: 132000, consentId }).slice(0, 8)}`]);
+  // A consent topic must name its own consent.
+  await assert.rejects(lostStore.prepare({ ...accept("9f1f5b7e-0d7a-4a3c-9a52-2f7e0c1d9e10", 1), topic: other.userId }), /B2B_BILLING_OPERATION_INVALID/);
+});
