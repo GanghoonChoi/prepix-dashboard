@@ -26,9 +26,8 @@ import { useI18n } from "@/lib/i18n/context";
  * access logs. A two-minute single-use code does not. This is the same
  * `/auth/device/*` exchange the desktop app uses.
  *
- * The fragment is what lets this page serve `dashboard.laskerstudio.com` as
- * well as `dashboard.prepix.ai`: a cookie cannot cross two unrelated domains,
- * and a fragment is never sent to a server at all. See `lib/handoff.ts`.
+ * The code travels in the URL fragment, which is never sent to a server at
+ * all — not in the request line, not in `Referer`. See `lib/handoff.ts`.
  *
  * There is nothing to see here — it is one request and a redirect — so the
  * page is a spinner and an error state, nothing more.

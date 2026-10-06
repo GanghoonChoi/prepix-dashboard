@@ -57,7 +57,13 @@ test('invitation destination survives authentication without accepting backslash
   assert.equal(safeReturnTo('/\n/evil.example'), '/dashboard');
 });
 
-test('legacy desktop dashboard host preserves the team destination', () => {
-  const target = 'https://dashboard.laskerstudio.com/dashboard/workspaces';
+test('the dashboard host preserves the team destination', () => {
+  const target = 'https://dashboard.prepix.ai/dashboard/workspaces';
   assert.equal(safeReturnTo(target), target);
+});
+
+// The old host now only redirects; a returnTo naming it is not one we hand a
+// freshly signed-in visitor to.
+test('a host that is not ours, including a retired one, falls back', () => {
+  assert.equal(safeReturnTo('https://dashboard.example.com/dashboard'), '/dashboard');
 });
