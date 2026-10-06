@@ -2071,6 +2071,16 @@ export type TeamStatementIssueResult = {
   created: boolean;
 };
 
+/** Lookup acknowledges only this actor's original issue intent; it never issues. */
+export type TeamStatementIssueLookup = {
+  currentUserId: string;
+  workspaceId: string;
+  month: string;
+  requestKey: string;
+  inputHash: string;
+  receipt: (TeamStatementIssueResult & { requestId: string }) | null;
+};
+
 // One display mapping for statement labels, shared by the PDF and the web
 // screen (the dashboard copies this file). `ko` is what the PDF prints.
 type Label = { ko: string; en: string };

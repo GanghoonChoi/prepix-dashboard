@@ -123,22 +123,31 @@ test("S25 statements: lost issue response recovers by the same key, verified PDF
   });
   await page.getByRole("button", { name: "명세 발행 요청", exact: true }).click();
   await expect(page.getByRole("button", { name: "같은 발행 요청 결과 다시 확인" })).toBeVisible();
-  const stored = await page.evaluate(() =>
-    Object.keys(localStorage).filter((k) => k.startsWith("prepix:b2b-statement-issue:")),
-  );
+  const pending = () => page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const open = indexedDB.open("prepix-b2b-statements", 1);
+      open.onsuccess = () => resolve(open.result);
+      open.onerror = () => reject(open.error);
+    });
+    try { return await new Promise<{ requestKey: string }[]>((resolve, reject) => {
+      const read = db.transaction("issues", "readonly").objectStore("issues").getAll();
+      read.onsuccess = () => resolve(read.result); read.onerror = () => reject(read.error);
+    }); } finally { db.close(); }
+  });
+  const stored = await pending();
   expect(stored).toHaveLength(1);
-  const firstKey = JSON.parse((await page.evaluate((k) => localStorage.getItem(k), stored[0]))!).requestKey;
-  const sent: string[] = [];
+  const firstKey = stored[0].requestKey;
+  const sent: string[] = [], lookedUp: string[] = [];
   page.on("request", (r) => {
     if (r.url().endsWith(`/statements/${month}/issue`)) sent.push(r.postDataJSON().requestKey);
+    if (r.url().includes(`/statements/${month}/issue-operations/`)) lookedUp.push(new URL(r.url()).pathname.split("/").at(-1)!);
   });
   await page.reload();
   await expect(page.getByText("revision 1 ·", { exact: false })).toBeVisible();
-  expect(sent).toContain(firstKey);
-  expect(sent.every((k) => k === firstKey)).toBe(true);
-  expect(
-    await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("prepix:b2b-statement-issue:")).length),
-  ).toBe(0);
+  await expect.poll(async () => (await pending()).length).toBe(0);
+  expect(sent).toEqual([]);
+  expect(lookedUp).toContain(firstKey);
+  expect(lookedUp.every(k => k === firstKey)).toBe(true);
   const detail = (
     await (await request.get(`${endpoint}/statements/${month}`, { headers: owner.headers })).json()
   ).data;

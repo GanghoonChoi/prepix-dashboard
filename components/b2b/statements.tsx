@@ -1,8 +1,8 @@
 "use client";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { apiClient } from "@/lib/api/client";
-import { statementService } from "@/lib/api/services/b2b-statements.service";
+import { statementApi } from "@/lib/api/services/b2b-statements.service";
 import type {
   TeamStatementMonthState,
   TeamStatementRevision,
@@ -19,21 +19,33 @@ import {
 } from "@/components/workspaces/shared";
 import { useI18n } from "@/lib/i18n/context";
 import {
-  clearPending,
+  StatementLifetime,
+  BrowserStatementStore,
+  freshIssue,
+  runIssue,
+  type PendingIssue,
   kst,
-  loadPending,
   monthLabel,
-  savePending,
   scopeKey,
   units,
   verifiedPdf,
   won,
   type StatementScope,
 } from "@/lib/b2b-statements/statements";
-import { B2bError, definitivelyRejected, errorCode, useCopy } from "./shared";
+import { B2bError, errorCode as commonErrorCode, useCopy } from "./shared";
 
+function errorCode(error: unknown) {
+  const code = commonErrorCode(error), message = (error as Error)?.message;
+  return code === "REQUEST_FAILED" && typeof message === "string" && /^B2B_[A-Z0-9_]+$/.test(message) ? message : code;
+}
 // SOT: backend/docs/b2b-monthly-statements.md (S25 / W17)
 const messages: Record<string, [string, string]> = {
+  B2B_STATEMENT_RECOVERY_BLOCKED: ["이 브라우저의 발급 요청 기록을 확인하지 못했습니다. 원 요청 번호를 보존했고 새 요청을 보내지 않았습니다.", "The saved issue record could not be verified. Its original request is preserved and no new request was sent."],
+  B2B_STATEMENT_RECEIPT_MISMATCH: ["발급 결과의 계정·팀·월 또는 원 요청 번호가 일치하지 않습니다. 원 요청 기록을 보존했습니다.", "The receipt does not match the account, team, month or original request. The saved request is preserved."],
+  B2B_STATEMENT_ACCOUNT_CHANGED: ["로그인 계정이 바뀌어 명세 요청과 저장을 중단했습니다.", "The signed-in account changed. Statement requests and saving stopped."],
+  B2B_STATEMENT_SCOPE_CHANGED: ["명세 화면이나 팀이 바뀌어 이전 요청과 저장을 중단했습니다.", "The statement view or team changed. Previous requests and saving stopped."],
+  B2B_STATEMENT_SERVICE_CHANGED: ["연결한 서비스가 바뀌어 이전 명세 요청과 저장을 중단했습니다.", "The connected service changed. Previous requests and saving stopped."],
+
   B2B_STATEMENT_CALENDAR_MISSING: [
     "승인된 발행 달력 설정이 없어 새 명세와 정정본을 발행할 수 없습니다. 이미 발행된 명세는 받을 수 있습니다.",
     "No approved issue calendar is configured, so new statements and corrections cannot be issued. Issued statements remain available.",
@@ -105,6 +117,12 @@ function useScope() {
   const allowed = !!b2b?.enrolled && b2b.allowedActions.billing;
   return { data, b2b, scope, key: scopeKey(scope), allowed };
 }
+/** A mounted scope owns transport and every later browser side effect. */
+function useStatementApi(scope: StatementScope, key: string, allowed: boolean) {
+  const owner = useMemo(() => new StatementLifetime(allowed, key), [key, allowed]);
+  useLayoutEffect(() => { owner.start(); return () => owner.stop(); }, [owner]);
+  return useMemo(() => statementApi(scope, () => owner.signal(), () => owner.assertCurrent()), [scope, owner]);
+}
 /** A response is shown only for the scope it was requested in. A failure
  * clears billing data rather than leaving it or reading as an empty list. */
 function usePinned<T>(key: string, enabled: boolean, fetcher: () => Promise<T>) {
@@ -137,9 +155,16 @@ function usePinned<T>(key: string, enabled: boolean, fetcher: () => Promise<T>) 
     const refresh = () => {
       if (document.visibilityState === "visible") void load();
     };
+    const accountChanged = (event: StorageEvent) => {
+      if (!event.key || ["userInfo", "accessToken", "refreshToken"].includes(event.key)) {
+        calls.current++; setLoaded(null); setFailure(null); void load();
+      }
+    };
+    window.addEventListener("storage", accountChanged);
     window.addEventListener("focus", refresh);
     return () => {
       clearTimeout(initial);
+      window.removeEventListener("storage", accountChanged);
       window.removeEventListener("focus", refresh);
       calls.current++;
     };
@@ -176,10 +201,8 @@ export function TeamStatements() {
   const c = useCopy();
   const { lang } = useI18n();
   const { data, b2b, scope, key, allowed } = useScope();
-  const fetcher = useCallback(
-    () => statementService.list(scope.workspaceId, scope.userId),
-    [scope.workspaceId, scope.userId],
-  );
+  const api = useStatementApi(scope, key, allowed);
+  const fetcher = useCallback(() => api.list(), [api]);
   const { view, error, busy, load } = usePinned(key, allowed, fetcher);
   if (!b2b?.enrolled) return <B2bError code="B2B_TEAM_NOT_FOUND" />;
   if (!allowed) return <B2bError code="B2B_BILLING_PERMISSION_REQUIRED" />;
@@ -423,87 +446,85 @@ export function TeamStatementMonth({ month }: { month: string }) {
   const c = useCopy();
   const { lang } = useI18n();
   const { b2b, scope, key, allowed } = useScope();
-  const scopeRef = useRef(key);
-  scopeRef.current = key;
-  const fetcher = useCallback(
-    () => statementService.detail(scope.workspaceId, month, scope.userId),
-    [scope.workspaceId, scope.userId, month],
-  );
-  const { view, error, busy, load } = usePinned(key, allowed, fetcher);
+  const viewKey = `${key}:${month}`;
+  const api = useStatementApi(scope, viewKey, allowed);
+  const fetcher = useCallback(() => api.detail(month), [api, month]);
+  const { view, error, busy, load } = usePinned(viewKey, allowed, fetcher);
+  const store = useMemo(() => new BrowserStatementStore(), []);
   const [notice, setNotice] = useState<{ key: string; code: string; pending: boolean } | null>(null);
   const [issuing, setIssuing] = useState(false);
   const [downloads, setDownloads] = useState<{ key: string; id: string; state: "busy" | "verified" | string }[]>([]);
-
-  const send = useCallback(
-    async (requestKey: string) => {
-      const started = key;
-      setIssuing(true);
-      try {
-        await statementService.issue(scope.workspaceId, month, requestKey, scope.userId);
-        clearPending(window.localStorage, scope, month);
-        if (scopeRef.current === started) setNotice(null);
-      } catch (e) {
-        // A definitive refusal ends the request; anything else keeps the
-        // original key so the next attempt asks the server about the same one.
-        const definitive = definitivelyRejected(e);
-        if (definitive) clearPending(window.localStorage, scope, month);
-        if (scopeRef.current === started)
-          setNotice({ key: started, code: errorCode(e), pending: !definitive });
-      } finally {
-        setIssuing(false);
-        if (scopeRef.current === started) void load();
-      }
-    },
-    [scope, key, month, load],
-  );
-  // A request stored before a reload or a lost response is re-sent with its
-  // original key; the server answers with the one revision it produced.
+  const current = useCallback(() => { try { api.assertScope(); return true; } catch { return false; } }, [api]);
+  const send = useCallback(async (record: PendingIssue) => {
+    if (!current()) return;
+    setIssuing(true);
+    try {
+      await runIssue(record, api, store);
+      if (current()) setNotice(null);
+    } catch (error) {
+      if (!current()) return;
+      let pending = true;
+      try { pending = !!(await store.get(scope, month, () => api.assertScope())); } catch { /* preserve a blocked recovery */ }
+      if (current()) setNotice({ key: viewKey, code: errorCode(error), pending });
+    } finally {
+      if (current()) { setIssuing(false); void load(); }
+    }
+  }, [api, store, scope, month, viewKey, current, load]);
+  // Read recovery is scoped and asks for the old receipt before any retry POST.
   useEffect(() => {
     if (!allowed) return;
-    let pending = null;
+    let stopped = false;
+    const timer = window.setTimeout(() => {
+      void store.get(scope, month, () => api.assertScope()).then(record => {
+        if (!stopped && current()) { setIssuing(false); if (record) void send(record); }
+      }).catch(error => {
+        if (!stopped && current()) setNotice({ key: viewKey, code: errorCode(error), pending: false });
+      });
+    }, 0);
+    return () => { stopped = true; window.clearTimeout(timer); };
+  }, [allowed, store, scope, month, api, current, send, viewKey]);
+  const requestIssue = () => void send(freshIssue(scope, month));
+  const retryIssue = async () => {
     try {
-      pending = loadPending(window.localStorage, scope, month);
-    } catch {
-      return;
-    }
-    if (pending) void send(pending.requestKey);
-  }, [scope, month, allowed, send]);
-  const requestIssue = () => {
-    const requestKey = crypto.randomUUID();
-    try {
-      savePending(window.localStorage, scope, month, requestKey);
-    } catch {
-      setNotice({ key, code: "B2B_STATEMENT_STORAGE_UNAVAILABLE", pending: false });
-      return;
-    }
-    void send(requestKey);
+      const record = await store.get(scope, month, () => api.assertScope());
+      if (record && current()) await send(record);
+    } catch (error) { if (current()) setNotice({ key: viewKey, code: errorCode(error), pending: false }); }
   };
   const download = async (revision: TeamStatementRevision) => {
-    const started = key;
-    const mark = (state: string) =>
-      setDownloads((rows) => [
-        ...rows.filter((r) => r.id !== revision.id),
-        { key: started, id: revision.id, state },
-      ]);
+    if (!current()) return;
+    const mark = (state: string) => {
+      if (current()) setDownloads(rows => [...rows.filter(r => r.id !== revision.id), { key: viewKey, id: revision.id, state }]);
+    };
     mark("busy");
+    let url: string | undefined;
     try {
-      const bytes = await statementService.pdf(scope.workspaceId, revision.id, scope.userId);
-      if (scopeRef.current !== started) return;
-      if (!verifiedPdf(bytes, revision.pdf)) return mark("B2B_STATEMENT_INTEGRITY");
-      const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+      const bytes = await api.pdf(revision.id);
+      api.assertScope();
+      // A buffered response might have been authorized before delegation ended.
+      // Recheck current server authority immediately before saving its bytes.
+      const latest = await api.detail(month);
+      api.assertScope();
+      const issued = latest.revisions.find(r => r.id === revision.id);
+      if (!issued || !verifiedPdf(bytes, issued.pdf) || !verifiedPdf(bytes, revision.pdf)) throw new Error("B2B_STATEMENT_INTEGRITY");
+      api.assertScope();
+      url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
       const link = document.createElement("a");
       link.href = url;
       link.download = `prepix-statement-${month}-r${revision.revision}.pdf`;
+      api.assertScope();
       link.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      const savedUrl = url;
+      window.setTimeout(() => URL.revokeObjectURL(savedUrl), 60_000);
+      url = undefined;
       mark("verified");
-    } catch (e) {
-      mark(errorCode(e));
-    }
+    } catch (error) {
+      mark(errorCode(error));
+      if (current()) void load();
+    } finally { if (url) URL.revokeObjectURL(url); }
   };
   if (!b2b?.enrolled) return <B2bError code="B2B_TEAM_NOT_FOUND" />;
   if (!allowed) return <B2bError code="B2B_BILLING_PERMISSION_REQUIRED" />;
-  const shownNotice = notice?.key === key ? notice : null;
+  const shownNotice = notice?.key === viewKey ? notice : null;
   const latest = view?.revisions[0];
   return (
     <TeamShell title={c(`${monthLabel(month)} 이용명세서`, `${monthLabel(month, "en")} statement`)}>
@@ -523,10 +544,7 @@ export function TeamStatementMonth({ month }: { month: string }) {
             <button
               className={secondaryClass}
               disabled={issuing}
-              onClick={() => {
-                const pending = loadPending(window.localStorage, scope, month);
-                if (pending) void send(pending.requestKey);
-              }}
+              onClick={() => void retryIssue()}
             >
               {c("같은 발행 요청 결과 다시 확인", "Check the same issue request again")}
             </button>
@@ -564,7 +582,7 @@ export function TeamStatementMonth({ month }: { month: string }) {
             >
               <ul className="divide-y divide-border">
                 {view.revisions.map((r) => {
-                  const state = downloads.find((d) => d.id === r.id && d.key === key)?.state;
+                  const state = downloads.find((d) => d.id === r.id && d.key === viewKey)?.state;
                   return (
                     <li key={r.id} className="space-y-2 py-4 text-sm">
                       <p className="flex flex-wrap items-center justify-between gap-2">
