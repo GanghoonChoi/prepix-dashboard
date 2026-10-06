@@ -19,7 +19,7 @@ import {
 } from "@/lib/api/services/b2b-reviews.service";
 import { userService } from "@/lib/api/services/user.service";
 import { fileApi } from "@/lib/b2b-files/api";
-import type { ReviewRecord, ReviewScope } from "@/lib/b2b-reviews/operations";
+import { audienceInput, type ReviewRecord, type ReviewScope } from "@/lib/b2b-reviews/operations";
 import {
   inputClass,
   primaryClass,
@@ -35,6 +35,7 @@ import {
   previewCopy,
   ReviewError,
   ReviewAudiencePicker,
+  projectAudience,
   type AudienceSelection,
   timecode,
   useLoader,
@@ -186,7 +187,7 @@ function ReviewScreen({
           </span>
         )}
       </div>
-      {data.audience && <p className="text-sm text-muted">{c("현재 검토 대상", "Current review audience")}: {data.audience.map((p) => p.name ?? c("이름 없음", "Unnamed")).join(", ")}</p>}
+      {data.audience && <p className="text-sm text-muted">{c("현재 검토 대상", "Current review audience")}: {data.review.audienceScope === "project" ? c("프로젝트 전체 공개", "Everyone on the project") : data.audience.map((p) => p.name ?? c("이름 없음", "Unnamed")).join(", ")}</p>}
       {!data.review.audienceConfirmed && <p role="status" className="text-sm text-muted">{c("검토 대상·승인자 확정 전입니다. 담당자가 대상을 확정하면 새 검토 회차가 시작됩니다.", "The audience and approver are unconfirmed. Confirming them opens a new review round.")}</p>}
       {selected.changeReason && <p className="text-sm text-muted">{c("회차 변경 사유", "Round-change reason")}: {selected.changeReason}</p>}
       {data.rounds.length > 1 && (
@@ -868,12 +869,12 @@ function LeadTools({
 
 function AudienceForm({ scope, detail, reload }: { scope: ReviewScope & { kind: "project" }; detail: ReviewDetail; reload: () => Promise<void> }) {
   const c = useCopy();
-  const [audience, setAudience] = useState<AudienceSelection>({ audienceUserIds: detail.audience?.map((p) => p.userId) ?? [], approverUserId: detail.approver?.person.userId ?? "" });
+  const [audience, setAudience] = useState<AudienceSelection>({ ...projectAudience(detail.approver?.person.userId), audienceUserIds: detail.audience?.map((p) => p.userId) ?? [] });
   const [ready, setReady] = useState(false), [reason, setReason] = useState("");
   const mutation = useRun();
   return <form className="space-y-3" onSubmit={async (e) => {
     e.preventDefault();
-    const input = { revision: detail.review.revision, ...audience, reason: reason.trim() };
+    const input = { revision: detail.review.revision, ...audienceInput(audience), reason: reason.trim() };
     const done = await mutation.run(input, (requestKey) => reviewsService.mutate(scope, "audience", { requestKey, ...input }));
     if (done) setReason("");
     await reload();
@@ -966,7 +967,7 @@ function ReplaceVersion({
   const c = useCopy();
   const [open, setOpen] = useState(false);
   const mutation = useRun();
-  const [audience, setAudience] = useState<AudienceSelection>({ audienceUserIds: [], approverUserId: "" });
+  const [audience, setAudience] = useState<AudienceSelection>(projectAudience);
   const [audienceReady, setAudienceReady] = useState(false), [reason, setReason] = useState("");
   const [assetId, setAssetId] = useState<string>();
   const [assetError, setAssetError] = useState("");
@@ -1012,7 +1013,7 @@ function ReplaceVersion({
           actionDisabled={!audienceReady || !reason.trim()}
           action={c("이 버전으로 교체", "Replace with this version")}
           onPick={async (version) => {
-            const input = { revision: detail.review.revision, versionId: version.id, ...audience, reason: reason.trim() };
+            const input = { revision: detail.review.revision, versionId: version.id, ...audienceInput(audience), reason: reason.trim() };
             const done = await mutation.run(input, (requestKey) =>
               reviewsService.mutate(scope, "round", { requestKey, ...input }),
             );

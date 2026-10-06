@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { sessionChanged } from "../api/session";
 import { createHash, randomUUID } from "node:crypto";
 import {
+  audienceInput,
   checkReview,
   discardReview,
   reviewHash,
@@ -209,6 +210,21 @@ test("audience publication is project-scoped and malformed audience records cann
   assert.equal(validRecord({ ...r, input: { ...r.input, audienceUserIds: [approverUserId, approverUserId] } }, project), false);
   assert.equal(validRecord({ ...r, input: { ...r.input, approverUserId: randomUUID() } }, project), false);
   assert.equal(validRecord({ ...r, input: { ...r.input, reason: " " } }, project), false);
+});
+
+test("project-wide audience sends no list and an optional approver; a list never rides along", () => {
+  const approverUserId = randomUUID();
+  assert.deepEqual(audienceInput({ audienceScope: "project", audienceUserIds: [approverUserId], approverUserId: "" }), { audienceScope: "project" });
+  assert.deepEqual(audienceInput({ audienceScope: "project", audienceUserIds: [], approverUserId }), { audienceScope: "project", approverUserId });
+  assert.deepEqual(audienceInput({ audienceScope: "selected", audienceUserIds: [approverUserId], approverUserId }), { audienceScope: "selected", audienceUserIds: [approverUserId], approverUserId });
+  const r: ReviewRecord = { ...comment(), action: "round", input: { requestKey: randomUUID(), revision: 1, versionId: randomUUID(), reason: "V2", audienceScope: "project" } };
+  assert.equal(validRecord(r, project), true);
+  assert.equal(validRecord({ ...r, input: { ...r.input, approverUserId } }, project), true);
+  assert.equal(validRecord({ ...r, input: { ...r.input, approverUserId: null } }, project), true);
+  assert.equal(validRecord({ ...r, input: { ...r.input, approverUserId: "someone" } }, project), false);
+  assert.equal(validRecord({ ...r, input: { ...r.input, audienceUserIds: [approverUserId] } }, project), false);
+  assert.equal(validRecord({ ...r, input: { ...r.input, audienceScope: "team" } }, project), false);
+  assert.equal(validRecord({ ...r, input: { ...r.input, audienceScope: "selected" } }, project), false);
 });
 
 test("a lost audience-change response recovers the same round receipt after reload", async () => {

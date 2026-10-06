@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type {
@@ -15,7 +15,7 @@ import {
   reviewEvents,
   reviewsService,
 } from "@/lib/api/services/b2b-reviews.service";
-import type { ReviewScope } from "@/lib/b2b-reviews/operations";
+import { audienceInput, type AudienceSelection, type ReviewScope } from "@/lib/b2b-reviews/operations";
 import { fileApi } from "@/lib/b2b-files/api";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
@@ -288,7 +288,11 @@ export function useRun() {
   return { run, busy, error, setError };
 }
 
-export type AudienceSelection = { audienceUserIds: string[]; approverUserId: string };
+export type { AudienceSelection };
+export const projectAudience = (approverUserId = ""): AudienceSelection => ({ audienceScope: "project", audienceUserIds: [], approverUserId });
+/** V: by default a review is open to everyone who can see the project and an
+ * approver is designated only when needed; "선택한 사람만" keeps the 0067
+ * explicit audience with one approver among it. */
 export function ReviewAudiencePicker({ scope, value, onChange, disabled, onValidityChange }: {
   scope: ReviewScope & { kind: "project" };
   value: AudienceSelection;
@@ -299,30 +303,44 @@ export function ReviewAudiencePicker({ scope, value, onChange, disabled, onValid
   const c = useCopy();
   const read = useCallback(() => reviewsService.audienceCandidates(scope), [scope]);
   const { data, error, load } = useLoader<ReviewAudienceCandidates>(read);
+  const selected = value.audienceScope === "selected", group = useId();
   useEffect(() => {
-    onValidityChange(!!data && !error && value.audienceUserIds.length > 0 && value.audienceUserIds.every((id) => data.candidates.some((p) => p.userId === id)) && value.audienceUserIds.includes(value.approverUserId));
-  }, [data, error, value, onValidityChange]);
+    const known = (id: string) => !!data && data.candidates.some((p) => p.userId === id);
+    onValidityChange(selected
+      ? !!data && !error && value.audienceUserIds.length > 0 && value.audienceUserIds.every(known) && value.audienceUserIds.includes(value.approverUserId)
+      : !value.approverUserId || known(value.approverUserId));
+  }, [data, error, value, selected, onValidityChange]);
   const roles = { lead: c("담당자", "Lead"), producer: c("제작자", "Producer"), reviewer: c("검토자", "Reviewer") };
   return (
-    <fieldset disabled={disabled || !data || !!error} className="space-y-3">
+    <fieldset disabled={disabled} className="space-y-3">
       <legend className="mb-2 font-medium">{c("검토 대상과 승인자", "Review audience and approver")}</legend>
-      <p className="text-sm text-muted">{c("현재 프로젝트 참여자 중 검토를 볼 사람을 직접 선택합니다. 원본 다운로드·AI 권한은 별도로 유지됩니다. 승인자는 선택한 대상 중 한 명입니다.", "Choose the current project participants who can view this review. Original-download and AI permissions remain separate. Choose one audience member as approver.")}</p>
+      <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+        {([["project", c("프로젝트 전체 공개", "Everyone on the project")], ["selected", c("선택한 사람만", "Selected people only")]] as const).map(([scopeValue, label]) => (
+          <label key={scopeValue} className="flex min-h-11 items-center gap-3">
+            <input type="radio" name={group} checked={value.audienceScope === scopeValue} onChange={() => onChange({ ...value, audienceScope: scopeValue, approverUserId: scopeValue === "selected" && !value.audienceUserIds.includes(value.approverUserId) ? "" : value.approverUserId })} />
+            {label}
+          </label>
+        ))}
+      </div>
+      <p className="text-sm text-muted">{selected
+        ? c("현재 프로젝트 참여자 중 검토를 볼 사람을 직접 선택합니다. 원본 다운로드·AI 권한은 별도로 유지됩니다. 승인자는 선택한 대상 중 한 명입니다.", "Choose the current project participants who can view this review. Original-download and AI permissions remain separate. Choose one audience member as approver.")
+        : c("이 프로젝트를 볼 수 있는 모두가 재생하고 코멘트합니다. 원본 다운로드·AI 권한은 별도로 유지됩니다. 승인이 필요할 때만 참여자 중 승인자 한 명을 지정하세요.", "Everyone who can see this project can play and comment. Original-download and AI permissions remain separate. Designate one participant as approver only when approval is needed.")}</p>
       {error && <ReviewError code={error} retry={() => void load()} />}
       {!data && !error && <TeamLoading />}
-      {data && <div className="max-h-64 space-y-1 overflow-y-auto">
+      {selected && data && <div className="max-h-64 space-y-1 overflow-y-auto">
         {data.candidates.map((person) => <label key={person.userId} className="flex min-h-11 items-center gap-3 rounded-md border border-border px-3 py-2 text-sm">
           <input type="checkbox" checked={value.audienceUserIds.includes(person.userId)} onChange={(e) => {
             const audienceUserIds = e.target.checked ? [...value.audienceUserIds, person.userId] : value.audienceUserIds.filter((id) => id !== person.userId);
-            onChange({ audienceUserIds, approverUserId: audienceUserIds.includes(value.approverUserId) ? value.approverUserId : "" });
+            onChange({ ...value, audienceUserIds, approverUserId: audienceUserIds.includes(value.approverUserId) ? value.approverUserId : "" });
           }} />
           <span className="min-w-0 break-words">{person.label} · {roles[person.role]}</span>
         </label>)}
       </div>}
       <label className="block space-y-2 text-sm">
         <span>{c("승인자 선택", "Choose approver")}</span>
-        <select className={inputClass} value={value.approverUserId} onChange={(e) => onChange({ ...value, approverUserId: e.target.value })}>
-          <option value="">{c("선택", "Choose")}</option>
-          {data?.candidates.filter((person) => value.audienceUserIds.includes(person.userId)).map((person) => <option key={person.userId} value={person.userId}>{person.label} · {roles[person.role]}</option>)}
+        <select className={inputClass} value={value.approverUserId} disabled={!data || !!error} onChange={(e) => onChange({ ...value, approverUserId: e.target.value })}>
+          <option value="">{selected ? c("선택", "Choose") : c("지정 안 함", "None")}</option>
+          {data?.candidates.filter((person) => !selected || value.audienceUserIds.includes(person.userId)).map((person) => <option key={person.userId} value={person.userId}>{person.label} · {roles[person.role]}</option>)}
         </select>
       </label>
     </fieldset>
@@ -537,7 +555,7 @@ function ProjectReviewsInner({ projectId }: { projectId: string }) {
   }, [team, projectId, scope, query, cursor]);
   const { data, error, stale, load } = useLoader(read);
   const mutation = useRun();
-  const [audience, setAudience] = useState<AudienceSelection>({ audienceUserIds: [], approverUserId: "" });
+  const [audience, setAudience] = useState<AudienceSelection>(projectAudience);
   const [audienceReady, setAudienceReady] = useState(false);
   if (!permitted || !me) return <B2bError code="B2B_PROJECT_NOT_FOUND" />;
   if (!data) return error ? <ReviewError code={error} retry={() => void load()} /> : <TeamLoading />;
@@ -561,8 +579,8 @@ function ProjectReviewsInner({ projectId }: { projectId: string }) {
         <section className="space-y-4 rounded-lg border border-border p-4" aria-label={c("새 검토", "New review")}>
           <p className="text-sm text-muted">
             {c(
-              "정확한 영상 버전의 검토본을 재생해 확인한 뒤 대상과 승인자를 선택하여 공개합니다. 자료 등록이나 변환만으로 공개되지 않습니다.",
-              "Play and check the exact review copy, then choose its audience and approver before publishing. Registration and conversion do not publish it.",
+              "정확한 영상 버전의 검토본을 재생해 확인한 뒤 공개합니다. 기본은 프로젝트를 볼 수 있는 모두에게 공개되고, 승인자는 필요할 때 지정합니다. 앱에서 발행한 결과는 검토본이 준비되면 자동으로 공개됩니다.",
+              "Play and check the exact review copy before publishing. By default everyone who can see the project gets it; designate an approver when needed. Results published from the app open automatically once their review copy is ready.",
             )}
           </p>
           <label className="block space-y-2 text-sm">
@@ -576,7 +594,7 @@ function ProjectReviewsInner({ projectId }: { projectId: string }) {
             actionDisabled={!title.trim() || !audienceReady}
             action={c("이 버전으로 검토 시작", "Start review with this version")}
             onPick={async (version) => {
-              const input = { title: title.trim(), versionId: version.id, ...audience };
+              const input = { title: title.trim(), versionId: version.id, ...audienceInput(audience) };
               const made = await mutation.run(input, (requestKey) =>
                 reviewsService.mutate(scope, "create", { requestKey, ...input }),
               );

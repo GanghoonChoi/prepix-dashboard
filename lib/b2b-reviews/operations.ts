@@ -92,6 +92,24 @@ export function validScope(s: unknown): s is ReviewScope {
     ? uuid.test(v.workspaceId ?? "") && uuid.test(v.projectId ?? "")
     : v.kind === "share" && uuid.test(v.shareId ?? "");
 }
+export type AudienceSelection = { audienceScope: "project" | "selected"; audienceUserIds: string[]; approverUserId: string };
+/** V: the wire fields of an audience choice. "project" (everyone who can see
+ * the project) sends no list and an approver only when one is chosen;
+ * "selected" (0067) sends the list and an approver among it. */
+export function audienceInput(a: AudienceSelection) {
+  return a.audienceScope === "project"
+    ? { audienceScope: "project" as const, ...(a.approverUserId ? { approverUserId: a.approverUserId } : {}) }
+    : { audienceScope: "selected" as const, audienceUserIds: a.audienceUserIds, approverUserId: a.approverUserId };
+}
+export function validAudience(input: Record<string, unknown>) {
+  const approver = input.approverUserId;
+  if (input.audienceScope === "project")
+    return input.audienceUserIds === undefined && (approver == null || (typeof approver === "string" && uuid.test(approver)));
+  if (input.audienceScope !== undefined && input.audienceScope !== "selected") return false;
+  const audience = input.audienceUserIds;
+  return Array.isArray(audience) && audience.length > 0 && audience.every((id) => typeof id === "string" && uuid.test(id)) &&
+    new Set(audience).size === audience.length && typeof approver === "string" && audience.includes(approver);
+}
 export function validRecord(raw: unknown, scope: ReviewScope): raw is ReviewRecord {
   const r = raw as ReviewRecord;
   if (
@@ -127,8 +145,7 @@ export function validRecord(raw: unknown, scope: ReviewScope): raw is ReviewReco
   )
     return false;
   if (["create", "round", "audience"].includes(r.action)) {
-    const audience = r.input.audienceUserIds;
-    if (!Array.isArray(audience) || audience.length === 0 || audience.some((id) => typeof id !== "string" || !uuid.test(id)) || new Set(audience).size !== audience.length || typeof r.input.approverUserId !== "string" || !audience.includes(r.input.approverUserId)) return false;
+    if (!validAudience(r.input)) return false;
     if (r.action !== "create" && (typeof r.input.reason !== "string" || !r.input.reason.trim())) return false;
   }
   return true;
