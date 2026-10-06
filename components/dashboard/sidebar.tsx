@@ -1,6 +1,7 @@
 "use client";
 
 import { WorkspaceSwitcher } from "@/components/workspaces/workspace-switcher";
+import { NotificationEntry } from "@/components/b2b/notifications";
 import { useWorkspaceCapabilities } from "@/components/workspaces/capabilities";
 import { useI18n } from "@/lib/i18n/context";
 import { legalUrl } from "@/lib/i18n/config";
@@ -33,6 +34,7 @@ export function Sidebar({
       </div>
 
       {showTeams && <WorkspaceSwitcher onClose={onClose} />}
+      {showTeams && <NotificationEntry onClose={onClose} />}
       <div className="flex-1" />
 
       {/* Footer */}

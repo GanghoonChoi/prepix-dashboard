@@ -1157,3 +1157,74 @@ export type TeamDeletionOpsView = {
     blockedSince: string | null;
   }[];
 };
+
+// F19/S27 user notifications. SOT: backend/docs/b2b-user-notifications.md.
+// Names are resolved at read time only while access is current; `lost` items
+// carry no team, project or target and render as a generic notice.
+export type UserNotificationKind =
+  | "request.assigned"
+  | "request.proposed"
+  | "request.accepted"
+  | "request.submitted"
+  | "request.confirmed"
+  | "request.returned"
+  | "request.declined"
+  | "participation.changed"
+  | "participation.ended"
+  | "project.lead_assigned"
+  | "membership.changed"
+  | "transfer.failed"
+  | "payment.received"
+  | "payment.unknown"
+  | "payment.review_required"
+  | "payment.failed"
+  | "payment.applied"
+  | "lifecycle.period_ended"
+  | "lifecycle.recovery_storage"
+  | "lifecycle.deletion_due"
+  | "lifecycle.ops_check"
+  | "lifecycle.deletion_started"
+  | "lifecycle.deletion_completed"
+  | "notice.period_ending"
+  | "notice.deletion_scheduled";
+export type UserNotification = {
+  id: string;
+  kind: UserNotificationKind;
+  createdAt: string;
+  readAt: string | null;
+  access: "current" | "lost";
+  team: { id: string; name: string } | null;
+  project: { id: string; name: string } | null;
+  params: Record<string, string | number | boolean>;
+};
+export type UserNotificationList = {
+  currentUserId: string;
+  items: UserNotification[];
+  nextCursor: string | null;
+  unreadCount: number;
+};
+export type UserNotificationUnread = {
+  currentUserId: string;
+  unreadCount: number;
+};
+export type UserNotificationRead = {
+  currentUserId: string;
+  notificationId: string;
+  readAt: string | null;
+  unreadCount: number;
+};
+export type UserNotificationDestination =
+  | { kind: "request"; workspaceId: string; projectId: string; requestId: string }
+  | { kind: "project"; workspaceId: string; projectId: string }
+  | { kind: "project_files"; workspaceId: string; projectId: string }
+  | { kind: "library"; workspaceId: string }
+  | { kind: "billing"; workspaceId: string }
+  | { kind: "team_status"; workspaceId: string }
+  | { kind: "team"; workspaceId: string };
+// `destination: null` means the target is no longer available to this
+// account: show the generic access notice. Opening never grants access.
+export type UserNotificationOpen = {
+  currentUserId: string;
+  notificationId: string;
+  destination: UserNotificationDestination | null;
+};
