@@ -71,3 +71,13 @@ Codex는 작업 폴더와 배정 문서만 준비했다. Claude 프로세스는 
 검증된 작업 단위별로 커밋한다. 각 repo의 HANDOFF.md와 `/Users/spagettimaker/My/Lasker/prepix-parallel/ai/HANDOFF.md`에 출발/최종 커밋, 실행/검증 방법과 로그 위치, API/설정/원실행 대조/결과·보존 계약, migrations 순서, 공통 충돌 파일, 실제·대역·미검증 구분, 미완과 결정 필요를 남긴다. 자신의 서버/웹/작업자는 종료하고 시험 자원의 포트/컨테이너를 기록한다. push/merge하지 않는다.
 
 범위가 크면 견적/접수→실행/결과→웹/앱 인수의 검증 가능한 커밋으로 나누되, 원장만 또는 UI 목업만 남기고 작업 단위 7 전체 완료라고 보고하지 않는다. Codex가 최종 현재 서버와 beta에 통합·재검증한다.
+
+## Codex 공통 native 변경과 회귀 기록 추가
+
+2026-10-06 서버 `4c7e920`, beta `292102097`에 native 작업 문서 검사와 실제 사본 열기를 커밋했다. D의 출발점에는 없다. 서버 `TeamFilePolicy.native`는 선택적이며 없으면 새 `kind=working` 등록을 차단한다. 작업 파일은 UTF-8 JSON/ProjectFile v4/경로 없는 외부 원본 manifest이며 WAV나 AI 결과 JSON을 작업 파일로 위장하지 않는다. 원본 manifest는 선언된 연결 조건으로서 실제 원본 접근이나 측정 검증을 부여하지 않는다. 검사 기준은 주 서버 `backend/docs/b2b-native-project-format.md`와 `src/b2b/native-project-format.ts`다.
+
+앱 계약 동기화는 이제 `contracts.ts`와 공통 native parser를 함께 생성한다. 해당 변경을 가져온 뒤 이전 서버 출발점만 source로 사용하면 parser 파일 부재로 실패한다. 자신의 분기에 같은 의존 변경을 통합하거나 현재 통합 서버를 명시적으로 source로 사용하고, AI 공통 계약 통합 때 parser도 유지한다. library/db/team-files/locale 공통 충돌은 별도 integration 커밋으로 인계한다. 새 앱 열기는 정확한 수령/현재 허용/전체 SHA-256을 확인하며 동일 버전의 사용자 편집을 덮어쓰지 않는다. native 결과 적용을 위해 별도의 빈 사본이나 team 소속 재해석을 만들지 않는다.
+
+최종 새 DB 55488 전체 실행은 192/197이다. 파일/native 56개는 통과했고 AI 원장 개별 4개(상위 suite까지 실패 5)가 `B2B_TEAM_PREPARING`으로 실패했다. 앞선 새 DB 전체는 197/197이었으므로 재현 조건을 조사해야 한다. 로그 `/tmp/prepix-native-backend-fresh-final.log`의 ACL/이용권 replay, 만료 quote/lease, legacy balance 검토, allocation FK 사례다. 적용은 호스트 시각, AI/파일 작업은 PostgreSQL 시각을 사용하는 차이가 후보이며 확정 원인은 아니다. 같은 관측 오류를 단순히 기존 문제라 처리하거나 fixture 기간을 임의로 연장해서 숨기지 않는다. D 착수 때 출발점 재현과 시각 기준/원수납 적용을 확인하고 필요 공통 수정은 별도 커밋으로 인계한다. 사용자의 P17 값을 새로 정하는 작업은 아니다.
+
+동일 DB에서 AI 원장 파일만 다시 실행한 결과는 18/18 통과(12.7초), `/tmp/prepix-native-ai-regression-recheck.log`다. 단독 통과로 전체 실행의 간헐적 실패가 해결됐다고 계산하지 않는다.

@@ -65,3 +65,9 @@
 신규 domain migration은 통합 0063 이후로 번호/의존 순서와 journal when(0063=1791265000000)을 맞춘다. 다른 분기의 이미 적용한 migration을 운영 DB에서 재작성/삭제하지 않는다. 최종 인계에 출발 상태·순서·새 DB 적용·충돌 파일을 적어 통합 담당이 맞추도록 한다. 현재 요청 snapshot은 assignee/confirmer/creator participation 열이며 NULL 과거 회차는 자동 허용하지 않는다. UUID를 고객 응답/로그에 노출하지 않는다. 요청 공통 contracts에는 `assignmentCurrent`와 `reassignAssignee/reassignConfirmer`도 추가됐으므로 생성 계약을 따로 손편집하지 않는다.
 
 Codex는 C의 작업 중 폴더를 변경하지 않았다. 해당 공통 변경이 필요한 연결은 별도 `(integration)` 커밋/의존성으로 남기고 요청 화면/권한 로직을 다시 구현하지 않는다. 새 DB 서버 189건과 실제 Chrome 3개를 검증했으며 통합 시 현재 소스/DB 기준으로 재검증한다.
+
+## 2026-10-06 추가 인계 — native 작업 파일 검사
+
+통합 서버 `4c7e920`와 beta `292102097`에서 경로 없는 `.prepixwork` 문서 검사와 정확한 버전의 실제 로컬 사본 열기를 연결했다. C 출발점의 공통 계약에는 이 변경이 없다. `TeamFilePolicy.native`는 선택적이며 없으면 새 working 등록을 막는다. working은 ProjectFile v4/원본 manifest의 UTF-8 JSON이며 WAV나 검토 영상을 이 kind로 등록하지 않는다. 검토본 작업자는 native 문서를 영상으로 변환하거나 외부 원본 manifest로 새 다운로드 허용을 추정하지 않는다. 지원 영상은 서버가 실제 ffprobe로 검사한 original/output 버전에 고정한다.
+
+`contracts.ts`와 file-inspector/files.service/file-policy의 작은 공통 연결은 통합 의존성으로 유지한다. 스캔/전체 SHA-256/불변 버전/cleanup의 공통 흐름을 우회하지 않는다. 기준 문서는 `/Users/spagettimaker/My/Lasker/prepix-backend/backend/docs/b2b-native-project-format.md`다. C 작업 폴더를 변경하지 않았으므로 필요한 계약은 별도 integration 커밋으로 인계한다.

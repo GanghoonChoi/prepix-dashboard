@@ -337,7 +337,13 @@ export function FileTransfers({
           className="max-w-2xl space-y-4"
           onSubmit={async (event) => {
             event.preventDefault();
-            if (restoring || !selected.length || error) return;
+            if (
+              restoring ||
+              !selected.length ||
+              error ||
+              (kind === "working" && !capabilities.policy?.native)
+            )
+              return;
             const additions: Job[] = selected.map((file) => ({
               id: crypto.randomUUID(),
               name: file.name,
@@ -379,9 +385,11 @@ export function FileTransfers({
               >
                 <option value="original">{c("원본", "Original")}</option>
                 <option value="output">{c("결과물", "Output")}</option>
-                <option value="working">
-                  {c("작업 자료", "Working files")}
-                </option>
+                {capabilities.policy.native && (
+                  <option value="working">
+                    {c("작업 파일", "Working project")}
+                  </option>
+                )}
               </select>
             </label>
             <label className="space-y-2 text-sm">
@@ -412,9 +420,23 @@ export function FileTransfers({
           </label>
           <p className="text-sm text-muted">
             {c("파일당 최대", "Maximum per file")}{" "}
-            {bytes(capabilities.policy.maxFileBytes)}.{" "}
-            {c("지원 컨테이너", "Supported containers")}:{" "}
-            {capabilities.policy.formats.join(", ")}.{" "}
+            {bytes(
+              kind === "working"
+                ? (capabilities.policy.native?.maxBytes ?? 0)
+                : capabilities.policy.maxFileBytes,
+            )}
+            .{" "}
+            {kind === "working" ? (
+              c(
+                ".prepixwork 파일에는 편집 내용과 필수 원본 목록이 포함됩니다. 원본은 별도로 연결합니다.",
+                "A .prepixwork project contains the edit document and required source list. Connect originals separately.",
+              )
+            ) : (
+              <>
+                {c("지원 컨테이너", "Supported containers")}:{" "}
+                {capabilities.policy.formats.join(", ")}.{" "}
+              </>
+            )}
             {c(
               "실제 형식은 서버에서 검사합니다.",
               "Actual format is checked on the server.",
@@ -422,7 +444,12 @@ export function FileTransfers({
           </p>
           <button
             className={primaryClass}
-            disabled={restoring || !selected.length || !!error}
+            disabled={
+              restoring ||
+              !selected.length ||
+              !!error ||
+              (kind === "working" && !capabilities.policy.native)
+            }
             type="submit"
           >
             {c("팀에 보관 시작", "Store in team")}

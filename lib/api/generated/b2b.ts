@@ -558,7 +558,33 @@ export type TeamFileUploadState =
   | "cancelled"
   | "expired"
   | "quarantined";
+/** One self-contained UTF-8 edit document; source bytes stay external. */
+export type TeamNativeSource = {
+  mediaId: string;
+  name: string;
+  kind: "video" | "audio" | "image";
+  size: number;
+  sha256: string;
+  durationTicks: number;
+  width: number;
+  height: number;
+  frameRate: number;
+  audioChannels: number;
+};
+export type TeamNativeProject = {
+  format: "prepix-team-project";
+  formatVersion: 1;
+  createdAt: string;
+  document: Record<string, unknown>;
+  sources: TeamNativeSource[];
+};
+export type TeamNativePolicy = {
+  formatVersion: 1;
+  maxBytes: number;
+  maxSources: number;
+};
 export type TeamFileMetadata = {
+  native?: { formatVersion: 1; documentVersion: 4; sourceCount: number };
   container: string;
   durationMs: number | null;
   video: {
@@ -571,6 +597,8 @@ export type TeamFileMetadata = {
   audio: { codec: string; sampleRate: number; channels: number }[];
 };
 export type TeamFilePolicy = {
+  /** Absent means native upload is unavailable, not unlimited. */
+  native?: TeamNativePolicy;
   version: string;
   maxFileBytes: number;
   formats: string[];

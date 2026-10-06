@@ -92,6 +92,10 @@ const invitationErrors: Record<string, [string, string]> = {
   ],
 };
 const errors: Record<string, [string, string]> = {
+  B2B_NATIVE_FORMAT_UNSUPPORTED: [
+    "지원하지 않는 작업 파일 형식이거나 필수 원본 목록이 올바르지 않습니다. 작업 파일 지원 설정과 파일을 확인해 주세요.",
+    "This working format or its required source list is unsupported. Check the file and native upload settings.",
+  ],
   B2B_FILE_REFERENCED: ["사용 중인 프로젝트 연결이 있어 이 버전을 휴지통으로 이동할 수 없습니다. 허용된 프로젝트에서 연결을 먼저 제외하세요.", "An active project reference prevents moving this version to trash. Remove its links in authorized projects first."],
   B2B_FILE_RETENTION_REQUIRED: ["제출·승인·납품 등의 보존 근거가 있어 이 버전을 삭제할 수 없습니다.", "Submission, approval, delivery or other retention evidence prevents deletion."],
   B2B_FILE_TRASH_NOT_FOUND: ["현재 이 휴지통 버전을 확인할 수 없습니다. 버전 주소와 현재 접근을 확인하세요.", "This trash version is unavailable. Check the version address and current access."],
