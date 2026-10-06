@@ -104,6 +104,7 @@ async function fixture(content = "original bytes") {
       return {
         url: `https://storage.example.test/part/${number}`,
         headers: { "x-amz-checksum-sha256": checksum },
+        expiresIn: 300,
       };
     },
     complete: async () => {
@@ -118,6 +119,7 @@ async function fixture(content = "original bytes") {
       if (upload) upload = { ...upload, state: "cancelled" };
       return {
         uploadId: upload?.id ?? null,
+        projectId: record.scope.projectId,
         cancelled: true,
         requestId: "same-receipt",
       };

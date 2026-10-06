@@ -2,6 +2,9 @@ import { apiClient } from "../api/client";
 import type {
   BeginTeamFileUploadInput,
   TeamFileCapabilities,
+  TeamFilePartTicket,
+  TeamFileUploadCompletion,
+  TeamFileUploadCancelReceipt,
   TeamFileUploadLookup,
   TeamFileUploadStatus,
   TeamFileVersionList,
@@ -99,19 +102,15 @@ export function fileApi(scope: FileScope) {
       checksum: string,
       signal?: AbortSignal,
     ) =>
-      post<{ url: string; headers: Record<string, string> }>(
+      post<TeamFilePartTicket>(
         `/uploads/${e(id)}/parts`,
         { number, checksum },
         signal,
       ),
     complete: (id: string, signal?: AbortSignal) =>
-      post<{ upload: TeamFileUploadStatus["upload"] }>(
-        `/uploads/${e(id)}/complete`,
-        {},
-        signal,
-      ),
+      post<TeamFileUploadCompletion>(`/uploads/${e(id)}/complete`, {}, signal),
     cancel: (requestKey: string, signal?: AbortSignal) =>
-      post<{ uploadId: string | null; cancelled: boolean; requestId: string }>(
+      post<TeamFileUploadCancelReceipt>(
         `/uploads/requests/${e(requestKey)}/cancel`,
         {},
         signal,

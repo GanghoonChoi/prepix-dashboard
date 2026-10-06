@@ -607,6 +607,18 @@ export type TeamFileUploadStatus = {
   parts: { number: number; size: number; etag: string; checksum?: string }[];
   needsCompletion: boolean;
 };
+export type TeamFilePartTicket = {
+  url: string;
+  headers: Record<string, string>;
+  expiresIn: number;
+};
+export type TeamFileUploadCompletion = { upload: TeamFileUpload };
+export type TeamFileUploadCancelReceipt = {
+  projectId: string | null;
+  uploadId: string | null;
+  cancelled: true;
+  requestId: string;
+};
 export type TeamFileUploadLookup = {
   currentUserId: string;
   upload: TeamFileUpload | null;
