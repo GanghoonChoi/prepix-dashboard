@@ -1070,6 +1070,10 @@ export type TeamLifecycle = {
   };
   deletion: {
     state: TeamDeletionState | "not_started";
+    /** True while deletion is not yet allowed to run (checks, holds, missing
+     * settings): no firm start time is promised. For non-billing viewers every
+     * pre-start state is shown as `waiting` + `preparing`. */
+    preparing: boolean;
     startedAt: string | null;
     completedAt: string | null;
     backup: { state: TeamBackupPurgeState; dueAt: string } | null;
