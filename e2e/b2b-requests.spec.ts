@@ -84,6 +84,12 @@ async function invite(
   kind: "internal" | "external",
   role: "producer" | "reviewer",
 ) {
+  const priorMail = await (await request.get(`${api}/__test/mail`)).json();
+  const previousUrl =
+    priorMail.findLast(
+      (m: { to: string; inviteUrl?: string }) =>
+        m.to === user.email && m.inviteUrl,
+    )?.inviteUrl ?? "";
   expect(
     (
       await request.post(`${api}/v2/workspaces/${team}/b2b/invitations`, {
@@ -110,7 +116,7 @@ async function invite(
             (m: { to: string; inviteUrl?: string }) =>
               m.to === user.email && m.inviteUrl?.includes("/b2b-invitations/"),
           )?.inviteUrl ?? "";
-        return inviteUrl;
+        return inviteUrl !== previousUrl ? inviteUrl : "";
       },
       { timeout: 30000 },
     )
@@ -1246,6 +1252,244 @@ test("F03 request work on team home and project overview: live counts, paging, f
   ).toBeVisible();
   await expect(queue.getByRole("listitem")).toHaveCount(0);
   for (const view of [leadView, externalView]) {
+    expect(view.errors).toEqual([]);
+    await view.close();
+  }
+});
+
+test("F05/F13 reaccepted participation requires an explicit same-person reassignment and preserves confirmed history", async ({
+  browser,
+  request,
+}) => {
+  test.setTimeout(180_000);
+  const lead = await account(request, "lifetime-lead");
+  const external = await account(request, "lifetime-external");
+  const confirmer = await account(request, "lifetime-confirmer");
+  const created = await request.post(`${api}/v2/workspaces`, {
+    headers: lead.headers,
+    data: {
+      name: `참여 인수 ${randomUUID().slice(0, 8)}`,
+      requestKey: randomUUID(),
+    },
+  });
+  expect(created.status()).toBe(201);
+  const team = (await created.json()).data.workspace.id;
+  fixture("b2b-paid-test-fixture.cjs", {
+    workspaceId: team,
+    action: "purchase",
+    target: "initial",
+  });
+  fixture("b2b-test-fixture.cjs", {
+    workspaceId: team,
+    action: "join",
+    userId: confirmer.id,
+  });
+  const made = await request.post(`${api}/v2/workspaces/${team}/b2b/projects`, {
+    headers: lead.headers,
+    data: { requestKey: randomUUID(), name: "참여 회차 검증" },
+  });
+  expect(made.status()).toBe(201);
+  const project = (await made.json()).data.project.id;
+  const root = `${api}/v2/workspaces/${team}/b2b/projects/${project}`;
+  const base = `/dashboard/workspaces/${team}/projects/${project}`;
+  await invite(request, lead, team, project, external, "external", "producer");
+  await invite(request, lead, team, project, confirmer, "internal", "producer");
+  const input = {
+    requestKey: randomUUID(),
+    title: "재초대 업무",
+    body: "참여 종료 뒤 재지정",
+    required: true,
+    criteria: "검증한 결과",
+    confirmerId: confirmer.id,
+    assigneeId: external.id,
+  };
+  const task = await request.post(`${root}/requests`, {
+    headers: lead.headers,
+    data: input,
+  });
+  expect(task.status()).toBe(201);
+  const id = (await task.json()).data.request.id;
+  expect(
+    (
+      await request.post(`${root}/requests`, {
+        headers: external.headers,
+        data: {
+          requestKey: randomUUID(),
+          title: "이전 비공개 제안",
+          body: "작성 기록 보존",
+        },
+      })
+    ).status(),
+  ).toBe(201);
+  const change = async (user: Account, remove: boolean, role = "producer") => {
+    const current = (
+      await (await request.get(root, { headers: lead.headers })).json()
+    ).data;
+    expect(
+      (
+        await request.post(`${root}/people`, {
+          headers: lead.headers,
+          data: {
+            requestKey: randomUUID(),
+            revision: current.project.revision,
+            userId: user.id,
+            role,
+            canDownload: true,
+            remove,
+            reason: "참여 인수",
+          },
+        })
+      ).status(),
+    ).toBe(201);
+  };
+  const read = async () =>
+    (
+      await (
+        await request.get(`${root}/requests/${id}`, { headers: lead.headers })
+      ).json()
+    ).data;
+  await change(external, false, "reviewer");
+  expect((await read()).request.assignmentCurrent.assignee).toBe(true);
+  await change(external, false);
+  const leadView = await open(browser, lead, `${base}/requests/${id}`);
+  const externalView = await open(browser, external, `${base}/requests`);
+  const L = leadView.page,
+    X = externalView.page;
+  await expect(
+    X.getByRole("link", { name: "재초대 업무", exact: true }),
+  ).toBeVisible();
+  await change(external, true);
+  await change(confirmer, true);
+  await invite(request, lead, team, project, external, "external", "producer");
+  await invite(request, lead, team, project, confirmer, "internal", "producer");
+  await X.reload();
+  await expect(
+    X.getByText("표시할 요청이 없습니다.", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    X.getByRole("link", { name: "재초대 업무", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    X.getByRole("link", { name: "이전 비공개 제안", exact: true }),
+  ).toHaveCount(0);
+  expect(
+    (
+      await request.get(`${root}/requests/${id}`, { headers: external.headers })
+    ).status(),
+  ).toBe(404);
+  await L.reload();
+  await expect(
+    L.getByText("lifetime-external · 재지정 필요", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    L.getByText("lifetime-confirmer · 재지정 필요", { exact: true }),
+  ).toBeVisible();
+  await L.getByRole("button", { name: "요청 변경", exact: true }).click();
+  await L.getByLabel("제목", { exact: true }).fill("재초대 업무 수정");
+  await L.getByRole("button", { name: "변경 저장", exact: true }).click();
+  await expect(
+    L.getByRole("heading", { name: "재초대 업무 수정", exact: true }),
+  ).toBeVisible();
+  expect((await read()).request.assignmentCurrent).toEqual({
+    assignee: false,
+    confirmer: false,
+  });
+  expect(
+    (
+      await request.get(`${root}/requests/${id}`, { headers: external.headers })
+    ).status(),
+  ).toBe(404);
+  await L.getByRole("button", { name: "요청 변경", exact: true }).click();
+  await L.getByLabel("작업 담당을 현재 참여에 다시 지정", {
+    exact: true,
+  }).check();
+  await L.getByLabel("확인자를 현재 참여에 다시 지정", { exact: true }).check();
+  await lostReply(L, root, "update", `${root}/requests/${id}`, () =>
+    L.getByRole("button", { name: "변경 저장", exact: true }).click(),
+  );
+  expect((await read()).request.assignmentCurrent).toEqual({
+    assignee: true,
+    confirmer: true,
+  });
+  expect((await read()).request.requestRevision).toBe(1);
+  await X.reload();
+  await expect(
+    X.getByRole("link", { name: "재초대 업무 수정", exact: true }),
+  ).toBeVisible();
+  const submitted = await request.post(`${root}/requests/${id}/submissions`, {
+    headers: external.headers,
+    data: {
+      requestKey: randomUUID(),
+      requestRevision: 1,
+      versionIds: [],
+      note: "완료한 작업",
+    },
+  });
+  expect(submitted.status()).toBe(201);
+  const submissionId = (await submitted.json()).data.submissionId;
+  await change(confirmer, true);
+  await invite(request, lead, team, project, confirmer, "internal", "producer");
+  const confirmerView = await open(
+    browser,
+    confirmer,
+    `${base}/requests/${id}`,
+  );
+  const C = confirmerView.page;
+  await expect(
+    C.getByRole("heading", { name: "재초대 업무 수정", exact: true }),
+  ).toBeVisible();
+  await expect(
+    C.getByRole("button", { name: "확인 완료", exact: true }),
+  ).toHaveCount(0);
+  expect(
+    (
+      await request.post(
+        `${root}/requests/${id}/submissions/${submissionId}/confirmations`,
+        {
+          headers: confirmer.headers,
+          data: {
+            requestKey: randomUUID(),
+            decision: "confirmed",
+            note: "이전 지정으로 확인",
+          },
+        },
+      )
+    ).status(),
+  ).toBe(403);
+  await L.reload();
+  await L.getByRole("button", { name: "요청 변경", exact: true }).click();
+  await L.getByLabel("확인자를 현재 참여에 다시 지정", { exact: true }).check();
+  await L.getByRole("button", { name: "변경 저장", exact: true }).click();
+  await expect
+    .poll(async () => (await read()).request.assignmentCurrent.confirmer)
+    .toBe(true);
+  await C.reload();
+  await C.getByRole("button", { name: "확인 완료", exact: true }).click();
+  await expect.poll(async () => (await read()).request.state).toBe("confirmed");
+  const confirmationId = (await read()).submissions[0].confirmation.id;
+  await change(confirmer, true);
+  await invite(request, lead, team, project, confirmer, "internal", "producer");
+  const historical = await read();
+  expect(historical.submissions[0].confirmation.id).toBe(confirmationId);
+  expect(historical.submissions[0].confirmation.current).toBe(true);
+  expect(historical.request.assignmentCurrent.confirmer).toBe(false);
+  expect(
+    (
+      await (
+        await request.get(`${root}/request-work`, { headers: lead.headers })
+      ).json()
+    ).data.required,
+  ).toEqual({ total: 1, satisfied: 1 });
+  await L.reload();
+  await L.setViewportSize({ width: 390, height: 844 });
+  await L.screenshot({
+    path: "/tmp/prepix-request-lifetime-mobile.png",
+    fullPage: true,
+  });
+  expect(
+    await L.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+  ).toBe(true);
+  for (const view of [leadView, externalView, confirmerView]) {
     expect(view.errors).toEqual([]);
     await view.close();
   }

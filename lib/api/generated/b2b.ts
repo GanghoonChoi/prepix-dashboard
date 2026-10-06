@@ -817,6 +817,7 @@ export type ProjectRequest = {
   state: ProjectRequestState;
   required: boolean;
   shared: boolean;
+  assignmentCurrent: { assignee: boolean; confirmer: boolean };
   assignee: ProjectRequestPerson | null;
   confirmer: ProjectRequestPerson | null;
   createdBy: ProjectRequestPerson;
@@ -941,7 +942,12 @@ export type ProjectRequestFields = {
   shared?: boolean;
 };
 export type CreateProjectRequest = Mutation & ProjectRequestFields;
-export type UpdateProjectRequest = RevisionMutation & ProjectRequestFields;
+export type UpdateProjectRequest = RevisionMutation &
+  ProjectRequestFields & {
+    /** Explicitly bind the same person to their current participation. */
+    reassignAssignee?: boolean;
+    reassignConfirmer?: boolean;
+  };
 export type CloseProjectRequest = RevisionMutation & { reason: string };
 export type ReopenProjectRequest = CloseProjectRequest;
 export type SubmitProjectRequest = Mutation & {

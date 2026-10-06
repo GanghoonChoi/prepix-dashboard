@@ -548,7 +548,8 @@ function ProjectRequestsInner({ projectId }: { projectId: string }) {
   const base = `/dashboard/workspaces/${team}/projects/${projectId}`;
   const filtered = list.requests.filter((r) =>
     tab === "mine"
-      ? r.assignee?.userId === me || r.confirmer?.userId === me
+      ? (r.assignmentCurrent.assignee && r.assignee?.userId === me) ||
+        (r.assignmentCurrent.confirmer && r.confirmer?.userId === me)
       : tab === "waiting"
         ? ["proposed", "submitted"].includes(r.state)
         : tab === "done"
@@ -672,6 +673,12 @@ function ProjectRequestsInner({ projectId }: { projectId: string }) {
                 {" · "}
                 {r.dueAt ? kst(r.dueAt) : c("기한 없음", "No due date")}
               </p>
+              {((r.assignee && !r.assignmentCurrent.assignee) ||
+                (r.confirmer && !r.assignmentCurrent.confirmer)) && (
+                <p className="mt-1 text-xs text-muted">
+                  {c("업무 재지정 필요", "Duty reassignment needed")}
+                </p>
+              )}
               {r.evidenceMissing && (
                 <p className="mt-1 text-xs text-muted">
                   {c(
@@ -827,9 +834,19 @@ function ProjectRequestViewInner({
         <section aria-label={c("업무 정보", "Work details")}>
           <dl className="grid grid-cols-[6rem_1fr] gap-2 text-sm">
             <dt className="text-muted">{c("작업 담당", "Assignee")}</dt>
-            <dd>{person(request.assignee)}</dd>
+            <dd>
+              {person(request.assignee)}
+              {request.assignee &&
+                !request.assignmentCurrent.assignee &&
+                c(" · 재지정 필요", " · reassignment needed")}
+            </dd>
             <dt className="text-muted">{c("확인자", "Confirmer")}</dt>
-            <dd>{person(request.confirmer)}</dd>
+            <dd>
+              {person(request.confirmer)}
+              {request.confirmer &&
+                !request.assignmentCurrent.confirmer &&
+                c(" · 재지정 필요", " · reassignment needed")}
+            </dd>
             <dt className="text-muted">{c("기한", "Due")}</dt>
             <dd>{request.dueAt ? kst(request.dueAt) : c("없음", "None")}</dd>
             <dt className="text-muted">{c("공개", "Audience")}</dt>
@@ -1049,6 +1066,8 @@ function RequestEditor({
   });
   // The draft is based on this revision; a concurrent change returns 409.
   const [revision] = useState(request.revision);
+  const [reassignAssignee, setReassignAssignee] = useState(false);
+  const [reassignConfirmer, setReassignConfirmer] = useState(false);
   const mutation = useMutation(projectId);
   const basisChanged =
     (draft.referenceVersionIds !== undefined &&
@@ -1067,7 +1086,12 @@ function RequestEditor({
       className="max-w-3xl space-y-4 border-y border-border py-6"
       onSubmit={async (event) => {
         event.preventDefault();
-        const input = { ...draftInput(draft, true), revision };
+        const input = {
+          ...draftInput(draft, true),
+          revision,
+          ...(reassignAssignee ? { reassignAssignee: true } : {}),
+          ...(reassignConfirmer ? { reassignConfirmer: true } : {}),
+        };
         const call = accept ? requestsService.accept : requestsService.update;
         const { result } = await mutation.run(input, (requestKey) =>
           call(team, projectId, me, request.id, { ...input, requestKey }),
@@ -1084,6 +1108,49 @@ function RequestEditor({
         references={basis.references}
         disabled={mutation.busy || mutation.locked}
       />
+      {((request.assignee && !request.assignmentCurrent.assignee) ||
+        (request.confirmer && !request.assignmentCurrent.confirmer)) && (
+        <div className="space-y-3 rounded-lg border border-border p-4 text-sm">
+          <p>
+            {c(
+              "참여가 종료된 이전 지정은 재초대만으로 복구되지 않습니다. 다른 참여자를 선택하거나, 같은 사람에게 다시 맡길 항목을 선택해 주세요. 제목이나 기한만 바꾸면 이전 지정은 유지됩니다.",
+              "Reinviting someone does not restore their former duties. Select a different participant or explicitly reassign the same person. Editing only the title or due date keeps the former assignment.",
+            )}
+          </p>
+          {request.assignee &&
+            !request.assignmentCurrent.assignee &&
+            draft.assigneeId === request.assignee.userId && (
+              <label className="flex min-h-11 items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={reassignAssignee}
+                  disabled={mutation.busy || mutation.locked}
+                  onChange={(e) => setReassignAssignee(e.target.checked)}
+                />
+                {c(
+                  "작업 담당을 현재 참여에 다시 지정",
+                  "Reassign assignee to current participation",
+                )}
+              </label>
+            )}
+          {request.confirmer &&
+            !request.assignmentCurrent.confirmer &&
+            draft.confirmerId === request.confirmer.userId && (
+              <label className="flex min-h-11 items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={reassignConfirmer}
+                  disabled={mutation.busy || mutation.locked}
+                  onChange={(e) => setReassignConfirmer(e.target.checked)}
+                />
+                {c(
+                  "확인자를 현재 참여에 다시 지정",
+                  "Reassign confirmer to current participation",
+                )}
+              </label>
+            )}
+        </div>
+      )}
       {basisChanged && ["submitted", "confirmed"].includes(request.state) && (
         <p role="status" className="text-sm">
           {c(
