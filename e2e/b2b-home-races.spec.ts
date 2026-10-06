@@ -122,7 +122,6 @@ for (const change of [
       periods: [],
       aiUsage: {
         reconciled: true,
-        availableUnits: "12",
         sampledAt: "2026-10-06T00:00:00.000Z",
       },
       aiUsageError: null,

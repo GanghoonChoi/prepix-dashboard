@@ -11,7 +11,6 @@ import {
 import {
   b2bService,
   type AssignLicence,
-  type ChangeUserAiLimit,
   type LicenceAssignment,
   type LicenceOverview,
   type EditingDeviceOverview,
@@ -50,8 +49,6 @@ const instant = (value: string) =>
     dateStyle: "medium",
     timeStyle: "long",
   }).format(new Date(value));
-const whole = (value: string) =>
-  /^\d+$/.test(value) && Number.isSafeInteger(Number(value));
 const personName = (person?: TeamPerson) => person?.name || person?.email;
 
 // Keep unknown outcomes in the form, including when a background refresh
@@ -218,8 +215,8 @@ export function TeamLicences() {
         manager ? "Editing licences" : "My editing licence",
       )}
       description={c(
-        "팀 앱 편집과 팀 AI는 해당 팀의 이용권을 함께 확인합니다. 배정과 개인 한도 변경은 AI를 새로 지급하지 않습니다.",
-        "Team app editing and team AI use the same team licence. Assignments and personal limits do not grant new AI units.",
+        "팀 앱 편집과 팀 AI는 해당 팀의 이용권을 함께 확인합니다. AI는 좌석마다 따로 있으며, 배정과 재배정은 AI를 새로 만들지 않습니다.",
+        "Team app editing and team AI use the same team licence. AI belongs to each seat; assigning or reassigning never creates new AI.",
       )}
     >
       <SpaceBadge workspace={data.workspace} />
@@ -478,8 +475,8 @@ function PersonalLicences({
   onSaved: () => Promise<void>;
 }) {
   const c = useCopy();
-  // Personal views contain no team roster or purchased capacity. Couple each
-  // budget to its own assignment period so future and past limits stay distinct.
+  // Personal views contain no team roster or purchased capacity. Couple my
+  // seat's AI to its own assignment period so future and past stay distinct.
   const periods = [...new Set(overview.assignments.map((a) => a.periodId))]
     .map((periodId) => ({
       periodId,
@@ -511,8 +508,8 @@ function PersonalLicences({
         {future && (
           <p className="text-sm text-muted">
             {c(
-              "시작 시각 전에는 이 이용권과 한도를 사용할 수 없습니다.",
-              "This licence and limit cannot be used before the start time.",
+              "시작 시각 전에는 이 이용권과 AI를 사용할 수 없습니다.",
+              "This licence and its AI cannot be used before the start time.",
             )}
           </p>
         )}
@@ -532,7 +529,7 @@ function PersonalLicences({
             <p className="text-xs leading-5 text-muted">
               {budget.unitDescription}
             </p>
-            <BudgetRow budget={budget} own editable={false} onSaved={onSaved} />
+            <BudgetRow budget={budget} own />
           </>
         )}
       </Block>
@@ -626,7 +623,6 @@ function PeriodLicences({
       <AssignForm
         period={period}
         assignments={rows}
-        budgets={budgets}
         people={people}
         free={free}
         writable={writable}
@@ -634,28 +630,38 @@ function PeriodLicences({
       />
       {budgets.length > 0 && (
         <section
-          aria-label={c("기간별 개인 AI 한도", "Personal period AI limits")}
+          aria-label={c("좌석별 AI 사용", "AI use per seat")}
           className="space-y-4 pt-4"
         >
           <h3 className="text-sm font-medium">
-            {c("기간별 개인 AI 한도", "Personal period AI limits")}
+            {c("좌석별 AI 사용", "AI use per seat")}
           </h3>
           <p className="text-xs leading-5 text-muted">
             {period.aiUnitDescription}{" "}
             {c(
-              "개인 한도는 공동 AI 잔량과 별개입니다. 확정 사용과 예약을 더한 값보다 낮출 수 없습니다.",
-              "Personal limits are separate from the shared balance and cannot be below confirmed plus reserved usage.",
+              "AI는 좌석마다 따로 있고 팀이 함께 쓰지 않습니다. 좌석의 AI는 구매 조건으로 정해지며 바꿀 수 없습니다. 좌석을 다른 사람에게 넘기면 그 좌석에 남은 양을 이어서 씁니다. 다 쓰면 다음 기간까지 기다립니다.",
+              "AI belongs to each seat and is not shared across the team. A seat's AI is set by the purchase and cannot be changed. Moving a seat to someone else hands over what that seat has left. When it runs out, it waits for the next period.",
             )}
           </p>
-          {budgets.map((budget) => (
-            <BudgetRow
-              key={budget.userId}
-              budget={budget}
-              person={people.find((p) => p.userId === budget.userId)}
-              editable={writable}
-              onSaved={onSaved}
-            />
-          ))}
+          {[...budgets]
+            .sort((a, b) => a.slot - b.slot)
+            .map((budget) => {
+              const holder = rows.find(
+                (a) => a.slot === budget.slot && occupies(a),
+              );
+              return (
+                <BudgetRow
+                  key={budget.slot}
+                  budget={budget}
+                  person={
+                    holder
+                      ? people.find((p) => p.userId === holder.userId)
+                      : undefined
+                  }
+                  empty={!holder}
+                />
+              );
+            })}
         </section>
       )}
     </Block>
@@ -665,7 +671,6 @@ function PeriodLicences({
 function AssignForm({
   period,
   assignments,
-  budgets,
   people,
   free,
   writable,
@@ -673,7 +678,6 @@ function AssignForm({
 }: {
   period: Period;
   assignments: LicenceAssignment[];
-  budgets: Budget[];
   people: TeamPerson[];
   free: number;
   writable: boolean;
@@ -681,8 +685,7 @@ function AssignForm({
 }) {
   const { data } = useWorkspace()!,
     c = useCopy();
-  const [userId, setUserId] = useState(""),
-    [limit, setLimit] = useState("");
+  const [userId, setUserId] = useState("");
   const mutation = useLicenceMutation<AssignLicence>(onSaved);
   const fieldId = useId();
   const eligible = people.filter(
@@ -696,17 +699,10 @@ function AssignForm({
     selected && !eligible.some((p) => p.userId === userId)
       ? [selected, ...eligible]
       : eligible;
-  const prior = budgets.find((b) => b.userId === userId),
-    value = mutation.pending
-      ? String(mutation.pending.limitUnits)
-      : prior
-        ? String(prior.limitUnits)
-        : limit;
   const valid =
     writable &&
     !!userId &&
     eligible.some((p) => p.userId === userId) &&
-    whole(value) &&
     free > 0;
   if (!writable && !mutation.pending && !mutation.error && !mutation.saved)
     return null;
@@ -721,7 +717,6 @@ function AssignForm({
             requestKey: crypto.randomUUID(),
             periodId: period.id,
             userId,
-            limitUnits: Number(value),
           }),
           (input) => b2bService.assignLicence(data.workspace.id, input),
         );
@@ -739,10 +734,7 @@ function AssignForm({
             id={`${fieldId}-person`}
             className={inputClass}
             value={userId}
-            onChange={(event) => {
-              setUserId(event.target.value);
-              setLimit("");
-            }}
+            onChange={(event) => setUserId(event.target.value)}
             required
           >
             <option value="">
@@ -765,49 +757,10 @@ function AssignForm({
             ))}
           </select>
         </div>
-        <div className="space-y-2 text-sm">
-          <label htmlFor={`${fieldId}-limit`}>
-            {c("개인 AI 한도", "Personal AI limit")} ({period.aiUnitLabel})
-          </label>
-          <input
-            id={`${fieldId}-limit`}
-            className={inputClass}
-            type="number"
-            min="0"
-            max={Number.MAX_SAFE_INTEGER}
-            step="1"
-            value={value}
-            required
-            readOnly={!!prior}
-            onChange={(event) => setLimit(event.target.value)}
-          />
-        </div>
-        {prior ? (
-          <p className="text-xs leading-5 text-muted">
-            {c(
-              "재배정은 기존 한도와 사용 기록을 유지합니다. 아래 개인 한도 변경에서 별도로 수정할 수 있습니다.",
-              "Reassignment retains the existing limit and usage. Use the separate limit editor below to change it.",
-            )}
-          </p>
-        ) : (
-          <button
-            type="button"
-            className={secondaryClass}
-            onClick={() =>
-              setLimit(
-                String(Math.floor(period.periodAiUnits / period.capacity)),
-              )
-            }
-          >
-            {c("균등 제안 적용", "Use equal-share suggestion")} ·{" "}
-            {number(Math.floor(period.periodAiUnits / period.capacity))}{" "}
-            {period.aiUnitLabel}
-          </button>
-        )}
         <p className="text-xs leading-5 text-muted">
           {c(
-            "균등 제안은 기간 제공 AI를 구매 정원으로 나눈 값입니다. 다른 사람의 한도나 공동 잔량은 변경하지 않습니다.",
-            "The suggestion divides period AI by purchased capacity. It does not change another person's limit or the shared balance.",
+            `배정하면 빈 좌석 하나와 그 좌석의 이번 기간 AI를 함께 씁니다. AI 한도는 정하지 않으며, 다른 사람이 쓰던 좌석이면 남은 양을 이어서 씁니다. 단위: ${period.aiUnitLabel}`,
+            `An assignment takes a free seat together with that seat's AI for the period. There is no limit to set; a seat someone used before hands over what it has left. Unit: ${period.aiUnitLabel}`,
           )}
         </p>
       </fieldset>
@@ -1072,33 +1025,31 @@ function BudgetRow({
   budget,
   person,
   own = false,
-  editable,
-  onSaved,
+  empty = false,
 }: {
   budget: Budget;
   person?: TeamPerson;
   own?: boolean;
-  editable: boolean;
-  onSaved: () => Promise<void>;
+  empty?: boolean;
 }) {
   const c = useCopy();
+  const seat = c(`${budget.slot}번 좌석`, `Seat ${budget.slot}`);
+  const name = own
+    ? c("내 좌석", "My seat")
+    : `${seat} · ${empty ? c("비어 있음", "empty") : (personName(person) ?? c("참여자", "Participant"))}`;
   return (
     <section
       className="space-y-3 border-l border-border pl-4 text-sm"
-      aria-label={`${own ? c("내 한도", "My limit") : (personName(person) ?? c("이전 참여자", "Former participant"))} · ${c("개인 AI 한도", "Personal AI limit")}`}
+      aria-label={`${name} · ${c("좌석 AI", "Seat AI")}`}
     >
-      {!own && (
-        <p className="break-all font-medium">
-          {personName(person) ?? c("이전 참여자", "Former participant")}
-        </p>
-      )}
+      {!own && <p className="break-all font-medium">{name}</p>}
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          [c("개인 한도", "Personal limit"), budget.limitUnits],
+          [c("좌석 AI", "Seat AI"), budget.limitUnits],
           [c("확정 사용", "Confirmed"), budget.confirmedUnits],
           [c("예약", "Reserved"), budget.reservedUnits],
           [
-            c("한도 내 가능량", "Remaining limit"),
+            c("이번 기간 남은 양", "Left this period"),
             budget.limitUnits - budget.confirmedUnits - budget.reservedUnits,
           ],
         ].map(([label, value]) => (
@@ -1110,114 +1061,6 @@ function BudgetRow({
           </div>
         ))}
       </dl>
-      <LimitEditor budget={budget} editable={editable} onSaved={onSaved} />
     </section>
-  );
-}
-function LimitEditor({
-  budget,
-  editable,
-  onSaved,
-}: {
-  budget: Budget;
-  editable: boolean;
-  onSaved: () => Promise<void>;
-}) {
-  const { data } = useWorkspace()!,
-    c = useCopy();
-  const [value, setValue] = useState(String(budget.limitUnits)),
-    [reason, setReason] = useState("");
-  const mutation = useLicenceMutation<ChangeUserAiLimit>(onSaved),
-    lower = budget.confirmedUnits + budget.reservedUnits;
-  const fieldId = useId();
-  const valid =
-    editable && whole(value) && Number(value) >= lower && !!reason.trim();
-  if (!editable && !mutation.pending && !mutation.error && !mutation.saved)
-    return null;
-  return (
-    <details>
-      <summary className="min-h-11 cursor-pointer py-3 text-muted">
-        {c("개인 AI 한도 변경", "Change the personal AI limit")}
-      </summary>
-      <form
-        className="max-w-xl space-y-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void mutation.run(
-            () => ({
-              requestKey: crypto.randomUUID(),
-              revision: budget.revision,
-              limitUnits: Number(value),
-              reason: reason.trim(),
-            }),
-            (input) =>
-              b2bService.changeUserLimit(
-                data.workspace.id,
-                budget.periodId,
-                budget.userId,
-                input,
-              ),
-          );
-        }}
-      >
-        <p className="text-xs text-muted tabular-nums">
-          {c("현재 한도", "Current limit")} {number(budget.limitUnits)} ·{" "}
-          {c("확정 사용 + 예약", "Confirmed + reserved")} {number(lower)}{" "}
-          {budget.unitLabel}
-        </p>
-        <fieldset
-          disabled={mutation.locked || !editable}
-          className="space-y-4 disabled:opacity-70"
-        >
-          <div className="space-y-2">
-            <label htmlFor={`${fieldId}-limit`}>
-              {c("변경할 AI 한도", "New AI limit")} ({budget.unitLabel})
-            </label>
-            <input
-              id={`${fieldId}-limit`}
-              className={inputClass}
-              type="number"
-              min={lower}
-              max={Number.MAX_SAFE_INTEGER}
-              step="1"
-              value={value}
-              onChange={(event) => setValue(event.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <label htmlFor={`${fieldId}-reason`}>
-              {c("한도 변경 사유", "Limit change reason")}
-            </label>
-            <textarea
-              id={`${fieldId}-reason`}
-              className={inputClass}
-              maxLength={1000}
-              value={reason}
-              onChange={(event) => setReason(event.target.value)}
-              required
-            />
-          </div>
-        </fieldset>
-        <MutationStatus {...mutation} />
-        <button
-          className={primaryClass}
-          disabled={mutation.busy || (!mutation.pending && !valid)}
-        >
-          {c(
-            mutation.busy
-              ? "한도 확인 중…"
-              : mutation.pending
-                ? "같은 한도 변경 다시 확인"
-                : "AI 한도 저장",
-            mutation.busy
-              ? "Checking limit…"
-              : mutation.pending
-                ? "Check the same limit change"
-                : "Save AI limit",
-          )}
-        </button>
-      </form>
-    </details>
   );
 }

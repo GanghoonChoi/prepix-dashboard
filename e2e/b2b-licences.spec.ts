@@ -8,7 +8,7 @@ import { execFileSync } from "node:child_process";
 import { generateKeyPairSync, randomUUID, sign } from "node:crypto";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
-const api = "http://127.0.0.1:3308",
+const api = process.env.B2B_E2E_API_URL ?? "http://127.0.0.1:3308",
   password = "LocalPreview123";
 const backend = createRequire(
   resolve("../prepix-backend/backend/package.json"),
@@ -205,7 +205,7 @@ async function invite(
   ).toBe(201);
 }
 
-test("purchased capacity, lost-response assignment, independent limits, private self-view and every-device revocation", async ({
+test("purchased capacity, lost-response assignment, read-only seat AI, private self-view and every-device revocation", async ({
   page,
   request,
   browser,
@@ -263,7 +263,6 @@ test("purchased capacity, lost-response assignment, independent limits, private 
           requestKey: randomUUID(),
           periodId,
           userId: owner.id,
-          limitUnits: 2000,
         },
       })
     ).status(),
@@ -279,10 +278,10 @@ test("purchased capacity, lost-response assignment, independent limits, private 
     name: "편집 이용권 배정",
     exact: true,
   });
+  // Per-seat AI: an assignment takes a seat and its AI; there is no limit to set.
+  await expect(form.getByText(/빈 좌석 하나와 그 좌석의 이번 기간 AI/)).toBeVisible();
+  await expect(form.getByRole("spinbutton")).toHaveCount(0);
   await form.getByLabel("배정 대상", { exact: true }).selectOption(guest.id);
-  await form.getByRole("button", { name: /균등 제안 적용/ }).click();
-  await expect(form.getByLabel(/개인 AI 한도/)).toHaveValue("3000");
-  await form.getByLabel(/개인 AI 한도/).fill("1000");
   let original: unknown,
     assignedId = "",
     assignCalls = 0;
@@ -310,7 +309,7 @@ test("purchased capacity, lost-response assignment, independent limits, private 
     }),
   ).toBeVisible();
   await expect(form.getByLabel("배정 대상", { exact: true })).toBeDisabled();
-  await expect(form.getByLabel(/개인 AI 한도/)).toHaveValue("1000");
+  expect(original).not.toHaveProperty("limitUnits");
   await form
     .getByRole("button", { name: "같은 배정 다시 확인", exact: true })
     .click();
@@ -324,7 +323,6 @@ test("purchased capacity, lost-response assignment, independent limits, private 
           requestKey: randomUUID(),
           periodId,
           userId: staff.id,
-          limitUnits: 2000,
         },
       })
     ).status(),
@@ -341,49 +339,36 @@ test("purchased capacity, lost-response assignment, independent limits, private 
   });
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(form.getByText(/배정 가능 정원이 없습니다/)).toBeVisible();
-  const budget = current.getByRole("region", {
-    name: "licence-guest · 개인 AI 한도",
+  // Managers read each seat's AI; nothing here edits it.
+  const seat = current.getByRole("region", {
+    name: "2번 좌석 · licence-guest · 좌석 AI",
     exact: true,
   });
-  await budget.getByText("개인 AI 한도 변경", { exact: true }).click();
-  await budget.getByLabel(/변경할 AI 한도/).fill("699");
-  await budget
-    .getByLabel("한도 변경 사유", { exact: true })
-    .fill("새 개인 한도");
+  await expect(seat).toContainText("3,000 검증 단위");
+  await expect(seat).toContainText("500 검증 단위");
+  await expect(seat).toContainText("200 검증 단위");
+  await expect(seat).toContainText("2,300 검증 단위");
   await expect(
-    budget.getByRole("button", { name: "AI 한도 저장", exact: true }),
-  ).toBeDisabled();
-  await budget.getByLabel(/변경할 AI 한도/).fill("700");
-  let limitCalls = 0,
-    originalLimit: unknown;
-  await page.route(
-    `${endpoint}/licences/periods/${periodId}/users/${guest.id}/limit`,
-    async (route) => {
-      if (limitCalls++ === 0) {
-        originalLimit = route.request().postDataJSON();
-        const response = await route.fetch();
-        expect(response.status()).toBe(201);
-        return route.abort();
-      }
-      expect(route.request().postDataJSON()).toEqual(originalLimit);
-      return route.continue();
-    },
-  );
-  await budget
-    .getByRole("button", { name: "AI 한도 저장", exact: true })
-    .click();
+    current.getByRole("region", { name: "1번 좌석 · licence-owner · 좌석 AI", exact: true }),
+  ).toContainText("3,000 검증 단위");
+  await expect(current.getByText("개인 AI 한도 변경")).toHaveCount(0);
+  await current
+    .getByRole("region", { name: "좌석별 AI 사용", exact: true })
+    .screenshot({ path: `${process.env.B2B_E2E_SHOTS ?? "/tmp"}/licences-seat-ai.png` });
   await expect(
-    budget.getByRole("button", {
-      name: "같은 한도 변경 다시 확인",
-      exact: true,
-    }),
-  ).toBeVisible();
-  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  await expect(budget.getByLabel(/변경할 AI 한도/)).toBeDisabled();
-  await budget
-    .getByRole("button", { name: "같은 한도 변경 다시 확인", exact: true })
-    .click();
-  await expect(budget.getByRole("status")).toContainText("변경을 확인했습니다");
+    current.getByRole("region", { name: "좌석별 AI 사용", exact: true }).getByRole("spinbutton"),
+  ).toHaveCount(0);
+  expect(
+    (
+      await request.post(
+        `${endpoint}/licences/periods/${periodId}/users/${guest.id}/limit`,
+        {
+          headers: owner.headers,
+          data: { requestKey: randomUUID(), revision: 0, limitUnits: 700, reason: "gone" },
+        },
+      )
+    ).status(),
+  ).toBe(404);
   const guestContext = await browser.newContext({ locale: "ko-KR" }),
     guestPage = await guestContext.newPage();
   try {
@@ -493,20 +478,25 @@ test("purchased capacity, lost-response assignment, independent limits, private 
     }),
   ).toBeVisible();
   await form.getByLabel("배정 대상", { exact: true }).selectOption(guest.id);
-  await expect(form.getByLabel(/개인 AI 한도/)).toHaveValue("700");
-  await expect(form.getByLabel(/개인 AI 한도/)).toHaveAttribute("readonly", "");
   await form.getByRole("button", { name: "이용권 배정", exact: true }).click();
+  await expect(
+    current.getByRole("region", { name: "licence-guest · 배정 중", exact: true }),
+  ).toBeVisible();
   const after = (
     await (
       await request.get(`${endpoint}/licences`, { headers: owner.headers })
     ).json()
   ).data;
+  // Reassignment hands over the seat as it is: same row, never reset or minted.
   const retained = after.budgets.find(
-    (b: { userId: string }) => b.userId === guest.id,
+    (b: { periodId: string; slot: number }) => b.periodId === periodId && b.slot === 2,
   );
   expect(retained.confirmedUnits).toBe(500);
   expect(retained.reservedUnits).toBe(200);
-  expect(retained.limitUnits).toBe(700);
+  expect(retained.limitUnits).toBe(3000);
+  expect(
+    after.budgets.filter((b: { periodId: string }) => b.periodId === periodId),
+  ).toHaveLength(3);
   const { periodId: nextPeriodId } = paidFixture({
     workspaceId: team.id,
     action: "purchase",
@@ -521,7 +511,6 @@ test("purchased capacity, lost-response assignment, independent limits, private 
     })
     .first();
   await future.getByLabel("배정 대상", { exact: true }).selectOption(guest.id);
-  await future.getByLabel(/개인 AI 한도/).fill("900");
   await future
     .getByRole("button", { name: "이용권 배정", exact: true })
     .click();
@@ -564,21 +553,21 @@ test("purchased capacity, lost-response assignment, independent limits, private 
         }),
       })
       .first();
-    await expect(
-      ownCurrent.getByRole("region", {
-        name: "내 한도 · 개인 AI 한도",
-        exact: true,
-      }),
-    ).toContainText("700 검증 단위");
+    const mySeat = ownCurrent.getByRole("region", {
+      name: "내 좌석 · 좌석 AI",
+      exact: true,
+    });
+    await expect(mySeat).toContainText("3,000 검증 단위");
+    await expect(mySeat).toContainText("2,300 검증 단위");
     await expect(
       ownNext.getByRole("region", {
-        name: "내 한도 · 개인 AI 한도",
+        name: "내 좌석 · 좌석 AI",
         exact: true,
       }),
-    ).toContainText("900 검증 단위");
+    ).toContainText("3,000 검증 단위");
     await expect(
       ownNext.getByText(
-        "시작 시각 전에는 이 이용권과 한도를 사용할 수 없습니다.",
+        "시작 시각 전에는 이 이용권과 AI를 사용할 수 없습니다.",
         { exact: true },
       ),
     ).toBeVisible();
@@ -645,7 +634,6 @@ test("own device retirement survives a lost response and keeps replacement capac
             requestKey: randomUUID(),
             periodId,
             userId: user.id,
-            limitUnits: 1000,
           },
         })
       ).status(),
@@ -821,7 +809,6 @@ test("a revocation response lost after immediate release stays retryable across 
           requestKey: randomUUID(),
           periodId,
           userId: owner.id,
-          limitUnits: 2000,
         },
       })
     ).json()

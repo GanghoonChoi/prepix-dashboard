@@ -99,12 +99,12 @@ const messages: Record<string, [string, string]> = {
     "Approve the quote's exact maximum to run.",
   ],
   B2B_AI_PERSONAL_LIMIT_EXCEEDED: [
-    "내 이번 기간 한도가 부족합니다. 팀 관리자에게 한도 조정을 요청하세요.",
-    "Your period limit is insufficient. Ask a team admin to adjust it.",
+    "내 좌석의 이번 기간 AI가 부족합니다. 다음 기간에 다시 채워집니다.",
+    "Your seat's AI for this period is not enough. It refills next period.",
   ],
   B2B_AI_TEAM_BALANCE_EXCEEDED: [
-    "팀 공동 AI 잔량이 부족합니다. 결제 권한자에게 추가 구매를 요청하세요.",
-    "The shared team balance is insufficient. Ask a billing manager to purchase more.",
+    "이번 기간 팀 AI 지급분이 부족합니다. 팀 관리자에게 문의해 주세요.",
+    "This period's team AI grant is short. Contact a team admin.",
   ],
   B2B_EDITING_LICENCE_REQUIRED: [
     "이 팀의 편집 이용권이 있어야 팀 AI를 실행할 수 있습니다.",
@@ -1128,23 +1128,7 @@ function QuoteView({
         </div>
         <div>
           <dt className="text-muted">
-            {c("팀 공동 사용 가능량", "Shared team balance")}
-          </dt>
-          <dd className="tabular-nums">
-            {a.reconciled && a.teamAvailableUnits !== null
-              ? a.teamAvailableUnits
-              : c("확인 필요", "Needs review")}
-          </dd>
-          <dd className="text-xs text-muted">
-            {c(
-              "팀 전체가 함께 쓰는 잔액입니다.",
-              "The balance the whole team shares.",
-            )}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-muted">
-            {c("내 이번 기간 잔여 한도", "My remaining period limit")}
+            {c("이번 기간 내 남은 AI", "My AI left this period")}
           </dt>
           <dd className="tabular-nums">
             {a.personalRemainingUnits ??
@@ -1152,8 +1136,8 @@ function QuoteView({
           </dd>
           <dd className="text-xs text-muted">
             {c(
-              "팀 잔액을 쓸 수 있는 내 상한이며 별도로 지급된 양이 아닙니다.",
-              "A cap on how much of the team balance you may use, not a separate grant.",
+              "내 좌석의 몫입니다. 팀이 함께 쓰지 않으며, 다 쓰면 다음 기간까지 기다립니다.",
+              "Your seat's own share. The team does not share it; when it runs out, it waits for the next period.",
             )}
           </dd>
         </div>

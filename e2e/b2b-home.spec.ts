@@ -52,7 +52,6 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
             requestKey: randomUUID(),
             periodId: period.id,
             userId: owner.id,
-            limitUnits: 1234,
           },
         })
       ).status(),
@@ -101,7 +100,7 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
     });
     expect(source.status(), await source.text()).toBe(201);
     await O.page.reload();
-    const periods = O.page.getByRole("region", { name: "내 이용기간과 한도" });
+    const periods = O.page.getByRole("region", { name: "내 이용기간과 AI" });
     await expect(
       periods.getByText("현재 이용기간", { exact: true }),
     ).toBeVisible();
@@ -111,7 +110,7 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
     await expect(
       periods.getByText("편집 이용권 배정 중", { exact: true }),
     ).toBeVisible();
-    await expect(periods.getByText(/내 AI 한도 1,234/)).toBeVisible();
+    await expect(periods.getByText(/내 좌석 AI 3,000/)).toBeVisible();
     const home = (await json(
       request.get(`${endpoint}/home`, { headers: owner.headers }),
     )) as TeamHome;
@@ -120,7 +119,7 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
     expect(home.aiUsage?.reconciled).toBe(true);
     expect(
       home.periods.find((p) => p.id === period.id)?.aiBudget?.limitUnits,
-    ).toBe(1234);
+    ).toBe(3000);
     expect(home.projects.items.map((p) => p.id)).toEqual([own]);
     expect(home.projects.hasMore).toBe(false);
     expect(home.transfers.items.map((t) => t.name)).toEqual([
@@ -180,7 +179,7 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
     ).toBe(404);
     await O.page.setViewportSize({ width: 390, height: 844 });
     await O.page.reload();
-    await expect(periods.getByText(/내 AI 한도 1,234/)).toBeVisible();
+    await expect(periods.getByText(/내 좌석 AI 3,000/)).toBeVisible();
     expect(
       await O.page.evaluate(
         () => document.documentElement.scrollWidth <= window.innerWidth + 1,

@@ -245,11 +245,11 @@ function ScopedHome({
         <>
           <section
             className="space-y-4 border-b border-border pb-8"
-            aria-label={c("내 이용기간과 한도", "My periods and limits")}
+            aria-label={c("내 이용기간과 AI", "My periods and AI")}
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="font-medium">
-                {c("내 이용기간과 한도", "My periods and limits")}
+                {c("내 이용기간과 AI", "My periods and AI")}
               </h2>
               <Link
                 href={`${base}/licences`}
@@ -314,10 +314,10 @@ function ScopedHome({
                     </p>
                     <p className="tabular-nums">
                       {p.aiBudget
-                        ? `${c("내 AI 한도", "My AI limit")} ${count(p.aiBudget.limitUnits)} ${p.aiUnitLabel} · ${c("확정 사용", "Confirmed")} ${count(p.aiBudget.confirmedUnits)} · ${c("예약 중", "Reserved")} ${count(p.aiBudget.reservedUnits)} · ${c("한도 내 남음", "Remaining allowance")} ${count(p.aiBudget.remainingUnits)}`
+                        ? `${c("내 좌석 AI", "My seat AI")} ${count(p.aiBudget.limitUnits)} ${p.aiUnitLabel} · ${c("확정 사용", "Confirmed")} ${count(p.aiBudget.confirmedUnits)} · ${c("예약 중", "Reserved")} ${count(p.aiBudget.reservedUnits)} · ${c("남은 양", "Left")} ${count(p.aiBudget.remainingUnits)}`
                         : c(
-                            "내 AI 한도가 배정되지 않았습니다.",
-                            "No AI spending limit is assigned to me.",
+                            "이 기간에 쓰는 좌석이 없습니다.",
+                            "No seat is assigned to me for this period.",
                           )}
                     </p>
                     <p className="text-xs leading-5 text-muted">
@@ -335,19 +335,18 @@ function ScopedHome({
             )}
             {readable && (
               <div className="space-y-1 text-sm">
-                <p className="tabular-nums">
-                  {data.aiUsage?.reconciled &&
-                  data.aiUsage.availableUnits !== null
-                    ? `${c("팀 AI 잔액", "Team AI balance")} ${count(data.aiUsage.availableUnits)}`
-                    : c(
-                        "팀 AI 잔액을 확인하지 못했습니다. AI 사용량에서 다시 확인하세요.",
-                        "The team AI balance is unconfirmed. Review AI usage.",
-                      )}
-                </p>
+                {!data.aiUsage?.reconciled && (
+                  <p className="tabular-nums">
+                    {c(
+                      "AI 사용 기록을 확인하지 못했습니다. AI 사용량에서 다시 확인하세요.",
+                      "AI usage records are unconfirmed. Review AI usage.",
+                    )}
+                  </p>
+                )}
                 <p className="text-xs leading-5 text-muted">
                   {c(
-                    "내 한도와 팀 잔액은 다릅니다. 실행 가능 여부와 예상 사용량은 프로젝트에서 다시 확인합니다.",
-                    "Personal allowance and team balance differ. The project checks execution eligibility and estimated usage again.",
+                    "AI는 좌석마다 따로 있고 팀이 함께 쓰지 않습니다. 실행 가능 여부와 예상 사용량은 프로젝트에서 다시 확인합니다.",
+                    "AI belongs to each seat and is not shared across the team. The project checks execution eligibility and estimated usage again.",
                   )}
                   {data.aiUsage && ` · ${date(data.aiUsage.sampledAt)} KST`}
                 </p>
