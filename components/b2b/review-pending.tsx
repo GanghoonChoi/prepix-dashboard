@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   checkReview,
+  discardReview,
   runReview,
   scopeKey,
   type ReviewRecord,
@@ -13,7 +14,7 @@ import {
   reviewStore,
 } from "@/lib/api/services/b2b-reviews.service";
 import { secondaryClass } from "@/components/workspaces/shared";
-import { errorCode, useCopy } from "./shared";
+import { definitivelyRejected, errorCode, useCopy } from "./shared";
 import { ReviewError } from "./reviews";
 
 const actionCopy: Record<ReviewRecord["action"], [string, string]> = {
@@ -34,17 +35,21 @@ const actionCopy: Record<ReviewRecord["action"], [string, string]> = {
 export function ReviewPending({
   scope,
   token,
+  currentRound,
   onConfirmed,
 }: {
   scope: ReviewScope;
   token?: string | null;
+  /** Round of the review now; discarded comment text returns to its draft. */
+  currentRound?: number;
   onConfirmed?: () => void;
 }) {
   const c = useCopy();
   const api = useMemo(() => reviewApi(scope, token), [scope, token]);
   const [rows, setRows] = useState<ReviewRecord[]>([]),
     [error, setError] = useState(""),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [dead, setDead] = useState<string[]>([]);
   const mounted = useRef(false);
   const refresh = useCallback(async () => {
     const abort = new AbortController();
@@ -121,6 +126,10 @@ export function ReviewPending({
                     await runReview(r, api, reviewStore, new AbortController().signal);
                   } catch (e) {
                     setError(errorCode(e));
+                    // The server answered and did not apply it (for example
+                    // the version changed): only discarding frees the slot.
+                    if (definitivelyRejected(e))
+                      setDead((d) => [...new Set([...d, r.input.requestKey])]);
                   } finally {
                     setBusy(false);
                     void refresh();
@@ -129,6 +138,42 @@ export function ReviewPending({
               >
                 {c("같은 내용으로 다시 보내기", "Retry the same change")}
               </button>
+              {dead.includes(r.input.requestKey) && (
+                <button
+                  type="button"
+                  className={secondaryClass}
+                  disabled={busy}
+                  onClick={async () => {
+                    setBusy(true);
+                    try {
+                      const dropped = await discardReview(r, api, reviewStore, new AbortController().signal);
+                      // Unsent comment text goes back to the draft, never lost.
+                      if (dropped && r.action === "comment" && typeof r.input.body === "string") {
+                        // A comment is tied to its version's timeline, so a new
+                        // round gets the text only, not the old time range.
+                        const same = currentRound === undefined || currentRound === r.input.round;
+                        const round = same ? (r.input.round as number) : currentRound;
+                        const kept = await reviewStore.draft(r.scope, round).catch(() => null);
+                        await reviewStore.saveDraft(r.scope, round, {
+                          body: kept?.body ? `${kept.body}\n${r.input.body}` : r.input.body,
+                          startMs: kept?.body ? kept.startMs : same ? (r.input.startMs as number) : 0,
+                          endMs: kept?.body ? kept.endMs : same ? ((r.input.endMs as number | null) ?? null) : null,
+                        });
+                      }
+                      setDead((d) => d.filter((k) => k !== r.input.requestKey));
+                      setError("");
+                    } catch (e) {
+                      setError(errorCode(e));
+                    } finally {
+                      setBusy(false);
+                      void refresh();
+                      window.dispatchEvent(new CustomEvent(reviewEvents, { detail: scope }));
+                    }
+                  }}
+                >
+                  {c("이 변경 버리기", "Discard this change")}
+                </button>
+              )}
             </span>
           </li>
         ))}

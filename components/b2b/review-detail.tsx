@@ -112,9 +112,16 @@ function ReviewScreen({
   const c = useCopy();
   const [round, setRound] = useState<number>();
   const [pending, setPending] = useState<ReviewRecord[]>([]);
+  const [pendingError, setPendingError] = useState("");
   const read = useCallback(async () => {
     const detail = await reviewsService.detail(scope, round, token);
-    setPending(await reviewStore.list(scope).catch(() => []));
+    // An unreadable device store is an error, never "nothing pending".
+    try {
+      setPending(await reviewStore.list(scope));
+      setPendingError("");
+    } catch (e) {
+      setPendingError(errorCode(e));
+    }
     return detail;
   }, [scope, round, token]);
   const { data, error, stale, load } = useLoader(read);
@@ -137,8 +144,9 @@ function ReviewScreen({
       description={`V${selected.ordinal} · ${c("회차", "Round")} ${selected.round}${current ? "" : ` · ${c("이전 검토(읽기 전용)", "Previous round (read-only)")}`}`}
     >
       {notice && <p className="text-sm text-muted">{notice}</p>}
-      {scope.reviewId !== NO_REVIEW && <ReviewPending scope={scope} token={token} onConfirmed={() => void load()} />}
+      {scope.reviewId !== NO_REVIEW && <ReviewPending scope={scope} token={token} currentRound={data.review.round} onConfirmed={() => void load()} />}
       {stale && <ReviewError code={error} retry={() => void load()} />}
+      {pendingError && <ReviewError code={pendingError} retry={() => void load()} />}
       <div className="flex flex-wrap items-center gap-3">
         {back && (
           <Link className={secondaryClass} href={back}>
@@ -320,8 +328,8 @@ function ReviewPlayer({
       {error && <ReviewError code={error} retry={() => void issue(true)} />}
       <p className="text-xs leading-5 text-muted">
         {c(
-          "재생 주소는 발급 후 최대 5분 동안만 유효하며, 만료 전에 현재 권한으로 새 주소를 받아 이어서 재생합니다. 공유 회수나 참여 종료 뒤에는 새 주소가 발급되지 않지만, 이미 발급된 주소는 만료 시각(최대 5분)까지 남을 수 있습니다. 이미 받은 영상 조각은 회수되지 않습니다.",
-          "Playback URLs last at most 5 minutes and are renewed with your current access before they expire. After a revoked share or ended participation no new URL is issued, but an already issued URL can remain usable until it expires (up to 5 minutes). Video already received is not recalled.",
+          "재생 주소는 발급 후 최대 5분(공유는 공유 만료 시각까지만) 유효하며, 만료 전에 현재 권한으로 새 주소를 받아 이어서 재생합니다. 공유 회수나 참여 종료 뒤에는 새 주소가 발급되지 않지만, 이미 발급된 주소는 만료 시각(최대 5분)까지 남을 수 있습니다. 이미 받은 영상 조각은 회수되지 않습니다.",
+          "Playback URLs last at most 5 minutes (a share's URL never outlives the share) and are renewed with your current access before they expire. After a revoked share or ended participation no new URL is issued, but an already issued URL can remain usable until it expires (up to 5 minutes). Video already received is not recalled.",
         )}
       </p>
     </div>
@@ -425,23 +433,38 @@ function Composer({
   const [startMs, setStart] = useState(0);
   const [endMs, setEnd] = useState<number | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [draftError, setDraftError] = useState("");
   const mutation = useRun();
+  const typed = useRef(false);
+  useEffect(() => {
+    typed.current = !!body;
+  }, [body]);
   useEffect(() => {
     let live = true;
-    reviewStore
-      .draft(scope, round)
-      .then((d) => {
-        if (!live) return;
-        if (d) {
-          setBody(d.body);
-          setStart(d.startMs);
-          setEnd(d.endMs);
-        }
-        setLoaded(true);
-      })
-      .catch(() => live && setLoaded(true));
+    const read = () =>
+      reviewStore
+        .draft(scope, round)
+        .then((d) => {
+          if (!live) return;
+          // A discarded pending comment returns here, but never over text
+          // the user is typing.
+          if (d && !typed.current) {
+            setBody(d.body);
+            setStart(d.startMs);
+            setEnd(d.endMs);
+          }
+          setLoaded(true);
+        })
+        .catch((e) => {
+          if (!live) return;
+          setDraftError(errorCode(e));
+          setLoaded(true);
+        });
+    void read();
+    window.addEventListener(reviewEvents, read);
     return () => {
       live = false;
+      window.removeEventListener(reviewEvents, read);
     };
   }, [scope, round]);
   useEffect(() => {
@@ -511,6 +534,7 @@ function Composer({
       <p className="text-xs text-muted">
         {c("작성 중인 내용은 이 기기에 초안으로 저장되며 공개되지 않습니다.", "Unsent text is kept as a draft on this device and is not published.")}
       </p>
+      {draftError && <ReviewError code={draftError} />}
       {mutation.error && <ReviewError code={mutation.error} />}
       <button type="submit" className={primaryClass} disabled={mutation.busy || !body.trim()}>
         {mutation.busy ? c("전송 중", "Sending") : c("코멘트 남기기", "Post comment")}
@@ -647,6 +671,18 @@ function CommentItem({
         </form>
       )}
       {mutation.error && <ReviewError code={mutation.error} />}
+      {converting && mutation.error === "B2B_REVIEW_COMMENT_CONVERTED" && (
+        <p className="text-xs">
+          {c(
+            "요청이 이미 만들어졌을 수 있습니다. 중복으로 만들기 전에 ",
+            "A request may already have been created. Check the ",
+          )}
+          <Link className="underline" href={`${base}/requests`}>
+            {c("요청 목록", "requests list")}
+          </Link>
+          {c("을 확인하세요.", " before creating another.")}
+        </p>
+      )}
     </li>
   );
 }
@@ -880,18 +916,22 @@ function ReplaceVersion({
   const [open, setOpen] = useState(false);
   const mutation = useRun();
   const [assetId, setAssetId] = useState<string>();
+  const [assetError, setAssetError] = useState("");
   useEffect(() => {
     // The asset of the current version, from the project's readable files.
+    // Without it the picker would offer every series, so failure is shown.
     let live = true;
     fileApi(scope)
       .versions("")
       .then((list) => {
         const v = list.versions.find((x) => x.id === detail.review.versionId);
-        if (live && v) setAssetId(v.assetId);
+        if (!live) return;
+        if (v) {
+          setAssetId(v.assetId);
+          setAssetError("");
+        } else setAssetError("B2B_REVIEW_VERSION_UNAVAILABLE");
       })
-      .catch(() => {
-        /* the picker shows its own error */
-      });
+      .catch((e) => live && setAssetError(errorCode(e)));
     return () => {
       live = false;
     };
@@ -908,7 +948,8 @@ function ReplaceVersion({
       <button type="button" className={secondaryClass} onClick={() => setOpen((v) => !v)}>
         {c("버전 선택", "Choose version")}
       </button>
-      {open && (
+      {assetError && <ReviewError code={assetError} />}
+      {open && assetId && (
         <VideoVersionPicker
           scope={scope}
           assetId={assetId}

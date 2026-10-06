@@ -491,6 +491,21 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   await V.page.reload();
   await expect(V.page.getByText("이 공유 접근은 종료되었습니다", { exact: false })).toBeVisible();
 
+  // A comment whose first send never reached the server stays pending.
+  const lostBody = "새 회차에서 다시 쓸 코멘트";
+  const lostEndpoint = `${root}/reviews/${reviewId}/comments`;
+  let lostPosts = 0;
+  await P.page.goto(reviewUrl);
+  await P.page.getByRole("textbox", { name: "코멘트 내용", exact: true }).fill(lostBody);
+  await P.page.route(lostEndpoint, async (route) => {
+    lostPosts++;
+    await route.abort();
+  });
+  await P.page.getByRole("button", { name: "코멘트 남기기", exact: true }).click();
+  await expect(P.page.getByText("결과 확인이 필요한 변경", { exact: true }).first()).toBeVisible();
+  await P.page.unroute(lostEndpoint);
+  expect(lostPosts).toBe(1);
+
   // A new version opens round 2: nothing carries over, decisions do not apply.
   await P.page.goto(`${base}/files`);
   await upload(P.page, "cut-v2.mp4", "cut-v1.mp4");
@@ -523,6 +538,26 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   await L.page.getByRole("button", { name: /V1 · 이전 검토/ }).click();
   await expect(L.page.getByText("이전 검토(읽기 전용)", { exact: false })).toBeVisible();
   await expect(L.page.getByRole("button", { name: "코멘트 남기기", exact: true })).toHaveCount(0);
+
+  // M1: the lead swapped to V2 while the comment was pending. The resend is
+  // rejected (version changed); only discarding frees the review again, and
+  // the text comes back as a draft for the new round.
+  await P.page.goto(reviewUrl);
+  await expect(P.page.getByText("결과 확인이 필요한 변경", { exact: true }).first()).toBeVisible({ timeout: 30_000 });
+  await expect(P.page.getByRole("button", { name: "이 변경 버리기", exact: true })).toHaveCount(0);
+  await P.page.getByRole("button", { name: "같은 내용으로 다시 보내기", exact: true }).click();
+  await expect(P.page.getByRole("button", { name: "이 변경 버리기", exact: true })).toBeVisible({ timeout: 30_000 });
+  await P.page.getByRole("button", { name: "이 변경 버리기", exact: true }).click();
+  await expect(P.page.getByText("결과 확인이 필요한 변경", { exact: true })).toHaveCount(0);
+  await expect(P.page.getByRole("textbox", { name: "코멘트 내용", exact: true })).toHaveValue(lostBody, { timeout: 30_000 });
+  await P.page.getByRole("button", { name: "코멘트 남기기", exact: true }).click();
+  await expect(P.page.getByRole("listitem").getByText(lostBody, { exact: true })).toBeVisible({ timeout: 30_000 });
+  expect(lostPosts).toBe(1);
+  expect(
+    (await json(request.get(`${root}/reviews/${reviewId}`, { headers: lead.headers }))).comments.map(
+      (c: { body: string }) => c.body,
+    ),
+  ).toEqual([lostBody]);
 
   // Team home and overview show review work from current ACL only.
   const clientWork = await json(

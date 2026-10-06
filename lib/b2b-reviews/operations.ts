@@ -278,6 +278,49 @@ export class BrowserReviewStore implements ReviewStore {
     });
   }
 }
+/** Sign-out: forget this account's unsent comment text and unconfirmed
+ * changes on this device (all accounts when the id is unknown), and every
+ * share token held by this tab. Failures are ignored; sign-out must finish. */
+export async function purgeReviewLocalData(userId: string | null) {
+  try {
+    for (let i = sessionStorage.length - 1; i >= 0; i--) {
+      const k = sessionStorage.key(i);
+      if (k?.startsWith("prepix-review-share:")) sessionStorage.removeItem(k);
+    }
+  } catch {
+    /* storage blocked */
+  }
+  const owner = (key: IDBValidKey) => {
+    try {
+      return JSON.parse(JSON.parse(String(key))[0])[1];
+    } catch {
+      return null;
+    }
+  };
+  try {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const r = indexedDB.open("prepix-b2b-reviews", 1);
+      r.onsuccess = () => resolve(r.result);
+      r.onerror = r.onblocked = r.onupgradeneeded = () => reject(r.error);
+    });
+    await new Promise<void>((resolve) => {
+      const t = db.transaction(["operations", "drafts"], "readwrite");
+      for (const name of ["operations", "drafts"]) {
+        const s = t.objectStore(name);
+        s.openKeyCursor().onsuccess = (e) => {
+          const cursor = (e.target as IDBRequest<IDBCursor | null>).result;
+          if (!cursor) return;
+          if (!userId || owner(cursor.key) === userId) s.delete(cursor.primaryKey);
+          cursor.continue();
+        };
+      }
+      t.oncomplete = t.onerror = t.onabort = () => resolve();
+    });
+    db.close();
+  } catch {
+    /* nothing stored */
+  }
+}
 export interface ReviewApi {
   operation(r: ReviewRecord, signal: AbortSignal): Promise<ReviewMutationLookup>;
   apply(r: ReviewRecord, signal: AbortSignal): Promise<unknown>;
@@ -337,4 +380,19 @@ export async function runReview(
   const receipt = await checkReview(started, api, store, signal);
   if (!receipt) throw new Error("B2B_FILE_OPERATION_PENDING");
   return receipt;
+}
+
+/** Drop a change this account's server never applied: the lookup runs first,
+ * so an applied change is cleared as confirmed instead of discarded. Returns
+ * true only when it was discarded. */
+export async function discardReview(
+  r: ReviewRecord,
+  api: ReviewApi,
+  store: ReviewStore,
+  signal: AbortSignal,
+) {
+  const receipt = await checkReview(r, api, store, signal);
+  if (receipt) return false;
+  await store.finish(r);
+  return true;
 }
