@@ -44,7 +44,7 @@ cd /Users/spagettimaker/My/Lasker/prepix-parallel/requests/prepix-dashboard
 claude --add-dir /Users/spagettimaker/My/Lasker/prepix-parallel/requests/prepix-backend /Users/spagettimaker/.codex/worktrees/b2b-file-lifecycle/prepix-dashboard/docs/plans
 ```
 
-B의 새 세션은 `/Users/spagettimaker/My/Lasker/prepix-parallel/requests/prepix-dashboard/HANDOFF.md`부터 읽고 남은 조건을 확인한다. 확인한 최신 커밋은 웹 `537e5db`, 서버 `a038713`이다. 서버는 통합 담당이 현재 파일 수명주기에 연결해 6e4a02a에서 전체 B2B 180건으로 재검증했다. 후속 통합에서 서버 `b92c542`·웹 `99b3dde`·beta 계약 `cf5bc49a5`로 영속 변경 기록/조회 복구와 현재 허용의 페이지/전체 집계, 재개 화면을 연결했다. 실제 브라우저의 일곱 행동 응답 유실/새로고침·계정 전환과 기존 파일 4개 흐름이 통과했다. 참고자료 첨부·업무 집계·앱/알림은 남으며, 새 세션은 이 통합 내용을 재구현하지 않고 배정된 남은 기능을 맡는다.
+B의 새 세션은 `/Users/spagettimaker/My/Lasker/prepix-parallel/requests/prepix-dashboard/HANDOFF.md`부터 읽고 남은 조건을 확인한다. 확인한 최신 커밋은 웹 `537e5db`, 서버 `a038713`이다. 서버는 통합 담당이 현재 파일 수명주기에 연결해 6e4a02a에서 전체 B2B 180건으로 재검증했다. 후속 통합에서 서버 `b92c542`·웹 `99b3dde`·beta 계약 `cf5bc49a5`로 영속 변경 기록/조회 복구와 현재 허용의 페이지/전체 집계, 재개 화면을 연결했다. 실제 브라우저의 일곱 행동 응답 유실/새로고침·계정 전환과 기존 파일 4개 흐름이 통과했다. 이후 서버 `2d815d1`·웹 `25e5440`·beta 계약 `97883fb3e`에서 참고 첨부/요청 버전 봉인·검증 원본 수령·현재 권한 마스킹을 연결하고 서버 183건·웹 138건·요청/파일 브라우저 인수를 통과했다. 업무 집계·앱/알림은 남으며 새 세션은 완료한 통합 내용을 재구현하지 않고 배정된 남은 기능을 맡는다.
 
 현재 Codex의 웹 작업은 `/Users/spagettimaker/.codex/worktrees/b2b-file-lifecycle/prepix-dashboard`, 브랜치 `codex/b2b-file-lifecycle`에서 진행한다. 원래 대시보드 폴더는 다른 작업의 `chore/drop-old-dashboard-host` 브랜치이므로 변경하거나 기준 문서 경로로 사용하지 않는다.
 
