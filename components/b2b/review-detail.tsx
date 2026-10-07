@@ -234,7 +234,8 @@ function ReviewScreen({
         </div>
       </div>
       {scope.kind === "share" && data.allowedActions.download && <SharedDownload scope={scope} token={token ?? null} />}
-      {!exactTarget && scope.kind === "project" && (data.allowedActions.setAudience || data.allowedActions.setApprover || data.allowedActions.replaceVersion) && (
+      {/* P (2026-10-07): the publisher of this item shares it outside the team too (allowedActions.share). */}
+      {!exactTarget && scope.kind === "project" && (data.allowedActions.setAudience || data.allowedActions.setApprover || data.allowedActions.replaceVersion || data.allowedActions.share) && (
         <LeadTools scope={scope} detail={data} reload={load} />
       )}
     </TeamShell>
@@ -900,7 +901,7 @@ function LeadTools({
 }) {
   const c = useCopy();
   return (
-    <section className="space-y-8 border-t border-border pt-8" aria-label={c("담당자 관리", "Lead tools")}>
+    <section className="space-y-8 border-t border-border pt-8" aria-label={c("검토 관리", "Review tools")}>
       {detail.allowedActions.setAudience && <AudienceForm key={`audience:${detail.review.revision}`} scope={scope} detail={detail} reload={reload} />}
       {detail.allowedActions.setApprover && <ApproverForm scope={scope} detail={detail} reload={reload} />}
       {detail.allowedActions.replaceVersion && <ReplaceVersion key={`replace:${detail.review.revision}`} scope={scope} detail={detail} reload={reload} />}
