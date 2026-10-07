@@ -158,7 +158,9 @@ export function RenewalConsentCard({ billing }: { billing: Billing }) {
         <div>
           <dt className="text-muted">{c("다음 기간 구성", "Next period")}</dt>
           <dd>
-            {c("추가 이용권", "Extra licences")} {consent.selection.extraSeats} · {c("AI 팩", "AI packs")} {consent.selection.aiPacks} · {c("저장 팩", "Storage packs")} {consent.selection.storagePacks}
+            {c("추가 이용권", "Extra licences")} {consent.selection.extraSeats}
+            {/* (integration) H: AI packs are no longer sold; only a legacy selection shows them. */}
+            {consent.selection.aiPacks > 0 && <> · {c("AI 팩", "AI packs")} {consent.selection.aiPacks}</>} · {c("저장 팩", "Storage packs")} {consent.selection.storagePacks}
           </dd>
         </div>
       </dl>
