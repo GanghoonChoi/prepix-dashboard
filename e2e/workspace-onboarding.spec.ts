@@ -1,8 +1,9 @@
 import { test, expect, type Page } from "@playwright/test";
+import { harnessEnv } from "./harness-env";
 
 // Run against scripts/workspaces-preview.cjs in prepix-backend only. It uses a
 // dedicated local DB and captures mail; no production email/payment is involved.
-const api = "http://127.0.0.1:3308";
+const api = harnessEnv("B2B_E2E_API_URL");
 const password = "LocalPreview123";
 /**
  * Seats are five separate figures now, never one sentence. `team.seatCount`

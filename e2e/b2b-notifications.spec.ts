@@ -1,4 +1,5 @@
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
+import { harnessEnv } from "./harness-env";
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
@@ -7,7 +8,7 @@ import { resolve } from "node:path";
 // B2B_TEST_ENABLED, B2B_TEST_NEW_TEAMS, B2B_TEST_PRODUCT and
 // B2B_TEST_NOTIFICATIONS on the same explicit WORKSPACES_TEST_DATABASE_URL.
 // Payments run real order code against the PG double fixture.
-const api = process.env.B2B_E2E_API_URL ?? "http://127.0.0.1:3308";
+const api = harnessEnv("B2B_E2E_API_URL");
 const password = "LocalPreview123";
 const shots = process.env.B2B_E2E_SCREENSHOT_DIR;
 type Account = Awaited<ReturnType<typeof account>>;

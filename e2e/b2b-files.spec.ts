@@ -4,6 +4,9 @@ import {
   type APIRequestContext,
   type Page,
 } from "@playwright/test";
+import { harnessEnv } from "./harness-env";
+// The backend fixtures this spec runs fall back to a shared PG (55438) when unset.
+harnessEnv("WORKSPACES_TEST_DATABASE_URL");
 import { execFileSync } from "node:child_process";
 import { randomUUID, createHash } from "node:crypto";
 import { resolve } from "node:path";

@@ -4,11 +4,14 @@ import {
   type APIRequestContext,
   type Page,
 } from "@playwright/test";
+import { harnessEnv } from "./harness-env";
+// The backend fixtures this spec runs fall back to a shared PG (55438) when unset.
+harnessEnv("WORKSPACES_TEST_DATABASE_URL");
 import { execFileSync } from "node:child_process";
 import { generateKeyPairSync, randomUUID, sign } from "node:crypto";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
-const api = "http://127.0.0.1:3308",
+const api = harnessEnv("B2B_E2E_API_URL"),
   password = "LocalPreview123";
 const backend = createRequire(
   resolve("../prepix-backend/backend/package.json"),

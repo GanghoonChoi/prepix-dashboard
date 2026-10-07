@@ -4,7 +4,8 @@ import {
   type Page,
   type APIRequestContext,
 } from "@playwright/test";
-const api = "http://127.0.0.1:3308";
+import { harnessEnv } from "./harness-env";
+const api = harnessEnv("B2B_E2E_API_URL");
 const password = "LocalPreview123";
 async function account(request: APIRequestContext) {
   const email = `creation-${crypto.randomUUID()}@example.test`;

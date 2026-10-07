@@ -5,6 +5,7 @@ import {
   type Browser,
   type Page,
 } from "@playwright/test";
+import { harnessEnv } from "./harness-env";
 import { execFileSync } from "node:child_process";
 import { randomUUID, createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
@@ -13,7 +14,7 @@ import { resolve } from "node:path";
 // Local acceptance only: start the backend preview harness with
 // B2B_TEST_ENABLED, TEAM_TEST_STORAGE and B2B_TEST_FILES, and the request
 // tables applied to the same explicit WORKSPACES_TEST_DATABASE_URL.
-const api = process.env.B2B_E2E_API_URL ?? "http://127.0.0.1:3308";
+const api = harnessEnv("B2B_E2E_API_URL");
 const password = "LocalPreview123";
 type Account = Awaited<ReturnType<typeof account>>;
 

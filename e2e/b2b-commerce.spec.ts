@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
-const api = "http://127.0.0.1:3308",
+import { harnessEnv } from "./harness-env";
+const api = harnessEnv("B2B_E2E_API_URL"),
   password = "LocalPreview123";
 test("team purchase quote preserves a lost response, separates VAT and allowances, and never grants on quote", async ({
   page,
