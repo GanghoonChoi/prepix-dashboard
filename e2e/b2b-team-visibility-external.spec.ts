@@ -97,3 +97,62 @@ test("V: an external client does not see an automatically published round until 
   for (const view of [P, C, L]) expect(view.errors).toEqual([]);
   await Promise.all([P, C, L].map((v) => v.close()));
 });
+
+// Decision 2026-10-07: an external maker sees (and comments on) the round
+// opened by their own publication; another external participant still sees
+// nothing until the lead opens a round to them.
+test("V: an external maker sees the round of their own publication; another client does not", async ({ browser, request }) => {
+  test.setTimeout(600_000);
+  expect(media, "Set B2B_E2E_MEDIA_DIR").toBeTruthy();
+  const [owner, lead, vendor, client] = await Promise.all(["tve-owner", "tve-lead", "tve-vendor", "tve-client"].map((l) => account(request, l)));
+  const team = (await json(request.post(`${api}/v2/workspaces`, { headers: owner.headers, data: { name: "외부 제작자 인수", requestKey: randomUUID() } }))).workspace.id as string;
+  fixture("b2b-paid-test-fixture.cjs", { workspaceId: team, action: "purchase", target: "initial" });
+  fixture("b2b-test-fixture.cjs", { workspaceId: team, action: "join", userId: lead.id });
+  const projectId = (await json(request.post(`${api}/v2/workspaces/${team}/b2b/projects`, { headers: lead.headers, data: { requestKey: randomUUID(), name: "외주 편집 영상", visibility: "team" } }))).project.id as string;
+  await invite(request, lead, team, projectId, vendor, "external", "producer");
+  await invite(request, lead, team, projectId, client, "external", "reviewer");
+  const base = `/dashboard/workspaces/${team}/projects/${projectId}`, root = `${api}/v2/workspaces/${team}/b2b/projects/${projectId}`;
+
+  const V = await open(browser, vendor, `${base}/files`);
+  await V.page.waitForURL((url) => url.pathname === `${base}/files`);
+  let uploadId = "";
+  V.page.on("response", async (response) => {
+    if (response.url() === `${root}/uploads` && response.request().method() === "POST" && response.status() === 201)
+      uploadId = (await response.json()).data.upload.id;
+  });
+  await V.page.getByRole("combobox", { name: "자료 종류", exact: true }).selectOption("output");
+  await upload(V.page, "cut-v1.mp4");
+  await expect.poll(async () => (await json(request.get(`${root}/files`, { headers: vendor.headers }))).versions.length, { timeout: 90_000 }).toBe(1);
+  await expect.poll(() => uploadId).toBeTruthy();
+  const version = (await json(request.get(`${root}/files`, { headers: vendor.headers }))).versions[0];
+  const list = await json(request.get(`${root}/publications`, { headers: vendor.headers }));
+  const registered = await request.post(`${root}/publications`, { headers: vendor.headers, data: {
+    requestKey: randomUUID(), participationId: list.currentParticipationId, originWorkId: "vendor-work", originResultId: "vendor-render", originRequestId: null,
+    basisRevision: list.projectRevision, uploadId, title: "외주 1차 편집본", generatedAt: new Date().toISOString(), sha256: version.sha256, size: version.size,
+  } });
+  expect(registered.status(), await registered.text()).toBe(201);
+  await expect.poll(async () => (await json(request.get(`${root}/reviews`, { headers: lead.headers }))).reviews.length, { timeout: 120_000 }).toBe(1);
+  const reviewId = (await json(request.get(`${root}/reviews`, { headers: lead.headers }))).reviews[0].id as string;
+
+  // The vendor opens it from S34 and comments on S14.
+  await V.page.goto(`${base}/reviews`);
+  await expect(V.page.getByRole("link", { name: /외주 1차 편집본/ })).toBeVisible({ timeout: 30_000 });
+  await V.page.getByRole("link", { name: /외주 1차 편집본/ }).click();
+  await expect(V.page.getByText(/V1 · 회차 1/)).toBeVisible({ timeout: 30_000 });
+  const note = "외주 제작자 메모: 2초 지점 컷 확인";
+  const commented = await request.post(`${root}/reviews/${reviewId}/comments`, { headers: vendor.headers, data: { requestKey: randomUUID(), round: 1, versionId: version.id, body: note, startMs: 2000, endMs: null } });
+  expect(commented.status(), await commented.text()).toBe(201);
+  await V.page.reload();
+  await expect(V.page.getByText(note, { exact: true })).toBeVisible({ timeout: 30_000 });
+  await shot(V.page, "s14-external-maker-own-round");
+
+  // Another external participant still sees nothing.
+  expect((await json(request.get(`${root}/reviews`, { headers: client.headers }))).reviews).toEqual([]);
+  expect((await request.get(`${root}/reviews/${reviewId}`, { headers: client.headers })).status()).toBe(404);
+  const C = await open(browser, client, `${base}/reviews`);
+  await expect(C.page.getByText("아직 검토가 없습니다.", { exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(C.page.locator("body")).not.toContainText("외주 1차 편집본");
+
+  for (const view of [V, C]) expect(view.errors).toEqual([]);
+  await Promise.all([V, C].map((v) => v.close()));
+});

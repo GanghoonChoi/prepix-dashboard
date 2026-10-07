@@ -1533,7 +1533,9 @@ export type PublicationMutationLookup = {
 };
 export type PublicationList = {
   currentUserId: string;
-  currentParticipationId: string;
+  /** null: a team project's default maker who has not worked on it yet
+   * (lazy participation); the first upload makes it a participation. */
+  currentParticipationId: string | null;
   projectRevision: number;
   publications: TeamPublication[];
   nextCursor: string | null;

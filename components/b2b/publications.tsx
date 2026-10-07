@@ -66,7 +66,7 @@ function ScopedPublications({ scope: initial, requestedId }: { scope: Publicatio
     finally { applying.current = false; setBusy(false); await load(); }
   };
   if (!data && !error) return <TeamLoading />;
-  return <TeamShell title={c("등록된 결과", "Registered results")} description={c("앱에서 발행한 결과입니다. 검토본이 준비되면 이 프로젝트를 볼 수 있는 내부 구성원에게 검토로 자동 공개됩니다. 외부 참여자는 담당자가 회차에 추가하거나 공유 링크를 보낼 때만 봅니다.", "Results published from the app. Each opens for review to the internal members who can see this project once its review copy is ready. External participants see it only when the lead adds them to the round or sends a share link.")}>
+  return <TeamShell title={c("등록된 결과", "Registered results")} description={c("앱에서 발행한 결과입니다. 검토본이 준비되면 이 프로젝트를 볼 수 있는 내부 구성원에게 검토로 자동 공개됩니다. 외부 참여자가 발행한 결과는 그 사람에게도 열리고, 다른 외부 참여자는 담당자가 회차에 추가하거나 공유 링크를 보낼 때만 봅니다.", "Results published from the app. Each opens for review to the internal members who can see this project once its review copy is ready. A result an external participant published also opens to them; other external participants see it only when the lead adds them to the round or sends a share link.")}>
     <Link href={base} className={secondaryClass}>{c("프로젝트로", "Project")}</Link>
     {error && <PublicationError error={error} retry={() => void load()} />}
     {stale && <p role="status" className="text-sm text-muted">{c("마지막으로 확인한 기록입니다. 최신 상태를 확인하기 전에는 공개할 수 없습니다.", "Showing the last confirmed records. Refresh before publishing.")}</p>}
