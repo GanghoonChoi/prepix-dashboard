@@ -48,10 +48,11 @@ test("F12/V: registered results publish to review automatically; a new version s
     const reviews = await json(request.get(`${root}/reviews`, { headers: lead.headers }));
     expect(reviews.reviews).toHaveLength(1);
     const reviewId = reviews.reviews[0].id;
-    const review = await json(request.get(`${root}/reviews/${reviewId}`, { headers: client.headers }));
+    const review = await json(request.get(`${root}/reviews/${reviewId}`, { headers: producer.headers }));
     expect([review.review.audienceScope, review.review.round, review.review.versionId, review.audience, review.approval]).toEqual(["project", 1, first.version.id, [], "no_approver"]);
-    // Everyone on the project reads it, including the uploader and the external reviewer.
-    expect((await request.get(`${root}/reviews/${reviewId}`, { headers: producer.headers })).status()).toBe(200);
+    // Internal members read it, including the uploader; the external reviewer
+    // does not until the lead opens a round to them (2026-10-07).
+    expect((await request.get(`${root}/reviews/${reviewId}`, { headers: client.headers })).status()).toBe(404);
     await L.page.reload();
     await expect(L.page.getByTestId("latest-result")).toHaveText(first.version.id);
     await expect(L.page.getByTestId("current-review")).toHaveText(first.version.id);
@@ -59,9 +60,9 @@ test("F12/V: registered results publish to review automatically; a new version s
     await expect(L.page.getByRole("link", { name: "공개한 검토 보기", exact: true })).toHaveAttribute("href", `${base}/reviews/${reviewId}`);
     await expect(L.page.getByRole("button", { name: "지금 공개", exact: true })).toHaveCount(0);
     // An approval request on the old round ends when the next version lands.
-    const approver = await request.post(`${root}/reviews/${reviewId}/approver`, { headers: lead.headers, data: { requestKey: randomUUID(), revision: review.review.revision, userId: client.id, reason: "" } });
+    const approver = await request.post(`${root}/reviews/${reviewId}/approver`, { headers: lead.headers, data: { requestKey: randomUUID(), revision: review.review.revision, userId: producer.id, reason: "" } });
     expect(approver.status(), await approver.text()).toBe(201);
-    const comment = await request.post(`${root}/reviews/${reviewId}/comments`, { headers: client.headers, data: { requestKey: randomUUID(), round: 1, versionId: first.version.id, body: "1회차 의견", startMs: 500, endMs: null } });
+    const comment = await request.post(`${root}/reviews/${reviewId}/comments`, { headers: producer.headers, data: { requestKey: randomUUID(), round: 1, versionId: first.version.id, body: "1회차 의견", startMs: 500, endMs: null } });
     expect(comment.status(), await comment.text()).toBe(201);
 
     const second = await register("cut-v2.mp4", "두 번째 결과", "cut-v1.mp4");

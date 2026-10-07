@@ -163,8 +163,10 @@ test("V: team-wide project, publish → review on team home, private stays hidde
   await M.page.goto(`${home}/projects`);
   await expect(M.page.getByText("참여한 프로젝트가 없습니다.", { exact: false })).toBeVisible({ timeout: 30_000 });
   await expect(M.page.locator("body")).not.toContainText(teamName);
-  // Participants keep it: the external client still reads the review.
-  expect((await request.get(`${root}/reviews/${reviewId}`, { headers: client.headers })).status()).toBe(200);
+  // Internal participants keep it; the external client never had the
+  // automatic round (2026-10-07: externals only when the lead opens one).
+  expect((await request.get(`${root}/reviews/${reviewId}`, { headers: producer.headers })).status()).toBe(200);
+  expect((await request.get(`${root}/reviews/${reviewId}`, { headers: client.headers })).status()).toBe(404);
 
   // S07: widening again needs the confirmation and a reason.
   await L.page.getByRole("button", { name: "팀 전체 공개로 바꾸기", exact: true }).click();
