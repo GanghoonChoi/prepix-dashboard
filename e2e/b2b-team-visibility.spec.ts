@@ -71,7 +71,7 @@ test("V: team-wide project, publish → review on team home, private stays hidde
   await shot(M.page, "s04-member-recent-publications");
   await recent.getByRole("link", { name: /첫 발행 결과/ }).click();
   await M.page.waitForURL(new RegExp(`/reviews/${reviewId}\\?round=1&versionId=${version.id}$`));
-  await expect(M.page.getByText("현재 검토 대상: 프로젝트 전체 공개", { exact: true })).toBeVisible();
+  await expect(M.page.getByText("현재 검토 대상: 프로젝트 내부 전체 공개", { exact: true })).toBeVisible();
   await videoReady(M.page);
   await M.page.locator("video").evaluate((v: HTMLVideoElement) => { v.muted = true; return v.play(); });
   await expect.poll(() => M.page.locator("video").evaluate((v: HTMLVideoElement) => v.currentTime)).toBeGreaterThan(0.3);

@@ -1,6 +1,7 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import type {
+  ReviewDetail,
   ReviewMutationAction,
   ReviewMutationLookup,
   ReviewMutationResult,
@@ -93,22 +94,33 @@ export function validScope(s: unknown): s is ReviewScope {
     : v.kind === "share" && uuid.test(v.shareId ?? "");
 }
 export type AudienceSelection = { audienceScope: "project" | "selected"; audienceUserIds: string[]; approverUserId: string };
-/** V: the wire fields of an audience choice. "project" (everyone who can see
- * the project) sends no list and an approver only when one is chosen;
+/** V: the wire fields of an audience choice. "project" (every internal member
+ * who can see the project) sends the external participants opened to this
+ * round only when there are any, and an approver only when one is chosen;
  * "selected" (0067) sends the list and an approver among it. */
 export function audienceInput(a: AudienceSelection) {
   return a.audienceScope === "project"
-    ? { audienceScope: "project" as const, ...(a.approverUserId ? { approverUserId: a.approverUserId } : {}) }
+    ? { audienceScope: "project" as const, ...(a.audienceUserIds.length ? { audienceUserIds: a.audienceUserIds } : {}), ...(a.approverUserId ? { approverUserId: a.approverUserId } : {}) }
     : { audienceScope: "selected" as const, audienceUserIds: a.audienceUserIds, approverUserId: a.approverUserId };
 }
+/** The current round's audience as the starting choice of an audience change
+ * or a version replacement: a selected review never silently becomes
+ * project-wide, and a project round keeps the externals it was opened to. */
+export function detailAudience(d: Pick<ReviewDetail, "review" | "audience" | "approver">): AudienceSelection {
+  const audienceUserIds = d.audience?.map((p) => p.userId) ?? [];
+  const approver = d.approver?.active && d.approver.basis === "participant" ? d.approver.person.userId : "";
+  const fits = d.review.audienceScope === "project" || audienceUserIds.includes(approver);
+  return { audienceScope: d.review.audienceScope, audienceUserIds, approverUserId: fits ? approver : "" };
+}
+const idList = (v: unknown): v is string[] =>
+  Array.isArray(v) && v.every((id) => typeof id === "string" && uuid.test(id)) && new Set(v).size === v.length;
 export function validAudience(input: Record<string, unknown>) {
   const approver = input.approverUserId;
-  if (input.audienceScope === "project")
-    return input.audienceUserIds === undefined && (approver == null || (typeof approver === "string" && uuid.test(approver)));
-  if (input.audienceScope !== undefined && input.audienceScope !== "selected") return false;
   const audience = input.audienceUserIds;
-  return Array.isArray(audience) && audience.length > 0 && audience.every((id) => typeof id === "string" && uuid.test(id)) &&
-    new Set(audience).size === audience.length && typeof approver === "string" && audience.includes(approver);
+  if (input.audienceScope === "project")
+    return (audience === undefined || idList(audience)) && (approver == null || (typeof approver === "string" && uuid.test(approver)));
+  if (input.audienceScope !== undefined && input.audienceScope !== "selected") return false;
+  return idList(audience) && audience.length > 0 && typeof approver === "string" && audience.includes(approver);
 }
 export function validRecord(raw: unknown, scope: ReviewScope): raw is ReviewRecord {
   const r = raw as ReviewRecord;
