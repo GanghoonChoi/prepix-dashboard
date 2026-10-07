@@ -57,7 +57,7 @@ function ScopedPublications({ scope: initial, requestedId }: { scope: Publicatio
     try { await publicationsService.retry(r); } catch (e) { setActionError(code(e)); }
     finally { applying.current = false; setBusy(false); await load(); }
   };
-  // Fallback only: no list = everyone who can see the project, no approver.
+  // Fallback only: no list = every internal member who can see the project, no approver.
   const publishNow = async (p: TeamPublication) => {
     if (applying.current || !data) return;
     applying.current = true; setBusy(true); setActionError("");
@@ -66,7 +66,7 @@ function ScopedPublications({ scope: initial, requestedId }: { scope: Publicatio
     finally { applying.current = false; setBusy(false); await load(); }
   };
   if (!data && !error) return <TeamLoading />;
-  return <TeamShell title={c("등록된 결과", "Registered results")} description={c("앱에서 발행한 결과입니다. 검토본이 준비되면 이 프로젝트를 볼 수 있는 모두에게 검토로 자동 공개됩니다.", "Results published from the app. Each opens for review to everyone who can see this project once its review copy is ready.")}>
+  return <TeamShell title={c("등록된 결과", "Registered results")} description={c("앱에서 발행한 결과입니다. 검토본이 준비되면 이 프로젝트를 볼 수 있는 내부 구성원에게 검토로 자동 공개됩니다. 외부 참여자는 담당자가 회차에 추가하거나 공유 링크를 보낼 때만 봅니다.", "Results published from the app. Each opens for review to the internal members who can see this project once its review copy is ready. External participants see it only when the lead adds them to the round or sends a share link.")}>
     <Link href={base} className={secondaryClass}>{c("프로젝트로", "Project")}</Link>
     {error && <PublicationError error={error} retry={() => void load()} />}
     {stale && <p role="status" className="text-sm text-muted">{c("마지막으로 확인한 기록입니다. 최신 상태를 확인하기 전에는 공개할 수 없습니다.", "Showing the last confirmed records. Refresh before publishing.")}</p>}
@@ -89,7 +89,9 @@ function ScopedPublications({ scope: initial, requestedId }: { scope: Publicatio
           <dl className="grid gap-2 text-xs sm:grid-cols-2"><div><dt className="text-muted">{c("결과 버전", "Result version")}</dt><dd className="break-all font-mono">{p.versionId}</dd></div><div><dt className="text-muted">{c("원본 작업 / 결과", "Original work / result")}</dt><dd className="break-all font-mono">{p.originWorkId} / {p.originResultId}</dd></div></dl>
           {p.reviewId ? <Link className={secondaryClass} href={`${base}/reviews/${p.reviewId}`}>{c("공개한 검토 보기", "Open published review")}</Link>
             : p.previewState === "failed" ? <p role="status" className="text-sm text-muted">{c("검토본을 만들지 못해 공개되지 않았습니다. 앱에서 결과를 다시 발행해 주세요.", "The review copy could not be made, so this result is not published. Publish it again from the app.")}</p>
-            : <div className="flex flex-wrap items-center gap-3"><p role="status" className="text-sm text-muted">{c("검토본 준비 중 — 준비되면 팀에 자동으로 공개됩니다", "Preparing the review copy — it opens to the team automatically when ready")}</p>
+            : <div className="flex flex-wrap items-center gap-3"><p role="status" className="text-sm text-muted">{p.automaticSkip === "superseded" ? c("더 새 버전이 이미 검토 중이라 자동으로 공개하지 않았습니다", "A newer version is already under review, so this was not opened automatically")
+              : p.automaticSkip === "legacy" ? c("자동 공개 이전에 등록된 결과라 자동으로 공개하지 않습니다", "Registered before automatic publication, so it is not opened automatically")
+              : c("검토본 준비 중 — 준비되면 팀 내부에 자동으로 공개됩니다", "Preparing the review copy — it opens to the team's internal members automatically when ready")}</p>
               {p.allowedActions.publish && <button type="button" className={primaryClass} disabled={stale || !!error || busy || data.pending.some((r) => r.target === p.id)} onClick={() => void publishNow(p)}>{c("지금 공개", "Publish now")}</button>}</div>}
         </article>)}
         <div className="flex gap-3">{cursor && <button type="button" className={secondaryClass} onClick={() => setCursor(undefined)}>{c("최신 결과", "Latest results")}</button>}{data.nextCursor && <button type="button" className={secondaryClass} onClick={() => setCursor(data.nextCursor!)}>{c("이전 결과", "Older results")}</button>}</div>

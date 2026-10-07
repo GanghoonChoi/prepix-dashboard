@@ -26,7 +26,7 @@ export function validPublicationOperation(raw: unknown, scope: PublicationScope)
   try { if (new URL(r.scope.origin).origin !== r.scope.origin) return false; } catch { return false; }
   if (r.action === "register") return r.target === undefined && uuid.test(String(r.input.participationId)) && uuid.test(String(r.input.uploadId)) && typeof r.input.originWorkId === "string" && !!r.input.originWorkId && typeof r.input.originResultId === "string" && !!r.input.originResultId && Number.isSafeInteger(r.input.basisRevision) && Number(r.input.basisRevision) >= 0;
   if (r.action !== "publish" || !uuid.test(r.target ?? "") || !uuid.test(r.versionId ?? "") || !Number.isSafeInteger(r.input.revision) || Number(r.input.revision) < 0) return false;
-  // V: no list = everyone who can see the project.
+  // V: no list = every internal member who can see the project.
   return validAudience(r.input.audienceUserIds === undefined ? { ...r.input, audienceScope: "project" } : r.input);
 }
 export interface PublicationStore {
