@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -7,6 +8,7 @@ import {
   useId,
   useState,
   type FormEvent,
+  type ReactNode,
 } from "react";
 import {
   b2bService,
@@ -22,10 +24,11 @@ import {
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
   Block,
+  Details,
+  EmptyState,
   inputClass,
   primaryClass,
   secondaryClass,
-  SpaceBadge,
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
@@ -48,6 +51,7 @@ const instant = (value: string) =>
     timeStyle: "long",
   }).format(new Date(value));
 const personName = (person?: TeamPerson) => person?.name || person?.email;
+const listClass = "divide-y divide-border rounded-lg border border-border";
 
 // Keep unknown outcomes in the form, including when a background refresh
 // changes its revision. Retry the original input before starting another action.
@@ -102,7 +106,7 @@ function MutationStatus({
     <>
       {error && <B2bError code={error} />}
       {!!pending && !!error && (
-        <p role="status" className="text-sm leading-6 text-muted">
+        <p role="status" className="text-[13px] leading-5 text-muted">
           {c(
             "처리 결과가 아직 확인되지 않았습니다. 입력을 유지한 채 같은 요청을 다시 확인해 주세요.",
             "The outcome is unknown. Keep these inputs and check the same request again.",
@@ -185,24 +189,24 @@ export function TeamLicences() {
     failure?.workspaceId === workspaceId && failure.manager === manager
       ? failure.code
       : "";
+  const planLink = b2b.allowedActions.billing && (
+    <Link
+      className={secondaryClass}
+      href={`/dashboard/workspaces/${workspaceId}/plan`}
+    >
+      {c("플랜과 결제", "Plan and billing")}
+    </Link>
+  );
   if (b2b.team.currentState === "preparing")
     return (
       <TeamShell title={c("편집 이용권", "Editing licences")}>
-        <SpaceBadge workspace={data.workspace} />
-        <p className="text-sm leading-6 text-muted">
-          {c(
-            "첫 구매가 반영된 뒤 이용권을 배정할 수 있습니다. 무료 팀 참여에는 편집 이용권이 필요하지 않습니다.",
-            "Assign licences after the first purchase is applied. Free team participation does not require an editing licence.",
+        <EmptyState
+          title={c(
+            "첫 구매가 반영된 뒤 이용권을 배정할 수 있습니다.",
+            "Assign licences after the first purchase is applied.",
           )}
-        </p>
-        {b2b.allowedActions.billing && (
-          <Link
-            className={secondaryClass}
-            href={`/dashboard/workspaces/${workspaceId}/plan`}
-          >
-            {c("플랜과 결제", "Plan and billing")}
-          </Link>
-        )}
+          action={planLink}
+        />
       </TeamShell>
     );
   const writable = b2b.team.currentState === "active";
@@ -212,12 +216,8 @@ export function TeamLicences() {
         manager ? "편집 이용권" : "내 편집 이용권",
         manager ? "Editing licences" : "My editing licence",
       )}
-      description={c(
-        "팀 앱 편집은 이 팀의 이용권을 확인합니다. 이용권 하나에 개인 요금제와 같은 앱 편집·AI 한도가 포함됩니다.",
-        "Team app editing checks this team's licence. Each licence includes app editing and AI limits like a personal plan.",
-      )}
+      actions={manager && planLink}
     >
-      <SpaceBadge workspace={data.workspace} />
       {error && <B2bError code={error} retry={() => void load()} />}
       {!view ? (
         !error && <TeamLoading />
@@ -226,12 +226,12 @@ export function TeamLicences() {
           {manager ? (
             <>
               {view.overview.periods.length === 0 && (
-                <p className="text-sm text-muted">
-                  {c(
-                    "현재 배정할 수 있는 구매 기간이 없습니다. 이용 상태와 구매 내역을 확인해 주세요.",
-                    "No purchased period is available for assignment. Review the team status and purchases.",
+                <EmptyState
+                  title={c(
+                    "배정할 수 있는 구매 기간이 없습니다.",
+                    "No purchased period is available for assignment.",
                   )}
-                </p>
+                />
               )}
               {view.overview.periods
                 .toSorted((a, b) => b.startsAt.localeCompare(a.startsAt))
@@ -254,31 +254,29 @@ export function TeamLicences() {
           ) : (
             <>
               {view.overview.assignments.filter(occupies).length === 0 && (
-                <p className="text-sm leading-6 text-muted">
-                  {c(
-                    "현재 배정된 편집 이용권이 없습니다. 팀 관리자에게 배정을 요청하세요. 허용된 웹 참여·검토·업로드에는 이용권이 필요하지 않습니다.",
-                    "No editing licence is currently assigned. Ask a team administrator. Permitted web participation, review and uploads do not require a licence.",
+                <EmptyState
+                  title={c(
+                    "배정된 편집 이용권이 없습니다.",
+                    "No editing licence is assigned to you.",
                   )}
-                </p>
+                  description={c(
+                    "팀 관리자에게 배정을 요청하세요.",
+                    "Ask a team administrator.",
+                  )}
+                />
               )}
               <PersonalLicences overview={view.overview} onSaved={load} />
             </>
           )}
-          <p className="max-w-2xl text-sm leading-6 text-muted">
-            {c(
-              "회수 대기는 구매 정원을 계속 사용합니다. 이전 사용자의 모든 유효 장치가 허가를 반납하거나 만료된 뒤 정원을 다시 배정할 수 있습니다. 웹 참여와 구매 정원은 회수로 변경되지 않습니다.",
-              "Pending revocations continue to occupy capacity until all valid device permissions are discarded or expire. Revocation does not change web participation or purchased capacity.",
-            )}
-          </p>
-          {manager && b2b.allowedActions.billing && (
-            <Link
-              className={secondaryClass}
-              href={`/dashboard/workspaces/${workspaceId}/plan`}
-            >
-              {c("플랜과 결제", "Plan and billing")}
-            </Link>
-          )}
           <PersonalDevices overview={view.devices} onSaved={load} />
+          <Details summary={c("회수와 정원", "Revocation and capacity")}>
+            <p>
+              {c(
+                "회수 대기는 구매 정원을 계속 사용합니다. 이전 사용자의 모든 유효 장치가 허가를 반납하거나 만료된 뒤 정원을 다시 배정할 수 있습니다. 웹 참여와 구매 정원은 회수로 변경되지 않습니다.",
+                "Pending revocations continue to occupy capacity until all valid device permissions are discarded or expire. Revocation does not change web participation or purchased capacity.",
+              )}
+            </p>
+          </Details>
         </>
       )}
     </TeamShell>
@@ -300,38 +298,52 @@ function PersonalDevices({
     <Block
       title={c("내 등록 장치", "My registered devices")}
       description={c(
-        "등록 해제는 새 편집 허가를 막습니다. 유효한 오프라인 허가가 모두 반납되거나 만료된 뒤 장치 정원에서 제외됩니다. 로컬 프로젝트와 사용자 이용권은 삭제되지 않습니다.",
-        "Retirement blocks new editing grants. A device stops occupying capacity after all valid offline permissions are discarded or expire. Local projects and your licence assignment are preserved.",
+        "등록 해제하면 그 장치는 새 편집 허가를 받을 수 없습니다.",
+        "A retired device gets no new editing grants.",
       )}
+      actions={
+        <span className="text-[13px] tabular-nums text-muted">
+          {c("사용 중·해제 대기", "Active or retiring")} {occupied}
+          {overview.deviceLimit !== null && <> / {overview.deviceLimit}</>}
+        </span>
+      }
     >
-      <p className="text-sm tabular-nums">
-        {c("사용 중·해제 대기", "Active or retiring")} {occupied}
-        {overview.deviceLimit !== null && <> / {overview.deviceLimit}</>}
-      </p>
       {overview.deviceLimit === null && (
-        <p className="text-sm text-muted">
+        <p className="text-[13px] text-muted">
           {c(
-            "신규 등록을 위한 장치 정책이 아직 준비되지 않았습니다. 기존 장치는 조회하거나 등록 해제할 수 있습니다.",
-            "The policy for new registrations is not ready. Existing devices can still be viewed or retired.",
+            "새 장치 등록 정책이 아직 준비되지 않았습니다.",
+            "The policy for new registrations is not ready.",
           )}
         </p>
       )}
-      {overview.devices.length === 0 && (
-        <p className="text-sm text-muted">
+      {overview.devices.length === 0 ? (
+        <p className="text-[13px] text-muted">
           {c(
             "이 팀에 등록된 내 장치가 없습니다.",
             "You have no registered devices in this team.",
           )}
         </p>
+      ) : (
+        <div className={listClass}>
+          {overview.devices
+            .toSorted(
+              (a, b) =>
+                a.createdAt.localeCompare(b.createdAt) ||
+                a.id.localeCompare(b.id),
+            )
+            .map((device) => (
+              <DeviceRow key={device.id} device={device} onSaved={onSaved} />
+            ))}
+        </div>
       )}
-      {overview.devices
-        .toSorted(
-          (a, b) =>
-            a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id),
-        )
-        .map((device) => (
-          <DeviceRow key={device.id} device={device} onSaved={onSaved} />
-        ))}
+      <Details>
+        <p>
+          {c(
+            "유효한 오프라인 허가가 모두 반납되거나 만료된 뒤 장치 정원에서 제외됩니다. 로컬 프로젝트와 이용권 배정은 삭제되지 않습니다.",
+            "A device stops occupying capacity after all valid offline permissions are discarded or expire. Local projects and your licence assignment are preserved.",
+          )}
+        </p>
+      </Details>
     </Block>
   );
 }
@@ -367,20 +379,21 @@ function DeviceRow({
   return (
     <section
       aria-label={`${name} · ${state}`}
-      className="space-y-3 rounded-lg border border-border p-4 text-sm"
+      className="space-y-1 px-4 py-3 text-sm"
     >
-      <div className="flex flex-wrap justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h3 className="font-medium">{name}</h3>
-        <span className="text-muted">{state}</span>
+        <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs">
+          {state}
+        </span>
       </div>
-      <p className="break-all text-xs text-muted">
-        {c("장치 식별자", "Device ID")} · {device.id}
-      </p>
-      <p className="text-muted tabular-nums">
+      <p className="text-xs text-muted tabular-nums">
         {c("등록", "Registered")} · {instant(device.createdAt)}
+        {device.retirementReason &&
+          ` · ${c("해제 사유", "Retirement reason")} · ${device.retirementReason}`}
       </p>
       {device.state === "retiring" && (
-        <p role="status" className="leading-6 text-muted">
+        <p role="status" className="text-xs leading-5 text-muted">
           {device.latestExpiry
             ? c(
                 `${device.pendingGrantCount}개 허가의 반납을 기다립니다. 반납 확인이 없으면 ${instant(device.latestExpiry)}까지 장치 정원을 유지합니다.`,
@@ -392,18 +405,10 @@ function DeviceRow({
               )}
         </p>
       )}
-      {device.retirementReason && (
-        <p className="break-words text-muted">
-          {c("해제 사유", "Retirement reason")} · {device.retirementReason}
-        </p>
-      )}
       {(active || mutation.pending || mutation.error || mutation.saved) && (
-        <details>
-          <summary className="min-h-11 cursor-pointer py-3 text-muted">
-            {c("장치 등록 해제", "Retire this device")}
-          </summary>
+        <Disclosure summary={c("장치 등록 해제", "Retire this device")}>
           <form
-            className="max-w-xl space-y-4"
+            className="max-w-xl space-y-3 pb-1 pt-2"
             onSubmit={(event) => {
               event.preventDefault();
               void mutation.run(
@@ -423,7 +428,7 @@ function DeviceRow({
           >
             <fieldset
               disabled={mutation.locked || !active}
-              className="space-y-2 disabled:opacity-70"
+              className="space-y-1.5 text-[13px] disabled:opacity-70"
             >
               <label htmlFor={`${fieldId}-reason`}>
                 {c("등록 해제 사유", "Retirement reason")}
@@ -459,9 +464,27 @@ function DeviceRow({
               )}
             </button>
           </form>
-        </details>
+        </Disclosure>
       )}
     </section>
+  );
+}
+
+/** A row's rare action: one quiet line until it is wanted. */
+function Disclosure({ summary, children }: { summary: string; children: ReactNode }) {
+  return (
+    <details className="group">
+      <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 text-[13px] text-muted transition-colors hover:text-foreground sm:min-h-9 [&::-webkit-details-marker]:hidden">
+        <ChevronRight
+          size={14}
+          strokeWidth={1.75}
+          aria-hidden="true"
+          className="transition-transform group-open:rotate-90"
+        />
+        {summary}
+      </summary>
+      {children}
+    </details>
   );
 }
 
@@ -503,24 +526,26 @@ function PersonalLicences({
         description={`${instant(rows[0].startsAt)} — ${instant(rows[0].endsAt)} (KST)`}
       >
         {future && (
-          <p className="text-sm text-muted">
+          <p className="text-[13px] text-muted">
             {c(
               "시작 시각 전에는 이 이용권과 AI를 사용할 수 없습니다.",
               "This licence and its AI cannot be used before the start time.",
             )}
           </p>
         )}
-        {rows.map((assignment) => (
-          <AssignmentRow
-            key={assignment.id}
-            assignment={assignment}
-            wait={overview.deviceWaits.find(
-              (w) => w.assignmentId === assignment.id,
-            )}
-            manager={false}
-            onSaved={onSaved}
-          />
-        ))}
+        <div className={listClass}>
+          {rows.map((assignment) => (
+            <AssignmentRow
+              key={assignment.id}
+              assignment={assignment}
+              wait={overview.deviceWaits.find(
+                (w) => w.assignmentId === assignment.id,
+              )}
+              manager={false}
+              onSaved={onSaved}
+            />
+          ))}
+        </div>
       </Block>
     );
   });
@@ -572,42 +597,50 @@ function PeriodLicences({
             : "Current purchased period",
       )}
       description={`${instant(period.startsAt)} — ${instant(period.endsAt)} (KST)`}
-    >
-      <dl className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-5">
-        {[
-          [c("구매 정원", "Purchased capacity"), period.capacity],
-          [c("배정 중", "Assigned"), counts.active],
-          [c("다음 기간 배정", "Scheduled"), counts.scheduled],
-          [c("회수 대기", "Revocation pending"), counts.revoking],
-          [c("배정 가능", "Available"), free],
-        ].map(([label, value]) => (
-          <div key={label}>
-            <dt className="text-muted">{label}</dt>
-            <dd className="mt-2 text-lg tabular-nums">{value}</dd>
-          </div>
-        ))}
-      </dl>
-      {future && (
-        <p className="text-sm leading-6 text-muted">
-          {c(
-            "구매한 정원은 유지하고 다음 기간에 사용할 사람을 선택합니다. 시작 시각 전에는 이 이용권을 사용할 수 없습니다.",
-            "Keep the purchased capacity and choose who will use it next period. These licences cannot be used before the start time.",
-          )}
+      actions={
+        // Each figure on its own, never summed: pending revocations still
+        // hold capacity, so one total would hide them.
+        <p className="flex flex-wrap gap-x-3 gap-y-1 text-[13px] text-muted">
+          {(
+            [
+              [c("구매 정원", "Purchased capacity"), period.capacity],
+              [c("배정 중", "Assigned"), counts.active],
+              ...(counts.scheduled
+                ? [[c("다음 기간 배정", "Scheduled"), counts.scheduled]]
+                : []),
+              ...(counts.revoking
+                ? [[c("회수 대기", "Revocation pending"), counts.revoking]]
+                : []),
+              [c("배정 가능", "Available"), free],
+            ] as [string, number][]
+          ).map(([label, value]) => (
+            <span key={label} className="whitespace-nowrap">
+              {label}{" "}
+              <span className="font-medium tabular-nums text-foreground">
+                {value}
+              </span>
+            </span>
+          ))}
         </p>
+      }
+    >
+      {rows.length > 0 && (
+        <div className={listClass}>
+          {rows.map((assignment) => (
+            <AssignmentRow
+              key={assignment.id}
+              assignment={assignment}
+              person={people.find((p) => p.userId === assignment.userId)}
+              wait={overview.deviceWaits.find(
+                (w) => w.assignmentId === assignment.id,
+              )}
+              manager
+              onSaved={onSaved}
+              editable={writable}
+            />
+          ))}
+        </div>
       )}
-      {rows.map((assignment) => (
-        <AssignmentRow
-          key={assignment.id}
-          assignment={assignment}
-          person={people.find((p) => p.userId === assignment.userId)}
-          wait={overview.deviceWaits.find(
-            (w) => w.assignmentId === assignment.id,
-          )}
-          manager
-          onSaved={onSaved}
-          editable={writable}
-        />
-      ))}
       <AssignForm
         period={period}
         assignments={rows}
@@ -661,7 +694,7 @@ function AssignForm({
   return (
     <form
       aria-label={c("편집 이용권 배정", "Assign an editing licence")}
-      className="max-w-2xl space-y-4 border-t border-border pt-5"
+      className="max-w-xl space-y-3"
       onSubmit={(event) => {
         event.preventDefault();
         void mutation.run(
@@ -674,11 +707,11 @@ function AssignForm({
         );
       }}
     >
-      <fieldset
-        disabled={mutation.locked || free === 0 || !writable}
-        className="space-y-4 disabled:opacity-70"
-      >
-        <div className="space-y-2 text-sm">
+      <div className="flex flex-wrap items-end gap-2">
+        <fieldset
+          disabled={mutation.locked || free === 0 || !writable}
+          className="min-w-0 flex-1 basis-56 space-y-1.5 text-[13px] disabled:opacity-70"
+        >
           <label htmlFor={`${fieldId}-person`}>
             {c("배정 대상", "Participant")}
           </label>
@@ -708,34 +741,34 @@ function AssignForm({
               </option>
             ))}
           </select>
-        </div>
-      </fieldset>
-      {free === 0 && (
-        <p role="status" className="text-sm leading-6 text-muted">
+        </fieldset>
+        <button
+          className={primaryClass}
+          disabled={mutation.busy || (!mutation.pending && !valid)}
+        >
           {c(
-            "배정 가능 정원이 없습니다. 회수 대기의 장치가 모두 종료될 때까지 기다리거나 결제 권한자에게 추가 구매를 요청하세요.",
-            "No capacity is available. Wait for pending devices to end or ask a billing administrator for additional capacity.",
+            mutation.busy
+              ? "배정 확인 중…"
+              : mutation.pending
+                ? "같은 배정 다시 확인"
+                : "이용권 배정",
+            mutation.busy
+              ? "Checking assignment…"
+              : mutation.pending
+                ? "Check the same assignment"
+                : "Assign licence",
+          )}
+        </button>
+      </div>
+      {free === 0 && (
+        <p role="status" className="text-xs leading-5 text-muted">
+          {c(
+            "배정 가능 정원이 없습니다. 회수가 끝나거나 추가 구매가 반영되면 배정할 수 있습니다.",
+            "No capacity is available. Assign once a revocation completes or added capacity is applied.",
           )}
         </p>
       )}
       <MutationStatus {...mutation} />
-      <button
-        className={primaryClass}
-        disabled={mutation.busy || (!mutation.pending && !valid)}
-      >
-        {c(
-          mutation.busy
-            ? "배정 확인 중…"
-            : mutation.pending
-              ? "같은 배정 다시 확인"
-              : "이용권 배정",
-          mutation.busy
-            ? "Checking assignment…"
-            : mutation.pending
-              ? "Check the same assignment"
-              : "Assign licence",
-        )}
-      </button>
     </form>
   );
 }
@@ -766,7 +799,7 @@ function AssignmentRow({
   return (
     <section
       aria-label={`${manager ? (personName(person) ?? c("이전 참여자", "Former participant")) : c("내 배정", "My assignment")} · ${stateLabel}`}
-      className="space-y-3 rounded-lg border border-border p-4 text-sm"
+      className="space-y-1 px-4 py-3 text-sm"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="font-medium break-all">
@@ -778,17 +811,13 @@ function AssignmentRow({
           {stateLabel}
         </span>
       </div>
-      <p className="tabular-nums text-muted">
+      <p className="text-xs tabular-nums text-muted">
         {instant(assignment.startsAt)} — {instant(assignment.endsAt)} (KST)
+        {assignment.scheduledRevokeAt &&
+          ` · ${c("예정 회수", "Scheduled revocation")} ${instant(assignment.scheduledRevokeAt)}`}
       </p>
-      {assignment.scheduledRevokeAt && (
-        <p className="tabular-nums">
-          {c("예정 회수", "Scheduled revocation")} ·{" "}
-          {instant(assignment.scheduledRevokeAt)}
-        </p>
-      )}
       {assignment.state === "revoking" && (
-        <p role="status" className="leading-6 text-muted">
+        <p role="status" className="text-xs leading-5 text-muted">
           {wait
             ? c(
                 `${wait.deviceCount}개 장치의 종료를 기다립니다. 반납 확인이 없으면 ${instant(wait.latestExpiry)}까지 구매 정원을 유지합니다.`,
@@ -874,16 +903,15 @@ function AssignmentEditor({
     );
   };
   return (
-    <details>
-      <summary className="min-h-11 cursor-pointer py-3 text-muted">
-        {c("이용권 회수·예정 회수 변경", "Revoke or schedule this licence")}
-      </summary>
-      <form className="space-y-4" onSubmit={submit}>
+    <Disclosure
+      summary={c("이용권 회수·예정 회수 변경", "Revoke or schedule this licence")}
+    >
+      <form className="max-w-xl space-y-3 pb-1 pt-2" onSubmit={submit}>
         <fieldset
           disabled={mutation.locked || !canChange}
-          className="space-y-4 disabled:opacity-70"
+          className="space-y-3 text-[13px] disabled:opacity-70"
         >
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <label htmlFor={`${fieldId}-mode`}>
               {c("회수 방식", "Revocation mode")}
             </label>
@@ -907,7 +935,7 @@ function AssignmentEditor({
             </select>
           </div>
           {action === "schedule" && (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <label htmlFor={`${fieldId}-cutoff`}>
                 {c(
                   "예정 회수 시각 (한국 시간)",
@@ -925,7 +953,7 @@ function AssignmentEditor({
               />
             </div>
           )}
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <label htmlFor={`${fieldId}-reason`}>
               {c("변경 사유", "Reason")}
             </label>
@@ -940,8 +968,8 @@ function AssignmentEditor({
           </div>
           <p className="text-xs leading-5 text-muted">
             {c(
-              "즉시 회수는 새 앱 편집·AI를 막고 기존 모든 장치가 종료될 때까지 정원을 유지합니다. 이미 발급된 오프라인 허가보다 이른 예정 시각은 설정할 수 없습니다.",
-              "Immediate revocation blocks new app editing and AI but retains capacity until every device ends. A scheduled cutoff cannot precede an issued offline grant.",
+              "즉시 회수해도 기존 장치가 모두 종료될 때까지 정원은 유지됩니다.",
+              "Capacity stays occupied until every device ends.",
             )}
           </p>
         </fieldset>
@@ -964,6 +992,6 @@ function AssignmentEditor({
           )}
         </button>
       </form>
-    </details>
+    </Disclosure>
   );
 }

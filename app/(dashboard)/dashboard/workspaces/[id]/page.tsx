@@ -4,6 +4,8 @@ import Link from "next/link";
 import { File } from "lucide-react";
 import { useI18n } from "@/lib/i18n/context";
 import {
+  EmptyState,
+  Notice,
   TeamShell,
   primaryClass,
   secondaryClass,
@@ -132,27 +134,33 @@ export default function Page() {
          sidebar nav already lists what lives in here, so the fallback was a
          sentence describing the menu beside it. */
       description={personal ? t("team.personalDesc") : workspace.description}
+      actions={
+        // The only route from personal to team is an explicit, named one.
+        personal && (
+          <Link className={secondaryClass} href="/dashboard/workspaces/new">
+            {t("team.makeTeam")}
+          </Link>
+        )
+      }
     >
       {!personal && data.pendingTransfer && (
-        <div
-          role="status"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface p-5"
-        >
-          <p className="text-sm leading-6">
-            {data.pendingTransfer.toUserId === data.currentUserId
-              ? c(
-                  "이 워크스페이스의 소유권 이전 요청을 받았습니다.",
-                  "You have received an ownership transfer request.",
-                )
-              : c(
-                  "새 소유자의 수락을 기다리고 있습니다.",
-                  "Waiting for the new owner to accept.",
-                )}
-          </p>
-          <Link className={secondaryClass} href={`${base}/settings`}>
+        <Notice role="status">
+          {data.pendingTransfer.toUserId === data.currentUserId
+            ? c(
+                "이 워크스페이스의 소유권 이전 요청을 받았습니다.",
+                "You have received an ownership transfer request.",
+              )
+            : c(
+                "새 소유자의 수락을 기다리고 있습니다.",
+                "Waiting for the new owner to accept.",
+              )}{" "}
+          <Link
+            className="font-medium underline underline-offset-4"
+            href={`${base}/settings`}
+          >
             {c("이전 요청 확인", "Review transfer")}
           </Link>
-        </div>
+        </Notice>
       )}
 
       {/*
@@ -193,12 +201,12 @@ export default function Page() {
       {archiveCells && (
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="font-medium">
+            <h2 className="text-[15px] font-medium">
               {c("최근 올린 원본", "Recently uploaded")}
             </h2>
             <Link
               href={`${base}/media`}
-              className="text-sm text-muted underline-offset-4 hover:text-foreground hover:underline"
+              className="text-[13px] text-muted underline-offset-4 hover:text-foreground hover:underline"
             >
               {c("아카이브 열기", "Open archive")}
             </Link>
@@ -234,20 +242,20 @@ export default function Page() {
               ))}
             </ul>
           ) : (
-            <p className="rounded-lg border border-border px-5 py-8 text-center text-sm text-muted">
-              {c("아직 올린 원본이 없습니다.", "No originals uploaded yet.")}
-            </p>
+            <EmptyState
+              title={c("아직 올린 원본이 없습니다.", "No originals uploaded yet.")}
+            />
           )}
         </section>
       )}
 
       {process.env.NEXT_PUBLIC_START_ONBOARDING === "1" && (
-        <section className="flex flex-wrap items-center justify-between gap-5 rounded-lg border border-border bg-surface p-6">
+        <section className="flex flex-wrap items-center justify-between gap-5 rounded-lg border border-border p-5">
           <div>
-            <h2 className="font-medium">
+            <h2 className="text-[15px] font-medium">
               {c("앱에서 첫 편집 시작하기", "Start your first edit in the app")}
             </h2>
-            <p className="mt-2 text-sm leading-6 text-muted">
+            <p className="mt-1 text-[13px] leading-5 text-muted">
               {c(
                 "로컬 편집을 시작하고 팀 작업을 준비하세요.",
                 "Start editing locally and prepare your team workflow.",
@@ -261,13 +269,6 @@ export default function Page() {
             {c("앱 시작 안내", "Open app guide")}
           </Link>
         </section>
-      )}
-
-      {personal && (
-        // The only route from personal to team is an explicit, named one.
-        <Link className={secondaryClass} href="/dashboard/workspaces/new">
-          {t("team.makeTeam")}
-        </Link>
       )}
     </TeamShell>
   );

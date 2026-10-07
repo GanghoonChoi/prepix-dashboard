@@ -25,6 +25,8 @@ import {
 } from "@/lib/b2b-files/transfer";
 import { bytes } from "@/lib/workspaces/upload";
 import {
+  Block,
+  Details,
   inputClass,
   primaryClass,
   secondaryClass,
@@ -315,26 +317,33 @@ export function FileTransfers({
       "Paused; choose the source to resume",
     );
   };
+  const storage = capabilities.storage;
+  const reserved = Number(storage.reservedBytes);
   return (
-    <section
-      className="space-y-5 border-b border-border pb-8"
-      aria-label={c("자료 전송", "File transfers")}
+    <Block
+      title={c("자료 추가", "Add files")}
+      description={
+        capabilities.uploadsEnabled && capabilities.policy
+          ? `${c("팀 저장 공간", "Team storage")} ${bytes(Number(storage.usedBytes))} / ${bytes(Number(storage.limitBytes))}${
+              reserved
+                ? ` · ${c("전송 중 예약", "reserved for transfers")} ${bytes(reserved)}`
+                : ""
+            }`
+          : isDirectLibrary(scope)
+            ? c(
+                "지금은 보관함에 자료를 추가할 수 없습니다.",
+                "You can't add files to the library right now.",
+              )
+            : c(
+                "지금은 이 폴더에 자료를 추가할 수 없습니다.",
+                "You can't add files to this folder right now.",
+              )
+      }
     >
-      <div>
-        <h2 className="font-medium">
-          {c("자료 추가와 전송", "Add and transfer files")}
-        </h2>
-        <p className="mt-2 max-w-3xl text-pretty text-sm leading-6 text-muted">
-          {c(
-            "팀 클라우드에 보관합니다. 처음에는 업로더와 내부 자료 담당자만 접근하며, 이름이 같은 파일도 자동으로 덮어쓰지 않습니다.",
-            "Files are stored in team cloud storage. Initial access is limited to the uploader and internal asset steward. Matching names never overwrite files.",
-          )}
-        </p>
-      </div>
       {error && <B2bError code={error} />}
-      {capabilities.uploadsEnabled && capabilities.policy ? (
+      {capabilities.uploadsEnabled && capabilities.policy && (
         <form
-          className="max-w-2xl space-y-4"
+          className="max-w-2xl space-y-3"
           onSubmit={async (event) => {
             event.preventDefault();
             if (
@@ -368,7 +377,7 @@ export function FileTransfers({
             }
           }}
         >
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-2 text-sm">
               <span>
                 {isDirectLibrary(scope)
@@ -408,62 +417,61 @@ export function FileTransfers({
               </select>
             </label>
           </div>
-          <label className="block space-y-2 text-sm">
-            <span>{c("보관할 파일", "Files to store")}</span>
-            <input
-              ref={inputRef}
-              type="file"
-              multiple
-              className={inputClass}
-              onChange={(e) => setSelected(Array.from(e.target.files ?? []))}
-            />
-          </label>
-          <p className="text-sm text-muted">
-            {c("파일당 최대", "Maximum per file")}{" "}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <label className="min-w-0 flex-1 space-y-2 text-sm">
+              <span className="block">
+                {c("보관할 파일", "Files to store")}
+              </span>
+              <input
+                ref={inputRef}
+                type="file"
+                multiple
+                className={inputClass}
+                onChange={(e) => setSelected(Array.from(e.target.files ?? []))}
+              />
+            </label>
+            <button
+              className={primaryClass}
+              disabled={
+                restoring ||
+                !selected.length ||
+                !!error ||
+                (kind === "working" && !capabilities.policy.native)
+              }
+              type="submit"
+            >
+              {c("팀에 보관 시작", "Store in team")}
+            </button>
+          </div>
+          <p className="text-xs text-muted">
+            {c("파일당 최대", "Max per file")}{" "}
             {bytes(
               kind === "working"
                 ? (capabilities.policy.native?.maxBytes ?? 0)
                 : capabilities.policy.maxFileBytes,
-            )}
-            .{" "}
-            {kind === "working" ? (
-              c(
-                ".prepixwork 파일에는 편집 내용과 필수 원본 목록이 포함됩니다. 원본은 별도로 연결합니다.",
-                "A .prepixwork project contains the edit document and required source list. Connect originals separately.",
-              )
-            ) : (
-              <>
-                {c("지원 컨테이너", "Supported containers")}:{" "}
-                {capabilities.policy.formats.join(", ")}.{" "}
-              </>
-            )}
-            {c(
-              "실제 형식은 서버에서 검사합니다.",
-              "Actual format is checked on the server.",
-            )}
+            )}{" "}
+            ·{" "}
+            {kind === "working"
+              ? ".prepixwork"
+              : capabilities.policy.formats.join(", ")}
           </p>
-          <button
-            className={primaryClass}
-            disabled={
-              restoring ||
-              !selected.length ||
-              !!error ||
-              (kind === "working" && !capabilities.policy.native)
-            }
-            type="submit"
-          >
-            {c("팀에 보관 시작", "Store in team")}
-          </button>
+          <Details>
+            <p>
+              {c(
+                "처음에는 올린 사람과 내부 자료 담당자만 접근합니다. 이름이 같은 파일도 덮어쓰지 않으며, 실제 형식은 서버에서 검사합니다.",
+                "At first only the uploader and the internal asset steward have access. Matching names never overwrite files; the actual format is checked on the server.",
+              )}
+            </p>
+            {kind === "working" && (
+              <p>
+                {c(
+                  ".prepixwork 파일에는 편집 내용과 필수 원본 목록이 포함됩니다. 원본은 별도로 연결합니다.",
+                  "A .prepixwork project contains the edit document and required source list. Connect originals separately.",
+                )}
+              </p>
+            )}
+          </Details>
         </form>
-      ) : (
-        <p className="text-sm text-muted">
-          {c(
-            isDirectLibrary(scope)
-              ? "현재 보관함에서 새 자료 등록을 사용할 수 없습니다. 내부 참여 권한, 이용 상태와 업로드 설정을 확인해 주세요."
-              : "현재 폴더에서 새 자료 등록을 사용할 수 없습니다. 참여 권한, 이용 상태와 업로드 설정을 확인해 주세요.",
-            "New uploads are unavailable. Check participation, team status and upload configuration.",
-          )}
-        </p>
       )}
       {restoring && (
         <p className="text-sm text-muted" role="status">
@@ -473,126 +481,130 @@ export function FileTransfers({
           )}
         </p>
       )}
-      <ul className="divide-y divide-border">
-        {rows.map((job) => {
-          const terminal =
-            job.phase === "cancelled" ||
-            ["ready", "cancelled", "expired", "quarantined"].includes(
-              job.upload?.state ?? "",
-            );
-          const verifying = job.upload?.state === "verifying";
-          return (
-            <li key={job.id} className="space-y-3 py-4">
-              <div>
-                <p className="break-all text-sm font-medium">
-                  {job.visible
-                    ? job.name
-                    : c("확인할 수 없는 전송", "Unavailable transfer")}
-                </p>
-                <p className="mt-1 text-sm text-muted" role="status">
-                  {label(job)}
-                  {job.visible && (
-                    <span className="ml-2 tabular-nums">{bytes(job.size)}</span>
-                  )}
-                </p>
-              </div>
-              {job.running &&
-                job.visible &&
-                (job.phase === "hashing" || job.phase === "uploading") && (
-                  <progress
-                    className="w-full accent-foreground"
-                    max={job.size}
-                    value={job.loaded}
-                    aria-label={label(job)}
-                  />
-                )}
-              {job.error && <B2bError code={job.error} />}
-              <div className="flex flex-wrap gap-2">
-                {job.running && job.phase !== "cancelled" && (
-                  <button
-                    type="button"
-                    className={secondaryClass}
-                    onClick={() => controllers.current.get(job.id)?.abort()}
-                  >
-                    {c("일시 중단", "Pause")}
-                  </button>
-                )}
-                {!job.running &&
-                  job.visible &&
-                  !terminal &&
-                  !verifying &&
-                  !job.record?.cancelRequested &&
-                  capabilities.uploadsEnabled && (
-                    <label
-                      className={`${secondaryClass} relative cursor-pointer focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-foreground`}
-                    >
-                      <span>
-                        {c("원본 선택 후 재개", "Choose source to resume")}
+      {!!rows.length && (
+        <ul className="divide-y divide-border border-y border-border">
+          {rows.map((job) => {
+            const terminal =
+              job.phase === "cancelled" ||
+              ["ready", "cancelled", "expired", "quarantined"].includes(
+                job.upload?.state ?? "",
+              );
+            const verifying = job.upload?.state === "verifying";
+            return (
+              <li key={job.id} className="space-y-2 py-3">
+                <div>
+                  <p className="break-all text-sm font-medium">
+                    {job.visible
+                      ? job.name
+                      : c("확인할 수 없는 전송", "Unavailable transfer")}
+                  </p>
+                  <p className="text-[13px] text-muted" role="status">
+                    {label(job)}
+                    {job.visible && (
+                      <span className="ml-2 tabular-nums">
+                        {bytes(job.size)}
                       </span>
-                      <input
-                        type="file"
-                        aria-label={c(
-                          `${job.name} 원본 선택 후 재개`,
-                          `Choose source for ${job.name}`,
-                        )}
-                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          e.target.value = "";
-                          if (file) void run(job, file);
-                        }}
-                      />
-                    </label>
-                  )}
-                {!job.running &&
+                    )}
+                  </p>
+                </div>
+                {job.running &&
                   job.visible &&
-                  job.record &&
-                  !terminal &&
-                  !verifying &&
-                  !job.record?.cancelRequested &&
-                  capabilities.uploadsEnabled && (
+                  (job.phase === "hashing" || job.phase === "uploading") && (
+                    <progress
+                      className="w-full accent-foreground"
+                      max={job.size}
+                      value={job.loaded}
+                      aria-label={label(job)}
+                    />
+                  )}
+                {job.error && <B2bError code={job.error} />}
+                <div className="flex flex-wrap gap-2">
+                  {job.running && job.phase !== "cancelled" && (
                     <button
                       type="button"
                       className={secondaryClass}
-                      onClick={() => void run(job)}
+                      onClick={() => controllers.current.get(job.id)?.abort()}
                     >
-                      {c("등록 결과 확인", "Check registration")}
+                      {c("일시 중단", "Pause")}
                     </button>
                   )}
-                {!job.running && job.visible && !terminal && (
-                  <button
-                    type="button"
-                    className={secondaryClass}
-                    onClick={() => void cancel(job)}
-                  >
-                    {job.record?.cancelRequested
-                      ? c("취소 결과 재확인", "Retry cancellation")
-                      : c("전송 취소", "Cancel transfer")}
-                  </button>
-                )}
-                {!job.running && terminal && (
-                  <button
-                    type="button"
-                    className={secondaryClass}
-                    onClick={async () => {
-                      try {
-                        if (job.record) await store.remove(job.record);
-                        if (!alive.current) return;
-                        jobs.current = jobs.current.filter((j) => j !== job);
-                        publish();
-                      } catch (e) {
-                        update(job, job.generation, { error: fileError(e) });
-                      }
-                    }}
-                  >
-                    {c("전송 기록 닫기", "Dismiss transfer record")}
-                  </button>
-                )}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
-    </section>
+                  {!job.running &&
+                    job.visible &&
+                    !terminal &&
+                    !verifying &&
+                    !job.record?.cancelRequested &&
+                    capabilities.uploadsEnabled && (
+                      <label
+                        className={`${secondaryClass} relative cursor-pointer focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-foreground`}
+                      >
+                        <span>
+                          {c("원본 선택 후 재개", "Choose source to resume")}
+                        </span>
+                        <input
+                          type="file"
+                          aria-label={c(
+                            `${job.name} 원본 선택 후 재개`,
+                            `Choose source for ${job.name}`,
+                          )}
+                          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            e.target.value = "";
+                            if (file) void run(job, file);
+                          }}
+                        />
+                      </label>
+                    )}
+                  {!job.running &&
+                    job.visible &&
+                    job.record &&
+                    !terminal &&
+                    !verifying &&
+                    !job.record?.cancelRequested &&
+                    capabilities.uploadsEnabled && (
+                      <button
+                        type="button"
+                        className={secondaryClass}
+                        onClick={() => void run(job)}
+                      >
+                        {c("등록 결과 확인", "Check registration")}
+                      </button>
+                    )}
+                  {!job.running && job.visible && !terminal && (
+                    <button
+                      type="button"
+                      className={secondaryClass}
+                      onClick={() => void cancel(job)}
+                    >
+                      {job.record?.cancelRequested
+                        ? c("취소 결과 재확인", "Retry cancellation")
+                        : c("전송 취소", "Cancel transfer")}
+                    </button>
+                  )}
+                  {!job.running && terminal && (
+                    <button
+                      type="button"
+                      className={secondaryClass}
+                      onClick={async () => {
+                        try {
+                          if (job.record) await store.remove(job.record);
+                          if (!alive.current) return;
+                          jobs.current = jobs.current.filter((j) => j !== job);
+                          publish();
+                        } catch (e) {
+                          update(job, job.generation, { error: fileError(e) });
+                        }
+                      }}
+                    >
+                      {c("전송 기록 닫기", "Dismiss transfer record")}
+                    </button>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Block>
   );
 }

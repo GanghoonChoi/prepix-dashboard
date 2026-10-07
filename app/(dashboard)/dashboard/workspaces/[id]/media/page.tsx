@@ -2,15 +2,11 @@
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useOverlayState } from "@heroui/react";
 import {
-  ArrowLeft,
-  Download,
+  ChevronRight,
   ExternalLink,
-  FolderPlus,
   LayoutGrid,
   List,
-  Trash2,
   Upload,
-  Video,
 } from "lucide-react";
 import {
   cloudService,
@@ -43,10 +39,13 @@ import {
   SpaceBadge,
   TeamLoading,
   ConfirmDialog,
+  EmptyState,
+  Notice,
   inputClass,
   primaryClass,
   secondaryClass,
 } from "@/components/workspaces/shared";
+import { RowMenu, RowMenuItem } from "@/components/workspaces/row-menu";
 import {
   CloudError,
   cloudErrorCode,
@@ -267,12 +266,7 @@ function Content({ id }: { id: string }) {
       document.body.append(link);
       link.click();
       link.remove();
-      setNotice(
-        c(
-          "원본 다운로드를 시작했습니다. 앱에서 새 프로젝트를 만들고 이 파일을 가져오세요.",
-          "Original download started. Create a local project in the app and import this file.",
-        ),
-      );
+      setNotice(c("원본 다운로드를 시작했습니다.", "Original download started."));
     });
   }
 
@@ -375,6 +369,17 @@ function Content({ id }: { id: string }) {
     onConfirm: (label, run) => setConfirm({ label, run }),
   };
 
+  const crumb =
+    "rounded-md px-1.5 py-1 text-muted transition-colors hover:bg-surface-secondary hover:text-foreground";
+  const chevron = (
+    <ChevronRight
+      size={14}
+      strokeWidth={1.75}
+      aria-hidden="true"
+      className="shrink-0 text-muted"
+    />
+  );
+
   return (
     <TeamShell
       title={
@@ -385,28 +390,45 @@ function Content({ id }: { id: string }) {
             ? c("기존 아카이브", "Legacy archive")
             : c("팀 아카이브", "Team archive")
       }
+      actions={
+        data && (
+          <>
+            {appLink && (
+              <button className={secondaryClass} onClick={openInApp}>
+                <ExternalLink size={16} strokeWidth={1.75} aria-hidden="true" />
+                {c("앱에서 열기", "Open in app")}
+              </button>
+            )}
+            {data.canEdit && !trash && (
+              <button
+                className={primaryClass}
+                disabled={!canUpload}
+                onClick={() => {
+                  resume.current = undefined;
+                  fileInput.current?.click();
+                }}
+              >
+                <Upload size={16} strokeWidth={1.75} aria-hidden="true" />
+                {c("원본 업로드", "Upload originals")}
+              </button>
+            )}
+          </>
+        )
+      }
     >
       {appFallback && appLink && (
-        <div
-          role="status"
-          className="space-y-3 rounded-lg border border-border bg-surface p-4 text-sm leading-6"
-        >
-          <p>
-            {c(
-              "앱이 열리지 않았나요? Prepix 앱을 설치한 뒤 이 페이지로 돌아오면 같은 워크스페이스를 다시 열 수 있습니다.",
-              "App didn't open? Install Prepix, then come back to this page to open the same workspace again.",
-            )}
-          </p>
+        <Notice role="status">
+          {c("앱이 열리지 않았나요? ", "App didn't open? ")}
           <a
-            className={secondaryClass}
+            className="underline underline-offset-2"
             href={downloadAppUrl}
             target="_blank"
             rel="noopener noreferrer"
           >
-            <Download size={16} strokeWidth={1.5} />
             {c("Prepix 앱 다운로드", "Download the Prepix app")}
           </a>
-        </div>
+          {c(" 후 다시 시도하세요.", ", then try again.")}
+        </Notice>
       )}
       {error && (
         <CloudError
@@ -418,14 +440,7 @@ function Content({ id }: { id: string }) {
         />
       )}
       {!data && !error && <TeamLoading />}
-      {notice && (
-        <p
-          role="status"
-          className="rounded-lg border border-border bg-surface p-4 text-sm leading-6"
-        >
-          {notice}
-        </p>
-      )}
+      {notice && <Notice role="status">{notice}</Notice>}
       {confirm && (
         <ConfirmDialog
           label={c("작업 확인", "Confirm action")}
@@ -456,9 +471,8 @@ function Content({ id }: { id: string }) {
       )}
       {data && handlers && (
         <>
-          <StorageMeter storage={data.storage} />
           <section
-            className="space-y-5"
+            className="space-y-4"
             onDragOver={(e) => {
               if (canUpload) e.preventDefault();
             }}
@@ -470,46 +484,79 @@ function Content({ id }: { id: string }) {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <nav
                 aria-label={c("폴더 경로", "Folder path")}
-                className="flex flex-wrap items-center gap-2 text-sm"
+                className="flex min-w-0 flex-wrap items-center gap-1 text-sm"
               >
                 {/*
                   Upload is the durable action on this page, so the space it
-                  lands in is named beside it, not only in the switcher.
+                  lands in is named at the root of where it lands, not only in
+                  the switcher.
                 */}
-                {team && <SpaceBadge workspace={team.workspace} />}
-                <button
-                  className={secondaryClass}
-                  onClick={() => {
-                    setTrash(false);
-                    setPath([]);
-                  }}
-                >
-                  {c("모든 파일", "All files")}
-                </button>
-                {current && !trash && (
-                  <>
-                    <button
-                      className={secondaryClass}
-                      onClick={() => setPath(path.slice(0, -1))}
-                      aria-label={c("상위 폴더", "Parent folder")}
-                    >
-                      <ArrowLeft size={16} strokeWidth={1.5} />
-                    </button>
-                    <span className="max-w-60 break-all font-medium">
-                      {current.name}
-                    </span>
-                  </>
+                {team && (
+                  <span className="mr-1">
+                    <SpaceBadge workspace={team.workspace} />
+                  </span>
                 )}
-                {trash && <span>{c("휴지통", "Trash")}</span>}
+                {current || trash ? (
+                  <button
+                    className={crumb}
+                    onClick={() => {
+                      setTrash(false);
+                      setPath([]);
+                    }}
+                  >
+                    {c("모든 파일", "All files")}
+                  </button>
+                ) : (
+                  <span aria-current="page" className="px-1.5 py-1 font-medium">
+                    {c("모든 파일", "All files")}
+                  </span>
+                )}
+                {/* The trash is per folder (the archive is fetched one folder
+                    at a time), so its path stays on screen and every step of
+                    it is a way back out. */}
+                {path.map((folder, i) =>
+                  !trash && i === path.length - 1 ? (
+                    <span key={folder.id} className="flex min-w-0 items-center gap-1">
+                      {chevron}
+                      <span
+                        aria-current="page"
+                        className="max-w-60 break-all px-1.5 py-1 font-medium"
+                      >
+                        {folder.name}
+                      </span>
+                    </span>
+                  ) : (
+                    <span key={folder.id} className="flex min-w-0 items-center gap-1">
+                      {chevron}
+                      <button
+                        className={`${crumb} max-w-60 break-all`}
+                        onClick={() => {
+                          setTrash(false);
+                          setPath(path.slice(0, i + 1));
+                        }}
+                      >
+                        {folder.name}
+                      </button>
+                    </span>
+                  ),
+                )}
+                {trash && (
+                  <span className="flex items-center gap-1">
+                    {chevron}
+                    <span aria-current="page" className="px-1.5 py-1 font-medium">
+                      {c("휴지통", "Trash")}
+                    </span>
+                  </span>
+                )}
               </nav>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex items-center gap-1">
                 {/* Two views of one archive. The pair is a radiogroup rather
                     than two toggles so a screen reader hears one choice with
                     two options, which is what it is. */}
                 <div
                   role="radiogroup"
                   aria-label={c("보기 방식", "View")}
-                  className="flex items-center gap-1 rounded-md border border-border p-1"
+                  className="inline-flex rounded-md border border-border p-0.5"
                 >
                   {(
                     [
@@ -524,56 +571,30 @@ function Content({ id }: { id: string }) {
                       aria-label={label}
                       title={label}
                       onClick={() => chooseView(mode)}
-                      className={`grid size-9 place-items-center rounded transition-colors ${
+                      className={`grid size-8 place-items-center rounded transition-colors ${
                         view === mode
                           ? "bg-surface-secondary text-foreground"
                           : "text-muted hover:text-foreground"
                       }`}
                     >
-                      <Icon size={16} strokeWidth={1.5} aria-hidden="true" />
+                      <Icon size={16} strokeWidth={1.75} aria-hidden="true" />
                     </button>
                   ))}
                 </div>
-                {appLink && (
-                  <button className={secondaryClass} onClick={openInApp}>
-                    <ExternalLink size={16} strokeWidth={1.5} />
-                    {c("앱에서 열기", "Open in app")}
-                  </button>
-                )}
-                {data.canEdit && (
-                  <button
-                    className={secondaryClass}
-                    onClick={() => setTrash(!trash)}
-                  >
-                    <Trash2 size={16} strokeWidth={1.5} />
-                    {trash
-                      ? c("파일로 돌아가기", "Back to files")
-                      : c("휴지통", "Trash")}
-                  </button>
-                )}
+                {/* Folders and the trash are a few times a week, not every
+                    visit — one menu instead of two more buttons. */}
                 {data.canEdit && !trash && (
-                  <button
-                    className={secondaryClass}
-                    disabled={queue.busy}
-                    aria-expanded={showFolder}
-                    onClick={() => setShowFolder(!showFolder)}
-                  >
-                    <FolderPlus size={16} strokeWidth={1.5} />
-                    {c("새 폴더", "New folder")}
-                  </button>
-                )}
-                {data.canEdit && !trash && (
-                  <button
-                    className={primaryClass}
-                    disabled={!canUpload}
-                    onClick={() => {
-                      resume.current = undefined;
-                      fileInput.current?.click();
-                    }}
-                  >
-                    <Upload size={16} strokeWidth={1.5} />
-                    {c("원본 업로드", "Upload originals")}
-                  </button>
+                  <RowMenu label={c("아카이브 작업", "Archive actions")}>
+                    <RowMenuItem
+                      disabled={queue.busy}
+                      onClick={() => setShowFolder(true)}
+                    >
+                      {c("새 폴더", "New folder")}
+                    </RowMenuItem>
+                    <RowMenuItem onClick={() => setTrash(true)}>
+                      {c("휴지통", "Trash")}
+                    </RowMenuItem>
+                  </RowMenu>
                 )}
               </div>
             </div>
@@ -594,16 +615,16 @@ function Content({ id }: { id: string }) {
               }}
             />
             {!data.capabilities.uploadsEnabled && data.canEdit && (
-              <p className="text-sm leading-6 text-muted">
+              <Notice role="note">
                 {c(
-                  "이 환경의 새 업로드가 비활성화되어 있습니다. 기존 파일은 계속 관리할 수 있습니다.",
-                  "New uploads are disabled in this environment. You can still manage existing files.",
+                  "이 환경에서는 새 업로드를 사용할 수 없습니다.",
+                  "New uploads are disabled in this environment.",
                 )}
-              </p>
+              </Notice>
             )}
             {showFolder && data.canEdit && !trash && (
               <form
-                className="flex flex-col gap-3 sm:flex-row"
+                className="flex flex-col gap-2 sm:flex-row"
                 onSubmit={(e) => {
                   e.preventDefault();
                   void action("folder", async () => {
@@ -615,24 +636,38 @@ function Content({ id }: { id: string }) {
               >
                 <input
                   aria-label={c("폴더 이름", "Folder name")}
+                  placeholder={c("폴더 이름", "Folder name")}
                   required
+                  autoFocus
                   maxLength={120}
-                  className={inputClass}
+                  className={`${inputClass} sm:max-w-xs`}
                   value={folderName}
                   onChange={(e) => setFolderName(e.target.value)}
                 />
-                <button
-                  className={primaryClass}
-                  disabled={!!busy || !folderName.trim()}
-                >
-                  {c("폴더 만들기", "Create folder")}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    className={primaryClass}
+                    disabled={!!busy || !folderName.trim()}
+                  >
+                    {c("폴더 만들기", "Create folder")}
+                  </button>
+                  <button
+                    type="button"
+                    className={secondaryClass}
+                    onClick={() => {
+                      setFolderName("");
+                      setShowFolder(false);
+                    }}
+                  >
+                    {c("취소", "Cancel")}
+                  </button>
+                </div>
               </form>
             )}
             <TransferPanel queue={queue} onCancel={cancelTransfer} />
             {editing && (
               <form
-                className="space-y-4 rounded-lg border border-border bg-surface p-5"
+                className="space-y-3 rounded-lg border border-border p-4"
                 onSubmit={(e) => {
                   e.preventDefault();
                   void action("edit", async () => {
@@ -644,31 +679,37 @@ function Content({ id }: { id: string }) {
                   });
                 }}
               >
-                <label className="block text-sm">
-                  {c("파일 이름", "File name")}
-                  <input
-                    className={`${inputClass} mt-2`}
-                    required
-                    maxLength={255}
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                  />
-                </label>
-                <label className="block text-sm">
-                  {c("이동할 폴더", "Destination folder")}
-                  <select
-                    className={`${inputClass} mt-2`}
-                    value={editFolder}
-                    onChange={(e) => setEditFolder(e.target.value)}
-                  >
-                    <option value="">{c("모든 파일", "All files")}</option>
-                    {data.folders.map((f) => (
-                      <option key={f.id} value={f.id}>
-                        {f.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="block space-y-1.5">
+                    <span className="text-xs text-muted">
+                      {c("파일 이름", "File name")}
+                    </span>
+                    <input
+                      className={inputClass}
+                      required
+                      maxLength={255}
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                    />
+                  </label>
+                  <label className="block space-y-1.5">
+                    <span className="text-xs text-muted">
+                      {c("이동할 폴더", "Destination folder")}
+                    </span>
+                    <select
+                      className={inputClass}
+                      value={editFolder}
+                      onChange={(e) => setEditFolder(e.target.value)}
+                    >
+                      <option value="">{c("모든 파일", "All files")}</option>
+                      {data.folders.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
                 <div className="flex gap-2">
                   <button className={primaryClass} disabled={!!busy}>
                     {c("변경 저장", "Save changes")}
@@ -685,19 +726,15 @@ function Content({ id }: { id: string }) {
             )}
 
             {files.length === 0 && subfolders.length === 0 ? (
-              <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border px-6 py-14 text-center">
-                <Video size={26} strokeWidth={1.25} className="text-muted" />
-                <h3 className="font-medium">
-                  {trash
+              <EmptyState
+                title={
+                  trash
                     ? c("휴지통이 비어 있습니다", "Trash is empty")
-                    : c("첫 원본을 올려보세요", "Upload your first original")}
-                </h3>
-                <p className="text-sm leading-6 text-muted">
-                  {trash
-                    ? c(
-                        "휴지통 파일은 저장 용량에 포함됩니다.",
-                        "Trashed files still count toward storage.",
-                      )
+                    : c("첫 원본을 올려보세요", "Upload your first original")
+                }
+                description={
+                  trash
+                    ? undefined
                     : data.canEdit
                       ? c(
                           "파일을 이 영역에 놓거나 원본 업로드를 선택하세요.",
@@ -706,9 +743,9 @@ function Content({ id }: { id: string }) {
                       : c(
                           "아카이브에 원본이 추가되면 여기에 표시됩니다.",
                           "Originals added to this archive will appear here.",
-                        )}
-                </p>
-              </div>
+                        )
+                }
+              />
             ) : view === "grid" ? (
               <AssetGrid
                 folders={trash ? [] : subfolders}
@@ -739,18 +776,17 @@ function Content({ id }: { id: string }) {
                 {c("더 불러오기", "Load more")}
               </button>
             )}
-            {/* The only part of the old footnote a person acts on is the
-                limit. The rest — any format is accepted, uploading starts no
-                analysis — describes things that do not happen, and a caveat
-                about what the product will NOT do reads as reassurance the
-                first time and clutter every time after. */}
-            <p className="text-xs leading-5 text-muted tabular-nums">
-              {c(
-                `파일당 최대 ${bytes(data.capabilities.maxFileBytes)}`,
-                `Up to ${bytes(data.capabilities.maxFileBytes)} per file`,
-              )}
-            </p>
           </section>
+          {/* Capacity is the page's footer, not its headline: it matters when
+              it runs out, and the error says so then. The per-file limit sits
+              with it — the only part of the old footnote a person acts on. */}
+          <StorageMeter
+            storage={data.storage}
+            note={c(
+              `파일당 최대 ${bytes(data.capabilities.maxFileBytes)}`,
+              `Up to ${bytes(data.capabilities.maxFileBytes)} per file`,
+            )}
+          />
           {preview.isOpen && playable[previewIndex] && (
             <PreviewModal
               state={preview}

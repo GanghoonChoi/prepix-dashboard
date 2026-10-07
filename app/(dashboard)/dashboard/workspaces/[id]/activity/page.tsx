@@ -7,7 +7,12 @@ import {
   type TeamActivity,
 } from "@/lib/api/services/workspace.service";
 import { activityLabel } from "@/lib/workspaces/activity";
-import { TeamShell, secondaryClass } from "@/components/workspaces/shared";
+import {
+  EmptyState,
+  TeamLoading,
+  TeamShell,
+  secondaryClass,
+} from "@/components/workspaces/shared";
 import {
   CloudError,
   cloudErrorCode,
@@ -48,15 +53,12 @@ export default function Page() {
   useEffect(() => {
     if (data.canManage && data.managementEnabled) void load();
   }, [load, data.canManage, data.managementEnabled]);
+  const allowed = data.canManage && data.managementEnabled;
   return (
     <TeamShell
       title={lang === "ko" ? "활동 기록" : "Activity"}
-    >
-      {!data.canManage || !data.managementEnabled ? (
-        <CloudError code="WORKSPACE_ADMIN_REQUIRED" />
-      ) : (
-        <>
-          {error && <CloudError code={error} retry={() => load()} />}
+      actions={
+        allowed && (
           <button
             className={secondaryClass}
             disabled={busy}
@@ -64,50 +66,49 @@ export default function Page() {
           >
             {lang === "ko" ? "새로고침" : "Refresh"}
           </button>
-          <ol className="divide-y divide-border rounded-lg border border-border px-5">
-            {result?.events.map((row) => (
-              <li key={row.id} className="space-y-2 py-4">
-                <p className="text-sm font-medium">
-                  {activityLabel(row.action, lang)}
-                </p>
-                <p className="break-all text-xs text-muted">
-                  {/* No actor means the system acted. Falling through to an
-                      empty string would print a bare separator and read as a
-                      rendering bug rather than a fact about the entry. */}
-                  {row.actorName ||
-                    row.actorEmail ||
-                    (lang === "ko" ? "시스템" : "System")}{" "}
-                  ·{" "}
-                  {new Date(row.createdAt).toLocaleString(lang)}
-                </p>
-                {row.detail.userId && (
-                  <p className="break-all text-xs text-muted">
-                    {lang === "ko" ? "대상" : "Member"}:{" "}
-                    {row.targetEmail ||
-                      data.members.find((m) => m.userId === row.detail.userId)
-                        ?.email ||
-                      (lang === "ko" ? "이전 멤버" : "Former member")}
-                  </p>
-                )}
-                {row.projectName && (
-                  <p className="break-words text-xs text-muted">
-                    {row.projectName}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ol>
-          {result?.events.length === 0 && (
-            <p className="text-sm text-muted">
-              {lang === "ko"
-                ? "아직 활동 기록이 없습니다."
-                : "No activity yet."}
-            </p>
+        )
+      }
+    >
+      {!allowed ? (
+        <CloudError code="WORKSPACE_ADMIN_REQUIRED" />
+      ) : (
+        <>
+          {error && <CloudError code={error} retry={() => load()} />}
+          {!result && !error && <TeamLoading />}
+          {result && result.events.length === 0 && (
+            <EmptyState
+              title={
+                lang === "ko" ? "아직 활동 기록이 없습니다." : "No activity yet."
+              }
+            />
           )}
-          {busy && (
-            <p role="status" className="text-sm text-muted">
-              {lang === "ko" ? "기록 불러오는 중…" : "Loading activity…"}
-            </p>
+          {!!result?.events.length && (
+            <ol className="divide-y divide-border rounded-lg border border-border">
+              {result.events.map((row) => (
+                <li key={row.id} className="px-5 py-3">
+                  <p className="text-sm font-medium">
+                    {activityLabel(row.action, lang)}
+                  </p>
+                  <p className="mt-0.5 break-all text-xs text-muted">
+                    {/* No actor means the system acted. Falling through to an
+                        empty string would print a bare separator and read as a
+                        rendering bug rather than a fact about the entry. */}
+                    {row.actorName ||
+                      row.actorEmail ||
+                      (lang === "ko" ? "시스템" : "System")}{" "}
+                    · {new Date(row.createdAt).toLocaleString(lang)}
+                    {row.detail.userId &&
+                      ` · ${lang === "ko" ? "대상" : "Member"}: ${
+                        row.targetEmail ||
+                        data.members.find((m) => m.userId === row.detail.userId)
+                          ?.email ||
+                        (lang === "ko" ? "이전 멤버" : "Former member")
+                      }`}
+                    {row.projectName && ` · ${row.projectName}`}
+                  </p>
+                </li>
+              ))}
+            </ol>
           )}
           {result?.nextCursor && (
             <button
@@ -115,7 +116,13 @@ export default function Page() {
               disabled={busy}
               onClick={() => load(result.nextCursor!)}
             >
-              {lang === "ko" ? "이전 기록 더 보기" : "Load older activity"}
+              {busy
+                ? lang === "ko"
+                  ? "기록 불러오는 중…"
+                  : "Loading activity…"
+                : lang === "ko"
+                  ? "이전 기록 더 보기"
+                  : "Load older activity"}
             </button>
           )}
         </>

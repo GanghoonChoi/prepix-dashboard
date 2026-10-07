@@ -30,13 +30,13 @@ test.beforeAll(async () => {
   const root = process.cwd();
   const stubs: Record<string, string> = {
     "next/navigation":
-      'import {useMemo} from "react";export function useSearchParams(){return useMemo(()=>new URLSearchParams(location.search),[location.search])}export function useRouter(){return {push:url=>history.pushState(null,"",url),refresh(){}}}',
+      'import {useMemo} from "react";export function useSearchParams(){return useMemo(()=>new URLSearchParams(location.search),[location.search])}export function useRouter(){return {push:url=>history.pushState(null,"",url),refresh(){}}}export function usePathname(){return location.pathname}',
     "next/link":
       'import React from "react"; export default function Link({href,children,...props}){return <a href={href} {...props}>{children}</a>}',
     "@/components/workspaces/workspace-context":
       "export function useWorkspace(){return window.fixture}",
     "@/components/workspaces/shared":
-      'import React from "react"; export const primaryClass="",secondaryClass="",inputClass="";export function TeamLoading(){return <p>Loading</p>}export function Block({title,children,actions}){return <section><h2>{title}</h2>{actions}{children}</section>}export function ConfirmDialog({children}){return <div>{children}</div>}export function TeamShell({title,description,children}){return <main><h1>{title}</h1><p>{description}</p>{children}</main>}export function SpaceBadge(){return null}',
+      'import React from "react"; export const primaryClass="",secondaryClass="",inputClass="";export function TeamLoading(){return <p>Loading</p>}export function Block({title,children,actions}){return <section><h2>{title}</h2>{actions}{children}</section>}export function ConfirmDialog({children}){return <div>{children}</div>}export function TeamShell({title,description,children}){return <main><h1>{title}</h1><p>{description}</p>{children}</main>}export function SpaceBadge(){return null}export function Details({summary,children}){return <details><summary>{summary}</summary>{children}</details>}export function EmptyState({title,description,action}){return <div><p>{title}</p>{description&&<p>{description}</p>}{action}</div>}export function Notice({children,role}){return <div role={role}>{children}</div>}export function KeyValues({items}){return <dl>{items.map(([k,v],i)=><div key={i}><dt>{k}</dt><dd>{v}</dd></div>)}</dl>}export function BackLink({href,children}){return <a href={href}>{children}</a>}',
     "@/lib/i18n/context":
       'export function useI18n(){return {lang:"ko"}}export function readLang(){return "ko"}',
     "./request-work": "export function RequestWorkPanel(){return null}",
@@ -107,8 +107,11 @@ for (const kind of ["old-round", "invalid-link", "wrong-response", "late-query-c
       await expect(page.getByText(/이전 검토\(읽기 전용\)/)).toBeVisible();
       await expect(page.getByRole("button",{name:"V2 · 현재 검토",exact:true})).toBeDisabled();
       await page.evaluate(()=>window.dispatchEvent(new Event("focus")));
-      await expect.poll(()=>page.evaluate(()=>(window as unknown as {calls:{url:string}[]}).calls.length)).toBeGreaterThan(1);
-      expect(await page.evaluate(()=>(window as unknown as {calls:{url:string}[]}).calls.every(c=>c.url.endsWith("?round=1")))).toBe(true);
+      // Every re-read of the REVIEW stays pinned to the app's round. Other reads
+      // on the page (the version's download permission) are not review reads.
+      const reviewReads=()=>page.evaluate(()=>(window as unknown as {calls:{url:string}[]}).calls.filter(c=>c.url.includes("/reviews/")));
+      await expect.poll(async()=>(await reviewReads()).length).toBeGreaterThan(1);
+      expect((await reviewReads()).every(c=>c.url.endsWith("?round=1"))).toBe(true);
     } else {
       if(kind === "late-query-change") {
         await expect.poll(()=>page.evaluate(()=>typeof (window as unknown as {releaseReview?:unknown}).releaseReview)).toBe("function");

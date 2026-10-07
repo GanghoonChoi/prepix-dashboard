@@ -32,14 +32,14 @@ export function LeaveTeam() {
               "An owner can leave after an internal successor accepts ownership transfer.",
             )
           : c(
-              "탈퇴하면 팀과 폴더 접근이 즉시 종료됩니다. 작성한 자료는 팀에 남고 재참여에는 새 초대가 필요합니다.",
-              "Leaving immediately ends team and folder access. Your work stays with the team. Rejoining requires a new invitation.",
+              "탈퇴하면 팀과 폴더 접근이 즉시 종료됩니다. 작성한 자료는 팀에 남습니다.",
+              "Leaving ends team and folder access at once. Your work stays with the team.",
             )
       }
     >
       {data.role !== "owner" && (
         <form
-          className="max-w-2xl space-y-4"
+          className="max-w-xl space-y-4"
           onSubmit={async (event) => {
             event.preventDefault();
             if (busy) return;
@@ -62,7 +62,7 @@ export function LeaveTeam() {
             }
           }}
         >
-          <label className="block space-y-2 text-sm">
+          <label className="block space-y-1.5 text-[13px]">
             <span>{c("탈퇴 사유", "Reason for leaving")}</span>
             <textarea
               aria-label={c("탈퇴 사유", "Reason for leaving")}

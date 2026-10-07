@@ -21,6 +21,8 @@ import { CouponDialog } from "@/components/dashboard/coupon-dialog";
 import { BillingHeader } from "@/components/dashboard/billing-header";
 import { useSearchParams } from "next/navigation";
 import { couponService, type CouponBenefits } from "@/lib/api/services/coupon.service";
+import { cardClass } from "@/components/ui";
+import { Block, Details, Notice, inputClass } from "@/components/workspaces/shared";
 
 export default function PlanPage() {
   const { t, lang } = useI18n();
@@ -304,8 +306,22 @@ export default function PlanPage() {
       day: "numeric",
     });
   const planName = (id: string) => plans.find((p) => p.id === id)?.displayName ?? PLAN_NAMES[id] ?? id;
+  // A pass that holds the current plan is already the status line above it.
+  const passBenefit = onPass ? null : (benefits?.pass ?? null);
   const hasBenefits =
-    !!benefits && (!!benefits.pass || benefits.credits.remainingSeconds > 0 || benefits.discounts.length > 0);
+    !!benefits && (!!passBenefit || benefits.credits.remainingSeconds > 0 || benefits.discounts.length > 0);
+  // Only what the name and status pill do not already say.
+  const statusLine = showPeriodEnd
+    ? t("plan.accessUntil", { date: periodEndLabel! })
+    : isEnded
+      ? t("plan.ended")
+      : status === "past_due"
+        ? t("plan.pastDue")
+        : onPass
+          ? t("coupon.planPassActive", { plan: planName(pass!.plan), date: shortDate(pass!.endsAt) })
+          : null;
+  const linkButton = "text-[13px] text-muted transition-colors hover:text-foreground";
+  const pill = "inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs text-muted";
 
   // The dollar price of a plan for a card issued abroad, or null when there is
   // nothing to offer (not quoted in won, or no such price).
@@ -330,7 +346,7 @@ export default function PlanPage() {
     // we will never honour.
     if (!price) {
       return plan.id === "free"
-        ? { big: formatPrice("KRW", 0), strike: null, sub: t("plan.freeForever") }
+        ? { big: formatPrice("KRW", 0), strike: null, sub: null }
         : { big: t("plan.priceUnavailable"), strike: null, sub: null };
     }
 
@@ -339,13 +355,15 @@ export default function PlanPage() {
     const per = price.interval === "year" ? t("plan.perYear") : t("plan.perMonth");
     const strike = pct ? formatPrice(price.currency, price.unitAmount) : null;
 
-    let sub: string;
+    // "/월" already says monthly; the line under it only speaks when there is
+    // something the price alone does not say.
+    let sub: string | null;
     if (price.interval === "year") {
       const perMonth = formatPrice(price.currency, Math.round(net / 12));
       const prefix = pct ? t("plan.launchPrefix", { pct }) : "";
       sub = prefix + t("plan.annualSuffix", { perMonth });
     } else {
-      sub = pct ? t("plan.launchMonthly", { pct }) : t("plan.billedMonthly");
+      sub = pct ? t("plan.launchMonthly", { pct }) : null;
     }
     // A coupon takes money off the first month only, on top of the launch
     // promo — exactly what checkout charges. The later price is said too, so
@@ -396,113 +414,121 @@ export default function PlanPage() {
       <BillingHeader
         actions={
           <Button variant="outline" size="sm" onPress={() => { setLinkedCoupon(null); couponModal.open(); }}>
-            <Ticket size={15} strokeWidth={1.75} aria-hidden="true" />
+            <Ticket size={16} strokeWidth={1.75} aria-hidden="true" />
             {t("coupon.open")}
           </Button>
         }
       />
-      <div className="space-y-10">
+      <div className="space-y-8">
 
-      {justUpgraded && (
-        <div className="rounded-md border border-border bg-surface px-4 py-3 text-sm text-foreground">
-          {t("plan.paymentReceived")}
-        </div>
-      )}
+      {justUpgraded && <Notice role="status">{t("plan.paymentReceived")}</Notice>}
 
-      {/* Current plan */}
+      {/* Current plan, and what coupons add to it — one object, not two. */}
       {loading ? (
-        <Skeleton className="h-20 w-full rounded-lg" />
+        <Skeleton className="h-24 w-full rounded-lg" />
       ) : loadError ? (
-        <div className="flex items-center justify-between rounded-lg border border-danger/30 bg-danger/5 p-6">
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-danger/30 bg-danger/5 p-4">
           <p className="text-sm text-danger">{t("plan.loadError")}</p>
           <Button variant="outline" size="sm" onPress={loadData}>{t("common.retry")}</Button>
         </div>
       ) : (
-        <div className="flex items-start justify-between rounded-lg border border-border p-6">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h2 className="text-lg font-semibold text-foreground">{PLAN_NAMES[currentPlan] || "Free"}</h2>
-              {currentPlan !== "free" && (
-                <Chip size="sm" color={statusColor} variant="soft">
-                  {statusLabel}
-                </Chip>
+        <section className={`${cardClass} p-5`}>
+          <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-lg font-semibold">{PLAN_NAMES[currentPlan] || "Free"}</h2>
+                {currentPlan !== "free" && (
+                  <Chip size="sm" color={statusColor} variant="soft">
+                    {statusLabel}
+                  </Chip>
+                )}
+              </div>
+              {statusLine && (
+                <p className={`mt-1 text-[13px] ${status === "past_due" ? "text-warning" : "text-muted"}`}>
+                  {statusLine}
+                </p>
+              )}
+              {/* The domestic processor mends a failed card by registering a new
+                  one; the others have no such step here. */}
+              {status === "past_due" && currentSub?.provider === "tosspayments" && (
+                <Button
+                  className="mt-3"
+                  size="sm"
+                  variant="primary"
+                  isDisabled={actionLoading}
+                  onPress={() => handleUpgrade(currentPlan)}
+                >
+                  {t("plan.updateCard")}
+                </Button>
               )}
             </div>
-            {showPeriodEnd ? (
-              <p className="mt-1 text-sm text-muted">
-                {t("plan.accessUntil", { date: periodEndLabel! })}
-              </p>
-            ) : isEnded ? (
-              <p className="mt-1 text-sm text-muted">
-                {t("plan.ended")}
-              </p>
-            ) : status === "past_due" ? (
-              <>
-                <p className="mt-1 text-sm text-warning">
-                  {t("plan.pastDue")}
-                </p>
-                {/* The domestic processor mends a failed card by registering a new
-                    one; the others have no such step here. */}
-                {currentSub?.provider === "tosspayments" && (
-                  <Button
-                    className="mt-3"
-                    size="sm"
-                    variant="primary"
-                    isDisabled={actionLoading}
-                    onPress={() => handleUpgrade(currentPlan)}
-                  >
-                    {t("plan.updateCard")}
-                  </Button>
+            {(canCancel || canRefund || canRequestReview || needsSupport || refundPending) && (
+              <div className="flex flex-wrap gap-x-4 gap-y-1">
+                {canCancel && (
+                  <button onClick={() => cancelModal.open()} className={linkButton}>
+                    {t("plan.cancelSubscription")}
+                  </button>
                 )}
-              </>
-            ) : (
-              <p className="mt-1 text-sm text-muted">
-                {onPass
-                  ? t("coupon.planPassActive", { plan: planName(pass!.plan), date: shortDate(pass!.endsAt) })
-                  : currentPlan === "free" ? t("plan.onFree") : t("plan.active")}
-              </p>
+                {canRefund && (
+                  <button onClick={() => refundModal.open()} className={linkButton}>
+                    {t("plan.requestRefund")}
+                  </button>
+                )}
+                {canRequestReview && (
+                  <button onClick={() => reviewModal.open()} className={linkButton}>
+                    {t("plan.requestRefundReview")}
+                  </button>
+                )}
+                {needsSupport && (
+                  <button onClick={() => supportModal.open()} className={linkButton}>
+                    {t("plan.refundContactSupport")}
+                  </button>
+                )}
+                {refundPending && (
+                  <span className="text-[13px] text-muted">{t("plan.refundPending")}</span>
+                )}
+              </div>
             )}
           </div>
-          {(canCancel || canRefund || canRequestReview || needsSupport || refundPending) && (
-            <div className="flex flex-col items-end gap-1.5">
-              {canCancel && (
-                <button
-                  onClick={() => cancelModal.open()}
-                  className="text-xs text-muted hover:text-foreground transition-colors"
-                >
-                  {t("plan.cancelSubscription")}
-                </button>
-              )}
-              {canRefund && (
-                <button
-                  onClick={() => refundModal.open()}
-                  className="text-xs text-muted hover:text-foreground transition-colors"
-                >
-                  {t("plan.requestRefund")}
-                </button>
-              )}
-              {canRequestReview && (
-                <button
-                  onClick={() => reviewModal.open()}
-                  className="text-xs text-muted hover:text-foreground transition-colors"
-                >
-                  {t("plan.requestRefundReview")}
-                </button>
-              )}
-              {needsSupport && (
-                <button
-                  onClick={() => supportModal.open()}
-                  className="text-xs text-muted hover:text-foreground transition-colors"
-                >
-                  {t("plan.refundContactSupport")}
-                </button>
-              )}
-              {refundPending && (
-                <span className="text-xs text-muted">{t("plan.refundPending")}</span>
-              )}
+
+          {/* Each with when it runs out — a benefit with no date is how
+              someone gets surprised by it ending. */}
+          {hasBenefits && (
+            <div className="mt-5 border-t border-border pt-4">
+              <h3 className="text-xs text-muted">{t("coupon.benefitsTitle")}</h3>
+              <ul className="mt-2 space-y-1.5 text-[13px]">
+                {passBenefit && (
+                  <li className="flex flex-wrap justify-between gap-x-4">
+                    <span>{t("coupon.benefitPass", { plan: planName(passBenefit.plan) })}</span>
+                    <span className="text-muted">
+                      {t("coupon.benefitPassUntil", { date: shortDate(passBenefit.endsAt) })}
+                    </span>
+                  </li>
+                )}
+                {benefits!.credits.remainingSeconds > 0 && (
+                  <li className="flex flex-wrap justify-between gap-x-4">
+                    <span>
+                      {t("coupon.benefitMinutes", {
+                        minutes: String(Math.floor(benefits!.credits.remainingSeconds / 60)),
+                      })}
+                    </span>
+                    <span className="text-muted">
+                      {t("coupon.benefitMinutesUntil", { date: shortDate(benefits!.credits.items[0].expiresAt) })}
+                    </span>
+                  </li>
+                )}
+                {benefits!.discounts.map((d) => (
+                  <li key={`${d.plan}-${d.percent}-${d.expiresAt}`} className="flex flex-wrap justify-between gap-x-4">
+                    <span>{t("coupon.benefitDiscount", { percent: String(d.percent), plan: planName(d.plan) })}</span>
+                    <span className="text-muted">
+                      {t("coupon.benefitDiscountUntil", { date: shortDate(d.expiresAt) })}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
-        </div>
+        </section>
       )}
 
       {/* A filed refund request, with our reply. Sits above the plan cards
@@ -514,65 +540,21 @@ export default function PlanPage() {
         />
       )}
 
-      {/* What coupons give this account, each with when it runs out — a
-          benefit with no date is how someone gets surprised by it ending. */}
-      {!loading && hasBenefits && (
-        <section className="space-y-3">
-          <h2 className="text-sm font-medium text-foreground">{t("coupon.benefitsTitle")}</h2>
-          <ul className="divide-y divide-border rounded-lg border border-border">
-            {benefits!.pass && (
-              <li className="flex items-center justify-between gap-4 px-5 py-3.5">
-                <span className="text-sm text-foreground">
-                  {t("coupon.benefitPass", { plan: planName(benefits!.pass.plan) })}
-                </span>
-                <span className="text-xs text-muted">
-                  {t("coupon.benefitPassUntil", { date: shortDate(benefits!.pass.endsAt) })}
-                </span>
-              </li>
-            )}
-            {benefits!.credits.remainingSeconds > 0 && (
-              <li className="flex items-center justify-between gap-4 px-5 py-3.5">
-                <span className="text-sm text-foreground">
-                  {t("coupon.benefitMinutes", {
-                    minutes: String(Math.floor(benefits!.credits.remainingSeconds / 60)),
-                  })}
-                </span>
-                <span className="text-xs text-muted">
-                  {t("coupon.benefitMinutesUntil", { date: shortDate(benefits!.credits.items[0].expiresAt) })}
-                </span>
-              </li>
-            )}
-            {benefits!.discounts.map((d) => (
-              <li key={`${d.plan}-${d.percent}-${d.expiresAt}`} className="flex items-center justify-between gap-4 px-5 py-3.5">
-                <span className="text-sm text-foreground">
-                  {t("coupon.benefitDiscount", { percent: String(d.percent), plan: planName(d.plan) })}
-                </span>
-                <span className="text-xs text-muted">
-                  {t("coupon.benefitDiscountUntil", { date: shortDate(d.expiresAt) })}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {/* Plan cards */}
       {!loading && !loadError && (
-        <section className="space-y-4">
-          <h2 className="text-sm font-medium text-foreground">{t("plan.availablePlans")}</h2>
-
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Block title={t("plan.availablePlans")}>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {plans.map((plan) => {
               const isCurrent = currentPlan === plan.id;
               const emphasize = plan.id === "creator" && !isCurrent;
               const price = priceLabel(plan);
               const btn = buttonFor(plan);
               const copy = PLAN_COPY[lang][plan.id];
+              const abroad = !btn.disabled && plan.id !== "free" ? foreignCardPrice(plan) : null;
 
               return (
                 <div
                   key={plan.id}
-                  className={`flex flex-col rounded-lg border p-6 transition-colors ${
+                  className={`flex flex-col rounded-lg border p-5 transition-colors ${
                     isCurrent
                       ? "border-foreground/30 bg-surface"
                       : emphasize
@@ -581,14 +563,12 @@ export default function PlanPage() {
                   }`}
                 >
                   <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <p className="text-base font-semibold text-foreground">{plan.displayName}</p>
-                      {emphasize && (
-                        <span className="text-[10px] font-medium  text-muted">{t("plan.popular")}</span>
-                      )}
-                      {isCurrent && (
-                        <span className="text-[10px] font-medium  text-muted">{t("plan.current")}</span>
-                      )}
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[15px] font-semibold">{plan.displayName}</p>
+                      {emphasize && <span className={pill}>{t("plan.popular")}</span>}
+                      {/* The button says "현재 플랜" itself, except on a coupon
+                          pass, where it offers to keep the plan instead. */}
+                      {isCurrent && !btn.disabled && <span className={pill}>{t("plan.current")}</span>}
                     </div>
 
                     <div className="mt-3">
@@ -598,7 +578,7 @@ export default function PlanPage() {
                         {price.strike && (
                           <span className="text-sm text-muted line-through">{price.strike}</span>
                         )}
-                        <span className="whitespace-nowrap text-3xl font-semibold text-foreground">{price.big}</span>
+                        <span className="whitespace-nowrap text-2xl font-semibold tracking-tight tabular-nums">{price.big}</span>
                       </div>
                       {"coupon" in price && price.coupon ? (
                         <p className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted">
@@ -612,13 +592,11 @@ export default function PlanPage() {
                       )}
                     </div>
 
-                    {copy && <p className="mt-3 text-xs leading-relaxed text-muted">{copy.description}</p>}
-
                     {copy && (
-                      <ul className="mt-5 space-y-2">
+                      <ul className="mt-4 space-y-1.5">
                         {copy.features.map((feat) => (
-                          <li key={feat} className="flex items-start gap-2 text-sm text-muted">
-                            <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-foreground/50" />
+                          <li key={feat} className="flex items-start gap-2 text-[13px] text-muted">
+                            <Check size={14} strokeWidth={1.75} aria-hidden="true" className="mt-0.5 shrink-0 text-foreground/60" />
                             {feat}
                           </li>
                         ))}
@@ -627,7 +605,7 @@ export default function PlanPage() {
                   </div>
 
                   <Button
-                    className="mt-6 w-full"
+                    className="mt-5 w-full"
                     variant={isCurrent || plan.status === "coming_soon" ? "outline" : "primary"}
                     size="sm"
                     isDisabled={btn.disabled || actionLoading}
@@ -636,20 +614,14 @@ export default function PlanPage() {
                     {btn.label}
                   </Button>
 
-                  {emphasize && (
-                    <p className="mt-2 text-center text-[11px] text-muted">
-                      {t("plan.cancelAnytime")}
-                    </p>
-                  )}
-
-                  {!btn.disabled && plan.id !== "free" && foreignCardPrice(plan) && (
+                  {abroad && (
                     <button
                       type="button"
                       disabled={actionLoading}
                       onClick={() => handleUpgrade(plan.id, "INTL")}
-                      className="mt-2 text-center text-[11px] text-muted underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
+                      className="mt-2 text-center text-xs text-muted underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
                     >
-                      {t("plan.payWithForeignCard", { price: foreignCardPrice(plan)! })}
+                      {t("plan.payWithForeignCard", { price: abroad })}
                     </button>
                   )}
                 </div>
@@ -659,35 +631,37 @@ export default function PlanPage() {
 
           {/* Paddle requires the buyer to accept the terms and the refund policy
               before purchase, and a refund dispute is decided against whichever
-              policy we can show they saw. Links, in the viewer's language. */}
-          <p className="mx-auto mt-6 max-w-2xl text-center text-[11px] leading-relaxed text-muted">
-            {t("plan.purchaseNotice")}
-          </p>
-          <p className="mt-2 text-center text-[11px] text-muted">
-            {t("plan.purchaseConsent")}{" "}
-            <a
-              href={legalUrl(lang, "terms-of-service")}
-              target="_blank"
-              rel="noreferrer"
-              className="underline underline-offset-2 hover:text-foreground"
-            >
-              {t("plan.termsLink")}
-            </a>
-            {t("plan.consentSeparator")}
-            <a
-              href={legalUrl(lang, "refund-policy")}
-              target="_blank"
-              rel="noreferrer"
-              className="underline underline-offset-2 hover:text-foreground"
-            >
-              {t("plan.refundPolicyLink")}
-            </a>
-            {t("plan.consentSuffix")}
-          </p>
-        </section>
+              policy we can show they saw — so the consent line and its links
+              stay on screen; the policy summary is one click away. */}
+          <div className="space-y-2">
+            <p className="text-xs text-muted">
+              {t("plan.purchaseConsent")}{" "}
+              <a
+                href={legalUrl(lang, "terms-of-service")}
+                target="_blank"
+                rel="noreferrer"
+                className="underline underline-offset-2 hover:text-foreground"
+              >
+                {t("plan.termsLink")}
+              </a>
+              {t("plan.consentSeparator")}
+              <a
+                href={legalUrl(lang, "refund-policy")}
+                target="_blank"
+                rel="noreferrer"
+                className="underline underline-offset-2 hover:text-foreground"
+              >
+                {t("plan.refundPolicyLink")}
+              </a>
+              {t("plan.consentSuffix")}
+            </p>
+            <Details summary={t("plan.refundTerms")}>
+              <p>{t("plan.purchaseNotice")}</p>
+            </Details>
+          </div>
+        </Block>
       )}
 
-      {/* Cancel modal */}
       <CouponDialog
         state={couponModal}
         initialCode={linkedCoupon}
@@ -726,7 +700,7 @@ export default function PlanPage() {
             rows={3}
             maxLength={1000}
             placeholder={t("plan.supportNotePlaceholder")}
-            className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-foreground/20"
+            className={`${inputClass} mt-1`}
           />
         </label>
         <p className="mt-3 text-xs text-muted">{t("plan.supportModalContact")}</p>
@@ -758,7 +732,7 @@ export default function PlanPage() {
             rows={3}
             maxLength={1000}
             placeholder={t("plan.reviewNotePlaceholder")}
-            className="mt-1 w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-foreground/20"
+            className={`${inputClass} mt-1`}
           />
         </label>
         <div className="mt-6 flex justify-end gap-3">

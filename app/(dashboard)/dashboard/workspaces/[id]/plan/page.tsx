@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import { useI18n } from "@/lib/i18n/context";
 import {
+  Block,
   TeamShell,
   SeatBreakdown,
   secondaryClass,
@@ -57,52 +58,47 @@ export default function Page() {
     };
   }, [cloudEnabled, data.workspace.id, data.role]);
   if (b2b?.enrolled) return <B2bPlan status={b2b} workspace={data.workspace} />;
+  const myPlan = (
+    <Link href="/dashboard/plan" className={secondaryClass}>
+      {c("내 플랜 보기", "View my plan")}
+    </Link>
+  );
   return (
     <TeamShell title={c("플랜과 결제", "Plan and billing")}>
       {personal ? (
-        <section className="space-y-4 rounded-lg border border-border p-6">
-          <h2 className="font-medium">{t("team.kind.personal")}</h2>
-          <p className="max-w-2xl text-sm leading-6 text-muted">
-            {t("team.personalDesc")}
-          </p>
-        </section>
+        <Block
+          title={t("team.kind.personal")}
+          description={t("team.personalDesc")}
+          actions={myPlan}
+        />
       ) : (
-        <section className="space-y-4 rounded-lg border border-border p-6">
-          <p className="text-xs text-muted">
-            {c("현재 팀 플랜", "Current team plan")}
-          </p>
-          <h2 className="text-2xl font-medium">
-            {c("팀 프리뷰", "Team preview")}
-          </h2>
-          {/* One sentence, not two empty sections. A "결제 수단" block and an
-              "청구서 내역" block both saying there is nothing yet spend two
-              headings to say the same thing once. */}
-          <p className="max-w-2xl text-sm leading-6 text-muted">
-            {c(
-              "아직 청구되지 않습니다. 결제 수단과 청구서는 팀 결제가 연결된 뒤에 생깁니다.",
-              "Nothing is being charged. A payment method and invoices arrive once team billing is connected.",
-            )}
-          </p>
-          <Link href="/dashboard/plan" className={secondaryClass}>
-            {c("내 플랜 보기", "View my plan")}
-          </Link>
-        </section>
-      )}
-      {/*
-        Seats belong to a team. A personal space consumes none, so this whole
-        block is absent rather than showing zeros — and for a team it is four
-        figures, never `used + reserved / limit`, which is the single total the
-        Dropbox admin read as "nothing changed" for four to six billed months.
-      */}
-      {!personal && (
         <>
-          <SeatBreakdown detail={data} />
-          <Link
-            className={secondaryClass}
-            href={`/dashboard/workspaces/${data.workspace.id}/members`}
-          >
-            {c("멤버 관리", "Manage members")}
-          </Link>
+          {/* One sentence, not two empty sections: a "결제 수단" block and an
+              "청구서 내역" block both saying there is nothing yet. */}
+          <Block
+            title={c("팀 프리뷰", "Team preview")}
+            description={c(
+              "팀 결제가 연결되기 전이라 청구되지 않습니다.",
+              "Nothing is charged until team billing is connected.",
+            )}
+            actions={myPlan}
+          />
+          {/*
+            Seats belong to a team. A personal space consumes none, so this
+            whole block is absent rather than showing zeros — and for a team it
+            is four figures, never `used + reserved / limit`, which is the
+            single total the Dropbox admin read as "nothing changed" for four to
+            six billed months.
+          */}
+          <div className="space-y-3">
+            <SeatBreakdown detail={data} />
+            <Link
+              className={secondaryClass}
+              href={`/dashboard/workspaces/${data.workspace.id}/members`}
+            >
+              {c("멤버 관리", "Manage members")}
+            </Link>
+          </div>
         </>
       )}
       {error && <CloudError code={error} />}

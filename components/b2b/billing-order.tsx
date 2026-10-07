@@ -1,9 +1,13 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import {
+  BackLink,
+  Block,
+  Details,
   inputClass,
+  KeyValues,
+  Notice,
   primaryClass,
   secondaryClass,
   TeamLoading,
@@ -167,81 +171,70 @@ export function BillingOrder({ workspaceId, orderId }: { workspaceId: string; or
       setPendingRefund(await store.get({ scope, action: "refund", topic: orderId }).catch(() => null));
     }
   };
+  const facts: [string, ReactNode][] = [
+    [
+      c("구매 대상", "Purchase"),
+      `${c(...(targets[order.quote.target] ?? [order.quote.target, order.quote.target]))} · ${order.kind === "billing" ? c("자동결제", "Automatic") : c("단건", "One-off")}`,
+    ],
+    [
+      c("결제 금액", "Amount"),
+      <span key="amount" className="tabular-nums">
+        {won(order.quote.amounts.totalKrw)}{" "}
+        <span className="text-muted">
+          ({c("공급가액", "supply")} {won(order.quote.amounts.supplyKrw)} · {c("부가세", "VAT")} {won(order.quote.amounts.vatKrw)})
+        </span>
+      </span>,
+    ],
+    [
+      c("대상 기간", "Period"),
+      order.application && order.appliedPeriod
+        ? `${kst(order.application.effectiveAt)} — ${kst(order.appliedPeriod.endsAt)}`
+        : order.quote.period.startsAt && order.quote.period.endsAt
+          ? `${kst(order.quote.period.startsAt)} — ${kst(order.quote.period.endsAt)}`
+          : c("실제 반영 시각부터 한 달", "One month from actual application"),
+    ],
+  ];
+  // The expiry only matters while the order can still be paid (or just lapsed).
+  if (order.state === "awaiting_payment" || order.state === "expired")
+    facts.push([c("주문 유효 시각", "Order expires"), kst(order.expiresAt)]);
+  if (order.receipt)
+    facts.push([c("수납 확인", "Receipt"), `${won(order.receipt.amountKrw)} · ${kst(order.receipt.approvedAt)}`]);
+  if (order.application && order.application.overpaymentKrw > 0)
+    facts.push([c("반영 지연 차액 (원결제로 반환)", "Late-application difference (returned to payment)"), won(order.application.overpaymentKrw)]);
+  if (order.failureCode) facts.push([c("결제사 응답 코드", "Provider code"), order.failureCode]);
+  const showRefunds = order.state === "applied" || order.refunds.length > 0 || !!pendingRefund;
   return (
     <TeamShell title={c("결제 결과", "Payment result")}>
-      <Link className={secondaryClass} href={`/dashboard/workspaces/${workspaceId}/plan`}>
+      <BackLink href={`/dashboard/workspaces/${workspaceId}/plan`}>
         {c("플랜과 결제로 돌아가기", "Back to plan and billing")}
-      </Link>
-      <section aria-label={c("주문 상태", "Order state")} className="space-y-3 rounded-lg border border-border p-5">
-        <p className="text-lg font-medium" role="status">
-          {c(...label)}
-        </p>
-        {order.failureCode && (
-          <p className="text-sm text-muted">
-            {c("결제사 응답 코드", "Provider code")} {order.failureCode}
+      </BackLink>
+      <section aria-label={c("주문 상태", "Order state")} className="space-y-5 border-b border-border pb-8 last:border-b-0 last:pb-0">
+        <div className="space-y-1">
+          <p className="text-lg font-medium" role="status">
+            {c(...label)}
           </p>
-        )}
-        {order.state === "payment_unknown" && (
-          <p className="text-sm leading-6">
-            {c("결제사 결과를 확인하고 있습니다. 같은 결제를 다시 시도하지 마세요. 확인되면 자동으로 반영합니다.", "We are checking with the payment provider. Do not pay again; this updates automatically.")}
-          </p>
-        )}
-        {order.state === "received" && (
-          <p className="text-sm leading-6">
-            {c("결제가 확인되었습니다. 이용권과 제공량을 반영하는 중이며 다시 결제할 필요가 없습니다.", "Payment is confirmed. Licences and allowances are being applied; no further payment is needed.")}
-          </p>
-        )}
-        {order.state === "review_required" && (
-          <p className="text-sm leading-6">
-            {c("결제 또는 반영을 운영자가 확인하고 있습니다. 같은 기간을 다시 결제하지 마세요.", "Operations is reviewing this payment or application. Do not pay for the same period again.")}
-          </p>
-        )}
-        <dl className="grid gap-3 text-sm sm:grid-cols-2">
-          <div>
-            <dt className="text-muted">{c("구매 대상", "Purchase")}</dt>
-            <dd>{c(...(targets[order.quote.target] ?? [order.quote.target, order.quote.target]))} · {order.kind === "billing" ? c("자동결제", "Automatic") : c("단건", "One-off")}</dd>
-          </div>
-          <div>
-            <dt className="text-muted">{c("공급가액 / 부가세 / 합계", "Supply / VAT / Total")}</dt>
-            <dd className="tabular-nums">
-              {won(order.quote.amounts.supplyKrw)} / {won(order.quote.amounts.vatKrw)} / {won(order.quote.amounts.totalKrw)}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-muted">{c("대상 기간 (한국 시간)", "Period (KST)")}</dt>
-            <dd>
-              {order.application && order.appliedPeriod
-                ? `${kst(order.application.effectiveAt)} — ${kst(order.appliedPeriod.endsAt)}`
-                : order.quote.period.startsAt && order.quote.period.endsAt
-                  ? `${kst(order.quote.period.startsAt)} — ${kst(order.quote.period.endsAt)}`
-                  : c("실제 반영 시각부터 한 달", "One month from actual application")}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-muted">{c("주문 유효 시각", "Order expires")}</dt>
-            <dd>{kst(order.expiresAt)}</dd>
-          </div>
-          {order.receipt && (
-            <div>
-              <dt className="text-muted">{c("수납 확인", "Receipt")}</dt>
-              <dd>
-                {won(order.receipt.amountKrw)} · {kst(order.receipt.approvedAt)}
-              </dd>
-            </div>
+          {order.state === "payment_unknown" && (
+            <p className="text-[13px] leading-5 text-muted">
+              {c("결제사 결과를 확인하고 있습니다. 같은 결제를 다시 시도하지 마세요. 확인되면 자동으로 반영합니다.", "We are checking with the payment provider. Do not pay again; this updates automatically.")}
+            </p>
           )}
-          {order.application && order.application.overpaymentKrw > 0 && (
-            <div>
-              <dt className="text-muted">{c("반영 지연 차액 (원결제로 반환)", "Late-application difference (returned to payment)")}</dt>
-              <dd>{won(order.application.overpaymentKrw)}</dd>
-            </div>
+          {order.state === "received" && (
+            <p className="text-[13px] leading-5 text-muted">
+              {c("결제가 확인되었습니다. 이용권과 제공량을 반영하는 중이며 다시 결제할 필요가 없습니다.", "Payment is confirmed. Licences and allowances are being applied; no further payment is needed.")}
+            </p>
           )}
-        </dl>
-        {failure && <BillingError code={failure} retry={() => void load()} />}
+          {order.state === "review_required" && (
+            <p className="text-[13px] leading-5 text-muted">
+              {c("결제 또는 반영을 운영자가 확인하고 있습니다. 같은 기간을 다시 결제하지 마세요.", "Operations is reviewing this payment or application. Do not pay for the same period again.")}
+            </p>
+          )}
+        </div>
         {pg === "fail" && order.state === "awaiting_payment" && (
-          <p role="status" className="text-sm">
+          <Notice role="status">
             {c("결제를 완료하지 않았습니다. 결제나 지급은 일어나지 않았습니다.", "Payment was not completed. Nothing was charged or granted.")}
-          </p>
+          </Notice>
         )}
+        {failure && <BillingError code={failure} retry={() => void load()} />}
         {order.kind === "checkout" && order.state === "awaiting_payment" && pg !== "success" && (
           <div className="flex flex-wrap items-end gap-3">
             {order.quote && (
@@ -294,155 +287,163 @@ export function BillingOrder({ workspaceId, orderId }: { workspaceId: string; or
             {c("진행 상태 다시 확인", "Check progress again")}
           </button>
         )}
+        <KeyValues items={facts} />
       </section>
-      <section aria-labelledby="refunds" className="space-y-4">
-        <h2 id="refunds" className="font-medium">
-          {c("환불", "Refunds")}
-        </h2>
-        <p className="text-sm leading-6 text-muted">
-          {c(
-            "승인된 환불 기준에 따라 원주문의 미사용분만 환불합니다. 요청하면 미사용분을 먼저 예약하고 운영자 확인 뒤 원결제를 취소합니다. 배정 해제나 갱신 해제는 환불이 아닙니다.",
-            "Only the unused portion of this order is refundable under the approved policy. A request reserves it first; the original payment is cancelled after operations review. Unassigning or stopping renewal is not a refund.",
+      {showRefunds && (
+        <Block
+          title={c("환불", "Refunds")}
+          description={c("이 주문에서 쓰지 않은 부분만 환불할 수 있습니다.", "Only the unused part of this order can be refunded.")}
+        >
+          {order.refunds.length > 0 && (
+            <ul className="divide-y divide-border border-y border-border text-sm">
+              {order.refunds.map((r) => (
+                <li key={r.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-3" data-refund-state={r.state}>
+                  <span className="min-w-0">
+                    <span className="block font-medium">{c(...refundLabels[r.state])}</span>
+                    <span className="block text-[13px] text-muted">
+                      {c("기준 시각", "Measured at")} {kst(r.basisAt)}
+                      {r.refundedAt && ` · ${c("환불 확인", "Refunded")} ${kst(r.refundedAt)}`}
+                    </span>
+                  </span>
+                  <span className="tabular-nums">{won(r.amounts.totalKrw)}</span>
+                </li>
+              ))}
+            </ul>
           )}
-        </p>
-        <ul className="space-y-2 text-sm">
-          {order.refunds.map((r) => (
-            <li key={r.id} className="rounded-md border border-border p-3" data-refund-state={r.state}>
-              <p>
-                {c(...refundLabels[r.state])} · {won(r.amounts.totalKrw)}
-              </p>
-              <p className="text-xs text-muted">
-                {c("기준 시각", "Measured at")} {kst(r.basisAt)}
-                {r.refundedAt && ` · ${c("환불 확인", "Refunded")} ${kst(r.refundedAt)}`}
-              </p>
-            </li>
-          ))}
-        </ul>
-        {pendingRefund && (
-          <div className="space-y-2 rounded-md border border-border p-3 text-sm">
-            <p>{c("환불 요청 결과를 확인하지 못했습니다. 같은 요청으로 결과를 확인합니다.", "The refund request has no confirmed result. The original request is checked.")}</p>
-            <button
-              type="button"
-              className={secondaryClass}
-              disabled={!!busy}
-              onClick={async () => {
+          {pendingRefund && (
+            <div className="space-y-3 text-[13px] leading-5">
+              <Notice>{c("환불 요청 결과를 확인하지 못했습니다. 같은 요청으로 결과를 확인합니다.", "The refund request has no confirmed result. The original request is checked.")}</Notice>
+              <button
+                type="button"
+                className={secondaryClass}
+                disabled={!!busy}
+                onClick={async () => {
+                  if (!api) return;
+                  setBusy("refund");
+                  try {
+                    if (!(await checkRecord(pendingRefund, api, store))) await runRecord(pendingRefund, api, store);
+                    await load();
+                  } catch (e) {
+                    setFailure(billingCode(e));
+                  } finally {
+                    setBusy("");
+                    setPendingRefund(scope ? await store.get({ scope, action: "refund", topic: orderId }).catch(() => null) : null);
+                  }
+                }}
+              >
+                {c("환불 요청 결과 확인", "Confirm refund request")}
+              </button>
+            </div>
+          )}
+          {order.state === "applied" && !openRefund && !pendingRefund && (refundable.length === 0 && !canBase ? (
+            <p className="text-[13px] text-muted">
+              {c(
+                "이 주문에는 따로 환불할 추가 항목이 없습니다. 진행 중인 기간은 플랜과 결제의 중도해지로 환불합니다.",
+                "This order has no add-on items to refund. A running period is refunded through termination on plan and billing.",
+              )}
+            </p>
+          ) : (
+            <form
+              className="grid gap-4 sm:grid-cols-2"
+              onSubmit={async (e) => {
+                e.preventDefault();
                 if (!api) return;
-                setBusy("refund");
+                setBusy("preview");
+                setFailure("");
                 try {
-                  if (!(await checkRecord(pendingRefund, api, store))) await runRecord(pendingRefund, api, store);
-                  await load();
-                } catch (e) {
-                  setFailure(billingCode(e));
+                  setPreview(await api.refundPreview(orderId, selection));
+                } catch (err) {
+                  setPreview(null);
+                  setFailure(billingCode(err));
                 } finally {
                   setBusy("");
-                  setPendingRefund(scope ? await store.get({ scope, action: "refund", topic: orderId }).catch(() => null) : null);
                 }
               }}
             >
-              {c("환불 요청 결과 확인", "Confirm refund request")}
-            </button>
-          </div>
-        )}
-        {order.state === "applied" && !openRefund && !pendingRefund && (
-          <form
-            className="grid gap-4 sm:grid-cols-2"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              if (!api) return;
-              setBusy("preview");
-              setFailure("");
-              try {
-                setPreview(await api.refundPreview(orderId, selection));
-              } catch (err) {
-                setPreview(null);
-                setFailure(billingCode(err));
-              } finally {
-                setBusy("");
-              }
-            }}
-          >
-            {refundable.length === 0 && !canBase && (
-              <p className="text-sm text-muted sm:col-span-2">
-                {c("이 주문에는 환불을 요청할 수 있는 추가 항목이 없습니다.", "This order has no add-on items to refund.")}
-              </p>
-            )}
-            {refundable.map((key) => (
-              <label key={key} className="block space-y-2 text-sm">
-                <span>
-                  {key === "extraSeats" ? c("환불할 추가 이용권", "Licences to refund") : key === "aiPacks" ? c("환불할 AI 팩", "AI packs to refund") : c("환불할 저장 팩", "Storage packs to refund")}
-                </span>
-                <input
-                  className={inputClass}
-                  type="number"
-                  min={0}
-                  max={remaining[key]}
-                  value={selection[key]}
-                  disabled={!!busy}
-                  onChange={(e) => {
-                    setPreview(null);
-                    setSelection({ ...selection, [key]: Number(e.target.value) });
-                  }}
-                />
-              </label>
-            ))}
-            {canBase && (
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={selection.base}
-                  onChange={(e) => {
-                    setPreview(null);
-                    setSelection(e.target.checked ? { base: true, ...remaining } : { ...selection, base: false });
-                  }}
-                />
-                <span>{c("시작 전 선구매 기간 전체", "The whole prepaid month (before it starts)")}</span>
-              </label>
-            )}
-            <label className="block space-y-2 text-sm sm:col-span-2">
-              <span>{c("환불 사유", "Reason")}</span>
-              <input className={inputClass} value={reason} maxLength={500} onChange={(e) => setReason(e.target.value)} />
-            </label>
-            <div className="flex flex-wrap gap-3 sm:col-span-2">
-              <button className={secondaryClass} disabled={!!busy}>
-                {c("환불 금액 확인", "Check refund amount")}
-              </button>
-              {preview && (
-                <button
-                  type="button"
-                  className={primaryClass}
-                  disabled={!!busy || !reason.trim()}
-                  onClick={() =>
-                    scope &&
-                    void requestRefund({
-                      schema: 1,
-                      scope,
-                      action: "refund",
-                      topic: orderId,
-                      attempts: 0,
-                      input: {
-                        requestKey: crypto.randomUUID(),
-                        orderId,
-                        selection,
-                        reason: reason.trim(),
-                        expectedTotalKrw: preview.amounts.totalKrw,
-                        // Measured at the instant shown, so seconds of drift never void it.
-                        basisAt: preview.basisAt,
-                      },
-                    })
-                  }
-                >
-                  {c("환불 요청", "Request refund")} · {won(preview.amounts.totalKrw)}
-                </button>
+              {refundable.map((key) => (
+                <label key={key} className="block space-y-2 text-sm">
+                  <span>
+                    {key === "extraSeats" ? c("환불할 추가 이용권", "Licences to refund") : key === "aiPacks" ? c("환불할 AI 팩", "AI packs to refund") : c("환불할 저장 팩", "Storage packs to refund")}
+                  </span>
+                  <input
+                    className={inputClass}
+                    type="number"
+                    min={0}
+                    max={remaining[key]}
+                    value={selection[key]}
+                    disabled={!!busy}
+                    onChange={(e) => {
+                      setPreview(null);
+                      setSelection({ ...selection, [key]: Number(e.target.value) });
+                    }}
+                  />
+                </label>
+              ))}
+              {canBase && (
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={selection.base}
+                    onChange={(e) => {
+                      setPreview(null);
+                      setSelection(e.target.checked ? { base: true, ...remaining } : { ...selection, base: false });
+                    }}
+                  />
+                  <span>{c("시작 전 선구매 기간 전체", "The whole prepaid month (before it starts)")}</span>
+                </label>
               )}
-            </div>
-            {preview && (
-              <p className="text-sm leading-6 sm:col-span-2" role="status">
-                {c("공급가액", "Supply")} {won(preview.amounts.supplyKrw)} · {c("부가세", "VAT")} {won(preview.amounts.vatKrw)} · {c("이용권", "Licences")} {preview.allowances.seats} · {c("기준 시각", "Measured at")} {kst(preview.basisAt)}
-              </p>
+              <label className="block space-y-2 text-sm sm:col-span-2">
+                <span>{c("환불 사유", "Reason")}</span>
+                <input className={inputClass} value={reason} maxLength={500} onChange={(e) => setReason(e.target.value)} />
+              </label>
+              <div className="flex flex-wrap gap-3 sm:col-span-2">
+                <button className={secondaryClass} disabled={!!busy}>
+                  {c("환불 금액 확인", "Check refund amount")}
+                </button>
+                {preview && (
+                  <button
+                    type="button"
+                    className={primaryClass}
+                    disabled={!!busy || !reason.trim()}
+                    onClick={() =>
+                      scope &&
+                      void requestRefund({
+                        schema: 1,
+                        scope,
+                        action: "refund",
+                        topic: orderId,
+                        attempts: 0,
+                        input: {
+                          requestKey: crypto.randomUUID(),
+                          orderId,
+                          selection,
+                          reason: reason.trim(),
+                          expectedTotalKrw: preview.amounts.totalKrw,
+                          // Measured at the instant shown, so seconds of drift never void it.
+                          basisAt: preview.basisAt,
+                        },
+                      })
+                    }
+                  >
+                    {c("환불 요청", "Request refund")} · {won(preview.amounts.totalKrw)}
+                  </button>
+                )}
+              </div>
+              {preview && (
+                <p className="text-[13px] leading-5 text-muted sm:col-span-2" role="status">
+                  {c("공급가액", "Supply")} {won(preview.amounts.supplyKrw)} · {c("부가세", "VAT")} {won(preview.amounts.vatKrw)} · {c("이용권", "Licences")} {preview.allowances.seats} · {c("기준 시각", "Measured at")} {kst(preview.basisAt)}
+                </p>
+              )}
+            </form>
+          ))}
+          <Details>
+            {c(
+              "요청하면 미사용분을 먼저 예약하고, 운영자 확인 뒤 원결제를 취소합니다. 배정 해제나 자동결제 중지는 환불이 아닙니다.",
+              "A request reserves the unused part first; the original payment is cancelled after operations review. Unassigning or stopping renewal is not a refund.",
             )}
-          </form>
-        )}
-      </section>
+          </Details>
+        </Block>
+      )}
     </TeamShell>
   );
 }

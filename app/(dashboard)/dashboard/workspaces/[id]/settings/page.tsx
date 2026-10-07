@@ -7,6 +7,7 @@ import { useI18n } from "@/lib/i18n/context";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
   Block,
+  KeyValues,
   TeamShell,
   SpaceBadge,
   inputClass,
@@ -107,29 +108,24 @@ export default function Page() {
           }
         >
           {!data.canManage ? (
-            <dl className="space-y-4 text-sm">
-              <div>
-                <dt className="text-xs text-muted">
-                  {c("워크스페이스 이름", "Workspace name")}
-                </dt>
-                <dd className="mt-1 break-words font-medium">
-                  {data.workspace.name}
-                </dd>
-              </div>
-              {data.workspace.description && (
-                <div>
-                  <dt className="text-xs text-muted">
-                    {c("소개", "Description")}
-                  </dt>
-                  <dd className="mt-1 whitespace-pre-wrap break-words leading-6">
-                    {data.workspace.description}
-                  </dd>
-                </div>
-              )}
-            </dl>
+            <KeyValues
+              items={[
+                [c("워크스페이스 이름", "Workspace name"), data.workspace.name],
+                ...(data.workspace.description
+                  ? [
+                      [
+                        c("소개", "Description"),
+                        <span key="description" className="whitespace-pre-wrap">
+                          {data.workspace.description}
+                        </span>,
+                      ] as [string, React.ReactNode],
+                    ]
+                  : []),
+              ]}
+            />
           ) : (
             <form
-              className="space-y-4"
+              className="max-w-xl space-y-4"
               onSubmit={async (e) => {
                 e.preventDefault();
                 await run(
@@ -141,7 +137,7 @@ export default function Page() {
                 );
               }}
             >
-              <label className="block space-y-2 text-sm">
+              <label className="block space-y-1.5 text-[13px]">
                 <span>{c("워크스페이스 이름", "Workspace name")}</span>
                 <input
                   className={inputClass}
@@ -152,7 +148,7 @@ export default function Page() {
                   onChange={(e) => setDraft({ ...form, name: e.target.value })}
                 />
               </label>
-              <label className="block space-y-2 text-sm">
+              <label className="block space-y-1.5 text-[13px]">
                 <span>{c("소개", "Description")}</span>
                 <textarea
                   className={`${inputClass} min-h-24 resize-y`}
@@ -211,59 +207,38 @@ export default function Page() {
               "It completes when the recipient accepts; you stay on as an admin.",
             )}
           >
-            <p className="break-all text-sm">
-              {c("현재 소유자", "Current owner")}:{" "}
-              {data.members.find((m) => m.role === "owner")?.email}
-            </p>
+            <KeyValues
+              items={[
+                [
+                  c("현재 소유자", "Current owner"),
+                  data.members.find((m) => m.role === "owner")?.email,
+                ],
+                ...(pending
+                  ? ([
+                      [
+                        c("수락 대기", "Awaiting acceptance"),
+                        data.members.find((m) => m.userId === pending.toUserId)
+                          ?.email,
+                      ],
+                      [
+                        c("요청 만료", "Expires"),
+                        new Date(pending.expiresAt).toLocaleString(lang),
+                      ],
+                    ] as [string, string | undefined][])
+                  : []),
+              ]}
+            />
             {pending && (
-              <div className="space-y-3 rounded-lg border border-border bg-surface p-4">
-                <p className="break-all text-sm">
-                  {c("수락 대기", "Awaiting acceptance")}:{" "}
-                  {
-                    data.members.find((m) => m.userId === pending.toUserId)
-                      ?.email
-                  }
-                </p>
-                <p className="text-xs text-muted">
-                  {c("요청 만료", "Expires")}:{" "}
-                  {new Date(pending.expiresAt).toLocaleString(lang)}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {pending.toUserId === data.currentUserId && (
-                    <>
-                      <button
-                        className={primaryClass}
-                        disabled={busy || !!confirming}
-                        onClick={() => setConfirm("accept")}
-                      >
-                        {c(
-                          "이전 내용 확인 후 수락",
-                          "Review and accept ownership",
-                        )}
-                      </button>
-                      <button
-                        className={secondaryClass}
-                        disabled={busy || !!confirming}
-                        onClick={() =>
-                          run(
-                            () =>
-                              workspaceService.resolveTransfer(
-                                id,
-                                pending.id,
-                                "decline",
-                              ),
-                            c(
-                              "이전 요청을 거절했습니다.",
-                              "Transfer declined.",
-                            ),
-                          )
-                        }
-                      >
-                        {c("거절", "Decline")}
-                      </button>
-                    </>
-                  )}
-                  {data.role === "owner" && (
+              <div className="flex flex-wrap gap-2">
+                {pending.toUserId === data.currentUserId && (
+                  <>
+                    <button
+                      className={primaryClass}
+                      disabled={busy || !!confirming}
+                      onClick={() => setConfirm("accept")}
+                    >
+                      {c("이전 내용 확인 후 수락", "Review and accept ownership")}
+                    </button>
                     <button
                       className={secondaryClass}
                       disabled={busy || !!confirming}
@@ -273,21 +248,40 @@ export default function Page() {
                             workspaceService.resolveTransfer(
                               id,
                               pending.id,
-                              "cancel",
+                              "decline",
                             ),
-                          c("이전 요청을 취소했습니다.", "Transfer cancelled."),
+                          c("이전 요청을 거절했습니다.", "Transfer declined."),
                         )
                       }
                     >
-                      {c("이전 요청 취소", "Cancel transfer")}
+                      {c("거절", "Decline")}
                     </button>
-                  )}
-                </div>
+                  </>
+                )}
+                {data.role === "owner" && (
+                  <button
+                    className={secondaryClass}
+                    disabled={busy || !!confirming}
+                    onClick={() =>
+                      run(
+                        () =>
+                          workspaceService.resolveTransfer(
+                            id,
+                            pending.id,
+                            "cancel",
+                          ),
+                        c("이전 요청을 취소했습니다.", "Transfer cancelled."),
+                      )
+                    }
+                  >
+                    {c("이전 요청 취소", "Cancel transfer")}
+                  </button>
+                )}
               </div>
             )}
             {data.role === "owner" && !pending && (
-              <div className="space-y-3">
-                <label className="block space-y-2 text-sm">
+              <div className="flex max-w-xl flex-wrap items-end gap-2">
+                <label className="block min-w-0 flex-1 basis-56 space-y-1.5 text-[13px]">
                   <span>{c("새 소유자", "New owner")}</span>
                   <select
                     className={inputClass}
@@ -403,7 +397,7 @@ export default function Page() {
           >
             {leave && data.role !== "owner" && (
               <form
-                className="space-y-4 rounded-lg border border-border bg-surface p-4"
+                className="max-w-xl space-y-4"
                 onSubmit={async (e) => {
                   e.preventDefault();
                   await run(async () => {
@@ -412,13 +406,13 @@ export default function Page() {
                   }, "");
                 }}
               >
-                <p className="text-sm leading-6 text-muted">
+                <p className="text-[13px] text-muted">
                   {c(
                     `진행 중 업로드 ${impact?.pendingUploads ?? 0}개를 취소합니다.`,
                     `${impact?.pendingUploads ?? 0} pending uploads will be cancelled.`,
                   )}
                 </p>
-                <label className="block space-y-2 text-sm">
+                <label className="block space-y-1.5 text-[13px]">
                   <span>
                     {c(
                       `확인하려면 ‘${data.workspace.name}’ 입력`,

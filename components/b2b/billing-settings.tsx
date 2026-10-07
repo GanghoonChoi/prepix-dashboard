@@ -2,7 +2,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
+  Block,
+  Details,
   inputClass,
+  Notice,
   primaryClass,
   secondaryClass,
   TeamLoading,
@@ -110,6 +113,9 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
   const [plan, setPlan] = useState<TeamRenewalPlan | null>(null);
   const [planConsent, setPlanConsent] = useState(false);
   const [removal, setRemoval] = useState("");
+  // Rare actions open from a button: removing a card, replacing it.
+  const [removing, setRemoving] = useState<string | null>(null);
+  const [replacing, setReplacing] = useState(false);
   const completing = useRef(false), viewGeneration = useRef(0);
   useEffect(() => {
     const generation = ++viewGeneration.current;
@@ -270,38 +276,35 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
   const lockedPlan = pending.find((p) => p.action === "renewal");
   const shownProfile = (lockedProfile?.input as TeamBuyer | undefined) ?? profile;
   const product = commerce?.configured ? commerce.product : null;
+  const seats = product ? product.base.seats + (plan.extraSeats ?? 0) : "?";
+  const registering = !active.length || replacing;
   return (
     <TeamShell title={c("플랜과 결제", "Plan and billing")} tabs={billingTabs(workspaceId, c)}>
       {r.missing.length > 0 && (
-        <section role="status" className="space-y-2 rounded-lg border border-border p-4 text-sm leading-6">
-          <p>
-            {c(
-              "승인되지 않은 설정이 있어 일부 결제 동작을 막았습니다. 미정 값은 무료·무제한으로 처리하지 않습니다.",
-              "Some billing actions are blocked by unapproved settings. Missing values are never treated as free or unlimited.",
-            )}
-          </p>
-          <details>
-            <summary>{c("필요한 설정", "Required settings")}</summary>
-            <ul className="mt-2 list-disc pl-5 text-xs text-muted">
-              {r.missing.map((m) => (
-                <li key={m}>{m}</li>
-              ))}
-            </ul>
-          </details>
-        </section>
+        <Notice role="status">
+          {c(
+            "승인되지 않은 설정이 있어 일부 결제 동작을 막았습니다.",
+            "Some billing actions are blocked by unapproved settings.",
+          )}
+          <div className="mt-1">
+            <Details summary={c("필요한 설정", "Required settings")}>
+              <ul className="list-disc pl-5 text-xs">
+                {r.missing.map((m) => (
+                  <li key={m}>{m}</li>
+                ))}
+              </ul>
+            </Details>
+          </div>
+        </Notice>
       )}
       {failure && <BillingError code={failure} />}
-      {notice && (
-        <p role="status" className="text-sm">
-          {notice}
-        </p>
-      )}
+      {notice && <Notice role="status">{notice}</Notice>}
       {pending.length > 0 && (
         <section aria-label={c("확인이 필요한 요청", "Requests to confirm")} className="space-y-3 rounded-lg border border-border p-4">
-          <p className="text-sm leading-6">
+          <p className="text-[13px] leading-5">
             {c(
-              "처리 결과를 확인하지 못한 요청이 있습니다. 같은 요청으로 결과를 확인하며 새 변경을 보내지 않습니다.",
-              "Some requests have no confirmed result. The original request is checked; nothing new is sent.",
+              "처리 결과를 확인하지 못한 요청이 있습니다. 새 변경은 보내지 않습니다.",
+              "Some requests have no confirmed result. Nothing new is sent.",
             )}
           </p>
           {pending.map((p) => (
@@ -316,16 +319,10 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
           ))}
         </section>
       )}
-      <section aria-labelledby="business" className="space-y-4 border-b border-border pb-8">
-        <h2 id="business" className="font-medium">
-          {c("사업자 정보", "Business details")}
-        </h2>
-        <p className="text-sm leading-6 text-muted">
-          {c(
-            "변경은 앞으로 만드는 주문에만 쓰입니다. 이미 만든 주문과 증빙은 당시 정보를 유지합니다. 형식 확인은 법정 증빙 효력을 판정하지 않습니다.",
-            "Changes apply to future orders only. Past orders keep their copy. Format checks do not decide legal validity.",
-          )}
-        </p>
+      <Block
+        title={c("사업자 정보", "Business details")}
+        description={c("앞으로 만드는 주문에만 쓰입니다.", "Used for future orders only.")}
+      >
         <form
           className="grid gap-4 sm:grid-cols-2"
           onSubmit={async (e) => {
@@ -339,7 +336,7 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
           }}
         >
           {fields.map(([key, ko, en, auto]) => (
-            <label key={key} className="block space-y-2 text-sm">
+            <label key={key} className={`block space-y-2 text-sm ${key === "address" ? "sm:col-span-2" : ""}`}>
               <span>{c(ko, en)}</span>
               <input
                 className={inputClass}
@@ -357,116 +354,171 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
             </button>
           </div>
         </form>
-      </section>
-      <section aria-labelledby="methods" className="space-y-4 border-b border-border pb-8">
-        <h2 id="methods" className="font-medium">
-          {c("자동결제 카드", "Automatic-payment card")}
-        </h2>
-        <p className="text-sm leading-6 text-muted">
+        <Details>
           {c(
-            "결제사가 발급한 수단 식별자와 마스킹 번호만 보관합니다. 카드 번호 전체와 보안 코드는 저장하지 않습니다.",
-            "Only the provider's method identifier and masked number are kept. Full card numbers and security codes are never stored.",
+            "이미 만든 주문과 증빙은 당시 정보를 유지합니다. 형식 확인은 법정 증빙 효력을 판정하지 않습니다.",
+            "Past orders and receipts keep their copy. Format checks do not decide legal validity.",
           )}
-        </p>
-        <ul className="space-y-2 text-sm">
-          {billing.methods.map((m) => (
-            <li key={m.id} className="flex flex-wrap items-center gap-3 rounded-md border border-border p-3">
-              <span className="font-mono">{m.cardNumberMasked ?? c("카드 정보 없음", "No card")}</span>
-              <span className="text-muted">{c(...(methodLabels[m.state] ?? [m.state, m.state]))}</span>
-              {m.endReason && <span className="text-xs text-muted">{m.endReason}</span>}
-              {m.state === "active" && (
-                <>
-                  <label className="flex min-w-48 flex-1 flex-col text-xs">
-                    <span className="sr-only">{c("삭제 사유", "Removal reason")}</span>
-                    <input
-                      className={inputClass}
-                      placeholder={c("삭제 사유", "Removal reason")}
-                      value={removal}
-                      onChange={(e) => setRemoval(e.target.value)}
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    className={secondaryClass}
-                    disabled={!!busy || !removal.trim()}
-                    onClick={() =>
-                      void run("method.remove", m.id, {
-                        requestKey: crypto.randomUUID(),
-                        methodId: m.id,
-                        revision: m.revision,
-                        reason: removal.trim(),
-                      })
-                    }
-                  >
-                    {c("카드 삭제", "Remove card")}
-                  </button>
-                </>
-              )}
-            </li>
-          ))}
-        </ul>
-        {r.billing && r.autoPayConsentVersion ? (
-          <div className="space-y-3">
-            <label className="flex items-start gap-2 text-sm leading-6">
-              <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-              <span>
-                {c(
-                  `이 팀의 월 자동결제에 이 카드를 사용하는 데 동의합니다 (동의 문구 ${r.autoPayConsentVersion}). 등록만으로 결제되지 않습니다.`,
-                  `I agree to use this card for the team's monthly automatic payment (consent ${r.autoPayConsentVersion}). Registering charges nothing.`,
-                )}
-              </span>
-            </label>
-            <button
-              type="button"
-              className={primaryClass}
-              disabled={!consent || !!busy}
-              onClick={async () => {
-                const result = (await run("method.start", "method", {
-                  requestKey: crypto.randomUUID(),
-                  consentVersion: r.autoPayConsentVersion!,
-                })) as { methodId: string; customerKey: string; checkout?: Parameters<typeof openBillingAuth>[0]["client"] | null } | null;
-                if (!result) return;
-                // A recovered start result without the client checkout cannot open the window.
-                if (!result.checkout) {
-                  setFailure("B2B_BILLING_PAYMENT_NOT_CONFIGURED");
-                  await reload();
-                  return;
-                }
-                const back = `${window.location.origin}/dashboard/workspaces/${workspaceId}/plan/settings`;
-                // The provider's return carries no account: remember who started it.
-                try { sessionStorage.setItem(registrationOwnerKey(result.methodId), scope?.userId ?? ""); } catch { /* the return then completes as before */ }
-                await openBillingAuth({
-                  client: result.checkout,
-                  customerKey: result.customerKey,
-                  successUrl: `${back}?registration=${result.methodId}`,
-                  failUrl: `${back}?registration_failed=${result.methodId}`,
-                }).catch((e) => setFailure(billingCode(e)));
-              }}
-            >
-              {active.length ? c("카드 교체", "Replace card") : c("카드 등록", "Register card")}
+        </Details>
+      </Block>
+      <Block
+        title={c("자동결제 카드", "Automatic-payment card")}
+        description={c(
+          "카드 번호 전체와 보안 코드는 저장하지 않습니다.",
+          "Full card numbers and security codes are never stored.",
+        )}
+        actions={
+          active.length > 0 &&
+          !replacing &&
+          r.billing &&
+          r.autoPayConsentVersion && (
+            <button type="button" className={secondaryClass} disabled={!!busy} onClick={() => setReplacing(true)}>
+              {c("카드 교체", "Replace card")}
             </button>
-          </div>
-        ) : (
-          <p className="text-sm text-muted">
+          )
+        }
+      >
+        {billing.methods.length > 0 && (
+          <ul className="divide-y divide-border border-y border-border text-sm">
+            {billing.methods.map((m) => (
+              <li key={m.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3">
+                <span className="font-mono">{m.cardNumberMasked ?? c("카드 정보 없음", "No card")}</span>
+                <span className="text-[13px] text-muted">
+                  {c(...(methodLabels[m.state] ?? [m.state, m.state]))}
+                  {m.endReason && ` · ${m.endReason}`}
+                </span>
+                {m.state === "active" &&
+                  (removing === m.id ? (
+                    <div className="flex w-full flex-wrap gap-2 sm:ml-auto sm:w-auto">
+                      <label className="min-w-0 flex-1 sm:w-56 sm:flex-none">
+                        <span className="sr-only">{c("삭제 사유", "Removal reason")}</span>
+                        <input
+                          className={inputClass}
+                          placeholder={c("삭제 사유", "Removal reason")}
+                          value={removal}
+                          onChange={(e) => setRemoval(e.target.value)}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className={secondaryClass}
+                        disabled={!!busy || !removal.trim()}
+                        onClick={() =>
+                          void run("method.remove", m.id, {
+                            requestKey: crypto.randomUUID(),
+                            methodId: m.id,
+                            revision: m.revision,
+                            reason: removal.trim(),
+                          })
+                        }
+                      >
+                        {c("카드 삭제", "Remove card")}
+                      </button>
+                      <button type="button" className={secondaryClass} disabled={!!busy} onClick={() => setRemoving(null)}>
+                        {c("취소", "Cancel")}
+                      </button>
+                    </div>
+                  ) : (
+                    <button type="button" className={`${secondaryClass} sm:ml-auto`} disabled={!!busy} onClick={() => setRemoving(m.id)}>
+                      {c("카드 삭제", "Remove card")}
+                    </button>
+                  ))}
+              </li>
+            ))}
+          </ul>
+        )}
+        {!r.billing || !r.autoPayConsentVersion ? (
+          <p className="text-[13px] text-muted">
             {c("자동결제 설정이 승인되지 않아 카드를 등록할 수 없습니다.", "Card registration is unavailable until automatic payment is approved.")}
           </p>
+        ) : (
+          registering && (
+            <div className="space-y-3">
+              <label className="flex items-start gap-2 text-sm leading-6">
+                <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+                <span>
+                  {c(
+                    `이 팀의 월 자동결제에 이 카드를 사용하는 데 동의합니다 (동의 문구 ${r.autoPayConsentVersion}). 등록만으로 결제되지 않습니다.`,
+                    `I agree to use this card for the team's monthly automatic payment (consent ${r.autoPayConsentVersion}). Registering charges nothing.`,
+                  )}
+                </span>
+              </label>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  className={primaryClass}
+                  disabled={!consent || !!busy}
+                  onClick={async () => {
+                    const result = (await run("method.start", "method", {
+                      requestKey: crypto.randomUUID(),
+                      consentVersion: r.autoPayConsentVersion!,
+                    })) as { methodId: string; customerKey: string; checkout?: Parameters<typeof openBillingAuth>[0]["client"] | null } | null;
+                    if (!result) return;
+                    // A recovered start result without the client checkout cannot open the window.
+                    if (!result.checkout) {
+                      setFailure("B2B_BILLING_PAYMENT_NOT_CONFIGURED");
+                      await reload();
+                      return;
+                    }
+                    const back = `${window.location.origin}/dashboard/workspaces/${workspaceId}/plan/settings`;
+                    // The provider's return carries no account: remember who started it.
+                    try { sessionStorage.setItem(registrationOwnerKey(result.methodId), scope?.userId ?? ""); } catch { /* the return then completes as before */ }
+                    await openBillingAuth({
+                      client: result.checkout,
+                      customerKey: result.customerKey,
+                      successUrl: `${back}?registration=${result.methodId}`,
+                      failUrl: `${back}?registration_failed=${result.methodId}`,
+                    }).catch((e) => setFailure(billingCode(e)));
+                  }}
+                >
+                  {active.length ? c("카드 교체", "Replace card") : c("카드 등록", "Register card")}
+                </button>
+                {replacing && (
+                  <button type="button" className={secondaryClass} disabled={!!busy} onClick={() => setReplacing(false)}>
+                    {c("취소", "Cancel")}
+                  </button>
+                )}
+              </div>
+            </div>
+          )
         )}
         {params.get("registration_failed") && (
-          <p role="status" className="text-sm">
+          <Notice role="status">
             {c("카드 등록을 마치지 않았습니다. 결제나 등록은 일어나지 않았습니다.", "Card registration was not completed. Nothing was charged or registered.")}
+          </Notice>
+        )}
+      </Block>
+      <Block
+        title={c("갱신 방식과 다음 기간", "Renewal and next period")}
+        description={c("방식을 바꾸는 것만으로는 결제되지 않습니다.", "Changing the mode never charges by itself.")}
+        actions={
+          billing.renewal.mode === "automatic" && (
+            <button
+              type="button"
+              className={secondaryClass}
+              disabled={!!busy}
+              onClick={() => void run("renewal.stop", "stop", { requestKey: crypto.randomUUID() })}
+            >
+              {c("자동결제 중지", "Stop automatic payment")}
+            </button>
+          )
+        }
+      >
+        {billing.renewal.mode === "automatic" && billing.renewal.firstChargeAt && (
+          <p role="status" className="text-[13px] leading-5">
+            {billing.renewal.upcomingSkipped
+              ? c(
+                  `결제 직전에 동의해 이번 기간은 자동결제하지 않습니다. 이번 기간을 이어 쓰려면 한 번 직접 구매해 주세요. 자동결제는 그다음 기간(${kst(billing.renewal.firstChargeAt)} 이후)부터 시작합니다.`,
+                  `You consented too close to the charge, so this period is not charged automatically. Buy it once yourself to continue; automatic payment starts with the following period (after ${kst(billing.renewal.firstChargeAt)}).`,
+                )
+              : c(`첫 자동결제는 ${kst(billing.renewal.firstChargeAt)} 이후에 진행됩니다.`, `The first automatic charge happens after ${kst(billing.renewal.firstChargeAt)}.`)}
           </p>
         )}
-      </section>
-      <section aria-labelledby="renewal" className="space-y-4">
-        <h2 id="renewal" className="font-medium">
-          {c("갱신 방식과 다음 기간", "Renewal and next period")}
-        </h2>
-        <p className="text-sm leading-6 text-muted">
-          {c(
-            "방식을 바꾸는 것만으로 결제하거나 제공량을 다시 지급하지 않습니다. 이미 선구매한 다음 기간은 구매 조건을 유지하고 자동결제를 건너뜁니다. 미지정 부족분은 자동 구매하지 않습니다.",
-            "Changing the mode never charges or re-grants. A prepaid next period keeps its terms and is skipped. Unspecified shortfalls are never bought automatically.",
-          )}
-        </p>
+        {billing.renewal.pausedReason && (
+          <Notice role="status">
+            {c("자동결제가 멈춘 이유", "Automatic payment paused")}: {c(...(reasons[billing.renewal.pausedReason] ?? [billing.renewal.pausedReason, billing.renewal.pausedReason]))}
+          </Notice>
+        )}
         <form
           className="grid gap-4 sm:grid-cols-2"
           onSubmit={async (e) => {
@@ -485,7 +537,7 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
             });
           }}
         >
-          <label className="block space-y-2 text-sm">
+          <label className="block space-y-2 text-sm sm:col-span-2 sm:w-1/2 sm:pr-2">
             <span>{c("갱신 방식", "Renewal")}</span>
             <select
               className={inputClass}
@@ -527,13 +579,10 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
           </label>
           {billing.retainedCandidates && (
             <fieldset className="space-y-2 text-sm sm:col-span-2">
-              <legend>{c("다음 기간 유지 대상", "Members to keep next period")}</legend>
-              <p className="text-xs text-muted">
-                {c(
-                  `정원 ${product ? product.base.seats + (plan.extraSeats ?? 0) : "?"}명 이하로 지정합니다. 배정은 이용권 화면에서 진행합니다.`,
-                  `Up to ${product ? product.base.seats + (plan.extraSeats ?? 0) : "?"} people. Assign licences on the licences page.`,
-                )}
-              </p>
+              <legend>
+                {c("다음 기간 유지 대상", "Members to keep next period")}{" "}
+                <span className="text-muted">{c(`최대 ${seats}명`, `up to ${seats}`)}</span>
+              </legend>
               {billing.retainedCandidates.map((m) => (
                 <label key={m.userId} className="flex items-center gap-2">
                   <input
@@ -565,41 +614,22 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
               </span>
             </label>
           )}
-          <div className="flex flex-wrap gap-3 sm:col-span-2">
+          <div className="sm:col-span-2">
             <button className={primaryClass} disabled={!!lockedPlan || !!busy || (plan.mode === "automatic" && (!planConsent || plan.extraSeats === null))}>
               {c("갱신 설정 저장", "Save renewal")}
             </button>
-            {billing.renewal.mode === "automatic" && (
-              <button
-                type="button"
-                className={secondaryClass}
-                disabled={!!busy}
-                onClick={() => void run("renewal.stop", "stop", { requestKey: crypto.randomUUID() })}
-              >
-                {c("자동결제 중지", "Stop automatic payment")}
-              </button>
-            )}
           </div>
         </form>
-        {billing.renewal.mode === "automatic" && billing.renewal.firstChargeAt && (
-          <p role="status" className="text-sm leading-6">
-            {billing.renewal.upcomingSkipped
-              ? c(
-                  `결제 직전에 동의해 이번 기간은 자동결제하지 않습니다. 이번 기간을 이어 쓰려면 한 번 직접 구매해 주세요. 자동결제는 그다음 기간(${kst(billing.renewal.firstChargeAt)} 이후)부터 시작합니다.`,
-                  `You consented too close to the charge, so this period is not charged automatically. Buy it once yourself to continue; automatic payment starts with the following period (after ${kst(billing.renewal.firstChargeAt)}).`,
-                )
-              : c(`첫 자동결제는 ${kst(billing.renewal.firstChargeAt)} 이후에 진행됩니다.`, `The first automatic charge happens after ${kst(billing.renewal.firstChargeAt)}.`)}
-          </p>
-        )}
-        {billing.renewal.pausedReason && (
-          <p role="status" className="text-sm">
-            {c("자동결제가 멈춘 이유", "Automatic payment paused")}: {c(...(reasons[billing.renewal.pausedReason] ?? [billing.renewal.pausedReason, billing.renewal.pausedReason]))}
-          </p>
-        )}
+        <Details>
+          {c(
+            "이미 선구매한 다음 기간은 구매 조건을 유지하고 자동결제를 건너뜁니다. 지정하지 않은 부족분은 자동으로 구매하지 않습니다.",
+            "A prepaid next period keeps its terms and is skipped. Unspecified shortfalls are never bought automatically.",
+          )}
+        </Details>
         {billing.runs.length > 0 && (
-          <ul className="space-y-2 text-sm">
+          <ul className="divide-y divide-border border-y border-border text-[13px]">
             {billing.runs.map((run) => (
-              <li key={run.id} className="rounded-md border border-border p-3">
+              <li key={run.id} className="py-2.5">
                 {c(...(runLabels[run.state] ?? [run.state, run.state]))} · {c("시도", "Attempts")} {run.attempts}
                 {run.nextAttemptAt && ` · ${c("다음 시도", "Next")} ${kst(run.nextAttemptAt)}`}
                 {run.stopReason && ` · ${c(...(reasons[run.stopReason] ?? [run.stopReason, run.stopReason]))}`}
@@ -607,7 +637,7 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
             ))}
           </ul>
         )}
-      </section>
+      </Block>
     </TeamShell>
   );
 }

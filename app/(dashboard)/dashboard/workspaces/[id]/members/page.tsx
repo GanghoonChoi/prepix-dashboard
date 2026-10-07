@@ -3,7 +3,7 @@ import { use } from "react";
 import { TeamMembers } from "@/components/b2b/members";
 import { MembersContent } from "@/components/workspaces/members-content";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
-import { TeamShell } from "@/components/workspaces/shared";
+import { EmptyState, TeamShell } from "@/components/workspaces/shared";
 import { useI18n } from "@/lib/i18n/context";
 import { isPersonal } from "@/lib/workspaces/kind";
 export default function Page({ params }: { params: Promise<{ id: string }> }) {
@@ -19,9 +19,7 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
   if (context && isPersonal(context.data.workspace))
     return (
       <TeamShell title={t("team.personalTitle")}>
-        <p className="max-w-2xl text-sm leading-6 text-muted">
-          {t("team.personalNoMembers")}
-        </p>
+        <EmptyState title={t("team.personalNoMembers")} />
       </TeamShell>
     );
   if (context?.b2b?.enrolled) return <TeamMembers />;

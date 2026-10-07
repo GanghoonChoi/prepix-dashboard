@@ -8,6 +8,7 @@ import {
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
   Block,
+  Details,
   inputClass,
   primaryClass,
   secondaryClass,
@@ -116,13 +117,13 @@ export function OwnershipControls() {
     <Block
       title={c("소유권", "Ownership")}
       description={c(
-        "내부 후임이 본인 확인 후 수락해야 이전됩니다. 이전 소유자는 관리자로 남고 결제 위임은 회수됩니다. 편집 이용권과 AI, 이용기간은 바뀌지 않습니다.",
-        "An internal successor must verify identity and accept. The previous owner remains an administrator and loses billing delegation. Editing licences, AI and the team period do not change.",
+        "내부 후임이 본인 확인 후 수락하면 이전됩니다.",
+        "Completes when an internal successor verifies and accepts.",
       )}
     >
-      <div className="max-w-2xl space-y-4">
+      <div className="max-w-xl space-y-4">
         {offer && (
-          <p className="text-sm">
+          <p className="text-[13px]">
             {canAccept
               ? c(
                   "이 팀의 소유권 이전 요청이 도착했습니다.",
@@ -135,7 +136,7 @@ export function OwnershipControls() {
           </p>
         )}
         {!offer && data.role === "owner" && (
-          <label className="block space-y-2 text-sm">
+          <label className="block space-y-1.5 text-[13px]">
             <span>{c("내부 소유권 후임", "Internal ownership successor")}</span>
             <select
               aria-label={c("내부 소유권 후임", "Internal ownership successor")}
@@ -163,7 +164,7 @@ export function OwnershipControls() {
           </label>
         )}
         {(data.role === "owner" || offer?.toUserId === data.currentUserId) && (
-          <label className="block space-y-2 text-sm">
+          <label className="block space-y-1.5 text-[13px]">
             <span>{c("소유권 변경 사유", "Reason for ownership action")}</span>
             <textarea
               aria-label={c("소유권 변경 사유", "Reason for ownership action")}
@@ -250,7 +251,7 @@ export function OwnershipControls() {
           />
         )}
         {!!pending.current && (
-          <p className="text-sm leading-6 text-muted">
+          <p className="text-xs leading-5 text-muted">
             {c(
               "처리 결과를 확인할 때까지 같은 내용으로 다시 확인해 주세요.",
               "Retry with the same details until the result is confirmed.",
@@ -259,13 +260,21 @@ export function OwnershipControls() {
         )}
         {error && <B2bError code={error} />}
         {notice && (
-          <p role="status" className="text-sm">
+          <p role="status" className="text-[13px]">
             {c(
               "소유권 이전 상태를 업데이트했습니다.",
               "Ownership transfer status updated.",
             )}
           </p>
         )}
+        <Details>
+          <p>
+            {c(
+              "이전 소유자는 관리자로 남고 결제 위임은 회수됩니다. 편집 이용권과 AI, 이용기간은 바뀌지 않습니다.",
+              "The previous owner stays an administrator and loses billing delegation. Editing licences, AI and the team period do not change.",
+            )}
+          </p>
+        </Details>
       </div>
     </Block>
   );

@@ -4,9 +4,13 @@ import { RequestWorkPanel } from "./request-work";
 import { ReviewWorkPanel } from "./review-work";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { buildTeamProjectOpenUrl } from "@/lib/workspaces/app-link";
-import { projectSurfaces, visibilityChange } from "@/lib/b2b-projects/visibility";
+import {
+  projectSurfaces,
+  visibilityChange,
+} from "@/lib/b2b-projects/visibility";
 import {
   b2bService,
   type Project,
@@ -14,16 +18,20 @@ import {
 } from "@/lib/api/services/b2b.service";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
+  Block,
   ConfirmDialog,
+  Details,
   inputClass,
+  KeyValues,
+  Notice,
   primaryClass,
   secondaryClass,
-  SpaceBadge,
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
 import { PublishedItems, useRun } from "./reviews";
-import { folderTabs,
+import {
+  folderTabs,
   B2bError,
   errorCode,
   StateBadge,
@@ -36,7 +44,8 @@ import { folderTabs,
 // ponytail: folder model (2026-10-07) — teammates don't open someone's work in the app; delete after merge
 const APP_ENTRY = false;
 // Secondary links under the published items: present, not competing.
-const moreLink = "text-muted underline underline-offset-4 hover:text-foreground";
+const moreLink =
+  "text-muted underline underline-offset-4 hover:text-foreground";
 
 function useProject(projectId: string) {
   const context = useWorkspace()!;
@@ -104,7 +113,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
   );
 }
 function ScopedProjectOverview({ projectId }: { projectId: string }) {
-  const { context, id, project, error, reload, deny } = useProject(projectId);
+  const { id, project, error, reload, deny } = useProject(projectId);
   const c = useCopy();
   const [editing, setEditing] = useState(false);
   if (error && !project)
@@ -121,37 +130,37 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
       tabs={folderTabs(id, project, c)}
       actions={
         <>
-        {APP_ENTRY && appUrl && surfaces.app && (
-          <a className={secondaryClass} href={appUrl}>
-            {c("앱에서 작업하기", "Work in app")}
-          </a>
-        )}
-        {project.allowedActions.edit && (
-          <button
-            className={secondaryClass}
-            onClick={() => setEditing(!editing)}
-          >
-            {editing
-              ? c("개요 보기", "View overview")
-              : c("개요 수정", "Edit overview")}
-          </button>
-        )}
+          {/* The folder's state sits with its name, not on a row of its own. */}
+          <div className="flex items-center gap-2">
+            <StateBadge state={project.state} />
+            <VisibilityBadge visibility={project.visibility} />
+          </div>
+          {APP_ENTRY && appUrl && surfaces.app && (
+            <a className={secondaryClass} href={appUrl}>
+              {c("앱에서 작업하기", "Work in app")}
+            </a>
+          )}
+          {project.allowedActions.edit && (
+            <button
+              className={secondaryClass}
+              onClick={() => setEditing(!editing)}
+            >
+              {editing
+                ? c("개요 보기", "View overview")
+                : c("개요 수정", "Edit overview")}
+            </button>
+          )}
         </>
       }
     >
       {error && <B2bError code={error} retry={() => void reload()} />}
-      <div className="flex flex-wrap items-center gap-3">
-        <SpaceBadge workspace={context.data.workspace} />
-        <StateBadge state={project.state} />
-        <VisibilityBadge visibility={project.visibility} />
-      </div>
       {project.role === "viewer" && (
-        <p role="note" className="text-sm text-muted">
+        <Notice role="note">
           {c(
             "팀 공개 폴더를 열람 중입니다. 작업하려면 담당자에게 참여를 요청하세요.",
             "You are viewing a team-wide folder. Ask the lead to add you to work on it.",
           )}
-        </p>
+        </Notice>
       )}
       {editing && project.allowedActions.edit ? (
         <ProjectEditor
@@ -166,33 +175,61 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
       ) : (
         <>
           <PublishedItems projectId={projectId} />
-          <section className="space-y-3 border-b border-border pb-8">
-            <h2 className="font-medium">{c("작업 개요", "Brief")}</h2>
+          {/* The brief and the delivery rules are what 개요 수정 edits, so
+              they read as one block. */}
+          <Block title={c("작업 개요", "Brief")}>
             <p className="max-w-3xl whitespace-pre-wrap break-words text-sm leading-6 text-muted">
               {project.brief || c("등록된 개요가 없습니다.", "No brief yet.")}
             </p>
-          </section>
+            <KeyValues
+              items={[
+                [
+                  c("납품 조건", "Delivery"),
+                  project.requiresWorkingFiles
+                    ? c(
+                        "최종 영상 승인 · 필수 요청 확인 · 작업 파일 열기 확인",
+                        "Final video approval · required requests · verified working files",
+                      )
+                    : c(
+                        "최종 영상 승인 · 필수 요청 확인",
+                        "Final video approval · required requests",
+                      ),
+                ],
+                [
+                  c("원본 공유", "Original sharing"),
+                  project.shareOriginals
+                    ? c(
+                        "허용 · 다운로드는 참여자별 권한",
+                        "On · download per participant",
+                      )
+                    : c("허용 안 함", "Off"),
+                ],
+              ]}
+            />
+          </Block>
           <VisibilitySection project={project} onChanged={reload} />
-          {/* P (2026-10-07): requests, delivery and completion stay reachable
-              but sit below the published items, their panels folded away. */}
-          <section
-            className="space-y-4"
-            aria-label={c("요청·납품·완료", "Requests, delivery and completion")}
-          >
-            <h2 className="text-sm text-muted">
-              {c("요청·납품·완료", "Requests, delivery and completion")}
-            </h2>
-            {/* Requests and delivery are tabs now; the app's registered
-                results stay a link — they are a log, not a place to work. */}
-            <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
-              {surfaces.publications && (
-                <Link className={moreLink} href={`/dashboard/workspaces/${id}/projects/${projectId}/publications`}>
+          {/* P (2026-10-07): request and review work stay reachable below
+              the published items, folded away. Registered results stay a
+              link — a log, not a place to work. */}
+          <section className="space-y-2 text-sm">
+            {surfaces.publications && (
+              <p>
+                <Link
+                  className={moreLink}
+                  href={`/dashboard/workspaces/${id}/projects/${projectId}/publications`}
+                >
                   {c("등록된 결과", "Registered results")}
                 </Link>
-              )}
-            </div>
-            <details>
-              <summary className="min-h-11 cursor-pointer text-sm text-muted">
+              </p>
+            )}
+            <details className="group">
+              <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 text-sm text-muted transition-colors hover:text-foreground sm:min-h-9 [&::-webkit-details-marker]:hidden">
+                <ChevronRight
+                  size={16}
+                  strokeWidth={1.75}
+                  aria-hidden="true"
+                  className="transition-transform group-open:rotate-90"
+                />
                 {c("더 보기", "More")}
               </summary>
               <div className="mt-4 space-y-8">
@@ -200,30 +237,6 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
                   <RequestWorkPanel projectId={projectId} onDenied={deny} />
                 )}
                 <ReviewWorkPanel projectId={projectId} onDenied={deny} />
-                <section className="space-y-3">
-                  <h2 className="font-medium">
-                    {c("완료 조건", "Completion requirements")}
-                  </h2>
-                  <p className="text-sm leading-6 text-muted">
-                    {project.requiresWorkingFiles
-                      ? c(
-                          "최종 영상 승인, 필수 요청 확인과 작업 파일 열기 확인이 필요합니다.",
-                          "Delivery requires final video approval, required request confirmation and verified working files.",
-                        )
-                      : c(
-                          "최종 영상 승인과 필수 요청 확인이 필요합니다.",
-                          "Delivery requires final video approval and required request confirmation.",
-                        )}
-                  </p>
-                  <p className="text-sm text-muted">
-                    {project.shareOriginals
-                      ? c(
-                          "원본 공유 허용. 다운로드는 참여자별 권한을 따릅니다.",
-                          "Original sharing is enabled. Download access is granted separately per participant.",
-                        )
-                      : c("원본 공유 비허용", "Original sharing is disabled")}
-                  </p>
-                </section>
               </div>
             </details>
           </section>
@@ -270,33 +283,57 @@ function VisibilitySection({
     await onChanged();
   };
   return (
-    <section
-      className="space-y-3 border-b border-border pb-8"
-      aria-label={c("공개 범위", "Visibility")}
-    >
-      <h2 className="font-medium">{c("공개 범위", "Visibility")}</h2>
-      <p className="max-w-3xl text-sm leading-6 text-muted">
-        {project.visibility === "team"
+    <Block
+      title={c("공개 범위", "Visibility")}
+      description={
+        project.visibility === "team"
           ? c(
-              "팀 전체 공개: 팀의 모든 내부 멤버가 이 폴더와 발행된 영상을 보고 코멘트할 수 있고, 팀 검토자를 제외한 멤버는 팀 공용 클라우드처럼 자료를 올리고 받고 결과를 발행할 수 있습니다. 공개 범위·완료·승인자·공유 링크 관리는 담당자만 합니다. 외부 참여자는 자기가 발행한 결과의 회차와, 담당자가 회차에 추가하거나 공유 링크를 보낸 영상만 봅니다. AI 사용은 자료별 권한을 따릅니다.",
-              "Team-wide: every internal team member can see this folder and its published videos and comment on them; members other than team reviewers can also upload and download files and publish results, like a shared team cloud. Visibility, completion, approver and share links stay with the lead. External participants see the rounds of results they published themselves, and others only when the lead adds them to the round or sends a share link. AI use follows per-file permissions.",
+              "팀의 모든 내부 멤버가 이 폴더를 보고 함께 작업합니다.",
+              "Every internal team member can see and work in this folder.",
             )
           : c(
-              "비공개: 참여자만 이 폴더를 볼 수 있습니다. 참여하지 않은 소유자·관리자에게도 보이지 않습니다. 발행 영상은 내부 참여자에게 자동 공개되고, 외부 참여자는 자기가 발행한 결과의 회차와, 담당자가 회차에 추가하거나 공유 링크를 보낸 영상만 봅니다.",
-              "Private: only participants can see this folder, including owners and admins who don't participate. Published videos open to internal participants automatically; external participants see the rounds of results they published themselves, and others only when the lead adds them to the round or sends a share link.",
+              "참여자만 이 폴더를 볼 수 있습니다.",
+              "Only participants can see this folder.",
+            )
+      }
+      actions={
+        project.allowedActions.changeVisibility &&
+        !open && (
+          <button
+            type="button"
+            className={secondaryClass}
+            onClick={() => setOpen(true)}
+          >
+            {widening
+              ? c("팀 전체 공개로 바꾸기", "Make team-wide")
+              : c("비공개로 바꾸기", "Make private")}
+          </button>
+        )
+      }
+    >
+      <Details>
+        {project.visibility === "team" ? (
+          <p>
+            {c(
+              "팀 검토자를 제외한 멤버는 팀 공용 클라우드처럼 자료를 올리고 받고 결과를 발행할 수 있습니다. 공개 범위·완료·승인자·공유 링크 관리는 담당자만 합니다. AI 사용은 자료별 권한을 따릅니다.",
+              "Members other than team reviewers can upload and download files and publish results, like a shared team cloud. Visibility, completion, approver and share links stay with the lead. AI use follows per-file permissions.",
             )}
-      </p>
-      {project.allowedActions.changeVisibility && !open && (
-        <button
-          type="button"
-          className={secondaryClass}
-          onClick={() => setOpen(true)}
-        >
-          {widening
-            ? c("팀 전체 공개로 바꾸기", "Make team-wide")
-            : c("비공개로 바꾸기", "Make private")}
-        </button>
-      )}
+          </p>
+        ) : (
+          <p>
+            {c(
+              "참여하지 않은 소유자·관리자에게도 보이지 않습니다. 발행 영상은 내부 참여자에게 자동 공개됩니다.",
+              "Owners and admins who don't participate can't see it either. Published videos open to internal participants automatically.",
+            )}
+          </p>
+        )}
+        <p>
+          {c(
+            "외부 참여자는 자기가 발행한 결과의 회차와, 담당자가 회차에 추가하거나 공유 링크를 보낸 영상만 봅니다.",
+            "External participants see the rounds of results they published themselves, and others only when the lead adds them to the round or sends a share link.",
+          )}
+        </p>
+      </Details>
       {open && (
         <ConfirmDialog
           label={
@@ -375,7 +412,7 @@ function VisibilitySection({
           </div>
         </ConfirmDialog>
       )}
-    </section>
+    </Block>
   );
 }
 
@@ -399,7 +436,7 @@ function ProjectEditor({
   const pending = useRef<{ fingerprint: string; key: string } | null>(null);
   return (
     <form
-      className="max-w-2xl space-y-5"
+      className="max-w-xl space-y-6"
       onSubmit={async (event) => {
         event.preventDefault();
         if (busy) return;
@@ -448,63 +485,68 @@ function ProjectEditor({
         <span>{c("작업 개요", "Brief")}</span>
         <textarea
           aria-label={c("작업 개요", "Brief")}
-          className={`${inputClass} min-h-36`}
+          className={`${inputClass} min-h-28`}
           maxLength={5000}
           disabled={busy || !!pending.current}
           value={brief}
           onChange={(e) => setBrief(e.target.value)}
         />
       </label>
-      <label className="flex min-h-11 items-center gap-3 text-sm">
-        <input
-          type="checkbox"
-          checked={working}
-          disabled={busy || !!pending.current}
-          onChange={(e) => setWorking(e.target.checked)}
-        />
-        {c(
-          "납품에 작업 파일 확인 필요",
-          "Require verified working files for delivery",
-        )}
-      </label>
-      <label className="flex min-h-11 items-center gap-3 text-sm">
-        <input
-          type="checkbox"
-          checked={originals}
-          disabled={busy || !!pending.current}
-          onChange={(e) => setOriginals(e.target.checked)}
-        />
-        {c("원본 공유 허용", "Allow original sharing")}
-      </label>
+      <fieldset className="space-y-1 text-sm">
+        <legend className="mb-2">{c("납품", "Delivery")}</legend>
+        <label className="flex min-h-11 items-center gap-3">
+          <input
+            type="checkbox"
+            checked={working}
+            disabled={busy || !!pending.current}
+            onChange={(e) => setWorking(e.target.checked)}
+          />
+          {c(
+            "납품에 작업 파일 확인 필요",
+            "Require verified working files for delivery",
+          )}
+        </label>
+        <label className="flex min-h-11 items-center gap-3">
+          <input
+            type="checkbox"
+            checked={originals}
+            disabled={busy || !!pending.current}
+            onChange={(e) => setOriginals(e.target.checked)}
+          />
+          {c("원본 공유 허용", "Allow original sharing")}
+        </label>
+      </fieldset>
       {error && <B2bError code={error} />}
       {revision !== project.revision && (
-        <div className="space-y-3 rounded-lg border border-border p-4 text-sm">
-          <p>
-            {c("최신 내용", "Current server version")}: {project.name}
-          </p>
-          <p className="whitespace-pre-wrap text-muted">{project.brief}</p>
-          <p>
-            {c("작업 파일 확인", "Working file verification")}:{" "}
-            {project.requiresWorkingFiles
-              ? c("필수", "Required")
-              : c("선택", "Optional")}
-          </p>
-          <button
-            type="button"
-            className={secondaryClass}
-            disabled={busy}
-            onClick={() => {
-              pending.current = null;
-              setRevision(project.revision);
-              setError("");
-            }}
-          >
-            {c(
-              "차이를 확인하고 내 입력으로 저장 준비",
-              "Keep my draft after reviewing changes",
-            )}
-          </button>
-        </div>
+        <Notice role="status">
+          <div className="space-y-2">
+            <p>
+              {c("최신 내용", "Current server version")}: {project.name}
+            </p>
+            <p className="whitespace-pre-wrap text-muted">{project.brief}</p>
+            <p>
+              {c("작업 파일 확인", "Working file verification")}:{" "}
+              {project.requiresWorkingFiles
+                ? c("필수", "Required")
+                : c("선택", "Optional")}
+            </p>
+            <button
+              type="button"
+              className={secondaryClass}
+              disabled={busy}
+              onClick={() => {
+                pending.current = null;
+                setRevision(project.revision);
+                setError("");
+              }}
+            >
+              {c(
+                "차이를 확인하고 내 입력으로 저장 준비",
+                "Keep my draft after reviewing changes",
+              )}
+            </button>
+          </div>
+        </Notice>
       )}
       <div className="flex flex-wrap gap-3">
         <button
@@ -618,171 +660,182 @@ export function ProjectParticipants({ projectId }: { projectId: string }) {
       description={project.name}
       tabs={folderTabs(id, project, c)}
     >
-      <SpaceBadge workspace={context.data.workspace} />
       {rosterError && (
         <B2bError code={rosterError} retry={() => void loadPeople()} />
       )}
       {!roster ? (
         !rosterError && <TeamLoading />
       ) : (
-        <ul className="divide-y divide-border">
-          {roster.people.map((person) => (
-            <li
-              className="flex flex-wrap items-center justify-between gap-3 py-4"
-              key={person.userId}
-            >
-              <div className="min-w-0">
-                <p className="break-all text-sm font-medium">
-                  {person.name || person.email}
-                </p>
-                {person.name && (
-                  <p className="mt-1 break-all text-xs text-muted">
-                    {person.email}
-                  </p>
+        <section className="space-y-4 border-b border-border pb-8 last:border-b-0 last:pb-0">
+          {/* One reason serves every change below it — removal, handoff and
+              the participation form — so it sits above all of them. */}
+          {editable && (
+            <label className="block max-w-xl space-y-2 text-sm">
+              <span>
+                {c(
+                  "변경·종료·이전 사유",
+                  "Reason for change, removal or handoff",
                 )}
-                <p className="mt-1 text-xs text-muted">
-                  {person.kind === "external"
-                    ? c("외부 참여자", "External")
-                    : c("내부 참여자", "Internal")}{" "}
-                  ·{" "}
-                  {person.role === "lead"
-                    ? c("담당자", "Lead")
-                    : person.role === "producer"
-                      ? c("제작자", "Producer")
-                      : c("검토자", "Reviewer")}{" "}
-                  ·{" "}
-                  {person.canDownload
-                    ? c("다운로드 허용", "Downloads allowed")
-                    : c("다운로드 비허용", "Downloads denied")}
-                </p>
-              </div>
-              {editable && person.role !== "lead" && (
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    className={secondaryClass}
-                    disabled={busy || !reason.trim()}
-                    onClick={() =>
-                      void mutate({
-                        userId: person.userId,
-                        role: person.role as "producer" | "reviewer",
-                        canDownload: person.canDownload,
-                        remove: true,
-                      })
-                    }
-                  >
-                    {c("참여 종료", "Remove")}
-                  </button>
-                  {person.kind === "internal" && (
+              </span>
+              <input
+                aria-label={c(
+                  "변경·종료·이전 사유",
+                  "Reason for change, removal or handoff",
+                )}
+                className={inputClass}
+                maxLength={1000}
+                placeholder={c(
+                  "입력하면 아래 변경을 할 수 있습니다",
+                  "Required for the changes below",
+                )}
+                disabled={busy || !!pending.current}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
+            </label>
+          )}
+          <ul className="divide-y divide-border border-y border-border">
+            {roster.people.map((person) => (
+              <li
+                className="flex flex-wrap items-center justify-between gap-3 py-3"
+                key={person.userId}
+              >
+                <div className="min-w-0">
+                  <p className="break-all text-sm font-medium">
+                    {person.name || person.email}
+                  </p>
+                  {person.name && (
+                    <p className="break-all text-[13px] text-muted">
+                      {person.email}
+                    </p>
+                  )}
+                  <p className="text-[13px] text-muted">
+                    {person.kind === "external"
+                      ? c("외부 참여자", "External")
+                      : c("내부 참여자", "Internal")}{" "}
+                    ·{" "}
+                    {person.role === "lead"
+                      ? c("담당자", "Lead")
+                      : person.role === "producer"
+                        ? c("제작자", "Producer")
+                        : c("검토자", "Reviewer")}{" "}
+                    ·{" "}
+                    {person.canDownload
+                      ? c("다운로드 허용", "Downloads allowed")
+                      : c("다운로드 비허용", "Downloads denied")}
+                  </p>
+                </div>
+                {editable && person.role !== "lead" && (
+                  <div className="flex flex-wrap gap-2">
+                    {person.kind === "internal" && (
+                      <button
+                        className={secondaryClass}
+                        disabled={busy || !reason.trim()}
+                        onClick={() => void mutate({ targetId: person.userId })}
+                      >
+                        {c("담당자 이전", "Transfer lead")}
+                      </button>
+                    )}
                     <button
                       className={secondaryClass}
                       disabled={busy || !reason.trim()}
-                      onClick={() => void mutate({ targetId: person.userId })}
+                      onClick={() =>
+                        void mutate({
+                          userId: person.userId,
+                          role: person.role as "producer" | "reviewer",
+                          canDownload: person.canDownload,
+                          remove: true,
+                        })
+                      }
                     >
-                      {c("담당자 이전", "Transfer lead")}
+                      {c("참여 종료", "Remove")}
                     </button>
-                  )}
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
       {editable && (
-        <form
-          className="max-w-2xl space-y-4 border-t border-border pt-6"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void mutate({ userId: target, role, canDownload: download });
-          }}
-        >
-          <h2 className="font-medium">
-            {c("참여 범위 변경", "Change participation")}
-          </h2>
-          <label className="block space-y-2 text-sm">
-            <span>{c("팀 참여자", "Team participant")}</span>
-            <select
-              aria-label={c("팀 참여자", "Team participant")}
-              className={inputClass}
-              required
-              disabled={busy || !!pending.current}
-              value={target}
-              onChange={(e) => {
-                setTarget(e.target.value);
-                const person = roster?.people.find(
-                  (p) => p.userId === e.target.value,
-                );
-                setRole(person?.role === "reviewer" ? "reviewer" : "producer");
-                setDownload(person?.canDownload ?? false);
-              }}
-            >
-              <option value="">{c("선택", "Select")}</option>
-              {context.data.members
-                .filter(
-                  (m) =>
-                    !m.suspendedAt &&
-                    m.userId !== project.leadId &&
-                    roster?.people.some((p) => p.userId === m.userId),
-                )
-                .map((m) => (
-                  <option value={m.userId} key={m.userId}>
-                    {m.name || m.email}
-                  </option>
-                ))}
-            </select>
-          </label>
-          <label className="block space-y-2 text-sm">
-            <span>{c("폴더 역할", "Folder role")}</span>
-            <select
-              aria-label={c("폴더 역할", "Folder role")}
-              className={inputClass}
-              disabled={busy || !!pending.current}
-              value={role}
-              onChange={(e) =>
-                setRole(e.target.value as "producer" | "reviewer")
-              }
-            >
-              <option value="producer">{c("제작자", "Producer")}</option>
-              <option value="reviewer">{c("검토자", "Reviewer")}</option>
-            </select>
-          </label>
-          <label className="flex min-h-11 items-center gap-3 text-sm">
-            <input
-              type="checkbox"
-              checked={download}
-              disabled={busy || !!pending.current}
-              onChange={(e) => setDownload(e.target.checked)}
-            />
-            {c("다운로드 허용", "Allow downloads")}
-          </label>
-          <label className="block space-y-2 text-sm">
-            <span>
-              {c(
-                "변경·종료·이전 사유",
-                "Reason for change, removal or handoff",
-              )}
-            </span>
-            <textarea
-              aria-label={c(
-                "변경·종료·이전 사유",
-                "Reason for change, removal or handoff",
-              )}
-              className={inputClass}
-              maxLength={1000}
-              required
-              disabled={busy || !!pending.current}
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </label>
-          <button
-            className={primaryClass}
-            disabled={busy || !target || !reason.trim()}
+        <Block title={c("참여 범위 변경", "Change participation")}>
+          <form
+            className="max-w-xl space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void mutate({ userId: target, role, canDownload: download });
+            }}
           >
-            {busy
-              ? c("처리 중…", "Saving…")
-              : c("참여 범위 저장", "Save participation")}
-          </button>
-        </form>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="space-y-2 text-sm">
+                <span>{c("팀 참여자", "Team participant")}</span>
+                <select
+                  aria-label={c("팀 참여자", "Team participant")}
+                  className={inputClass}
+                  required
+                  disabled={busy || !!pending.current}
+                  value={target}
+                  onChange={(e) => {
+                    setTarget(e.target.value);
+                    const person = roster?.people.find(
+                      (p) => p.userId === e.target.value,
+                    );
+                    setRole(
+                      person?.role === "reviewer" ? "reviewer" : "producer",
+                    );
+                    setDownload(person?.canDownload ?? false);
+                  }}
+                >
+                  <option value="">{c("선택", "Select")}</option>
+                  {context.data.members
+                    .filter(
+                      (m) =>
+                        !m.suspendedAt &&
+                        m.userId !== project.leadId &&
+                        roster?.people.some((p) => p.userId === m.userId),
+                    )
+                    .map((m) => (
+                      <option value={m.userId} key={m.userId}>
+                        {m.name || m.email}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <label className="space-y-2 text-sm">
+                <span>{c("폴더 역할", "Folder role")}</span>
+                <select
+                  aria-label={c("폴더 역할", "Folder role")}
+                  className={inputClass}
+                  disabled={busy || !!pending.current}
+                  value={role}
+                  onChange={(e) =>
+                    setRole(e.target.value as "producer" | "reviewer")
+                  }
+                >
+                  <option value="producer">{c("제작자", "Producer")}</option>
+                  <option value="reviewer">{c("검토자", "Reviewer")}</option>
+                </select>
+              </label>
+            </div>
+            <label className="flex min-h-11 items-center gap-3 text-sm">
+              <input
+                type="checkbox"
+                checked={download}
+                disabled={busy || !!pending.current}
+                onChange={(e) => setDownload(e.target.checked)}
+              />
+              {c("다운로드 허용", "Allow downloads")}
+            </label>
+            <button
+              className={primaryClass}
+              disabled={busy || !target || !reason.trim()}
+            >
+              {busy
+                ? c("처리 중…", "Saving…")
+                : c("참여 범위 저장", "Save participation")}
+            </button>
+          </form>
+        </Block>
       )}
       {project.role === "lead" && (
         <InvitationPanel projectId={projectId} editable={editable} />

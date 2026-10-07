@@ -1,5 +1,6 @@
 "use client";
-import { Building2, UserRound } from "lucide-react";
+import { ArrowLeft, Building2, ChevronRight, UserRound } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useRef, type ReactNode } from "react";
 import { PageHeader, PageTabs } from "@/components/ui";
 import { useI18n } from "@/lib/i18n/context";
@@ -26,7 +27,7 @@ export function TeamShell({
 }: {
   /** Omit when the page's first section already carries its own heading. */
   title?: string;
-  description?: string;
+  description?: ReactNode;
   /** Sibling pages of one topic (e.g. 플랜과 결제 · 결제 정보 · 월 이용명세서). */
   tabs?: { href: string; label: string }[];
   /** The page's own actions, beside the title. */
@@ -58,20 +59,29 @@ export function Block({
   title,
   description,
   actions,
+  id,
+  label,
   children,
 }: {
   title: string;
-  description?: string;
+  description?: ReactNode;
   actions?: ReactNode;
+  id?: string;
+  /** Names the section as a landmark (role region) when given. */
+  label?: string;
   children?: ReactNode;
 }) {
   return (
-    <section className="space-y-4 border-b border-border pb-8 last:border-b-0 last:pb-0">
+    <section
+      id={id}
+      aria-label={label}
+      className="space-y-4 border-b border-border pb-8 last:border-b-0 last:pb-0"
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="font-medium">{title}</h2>
+        <div className="min-w-0">
+          <h2 className="text-[15px] font-medium">{title}</h2>
           {description && (
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-muted">
+            <p className="mt-1 max-w-2xl text-[13px] leading-5 text-muted">
               {description}
             </p>
           )}
@@ -82,6 +92,109 @@ export function Block({
     </section>
   );
 }
+/**
+ * Detail most people never need — policy wording, edge cases, how a rule is
+ * computed — one click away instead of a paragraph above every control.
+ * Never put text a person needs in order to act in here.
+ */
+export function Details({
+  summary,
+  children,
+}: {
+  summary?: string;
+  children: ReactNode;
+}) {
+  const { lang } = useI18n();
+  return (
+    <details className="group text-[13px]">
+      <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-muted transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
+        <ChevronRight
+          size={14}
+          strokeWidth={1.75}
+          aria-hidden="true"
+          className="transition-transform group-open:rotate-90"
+        />
+        {summary ?? (lang === "ko" ? "자세히" : "Details")}
+      </summary>
+      <div className="mt-2 max-w-2xl space-y-2 leading-6 text-muted">
+        {children}
+      </div>
+    </details>
+  );
+}
+
+/** Nothing here yet: one line, and the one thing to do about it. */
+export function EmptyState({
+  title,
+  description,
+  action,
+}: {
+  title: string;
+  description?: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="rounded-lg border border-dashed border-border px-6 py-10 text-center">
+      <p className="text-sm font-medium">{title}</p>
+      {description && (
+        <p className="mx-auto mt-1 max-w-md text-[13px] leading-5 text-muted">
+          {description}
+        </p>
+      )}
+      {action && <div className="mt-4 flex justify-center">{action}</div>}
+    </div>
+  );
+}
+
+/** A one-line callout for a state worth noticing (not an error). */
+export function Notice({
+  children,
+  role,
+}: {
+  children: ReactNode;
+  role?: "status" | "note" | "alert";
+}) {
+  return (
+    <div
+      role={role}
+      className="rounded-md bg-surface-secondary px-3 py-2 text-[13px] leading-5"
+    >
+      {children}
+    </div>
+  );
+}
+
+/** Label/value pairs: a muted label column and the value beside it. */
+export function KeyValues({
+  items,
+}: {
+  items: [ReactNode, ReactNode][];
+}) {
+  return (
+    <dl className="grid gap-x-6 gap-y-2 text-[13px] sm:grid-cols-[minmax(8rem,auto)_1fr]">
+      {items.map(([label, value], i) => (
+        <div key={i} className="contents">
+          <dt className="text-muted">{label}</dt>
+          <dd className="min-w-0 break-words">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/** "← 요청 목록": the way back from a child page to its list. */
+export function BackLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="inline-flex items-center gap-1 text-[13px] text-muted transition-colors hover:text-foreground"
+    >
+      <ArrowLeft size={14} strokeWidth={1.75} aria-hidden="true" />
+      {children}
+    </Link>
+  );
+}
+
 export function TeamError({
   code,
   retry,

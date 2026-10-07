@@ -1,16 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-  ProgressBar,
-  ProgressBarTrack,
-  ProgressBarFill,
-} from "@heroui/react";
 import { Skeleton, Button } from "@heroui/react";
 import { usageService } from "@/lib/api/services/usage.service";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useI18n } from "@/lib/i18n/context";
 import { BillingHeader } from "@/components/dashboard/billing-header";
+import { Meter, Stat } from "@/components/ui";
 
 export default function UsagePage() {
   const { t, lang } = useI18n();
@@ -39,101 +35,71 @@ export default function UsagePage() {
   const bonus = (usage as { bonus?: { remainingSeconds: number; nextExpiresAt: number | null } } | null)?.bonus;
   const remaining = Number(quota?.remaining ?? 0);
   const total = Number(quota?.total ?? 0);
+  const unlimited = total < 0;
   const pct = total > 0 ? (remaining / total) * 100 : 100;
+  // `videos.total` is the plan's monthly allowance, and the server sends -1
+  // for "no limit" — printed raw that read "-1" on every Pro account.
+  const allowance = Number(videos?.total ?? 0);
 
-  // Locale-aware thousands separators for raw counts (the quota totals below
-  // are pre-formatted strings from the backend, so only the video counts need
-  // this).
+  // Locale-aware thousands separators for raw counts (the quota totals are
+  // pre-formatted strings from the backend, so only the video counts need it).
   const formatCount = (n: number) =>
     n.toLocaleString(lang === "ko" ? "ko-KR" : "en-US");
 
   return (
     <div>
       <BillingHeader />
-      <div className="space-y-10">
 
-      {loadError && !loading && (
-        <div className="flex items-center justify-between rounded-lg border border-danger/30 bg-danger/5 p-6">
+      {loadError && !loading ? (
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-danger/30 bg-danger/5 p-4">
           <p className="text-sm text-danger">{t("usage.loadError")}</p>
           <Button variant="outline" size="sm" onPress={loadUsage}>{t("common.retry")}</Button>
         </div>
-      )}
-
-      {/* Inference */}
-      <section className={`space-y-4 ${loadError && !loading ? "hidden" : ""}`}>
-        <h2 className="text-sm font-medium text-foreground">{t("usage.inferenceQuota")}</h2>
-        {loading ? (
-          <Skeleton className="h-36 w-full rounded-lg" />
-        ) : (
-          <div className="rounded-lg border border-border">
-            <div className="p-6">
-              <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-semibold tabular-nums text-foreground">{pct.toFixed(0)}%</span>
-                <span className="text-sm text-muted">{t("usage.remaining")}</span>
-              </div>
-              <div className="mt-4">
-                <ProgressBar aria-label={t("usage.inferenceQuota")} value={pct} size="sm">
-                  <ProgressBarTrack><ProgressBarFill /></ProgressBarTrack>
-                </ProgressBar>
-              </div>
-            </div>
-            <div className="grid grid-cols-3 divide-x divide-border border-t border-border">
+      ) : loading ? (
+        <div className="grid gap-3 md:grid-cols-[1.4fr_1fr]">
+          <Skeleton className="h-[124px] rounded-lg" />
+          <Skeleton className="h-[124px] rounded-lg" />
+        </div>
+      ) : (
+        <div className="grid gap-3 md:grid-cols-[1.4fr_1fr]">
+          <Stat
+            label={t("usage.timeLeft")}
+            value={unlimited ? t("usage.unlimited") : String(quota?.remainingFormatted ?? "—")}
+            unit={unlimited || !quota ? undefined : t("usage.ofTotal", { total: String(quota.totalFormatted) })}
+          >
+            <Meter value={pct} />
+            <p className="mt-2">
               {[
-                { label: t("usage.total"), value: String(quota?.totalFormatted ?? "—") },
-                { label: t("usage.used"), value: String(quota?.usedFormatted ?? "—") },
-                { label: t("usage.remaining"), value: String(quota?.remainingFormatted ?? "—") },
-              ].map((item) => (
-                <div key={item.label} className="px-6 py-4">
-                  <p className="text-[11px] font-medium  text-muted">{item.label}</p>
-                  <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">{item.value}</p>
-                </div>
-              ))}
-            </div>
-            {bonus && bonus.remainingSeconds > 0 && (
-              <p className="border-t border-border px-6 py-3 text-xs text-muted">
-                {t("coupon.usageBonus", {
-                  minutes: String(Math.floor(bonus.remainingSeconds / 60)),
-                  date: bonus.nextExpiresAt
-                    ? new Date(bonus.nextExpiresAt).toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { month: "long", day: "numeric" })
-                    : "—",
-                })}
-              </p>
-            )}
-          </div>
-        )}
-      </section>
-
-      {/* Videos */}
-      <section className={`space-y-4 ${loadError && !loading ? "hidden" : ""}`}>
-        <h2 className="text-sm font-medium text-foreground">{t("usage.videos")}</h2>
-        {loading ? (
-          <Skeleton className="h-28 w-full rounded-lg" />
-        ) : (
-          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border lg:grid-cols-4">
+                quota && !unlimited ? t("usage.usedAmount", { amount: String(quota.usedFormatted) }) : null,
+                bonus && bonus.remainingSeconds > 0
+                  ? t("coupon.usageBonus", {
+                      minutes: String(Math.floor(bonus.remainingSeconds / 60)),
+                      date: bonus.nextExpiresAt
+                        ? new Date(bonus.nextExpiresAt).toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { month: "long", day: "numeric" })
+                        : "—",
+                    })
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          </Stat>
+          <Stat
+            label={t("usage.videosThisMonth")}
+            value={formatCount(Number(videos?.thisMonth ?? 0))}
+            unit={allowance > 0 ? t("usage.ofTotal", { total: formatCount(allowance) }) : undefined}
+          >
             {[
-              // `videos.total` is the plan's monthly allowance, and the server
-              // sends -1 for "no limit". Printed through formatCount that read
-              // "-1" on every Pro account.
-              { label: t("usage.total"), value: Number(videos?.total ?? 0), allowance: true },
-              { label: t("usage.thisMonth"), value: Number(videos?.thisMonth ?? 0) },
-              { label: t("usage.completed"), value: Number(videos?.completed ?? 0) },
-              { label: t("usage.processing"), value: Number(videos?.processing ?? 0) },
-            ].map((item) => (
-              <div key={item.label} className="bg-surface px-5 py-4">
-                <p className="text-[11px] font-medium  text-muted">{item.label}</p>
-                <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">
-                  {item.allowance && item.value < 0
-                    ? lang === "ko"
-                      ? "무제한"
-                      : "Unlimited"
-                    : formatCount(item.value)}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-      </div>
+              t("usage.completedCount", { count: formatCount(Number(videos?.completed ?? 0)) }),
+              Number(videos?.processing ?? 0) > 0
+                ? t("usage.processingCount", { count: formatCount(Number(videos?.processing)) })
+                : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </Stat>
+        </div>
+      )}
     </div>
   );
 }

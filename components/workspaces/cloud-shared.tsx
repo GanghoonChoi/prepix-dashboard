@@ -182,29 +182,43 @@ export function CloudError({
     </div>
   );
 }
-export function StorageMeter({ storage }: { storage: StorageUsage }) {
+export function StorageMeter({
+  storage,
+  note,
+}: {
+  storage: StorageUsage;
+  /** One more muted fact for the line under the bar (e.g. the per-file limit). */
+  note?: string;
+}) {
   const { lang } = useI18n();
+  const ko = lang === "ko";
+  // The split only matters while something is in flight. Printing
+  // "reserved 0 B" on every visit spends a line to say nothing.
+  const footer = [
+    storage.reserved > 0
+      ? ko
+        ? `${bytes(storage.used)} 저장 · ${bytes(storage.reserved)} 업로드 중`
+        : `${bytes(storage.used)} stored · ${bytes(storage.reserved)} uploading`
+      : null,
+    note,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   return (
-    <div className="space-y-3 rounded-lg border border-border p-5">
-      <div className="flex flex-wrap justify-between gap-2 text-sm">
-        <span>{lang === "ko" ? "팀 저장 용량" : "Team storage"}</span>
+    <div className="space-y-2">
+      <div className="flex flex-wrap justify-between gap-2 text-[13px]">
+        <span className="text-muted">{ko ? "저장 용량" : "Storage"}</span>
         <span className="tabular-nums">
           {bytes(storage.used + storage.reserved)} / {bytes(storage.limit)}
         </span>
       </div>
       <CloudProgress
-        label={lang === "ko" ? "팀 저장 용량 사용량" : "Team storage usage"}
+        label={ko ? "저장 용량 사용량" : "Storage usage"}
         value={storage.used + storage.reserved}
         max={storage.limit}
       />
-      {/* The split only matters while something is in flight. Printing
-          "reserved 0 B" on every visit spends a line to say nothing. */}
-      {storage.reserved > 0 && (
-        <p className="text-xs leading-5 text-muted tabular-nums">
-          {lang === "ko"
-            ? `${bytes(storage.used)} 저장 · ${bytes(storage.reserved)} 업로드 중`
-            : `${bytes(storage.used)} stored · ${bytes(storage.reserved)} uploading`}
-        </p>
+      {footer && (
+        <p className="text-xs leading-5 text-muted tabular-nums">{footer}</p>
       )}
     </div>
   );
@@ -226,9 +240,9 @@ export function CloudProgress({
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={Math.round(percent)}
-      className="h-1.5 w-full overflow-hidden rounded-full bg-surface-secondary"
+      className="h-1 w-full overflow-hidden rounded-full bg-surface-tertiary"
     >
-      <div className="h-full bg-foreground" style={{ width: `${percent}%` }} />
+      <div className="h-full rounded-full bg-foreground" style={{ width: `${percent}%` }} />
     </div>
   );
 }

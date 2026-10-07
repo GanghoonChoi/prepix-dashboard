@@ -12,7 +12,6 @@ import {
 } from "@/lib/workspaces/queue";
 import type { UploadQueue } from "@/lib/workspaces/use-upload-queue";
 import { CloudProgress, cloudMessage } from "@/components/workspaces/cloud-shared";
-import { secondaryClass } from "@/components/workspaces/shared";
 
 /** What the upload queue is doing, one row per file (F04.3). */
 export function TransferPanel({
@@ -54,15 +53,20 @@ export function TransferPanel({
       failed: c("실패", "Failed"),
     })[state] ?? c("실패", "Failed");
 
+  // Icon buttons with their name as the label: three worded buttons per file
+  // made a five-file queue louder than the archive under it.
+  const iconButton =
+    "grid size-9 place-items-center rounded-md text-muted transition-colors hover:bg-surface-secondary hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground";
+
   return (
     <section
       aria-label={c("전송 패널", "Transfer panel")}
-      className="space-y-4 rounded-lg border border-border bg-surface p-5"
+      className="space-y-1 rounded-lg border border-border p-4"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         {/* Five counters, four of them usually zero. Only what is actually
             happening earns a place on the line. */}
-        <p role="status" className="text-sm tabular-nums">
+        <p role="status" className="text-[13px] font-medium tabular-nums">
           {[
             [summary.running, c("진행", "running")] as const,
             [summary.waiting, c("대기", "waiting")] as const,
@@ -77,7 +81,10 @@ export function TransferPanel({
             c(`전송 ${summary.total}개`, `${summary.total} transfers`)}
         </p>
         {transfers.some((entry) => isSettled(entry.state)) && (
-          <button className={secondaryClass} onClick={queue.clearSettled}>
+          <button
+            className="rounded-md px-2 py-1 text-[13px] text-muted transition-colors hover:bg-surface-secondary hover:text-foreground"
+            onClick={queue.clearSettled}
+          >
             {c("끝난 항목 지우기", "Clear finished")}
           </button>
         )}
@@ -86,35 +93,38 @@ export function TransferPanel({
         {transfers.map((entry) => {
           const shown = transferProgress(entry);
           return (
-            <li key={entry.id} className="space-y-2 py-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
+            <li key={entry.id} className="space-y-1.5 py-3 last:pb-0">
+              <div className="flex items-center justify-between gap-2">
                 <p className="min-w-0 break-all text-sm">{entry.name}</p>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex shrink-0">
                   {canPause(entry.state) && (
                     <button
-                      className={secondaryClass}
+                      className={iconButton}
+                      aria-label={c("멈추기", "Pause")}
+                      title={c("멈추기", "Pause")}
                       onClick={() => queue.pause(entry)}
                     >
-                      <Pause size={16} strokeWidth={1.5} />
-                      {c("멈추기", "Pause")}
+                      <Pause size={16} strokeWidth={1.75} aria-hidden="true" />
                     </button>
                   )}
                   {canResume(entry.state) && (
                     <button
-                      className={secondaryClass}
+                      className={iconButton}
+                      aria-label={c("이어 올리기", "Resume")}
+                      title={c("이어 올리기", "Resume")}
                       onClick={() => queue.resume(entry)}
                     >
-                      <Play size={16} strokeWidth={1.5} />
-                      {c("이어 올리기", "Resume")}
+                      <Play size={16} strokeWidth={1.75} aria-hidden="true" />
                     </button>
                   )}
                   {canCancel(entry.state) && (
                     <button
-                      className={secondaryClass}
+                      className={iconButton}
+                      aria-label={c("취소", "Cancel")}
+                      title={c("취소", "Cancel")}
                       onClick={() => onCancel(entry)}
                     >
-                      <X size={16} strokeWidth={1.5} />
-                      {c("취소", "Cancel")}
+                      <X size={16} strokeWidth={1.75} aria-hidden="true" />
                     </button>
                   )}
                 </div>

@@ -13,6 +13,7 @@ import type {
   TeamRefundState,
 } from "@/lib/api/services/b2b.service";
 import { savePgIntent, type PgIntent } from "@/lib/b2b-billing/pg-return";
+import { secondaryClass } from "@/components/workspaces/shared";
 import { B2bError, errorCode, useCopy } from "./shared";
 
 export const won = (value: number) =>
@@ -108,7 +109,7 @@ export function BillingError({ code, retry }: { code: string; retry?: () => void
     <div role="alert" className="rounded-lg border border-border bg-surface p-4 text-sm leading-6">
       <p>{c(...m)}</p>
       {retry && (
-        <button type="button" className="mt-3 inline-flex min-h-11 items-center rounded-md border border-border px-4 py-2 text-sm" onClick={retry}>
+        <button type="button" className={`${secondaryClass} mt-3`} onClick={retry}>
           {c("다시 확인", "Check again")}
         </button>
       )}

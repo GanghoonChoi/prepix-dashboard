@@ -8,6 +8,8 @@ import {
 } from "@/lib/api/services/subscription.service";
 import { useI18n } from "@/lib/i18n/context";
 import { useToast } from "@/components/toast";
+import { cardClass } from "@/components/ui";
+import { inputClass } from "@/components/workspaces/shared";
 
 /**
  * The state of a filed refund request, on the page where it was filed.
@@ -85,7 +87,6 @@ export function RefundRequestCard({
     setSending(false);
   };
 
-
   if (loading) return <Skeleton className="h-32 w-full rounded-lg" />;
   // The offer already says a request is pending; failing to load the thread
   // should not also erase that fact.
@@ -105,19 +106,17 @@ export function RefundRequestCard({
         : t("refund.statusOpen");
 
   return (
-    <section className="rounded-lg border border-border bg-surface p-5 sm:p-6">
+    <section className={`${cardClass} space-y-4 p-5`}>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-sm font-medium text-foreground">{t("refund.cardTitle")}</h2>
-          <p className="mt-1 text-xs text-muted">
+          <h2 className="text-[15px] font-medium">{t("refund.cardTitle")}</h2>
+          <p className="mt-1 text-[13px] text-muted">
             {t("refund.filedAt", { date: fmt(thread.createdAt) })}
           </p>
         </div>
         <span
-          className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium ${
-            thread.status === "answered"
-              ? "bg-foreground/10 text-foreground"
-              : "bg-border/60 text-muted"
+          className={`inline-flex shrink-0 items-center rounded-full border border-border px-2 py-0.5 text-xs ${
+            thread.status === "answered" ? "text-foreground" : "text-muted"
           }`}
         >
           {statusLabel}
@@ -125,45 +124,44 @@ export function RefundRequestCard({
       </div>
 
       {thread.status === "open" && (
-        <p className="mt-3 text-sm text-muted">{t("refund.openHelp")}</p>
+        <p className="text-[13px] text-muted">{t("refund.openHelp")}</p>
       )}
 
-      <ol className="mt-4 space-y-3">
+      <ol className="space-y-2">
         {thread.messages.map((m) => (
           <li
             key={m.id}
-            className={
-              m.author === "team"
-                ? "rounded-lg border border-border bg-background p-3"
-                : "rounded-lg bg-border/30 p-3"
-            }
+            className={`rounded-md p-3 ${
+              m.author === "team" ? "border border-border" : "bg-surface-secondary"
+            }`}
           >
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="text-[11px] font-medium text-foreground">
+            <div className="flex items-baseline justify-between gap-3 text-xs">
+              <span className="font-medium">
                 {m.author === "team"
                   ? (m.authorName ?? t("refund.authorTeam"))
                   : t("refund.authorYou")}
               </span>
-              <span className="text-[11px] text-muted">{fmt(m.createdAt)}</span>
+              <span className="text-muted">{fmt(m.createdAt)}</span>
             </div>
             {/* The first message is the server-built summary, which is newline
                 separated; whitespace-pre-line keeps it readable without markup. */}
-            <p className="mt-1 whitespace-pre-line text-sm text-foreground">{m.body}</p>
+            <p className="mt-1 whitespace-pre-line text-sm">{m.body}</p>
           </li>
         ))}
       </ol>
 
       {thread.status !== "closed" && (
-        <div className="mt-4">
+        <div className="space-y-2">
           <textarea
             value={reply}
             onChange={(e) => setReply(e.target.value)}
             rows={2}
             maxLength={4000}
             placeholder={t("refund.replyPlaceholder")}
-            className="w-full rounded-md border border-border bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted focus:outline-none focus:ring-1 focus:ring-foreground/20"
+            aria-label={t("refund.replyPlaceholder")}
+            className={inputClass}
           />
-          <div className="mt-2 flex justify-end">
+          <div className="flex justify-end">
             <Button
               variant="outline"
               size="sm"

@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { RefreshCw } from "lucide-react";
 import { useI18n } from "@/lib/i18n/context";
 import { apiClient } from "@/lib/api/client";
 import { requestsService } from "@/lib/api/services/b2b-requests.service";
@@ -13,7 +14,11 @@ import type {
   RequestWorkQuery,
 } from "@/lib/api/generated/b2b";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
-import { inputClass, secondaryClass } from "@/components/workspaces/shared";
+import {
+  EmptyState,
+  inputClass,
+  secondaryClass,
+} from "@/components/workspaces/shared";
 import {
   B2bError,
   accessEnded,
@@ -36,7 +41,10 @@ type Filters = { view: View; search: string; cursor?: string };
 export function RequestWorkPanel({
   projectId,
   onDenied,
-}: { projectId?: string; onDenied?: () => Promise<void> }) {
+}: {
+  projectId?: string;
+  onDenied?: () => Promise<void>;
+}) {
   const context = useWorkspace();
   if (
     !context?.b2b?.enrolled ||
@@ -62,17 +70,22 @@ export function RequestWorkPanel({
 function ScopedPanel({
   scope,
   onDenied,
-}: { scope: Scope; onDenied?: () => Promise<void> }) {
+}: {
+  scope: Scope;
+  onDenied?: () => Promise<void>;
+}) {
   const c = useCopy();
   const [filters, setFilters] = useState<Filters>({ view: "all", search: "" });
   const [search, setSearch] = useState("");
   return (
     <section
-      className="space-y-4 border-b border-border pb-8"
+      className="space-y-4 border-b border-border pb-8 last:border-b-0 last:pb-0"
       aria-label={c("내 요청 업무", "My request work")}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-medium">{c("내 요청 업무", "My request work")}</h2>
+        <h2 className="text-[15px] font-medium">
+          {c("내 요청 업무", "My request work")}
+        </h2>
         <form
           className="flex w-full min-w-0 gap-2 sm:w-auto"
           onSubmit={(event) => {
@@ -83,10 +96,7 @@ function ScopedPanel({
           <input
             className={`${inputClass} min-w-0 max-w-64`}
             aria-label={c("요청 업무 검색", "Search request work")}
-            placeholder={c(
-              "요청·폴더 검색",
-              "Search requests and folders",
-            )}
+            placeholder={c("요청·폴더 검색", "Search requests and folders")}
             maxLength={100}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
@@ -194,112 +204,131 @@ function WorkPage({
     <>
       {error && <B2bError code={error} retry={() => void load()} />}
       {!data && !error && (
-        <p role="status" className="text-sm text-muted">
+        <p role="status" className="text-[13px] text-muted">
           {c("요청 업무를 불러오는 중입니다.", "Loading request work.")}
         </p>
       )}
       {data && (
         <>
           {data.teamState === "read_only" && (
-            <p className="text-sm text-muted">
+            <p className="text-[13px] text-muted">
               {c(
                 "현재 열람 기간입니다. 요청을 볼 수 있지만 변경할 수 없습니다.",
                 "You can view requests during the read-only period; changes are unavailable.",
               )}
             </p>
           )}
-          {scope.projectId && (
-            <p
-              className="text-sm tabular-nums"
-              data-testid="required-request-progress"
-            >
-              {c("필수 요청 확인", "Required requests satisfied")}:{" "}
-              {data.required.satisfied} / {data.required.total}
-            </p>
-          )}
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="flex flex-wrap items-center gap-2">
             {(
               [
-                ["assigned", c("내 담당 요청", "Assigned to me")],
-                ["confirming", c("내 확인 대기", "My confirmations")],
-                ["proposals", c("내 접수 대기", "My intake")],
-                ["overdue", c("기한 지난 업무", "Overdue work")],
+                ["all", c("내 업무 전체", "All my work"), null],
+                [
+                  "assigned",
+                  c("내 담당 요청", "Assigned to me"),
+                  data.counts.assigned,
+                ],
+                [
+                  "confirming",
+                  c("내 확인 대기", "My confirmations"),
+                  data.counts.confirming,
+                ],
+                [
+                  "proposals",
+                  c("내 접수 대기", "My intake"),
+                  data.counts.proposals,
+                ],
+                [
+                  "overdue",
+                  c("기한 지난 업무", "Overdue work"),
+                  data.counts.overdue,
+                ],
               ] as const
-            ).map(([view, label]) => (
+            ).map(([view, label, count]) => (
               <button
                 key={view}
-                className="min-h-20 rounded-lg border border-border p-3 text-left hover:bg-surface"
+                type="button"
+                className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-border px-3 text-[13px] text-muted transition-colors hover:text-foreground aria-pressed:border-foreground aria-pressed:text-foreground"
                 aria-pressed={filters.view === view}
                 onClick={() => choose(view)}
               >
-                <span className="block text-xs text-muted">{label}</span>
-                <span className="mt-1 block text-xl font-medium tabular-nums">
-                  {data.counts[view]}
-                </span>
+                {label}
+                {count !== null && (
+                  <>
+                    {" "}
+                    <span className="font-medium tabular-nums text-foreground">
+                      {count}
+                    </span>
+                  </>
+                )}
               </button>
             ))}
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              className={secondaryClass}
-              aria-pressed={filters.view === "all"}
-              onClick={() => choose("all")}
-            >
-              {c("내 업무 전체", "All my work")}
-            </button>
-            {scope.projectId && (
-              <Link
-                className={secondaryClass}
-                href={`/dashboard/workspaces/${scope.workspaceId}/projects/${scope.projectId}/requests`}
+            <span className="ml-auto flex items-center gap-3 text-[13px]">
+              {scope.projectId && (
+                <span
+                  className="text-muted tabular-nums"
+                  data-testid="required-request-progress"
+                >
+                  {c("필수 요청 확인", "Required requests satisfied")}:{" "}
+                  {data.required.satisfied} / {data.required.total}
+                </span>
+              )}
+              {scope.projectId && (
+                <Link
+                  className="text-muted underline-offset-4 hover:text-foreground hover:underline"
+                  href={`/dashboard/workspaces/${scope.workspaceId}/projects/${scope.projectId}/requests`}
+                >
+                  {c("폴더 요청 전체", "All folder requests")}
+                </Link>
+              )}
+              <button
+                type="button"
+                className="grid size-9 place-items-center rounded-md text-muted transition-colors hover:bg-surface-secondary hover:text-foreground"
+                aria-label={c("업무 새로고침", "Refresh work")}
+                title={c("업무 새로고침", "Refresh work")}
+                onClick={() => void load()}
               >
-                {c("폴더 요청 전체", "All folder requests")}
-              </Link>
-            )}
-            <button className={secondaryClass} onClick={() => void load()}>
-              {c("업무 새로고침", "Refresh work")}
-            </button>
+                <RefreshCw size={16} strokeWidth={1.75} aria-hidden="true" />
+              </button>
+            </span>
           </div>
           {data.cards.length ? (
-            <ul className="divide-y divide-border rounded-lg border border-border">
+            <ul className="divide-y divide-border border-y border-border">
               {data.cards.map((card) => (
                 <li key={card.id}>
                   <Link
-                    className="flex flex-wrap items-center justify-between gap-3 px-4 py-4 hover:bg-surface"
+                    className="flex items-center justify-between gap-3 py-3 hover:bg-surface"
                     href={`/dashboard/workspaces/${scope.workspaceId}/projects/${card.projectId}/requests/${card.id}`}
                   >
-                    <div className="min-w-0 flex-1 basis-48">
-                      {!scope.projectId && (
-                        <p className="mb-1 break-words text-xs text-muted">
-                          {card.projectName}
-                        </p>
-                      )}
+                    <div className="min-w-0">
                       <p className="break-words text-sm font-medium">
                         {card.title}
                       </p>
-                      <p className="mt-1 text-xs text-muted">
+                      <p className="mt-0.5 break-words text-xs text-muted">
+                        {!scope.projectId && `${card.projectName} · `}
                         {card.work === "proposal"
                           ? c("접수 대기", "Awaiting intake")
                           : card.work === "confirming"
                             ? c("확인 대기", "Awaiting confirmation")
                             : c("작업 담당", "Assigned work")}
                         {card.required && ` · ${c("필수", "Required")}`}
+                        {card.dueAt && (
+                          <span className="tabular-nums">
+                            {" · "}
+                            {card.overdue && `${c("기한 지남", "Overdue")} `}
+                            {new Date(card.dueAt).toLocaleString(
+                              lang === "ko" ? "ko-KR" : "en-US",
+                              {
+                                timeZone: "Asia/Seoul",
+                                dateStyle: "medium",
+                                timeStyle: "short",
+                              },
+                            )}
+                          </span>
+                        )}
                       </p>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
+                    <div className="flex shrink-0 items-center gap-2 text-xs text-muted">
                       <StateBadge state={card.projectState} />
-                      {card.dueAt && (
-                        <span className="tabular-nums">
-                          {card.overdue && `${c("기한 지남", "Overdue")} · `}
-                          {new Date(card.dueAt).toLocaleString(
-                            lang === "ko" ? "ko-KR" : "en-US",
-                            {
-                              timeZone: "Asia/Seoul",
-                              dateStyle: "medium",
-                              timeStyle: "short",
-                            },
-                          )}
-                        </span>
-                      )}
                       <span>
                         {card.canAct
                           ? card.work === "confirming"
@@ -315,20 +344,22 @@ function WorkPage({
               ))}
             </ul>
           ) : (
-            <p className="rounded-lg border border-border p-5 text-sm text-muted">
-              {filters.search
-                ? c(
-                    "검색 조건에 맞는 내 요청 업무가 없습니다.",
-                    "No request work matches your search.",
-                  )
-                : c(
-                    "현재 조건에 해당하는 내 요청 업무가 없습니다.",
-                    "No request work in this view.",
-                  )}
-            </p>
+            <EmptyState
+              title={
+                filters.search
+                  ? c(
+                      "검색 조건에 맞는 내 요청 업무가 없습니다.",
+                      "No request work matches your search.",
+                    )
+                  : c(
+                      "현재 조건에 해당하는 내 요청 업무가 없습니다.",
+                      "No request work in this view.",
+                    )
+              }
+            />
           )}
           {(filters.cursor || data.nextCursor) && (
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2">
               {filters.cursor && (
                 <button
                   className={secondaryClass}

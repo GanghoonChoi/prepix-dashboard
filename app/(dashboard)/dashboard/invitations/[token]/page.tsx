@@ -12,6 +12,7 @@ import {
 } from "@/lib/api/services/workspace.service";
 import { workspaceError } from "@/lib/workspaces/onboarding";
 import {
+  KeyValues,
   TeamShell,
   TeamError,
   TeamLoading,
@@ -80,18 +81,13 @@ function InvitationContent({ token }: { token: string }) {
       {!invite && !error && <TeamLoading />}
       {invite && (
         <section className="max-w-xl space-y-6 rounded-lg border border-border p-6">
-          <dl className="space-y-4">
-            {[
+          <KeyValues
+            items={[
               [t("team.invitedTo"), invite.workspaceName],
               [t("team.invitedEmail"), invite.email],
               [t("team.invitedAs"), t(`team.role.${invite.role}`)],
-            ].map(([label, value]) => (
-              <div key={label}>
-                <dt className="text-xs text-muted">{label}</dt>
-                <dd className="mt-1 break-all font-medium">{value}</dd>
-              </div>
-            ))}
-          </dl>
+            ]}
+          />
           <p className="text-xs text-muted">
             {invite.accepted
               ? t("team.alreadyAccepted")
@@ -117,7 +113,7 @@ function InvitationContent({ token }: { token: string }) {
           )}
         </section>
       )}
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-2">
         <button onClick={switchAccount} className={secondaryClass}>
           {t("team.switchAccount")}
         </button>

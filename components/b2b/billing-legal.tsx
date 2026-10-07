@@ -1,8 +1,15 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
-import { inputClass, primaryClass, secondaryClass } from "@/components/workspaces/shared";
+import {
+  Details,
+  inputClass,
+  KeyValues,
+  Notice,
+  primaryClass,
+  secondaryClass,
+} from "@/components/workspaces/shared";
 import type {
   B2bStatus,
   TeamRefundLine,
@@ -83,8 +90,8 @@ export function RenewalConsentCard({ billing }: { billing: Billing }) {
   };
   // A lost answer stays checkable by its key even after the view moved on.
   const recovery = pending.length > 0 && (
-    <div className="space-y-2 text-sm">
-      <p>{c("갱신 동의 답변의 결과를 확인하지 못했습니다. 같은 요청으로 결과를 확인합니다.", "Your answer has no confirmed result. The original request is checked.")}</p>
+    <div className="space-y-3 text-[13px] leading-5">
+      <Notice>{c("갱신 동의 답변의 결과를 확인하지 못했습니다.", "Your answer has no confirmed result.")}</Notice>
       {pending.map((p) => (
         <button key={p.action} type="button" className={secondaryClass} disabled={busy} onClick={() => void answer(p, true)}>
           {p.action === "renewal.consent.accept" ? c("동의 결과 확인", "Confirm consent result") : c("거절 결과 확인", "Confirm decline result")}
@@ -93,8 +100,8 @@ export function RenewalConsentCard({ billing }: { billing: Billing }) {
       {failure && (
         <p className="text-muted">
           {c(
-            "아직 확인되지 않았습니다. 잠시 뒤 다시 확인해 주세요. 갱신 동의 요청이 닫히면 이 요청도 풀리고 최신 안내를 볼 수 있습니다.",
-            "Still unconfirmed. Check again shortly. When the renewal consent closes, this request is released and the latest notice shows.",
+            "아직 확인되지 않았습니다. 잠시 뒤 다시 확인해 주세요.",
+            "Still unconfirmed. Check again shortly.",
           )}
         </p>
       )}
@@ -103,20 +110,22 @@ export function RenewalConsentCard({ billing }: { billing: Billing }) {
   if (consent.state !== "required") {
     if (!answeredVisible && pending.length === 0 && !failure) return null;
     return (
-      <div className="space-y-3 rounded-lg border border-border p-4 text-sm leading-6">
-        <p role="status" data-consent-state={consent.state}>
-          {!answeredVisible
-            ? null
-            : consent.state === "consented"
-            ? c(
-                `바뀐 갱신 금액 ${won(consent.toTotalKrw)}에 동의했습니다 (${kst(consent.answeredAt!)}). ${kst(consent.chargeAt)} 이후 등록 카드로 결제합니다.`,
-                `You consented to the new renewal price of ${won(consent.toTotalKrw)} (${kst(consent.answeredAt!)}). The card is charged after ${kst(consent.chargeAt)}.`,
-              )
-            : c(
-                `바뀐 갱신 금액에 동의하지 않았습니다 (${kst(consent.answeredAt!)}). 결제하지 않으며, 팀은 이번 이용기간 끝에 종료됩니다.`,
-                `You declined the new renewal price (${kst(consent.answeredAt!)}). Nothing is charged; the team ends with this period.`,
-              )}
-        </p>
+      <div className="space-y-3">
+        {answeredVisible && (
+          <Notice role="status">
+            <span data-consent-state={consent.state}>
+              {consent.state === "consented"
+                ? c(
+                    `바뀐 갱신 금액 ${won(consent.toTotalKrw)}에 동의했습니다 (${kst(consent.answeredAt!)}). ${kst(consent.chargeAt)} 이후 등록 카드로 결제합니다.`,
+                    `You consented to the new renewal price of ${won(consent.toTotalKrw)} (${kst(consent.answeredAt!)}). The card is charged after ${kst(consent.chargeAt)}.`,
+                  )
+                : c(
+                    `바뀐 갱신 금액에 동의하지 않았습니다 (${kst(consent.answeredAt!)}). 결제하지 않으며, 팀은 이번 이용기간 끝에 종료됩니다.`,
+                    `You declined the new renewal price (${kst(consent.answeredAt!)}). Nothing is charged; the team ends with this period.`,
+                  )}
+            </span>
+          </Notice>
+        )}
         {failure && <BillingError code={failure} />}
         {recovery}
       </div>
@@ -134,55 +143,58 @@ export function RenewalConsentCard({ billing }: { billing: Billing }) {
   });
   return (
     <section aria-labelledby="renewal-consent" className="space-y-4 rounded-lg border border-border bg-surface p-5" data-consent-state="required">
-      <h2 id="renewal-consent" className="font-medium">
-        {c("갱신 금액 변경 · 동의가 필요합니다", "Renewal price change · consent needed")}
-      </h2>
-      <p className="text-sm leading-6">{c(...(consentReasons[consent.reason] ?? consentReasons.terms_changed))}</p>
-      <dl className="grid gap-3 text-sm sm:grid-cols-2">
-        <div>
-          <dt className="text-muted">{c("상품 조건", "Product")}</dt>
-          <dd data-consent-product>
-            {consent.fromProductVersion === consent.toProductVersion ? c("상품 조건은 그대로입니다", "Product terms unchanged") : c("상품 조건 변경", "Product terms changed")}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-muted">{c("한 달 갱신 금액 (부가세 포함)", "Monthly renewal (VAT incl.)")}</dt>
-          <dd className="tabular-nums" data-consent-total>
-            {consent.fromTotalKrw === null ? c("확인 불가", "unknown") : won(consent.fromTotalKrw)} → {won(consent.toTotalKrw)}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-muted">{c("결제 예정 (한국 시간)", "Charge (KST)")}</dt>
-          <dd>{kst(consent.chargeAt)}</dd>
-        </div>
-        <div>
-          <dt className="text-muted">{c("다음 기간 구성", "Next period")}</dt>
-          <dd>
-            {c("추가 이용권", "Extra licences")} {consent.selection.extraSeats}
-            {/* (integration) H: AI packs are no longer sold; only a legacy selection shows them. */}
-            {consent.selection.aiPacks > 0 && <> · {c("AI 팩", "AI packs")} {consent.selection.aiPacks}</>} · {c("저장 팩", "Storage packs")} {consent.selection.storagePacks}
-          </dd>
-        </div>
-      </dl>
-      {consent.shortNotice && (
-        <p className="text-sm leading-6" data-short-notice>
+      <div>
+        <h2 id="renewal-consent" className="text-[15px] font-medium">
+          {c("갱신 금액 변경 · 동의가 필요합니다", "Renewal price change · consent needed")}
+        </h2>
+        <p className="mt-1 text-[13px] leading-5 text-muted">
+          {c(...(consentReasons[consent.reason] ?? consentReasons.terms_changed))}{" "}
           {c(
-            `안내가 늦어 동의할 수 있는 기간이 평소보다 짧습니다. ${kst(consent.chargeAt)} 전까지 답해 주세요.`,
-            `This notice came late, so the consent window is shorter than usual. Answer before ${kst(consent.chargeAt)}.`,
+            "답하지 않으면 바뀐 금액으로 결제하지 않고 팀은 이번 이용기간 끝에 종료됩니다. 중도해지는 언제든 할 수 있습니다.",
+            "Without an answer nothing is charged at the new price and the team ends with this period. You can terminate at any time.",
           )}
         </p>
+      </div>
+      <KeyValues
+        items={[
+          [
+            c("한 달 갱신 금액 (부가세 포함)", "Monthly renewal (VAT incl.)"),
+            <span key="total" className="tabular-nums" data-consent-total>
+              {consent.fromTotalKrw === null ? c("확인 불가", "unknown") : won(consent.fromTotalKrw)} → {won(consent.toTotalKrw)}
+            </span>,
+          ],
+          [c("결제 예정", "Charge"), kst(consent.chargeAt)],
+          [
+            c("상품 조건", "Product"),
+            <span key="product" data-consent-product>
+              {consent.fromProductVersion === consent.toProductVersion ? c("상품 조건은 그대로입니다", "Product terms unchanged") : c("상품 조건 변경", "Product terms changed")}
+            </span>,
+          ],
+          [
+            c("다음 기간 구성", "Next period"),
+            <span key="next">
+              {c("추가 이용권", "Extra licences")} {consent.selection.extraSeats}
+              {/* (integration) H: AI packs are no longer sold; only a legacy selection shows them. */}
+              {consent.selection.aiPacks > 0 && <> · {c("AI 팩", "AI packs")} {consent.selection.aiPacks}</>} · {c("저장 팩", "Storage packs")} {consent.selection.storagePacks}
+            </span>,
+          ],
+        ]}
+      />
+      {consent.shortNotice && (
+        <Notice>
+          <span data-short-notice>
+            {c(
+              `안내가 늦어 답할 수 있는 기간이 평소보다 짧습니다. ${kst(consent.chargeAt)} 전까지 답해 주세요.`,
+              `This notice came late, so the window is shorter than usual. Answer before ${kst(consent.chargeAt)}.`,
+            )}
+          </span>
+        </Notice>
       )}
-      <p className="text-sm leading-6 text-muted">
-        {c(
-          "동의하지 않거나 답하지 않으면 바뀐 금액으로 결제하지 않고, 팀은 이번 이용기간 끝까지 쓴 뒤 종료됩니다. 자동결제 중지와 중도해지는 언제든 이 화면과 결제 정보에서 할 수 있습니다.",
-          "If you decline or do not answer, nothing is charged at the new price and the team ends with this period. You can stop renewal or terminate at any time from this page and billing details.",
-        )}
-      </p>
       {failure && <BillingError code={failure} />}
       {pending.length > 0 ? (
         recovery
       ) : !opened ? (
-        <p role="status" className="text-sm leading-6">
+        <p role="status" className="text-[13px] leading-5">
           {c(`${kst(consent.opensAt)}부터 답할 수 있습니다. 그 전의 동의는 인정되지 않습니다.`, `You can answer from ${kst(consent.opensAt)}. Earlier consent does not count.`)}
         </p>
       ) : (
@@ -336,61 +348,64 @@ export function TeamTermination({
   };
   const active = teamState === "active" && !ended;
   if (!view) return null;
+  // No running period, no record and nothing to recover: a heading over
+  // "there is nothing to terminate" is the whole section saying nothing.
+  if (!t && !active && !pending && !failure) return null;
   const zero = preview?.amounts.totalKrw === 0;
+  const money: [string, ReactNode][] = t
+    ? [
+        [c("요청한 환불", "Requested"), <span key="requested" className="tabular-nums">{won(t.requestedTotalKrw)}</span>],
+        [c("환불 완료", "Refunded"), <span key="refunded" className="tabular-nums" data-money="refunded">{won(t.refundedKrw)}</span>],
+      ]
+    : [];
+  if (t && t.pendingKrw > 0)
+    money.push([c("환불 확인 중", "Refund being confirmed"), <span key="pending" className="tabular-nums" data-money="pending">{won(t.pendingKrw)}</span>]);
+  const settings = `/dashboard/workspaces/${workspaceId}/plan/settings`;
   return (
-    <section aria-labelledby="termination" className="space-y-4 border-b border-border pb-8">
-      <h2 id="termination" className="font-medium">
-        {c("중도해지", "Mid-term termination")}
-      </h2>
-      {t && (
-        <div className="space-y-3 rounded-lg border border-border p-4 text-sm leading-6" data-termination-status>
-          <p role="status">
+    <section aria-labelledby="termination" className="space-y-4 border-b border-border pb-8 last:border-b-0 last:pb-0">
+      <div>
+        <h2 id="termination" className="text-[15px] font-medium">
+          {c("중도해지", "Mid-term termination")}
+        </h2>
+        {active && (
+          <p className="mt-1 max-w-2xl text-[13px] leading-5 text-muted">
             {c(
-              `${kst(t.endedAt)}에 중도해지했습니다. 원래 종료 시각은 ${kst(t.previousEndsAt)}이었습니다.`,
-              `Terminated at ${kst(t.endedAt)}; the period would have ended at ${kst(t.previousEndsAt)}.`,
-            )}{" "}
+              "지금 바로 이용을 끝내고 환불할 수 있는 금액을 원결제로 돌려드립니다. 위약금은 없습니다.",
+              "Ends the team now and refunds what is refundable to the original payment. No penalty.",
+            )}
+          </p>
+        )}
+      </div>
+      {t && (
+        <div className="space-y-4 text-sm" data-termination-status>
+          <Notice role="status">
+            {c(`${kst(t.endedAt)}에 중도해지했습니다.`, `Terminated at ${kst(t.endedAt)}.`)}{" "}
             {t.requestedTotalKrw === 0
               ? c("돌려드릴 금액이 없어 환불 없이 해지했습니다.", "There was nothing to refund, so the team ended without a refund.")
               : t.withdrawal
                 ? c("청약철회로 원주문 전액을 환불합니다.", "Withdrawal: the original orders are refunded in full.")
                 : c("쓰지 않은 부분을 환불합니다.", "The unused part is refunded.")}
-          </p>
-          {t.requestedTotalKrw > 0 && (
-          <dl className="grid gap-3 sm:grid-cols-3">
-            <div>
-              <dt className="text-muted">{c("요청한 환불", "Requested")}</dt>
-              <dd className="tabular-nums">{won(t.requestedTotalKrw)}</dd>
-            </div>
-            <div>
-              <dt className="text-muted">{c("환불 완료 (결제사 확인)", "Refunded (provider confirmed)")}</dt>
-              <dd className="tabular-nums" data-money="refunded">{won(t.refundedKrw)}</dd>
-            </div>
-            {t.pendingKrw > 0 && (
-              <div>
-                <dt className="text-muted">{c("환불 확인 중", "Refund being confirmed")}</dt>
-                <dd className="tabular-nums" data-money="pending">{won(t.pendingKrw)}</dd>
-              </div>
-            )}
-          </dl>
-          )}
+          </Notice>
+          {t.requestedTotalKrw > 0 && <KeyValues items={money} />}
           {t.refunds.length > 0 && (
-            <ul className="space-y-2">
+            <ul className="divide-y divide-border border-y border-border">
               {t.refunds.map((r) => (
-                <li key={r.refundId} className="flex flex-wrap justify-between gap-2 rounded-md border border-border p-3" data-refund-state={r.state}>
-                  <span>
-                    {r.state === "refunded"
-                      ? c("환불 완료", "Refunded")
-                      : openRefund.includes(r.state)
-                        ? `${c("환불 확인 중", "Refund being confirmed")} · ${c(...refundLabels[r.state])}`
-                        : c(...refundLabels[r.state])}
-                    {" · "}
+                <li key={r.refundId} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-3" data-refund-state={r.state}>
+                  <span className="min-w-0">
                     <Link
-                      className="underline underline-offset-4"
+                      className="block font-medium underline-offset-4 hover:underline"
                       aria-label={`${c("주문 보기", "View order")} · ${orderName(r.orderId)}`}
                       href={`/dashboard/workspaces/${workspaceId}/plan/orders/${r.orderId}`}
                     >
-                      {c("주문 보기", "View order")} ({orderName(r.orderId)})
+                      {orderName(r.orderId)}
                     </Link>
+                    <span className="block text-[13px] text-muted">
+                      {r.state === "refunded"
+                        ? c("환불 완료", "Refunded")
+                        : openRefund.includes(r.state)
+                          ? `${c("환불 확인 중", "Refund being confirmed")} · ${c(...refundLabels[r.state])}`
+                          : c(...refundLabels[r.state])}
+                    </span>
                   </span>
                   <span className="tabular-nums">{won(r.totalKrw)}</span>
                 </li>
@@ -399,26 +414,17 @@ export function TeamTermination({
           )}
         </div>
       )}
-      {active && (
-        <p className="text-sm leading-6 text-muted">
-          {c(
-            "자동결제 중지는 이번 이용기간 끝까지 쓰고 다음 결제만 멈춥니다(환불 없음). 중도해지는 지금 바로 이용을 끝내고 환불 가능한 금액을 원결제로 돌려드립니다. 청약철회가 적용되는 주문은 전액을, 그 밖의 주문은 쓰지 않은 부분을 환불하며, 어느 쪽인지와 금액은 해지 전에 주문마다 보여 드립니다. 위약금은 없습니다. 해지하면 팀은 즉시 열람·다운로드만 가능해지고, 이후 보관·삭제 일정은 해지 시각부터 계산합니다.",
-            "Stopping renewal keeps the team until the period ends and only stops the next charge (no refund). Termination ends the team now and refunds what is refundable to the original payment: orders under withdrawal in full, the others for the unused part, shown per order before you confirm. No penalty. After termination the team is read and export only, and the retention schedule starts from that moment.",
-          )}{" "}
-          <Link className="underline underline-offset-4" href={`/dashboard/workspaces/${workspaceId}/plan/settings`}>
-            {c("자동결제 중지는 결제 정보에서", "Stop renewal in billing details")}
-          </Link>
-        </p>
-      )}
       {failure && <BillingError code={failure === "B2B_PAYMENT_PENDING" ? "B2B_TERMINATION_PAYMENT_PENDING" : failure} />}
       {pending ? (
-        <div className="space-y-2 rounded-md border border-border p-3 text-sm">
-          <p>{c("해지 요청의 결과를 확인하지 못했습니다. 같은 요청으로 결과를 확인하며 새 해지를 보내지 않습니다.", "The termination has no confirmed result. The original request is checked; no new termination is sent.")}</p>
+        <div className="space-y-3 text-[13px] leading-5">
+          <Notice>
+            {c("해지 요청의 결과를 확인하지 못했습니다. 새 해지는 보내지 않습니다.", "The termination has no confirmed result. No new termination is sent.")}
+          </Notice>
           {failure && (
             <p className="text-muted" data-pending-hint>
               {c(
-                "아직 확인되지 않았습니다. 잠시 뒤 다시 확인해 주세요. 환불 금액을 확인한 시각에서 10분이 지나면 이 요청이 풀리고 새로 시작할 수 있습니다.",
-                "Still unconfirmed. Check again shortly. Ten minutes after the refund amount was measured, this request is released and you can start over.",
+                "아직 확인되지 않았습니다. 잠시 뒤 다시 확인해 주세요. 금액을 확인한 지 10분이 지나면 새로 시작할 수 있습니다.",
+                "Still unconfirmed. Check again shortly. Ten minutes after the amount was measured you can start over.",
               )}
             </p>
           )}
@@ -438,30 +444,58 @@ export function TeamTermination({
           </button>
         </div>
       ) : active && !preview ? (
-        <button
-          type="button"
-          className={secondaryClass}
-          disabled={!!busy || !api}
-          onClick={async () => {
-            if (!api) return;
-            const g = generation.current;
-            setBusy("preview");
-            setFailure("");
-            try {
-              const next = await api.terminationPreview();
-              if (g === generation.current) {
-                setPreview(next);
-                setAgreed(false);
-              }
-            } catch (e) {
-              if (g === generation.current) setFailure(billingCode(e));
-            } finally {
-              if (g === generation.current) setBusy("");
-            }
-          }}
-        >
-          {busy === "preview" ? c("확인 중…", "Checking…") : c("해지 환불 금액 확인", "Check termination refund")}
-        </button>
+        <>
+          {/* Stopping renewal sits beside termination, never behind it. */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <button
+              type="button"
+              className={secondaryClass}
+              disabled={!!busy || !api}
+              onClick={async () => {
+                if (!api) return;
+                const g = generation.current;
+                setBusy("preview");
+                setFailure("");
+                try {
+                  const next = await api.terminationPreview();
+                  if (g === generation.current) {
+                    setPreview(next);
+                    setAgreed(false);
+                  }
+                } catch (e) {
+                  if (g === generation.current) setFailure(billingCode(e));
+                } finally {
+                  if (g === generation.current) setBusy("");
+                }
+              }}
+            >
+              {busy === "preview" ? c("확인 중…", "Checking…") : c("해지 환불 금액 확인", "Check termination refund")}
+            </button>
+            <Link className="text-[13px] text-muted underline underline-offset-4 hover:text-foreground" href={settings}>
+              {c("다음 결제만 멈추려면 자동결제 중지", "Only stop the next charge instead")}
+            </Link>
+          </div>
+          <Details>
+            <p>
+              {c(
+                "자동결제 중지는 이번 이용기간 끝까지 쓰고 다음 결제만 멈춥니다. 환불은 없습니다.",
+                "Stopping renewal keeps the team until the period ends and only stops the next charge. No refund.",
+              )}
+            </p>
+            <p>
+              {c(
+                "중도해지는 청약철회가 적용되는 주문은 전액을, 그 밖의 주문은 쓰지 않은 부분을 환불합니다. 어느 쪽인지와 금액은 해지 전에 주문마다 보여 드립니다.",
+                "Termination refunds orders under withdrawal in full and the others for the unused part, shown per order before you confirm.",
+              )}
+            </p>
+            <p>
+              {c(
+                "해지하면 팀은 바로 열람과 다운로드만 할 수 있고, 보관·삭제 일정은 해지 시각부터 계산합니다.",
+                "After termination the team is read and export only, and the retention schedule starts from that moment.",
+              )}
+            </p>
+          </Details>
+        </>
       ) : active && preview ? (
         <form
           aria-label={c("중도해지 확인", "Confirm termination")}
@@ -492,37 +526,51 @@ export function TeamTermination({
             );
           }}
         >
-          <p className="text-sm leading-6" data-withdrawal={preview.withdrawal} data-zero={zero}>
-            {zero
-              ? c("돌려드릴 금액이 없습니다. 해지하면 지금 이용이 끝납니다.", "There is nothing to refund. Terminating ends the team now.")
-              : preview.withdrawal
-                ? c("청약철회 적용: 기간 안에 팀이 아직 쓰지 않아 원주문 전액을 환불합니다.", "Withdrawal applies: the team has not used the service within the period, so the original orders are refunded in full.")
-                : c("미사용분 환불: 청약철회 대상이 아니어서 쓰지 않은 부분을 환불합니다. 시작 전에 미리 구매한 기간은 전액 환불됩니다.", "Unused part refunded: withdrawal does not apply, so the part not used is refunded. A period bought ahead that has not started is refunded in full.")}
-          </p>
-          <ul className="space-y-1 text-sm leading-6">
-            <li>{c(`지금 해지하면 이용이 바로 끝납니다. 원래 종료 시각은 ${kst(preview.previousEndsAt)}입니다.`, `Terminating ends the team now instead of at ${kst(preview.previousEndsAt)}.`)}</li>
-            <li>{preview.renewalStops ? c("자동결제도 함께 멈춥니다. 다음 결제는 없습니다.", "Automatic renewal stops too. Nothing more is charged.") : c("예정된 자동결제가 없습니다. 다음 결제는 없습니다.", "No automatic renewal is scheduled. Nothing more is charged.")}</li>
-          </ul>
+          <div>
+            <p className="text-sm font-medium" data-withdrawal={preview.withdrawal} data-zero={zero}>
+              {zero
+                ? c("돌려드릴 금액이 없습니다. 해지하면 지금 이용이 끝납니다.", "There is nothing to refund. Terminating ends the team now.")
+                : preview.withdrawal
+                  ? c("청약철회 적용: 아직 쓰지 않아 원주문 전액을 환불합니다.", "Withdrawal applies: the team has not used the service, so the original orders are refunded in full.")
+                  : c("미사용분 환불: 쓰지 않은 부분을 환불합니다.", "Unused part refunded: the part not used is refunded.")}
+            </p>
+            <p className="mt-1 text-[13px] leading-5 text-muted">
+              {c(
+                `해지하면 이용이 바로 끝나고(원래 종료 ${kst(preview.previousEndsAt)}) 다음 결제는 없습니다.`,
+                `Terminating ends the team now instead of at ${kst(preview.previousEndsAt)}; nothing more is charged.`,
+              )}
+              {preview.renewalStops && ` ${c("예정된 자동결제도 멈춥니다.", "Scheduled automatic renewal stops too.")}`}
+            </p>
+          </div>
           {!zero && (
-          <ul className="space-y-2 text-sm" aria-label={c("원주문별 환불", "Refund per original order")}>
-            {preview.orders.map((o) => (
-              <li key={o.orderId} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-3" data-order-withdrawal={o.withdrawal}>
-                <span>
-                  {orderName(o.orderId)} · {o.withdrawal ? c("청약철회 전액", "Withdrawal, full") : c("미사용분 환불", "Unused part refunded")} ·{" "}
-                  {o.lines.map((l) => `${c(...lineNames[l.kind])}${l.kind === "base" ? "" : ` ${l.quantity}`}`).join(", ")}
-                </span>
-                <span className="tabular-nums">{won(o.amounts.totalKrw)}</span>
-              </li>
-            ))}
-          </ul>
+            <ul className="divide-y divide-border border-y border-border text-sm" aria-label={c("원주문별 환불", "Refund per original order")}>
+              {preview.orders.map((o) => (
+                <li key={o.orderId} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-3" data-order-withdrawal={o.withdrawal}>
+                  <span className="min-w-0">
+                    <span className="block font-medium">{orderName(o.orderId)}</span>
+                    <span className="block text-[13px] text-muted">
+                      {o.withdrawal ? c("청약철회 전액", "Withdrawal, full") : c("미사용분 환불", "Unused part refunded")} ·{" "}
+                      {o.lines.map((l) => `${c(...lineNames[l.kind])}${l.kind === "base" ? "" : ` ${l.quantity}`}`).join(", ")}
+                    </span>
+                  </span>
+                  <span className="tabular-nums">{won(o.amounts.totalKrw)}</span>
+                </li>
+              ))}
+            </ul>
           )}
-          <p className="text-sm tabular-nums" role="status">
-            {c("공급가액", "Supply")} {won(preview.amounts.supplyKrw)} · {c("부가세", "VAT")} {won(preview.amounts.vatKrw)} · {c("환불 예정 합계", "Refund total")}{" "}
-            <strong data-termination-total>{won(preview.amounts.totalKrw)}</strong>
-          </p>
-          <p className="text-xs text-muted">
-            {c(`${kst(preview.basisAt)} 기준 금액입니다. 10분이 지나면 다시 확인해야 합니다. 환불은 운영 확인 뒤 원결제 취소로 돌려드리며, 결제사가 확인한 금액만 환불 완료로 표시합니다.`, `Measured at ${kst(preview.basisAt)}; check again after 10 minutes. Refunds return to the original payment after operations review; only provider-confirmed money shows as refunded.`)}
-          </p>
+          <div role="status" className="space-y-1">
+            <p className="flex flex-wrap items-baseline justify-between gap-x-4 text-sm">
+              <span>{c("환불 예정 합계", "Refund total")}</span>
+              <strong className="font-medium tabular-nums" data-termination-total>{won(preview.amounts.totalKrw)}</strong>
+            </p>
+            <p className="text-xs leading-5 text-muted tabular-nums">
+              {c("공급가액", "Supply")} {won(preview.amounts.supplyKrw)} · {c("부가세", "VAT")} {won(preview.amounts.vatKrw)} ·{" "}
+              {c(
+                `${kst(preview.basisAt)} 기준, 10분 동안 유효합니다. 환불은 운영 확인 뒤 원결제를 취소해 돌려드립니다.`,
+                `Measured at ${kst(preview.basisAt)}, valid for 10 minutes. Refunds return to the original payment after operations review.`,
+              )}
+            </p>
+          </div>
           <label className="block space-y-2 text-sm">
             <span>{c("해지 사유", "Reason")}</span>
             <input className={inputClass} value={reason} maxLength={500} disabled={!!busy} onChange={(e) => setReason(e.target.value)} />
@@ -547,8 +595,6 @@ export function TeamTermination({
             </button>
           </div>
         </form>
-      ) : !t ? (
-        <p className="text-sm text-muted">{c("진행 중인 이용기간이 없어 중도해지할 것이 없습니다.", "There is no running period to terminate.")}</p>
       ) : null}
     </section>
   );
