@@ -75,7 +75,7 @@ export function AssetActions({
     <div className="flex shrink-0 items-center gap-1">
       {active && data.canDownload && (
         <button
-          className="grid size-9 place-items-center rounded-md text-muted transition-colors hover:bg-foreground/[0.06] hover:text-foreground disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
+          className="grid size-9 place-items-center rounded-md text-muted transition-colors hover:bg-surface-secondary hover:text-foreground disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
           disabled={!!busy}
           title={c("원본 다운로드", "Download original")}
           aria-label={c("원본 다운로드", "Download original")}

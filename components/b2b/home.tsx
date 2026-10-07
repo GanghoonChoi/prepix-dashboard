@@ -171,52 +171,45 @@ function ScopedHome({
   const listClass = "divide-y divide-border rounded-lg border border-border";
   return (
     <TeamShell title={workspace.name}>
-      <section className="space-y-5 border-b border-border pb-8">
+      {/* The sidebar already lists every page; this only says what the
+          team's state means right now, and links the one page that state
+          sends you to. An active team needs no sentence. */}
+      <section className="space-y-3">
         <div className="flex flex-wrap items-center gap-3">
           <SpaceBadge workspace={workspace} />
           <StateBadge state={state} />
         </div>
-        <p className="max-w-2xl text-pretty text-sm leading-6 text-muted">
-          {state === "preparing"
-            ? c(
-                "팀 설정과 구매를 준비할 수 있습니다. 첫 이용권 반영 전에는 이용기간이 시작되지 않습니다.",
-                "Prepare team settings and a purchase. The period starts when the first purchase is applied.",
-              )
-            : state === "active"
-              ? c(
-                  "참여한 폴더와 지금 해야 할 업무를 확인하세요. 웹 참여와 앱 편집 이용권은 따로 관리됩니다.",
-                  "Review participating folders and current work. Web access and app editing licences are managed separately.",
-                )
-              : state === "read_only"
+        {state !== "active" && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <p className="max-w-2xl text-pretty text-sm leading-6 text-muted">
+              {state === "preparing"
                 ? c(
-                    "이용기간이 종료되었습니다. 기존 권한 안에서 자료 열람과 다운로드가 가능합니다.",
-                    "The period has ended. Existing access permits reading and downloading.",
+                    "팀 설정과 구매를 준비할 수 있습니다. 첫 이용권 반영 전에는 이용기간이 시작되지 않습니다.",
+                    "Prepare team settings and a purchase. The period starts when the first purchase is applied.",
                   )
-                : c(
-                    "팀 자료 접근이 중지되었습니다. 이용 상태에서 복구·삭제 일정을 확인하세요.",
-                    "Access to team content is paused. Review recovery and deletion dates in team status.",
-                  )}
-        </p>
-        <div className="flex flex-wrap gap-3">
-          {status.allowedActions.projects && (
-            <Link className={secondaryClass} href={`${base}/projects`}>
-              {c("내 폴더 전체", "All my folders")}
-            </Link>
-          )}
-          {status.allowedActions.billing && (
-            <Link className={secondaryClass} href={`${base}/plan`}>
-              {c("플랜과 결제", "Plan and billing")}
-            </Link>
-          )}
-          {status.allowedActions.manage && (
-            <Link className={secondaryClass} href={`${base}/settings`}>
-              {c("팀 설정", "Team settings")}
-            </Link>
-          )}
-          <Link className={secondaryClass} href={`${base}/status`}>
-            {c("이용 상태", "Team status")}
-          </Link>
-        </div>
+                : state === "read_only"
+                  ? c(
+                      "이용기간이 종료되었습니다. 기존 권한 안에서 자료 열람과 다운로드가 가능합니다.",
+                      "The period has ended. Existing access permits reading and downloading.",
+                    )
+                  : c(
+                      "팀 자료 접근이 중지되었습니다. 이용 상태에서 복구·삭제 일정을 확인하세요.",
+                      "Access to team content is paused. Review recovery and deletion dates in team status.",
+                    )}
+            </p>
+            {state === "preparing" ? (
+              status.allowedActions.billing && (
+                <Link className={secondaryClass} href={`${base}/plan`}>
+                  {c("플랜과 결제", "Plan and billing")}
+                </Link>
+              )
+            ) : (
+              <Link className={secondaryClass} href={`${base}/status`}>
+                {c("이용 상태", "Team status")}
+              </Link>
+            )}
+          </div>
+        )}
       </section>
       {error && (
         <div role="alert" className="space-y-3">
@@ -256,7 +249,7 @@ function ScopedHome({
               </Link>
             </div>
             {data.period ? (
-              <div className="rounded-lg bg-card p-4 text-sm leading-6 tabular-nums">
+              <div className="rounded-lg bg-surface p-4 text-sm leading-6 tabular-nums">
                 <p>
                   {c("현재 기준 이용기간", "Current entitlement period")}:{" "}
                   {date(data.period.startsAt)} — {date(data.period.endsAt)} KST
@@ -345,7 +338,7 @@ function ScopedHome({
                       <li key={p.id}>
                         <Link
                           href={projectLink(p.id)}
-                          className="flex min-h-16 flex-wrap items-center justify-between gap-3 p-4 hover:bg-card"
+                          className="flex min-h-16 flex-wrap items-center justify-between gap-3 p-4 hover:bg-surface"
                         >
                           <div className="min-w-0">
                             <p className="break-words font-medium">{p.name}</p>
@@ -400,7 +393,7 @@ function ScopedHome({
                             round: p.round,
                             versionId: p.versionId,
                           })}
-                          className="block min-h-16 p-4 hover:bg-card"
+                          className="block min-h-16 p-4 hover:bg-surface"
                         >
                           {/* One item, one name: the item (review) title and its version. */}
                           <p className="break-words text-sm font-medium tabular-nums">
@@ -457,7 +450,7 @@ function ScopedHome({
                     <li key={t.id}>
                       <Link
                         href={projectLink(t.projectId, "/files")}
-                        className="block min-h-16 p-4 hover:bg-card"
+                        className="block min-h-16 p-4 hover:bg-surface"
                       >
                         <p className="break-words text-sm font-medium">
                           {t.name}
@@ -490,7 +483,7 @@ function ScopedHome({
                     <li key={d.projectId}>
                       <Link
                         href={projectLink(d.projectId, "/delivery")}
-                        className="block min-h-16 p-4 hover:bg-card"
+                        className="block min-h-16 p-4 hover:bg-surface"
                       >
                         <p className="break-words text-sm font-medium">
                           {d.projectName}

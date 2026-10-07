@@ -10,7 +10,7 @@ import { externalDeliveryItems, inspectDeliveryFiles, nativeDeliveryItems, verif
 import { fileApi } from "@/lib/b2b-files/api";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import { inputClass, primaryClass, secondaryClass, TeamLoading, TeamShell } from "@/components/workspaces/shared";
-import { B2bError, useCopy } from "./shared";
+import { folderTabs, B2bError, useCopy } from "./shared";
 import { kst, useLoader } from "./reviews";
 
 type Copy = (ko: string, en: string) => string;
@@ -104,8 +104,7 @@ function DeliveryScreen({ scope }: { scope: DeliveryScope }) {
   const videos = versions.filter((v) => v.kind === "output" && v.metadata.video.length);
   const active = ["draft", "in_progress"].includes(detail.state);
   const disabled = busy || stale;
-  return <TeamShell title={c("납품 확인과 폴더 완료", "Delivery and folder completion")} description={project.name}>
-    <div className="flex flex-wrap gap-3"><Link className={secondaryClass} href={base}>{c("폴더 개요", "Folder overview")}</Link><Link className={secondaryClass} href={`${base}/reviews`}>{c("영상 검토", "Video reviews")}</Link><Link className={secondaryClass} href={`${base}/requests`}>{c("요청 확인", "Request confirmations")}</Link></div>
+  return <TeamShell title={c("납품 확인과 폴더 완료", "Delivery and folder completion")} description={project.name} tabs={folderTabs(scope.workspaceId, project, c)}>
     {stale && <DeliveryError value={error} retry={() => void load()} />}
     {mutationError && <DeliveryError value={mutationError} />}
     <DeliveryPending scope={stable} onConfirmed={load} />

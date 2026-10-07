@@ -1,6 +1,5 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
   inputClass,
@@ -21,7 +20,7 @@ import {
   type BillingAction,
   type BillingRecord,
 } from "@/lib/b2b-billing/operations";
-import {
+import { billingTabs,
   BillingError,
   billingCode,
   kst,
@@ -272,10 +271,7 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
   const shownProfile = (lockedProfile?.input as TeamBuyer | undefined) ?? profile;
   const product = commerce?.configured ? commerce.product : null;
   return (
-    <TeamShell title={c("결제 정보", "Billing details")}>
-      <Link className={secondaryClass} href={`/dashboard/workspaces/${workspaceId}/plan`}>
-        {c("플랜과 결제로 돌아가기", "Back to plan and billing")}
-      </Link>
+    <TeamShell title={c("플랜과 결제", "Plan and billing")} tabs={billingTabs(workspaceId, c)}>
       {r.missing.length > 0 && (
         <section role="status" className="space-y-2 rounded-lg border border-border p-4 text-sm leading-6">
           <p>

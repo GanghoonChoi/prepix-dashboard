@@ -79,7 +79,7 @@ function InvitationContent({ token }: { token: string }) {
       )}
       {!invite && !error && <TeamLoading />}
       {invite && (
-        <section className="max-w-xl space-y-6 rounded-xl border border-border p-6">
+        <section className="max-w-xl space-y-6 rounded-lg border border-border p-6">
           <dl className="space-y-4">
             {[
               [t("team.invitedTo"), invite.workspaceName],

@@ -23,7 +23,7 @@ export function CloudEntry({ workspaceId }: { workspaceId: string }) {
     };
   }, [workspaceId]);
   return (
-    <section className="flex gap-4 rounded-xl border border-border bg-surface p-5">
+    <section className="flex gap-4 rounded-lg border border-border bg-surface p-5">
       <Cloud
         size={22}
         strokeWidth={1.5}

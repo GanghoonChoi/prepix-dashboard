@@ -135,7 +135,7 @@ export function AssetList({
           {folders.map((folder) => (
             <tr
               key={folder.id}
-              className="border-b border-border transition-colors hover:bg-foreground/[0.02]"
+              className="border-b border-border transition-colors hover:bg-surface"
             >
               <td colSpan={5} className="py-0">
                 <button
@@ -154,7 +154,7 @@ export function AssetList({
             return (
               <tr
                 key={asset.id}
-                className="border-b border-border align-top transition-colors hover:bg-foreground/[0.02]"
+                className="border-b border-border align-top transition-colors hover:bg-surface"
               >
                 <td className="py-3.5 pr-4">
                   <div className="flex items-start gap-2">

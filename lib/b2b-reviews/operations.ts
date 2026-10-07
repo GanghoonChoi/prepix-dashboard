@@ -35,7 +35,7 @@ export type ReviewDraft = {
   endMs: number | null;
 };
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
-const SHARE_ACTIONS = ["comment", "edit", "decide", "cancel"];
+const SHARE_ACTIONS = ["comment", "edit", "decide", "cancel", "resolve"];
 const ACTIONS = [
   "create",
   "round",
@@ -48,6 +48,7 @@ const ACTIONS = [
   "convert",
   "share",
   "revoke",
+  "resolve",
 ];
 export const scopeKey = (s: ReviewScope) =>
   JSON.stringify(
@@ -368,7 +369,7 @@ function receiptValid(r: ReviewRecord, v: ReviewMutationResult) {
     !v.review ||
     (r.action !== "create" && v.review.id !== r.scope.reviewId) ||
     !Number.isInteger(v.review.revision) ||
-    (["comment", "edit"].includes(r.action) && !uuid.test(v.commentId ?? "")) ||
+    (["comment", "edit", "resolve"].includes(r.action) && !uuid.test(v.commentId ?? "")) ||
     (["decide", "cancel"].includes(r.action) && !uuid.test(v.decisionId ?? "")) ||
     (r.action === "convert" && !uuid.test(v.projectRequestId ?? "")) ||
     (["share", "revoke"].includes(r.action) && !uuid.test(v.shareId ?? ""))

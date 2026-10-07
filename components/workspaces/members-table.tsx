@@ -111,7 +111,7 @@ export function MembersTable({
         <div>
           <h2 className="flex items-center gap-2 text-xl font-semibold tracking-tight">
             {title}
-            <span className="rounded-full bg-foreground/[0.06] px-2 py-0.5 text-xs font-medium tabular-nums text-muted">
+            <span className="rounded-full bg-surface-secondary px-2 py-0.5 text-xs font-medium tabular-nums text-muted">
               {count ?? rows.length}
             </span>
           </h2>
@@ -219,7 +219,7 @@ export function MembersTable({
               {visible.map((row) => (
                 <tr
                   key={row.id}
-                  className="border-b border-border transition-colors hover:bg-foreground/[0.02]"
+                  className="border-b border-border transition-colors hover:bg-surface"
                 >
                   <td className="py-3.5 pr-4">
                     {/* No name is no name. This used to print the email's

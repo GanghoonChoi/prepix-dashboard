@@ -18,6 +18,23 @@ export function projectSurfaces(role: Project["role"]) {
   };
 }
 
+/** A folder's pages as one tab row (2026-10-08), each only where
+ * `projectSurfaces` already allows it. They used to be reached through a row
+ * of buttons on the overview, a line of underlined links below the fold and a
+ * "폴더 개요" back button on every sub-page — the reviews list only through a
+ * "전체 보기" link. */
+export function projectTabs(base: string, role: Project["role"]) {
+  const s = projectSurfaces(role);
+  return [
+    { href: base, ko: "개요", en: "Overview" },
+    { href: `${base}/files`, ko: "자료", en: "Files" },
+    { href: `${base}/reviews`, ko: "영상 검토", en: "Reviews" },
+    ...(s.requests ? [{ href: `${base}/requests`, ko: "요청사항", en: "Requests" }] : []),
+    ...(s.people ? [{ href: `${base}/people`, ko: "참여자", en: "Participants" }] : []),
+    ...(s.delivery ? [{ href: `${base}/delivery`, ko: "납품", en: "Delivery" }] : []),
+  ];
+}
+
 /** The lead's one toggle. Widening to "team" needs an explicit confirmation
  * and a reason (the server refuses with 422 otherwise); narrowing takes an
  * optional reason. */

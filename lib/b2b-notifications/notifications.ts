@@ -139,6 +139,10 @@ export function describe(n: UserNotification, ko: boolean): string {
       return p.decision === "approved"
         ? t("검토가 승인됐어요", "A review was approved")
         : t("검토에서 수정 요청이 있어요", "A review asked for changes");
+    case "review.commented":
+      return p.reply
+        ? t("내 코멘트에 답글이 달렸어요", "Someone replied to your comment")
+        : t("검토에 새 코멘트가 있어요", "New feedback on a review");
     case "participation.changed":
       return t("폴더 역할이 바뀌었어요", "Your folder role changed");
     case "participation.ended":

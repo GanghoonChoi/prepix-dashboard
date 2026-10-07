@@ -49,7 +49,7 @@ export function AssetGrid({
         <button
           key={folder.id}
           onClick={() => onOpenFolder(folder)}
-          className="flex min-h-11 items-center gap-2 rounded-xl border border-border p-4 text-left text-sm transition-colors hover:bg-surface"
+          className="flex min-h-11 items-center gap-2 rounded-lg border border-border p-4 text-left text-sm transition-colors hover:bg-surface"
         >
           <FolderClosed size={18} strokeWidth={1.5} className="shrink-0" />
           <span className="min-w-0 break-all font-medium">{folder.name}</span>
@@ -61,9 +61,9 @@ export function AssetGrid({
         return (
           <figure
             key={asset.id}
-            className="overflow-hidden rounded-xl border border-border"
+            className="overflow-hidden rounded-lg border border-border"
           >
-            <div className="relative aspect-video bg-foreground/[0.04]">
+            <div className="relative aspect-video bg-surface">
               {poster ? (
                 /* A plain <img>, not next/image: the source is a data URL held
                    in this browser's own IndexedDB. There is nothing for an

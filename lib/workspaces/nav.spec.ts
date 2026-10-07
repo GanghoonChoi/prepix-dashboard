@@ -109,7 +109,12 @@ test("monthly statements follow current billing permission, never project access
     },
   } as const;
   const options = { cloudEnabled: false, managementEnabled: false, b2b };
-  assert.ok(hrefs(options).includes("/dashboard/workspaces/w1/statements"));
+  // Statements are a tab of 플랜과 결제: the entry exists with billing
+  // permission and stays lit on the statements pages.
+  assert.ok(hrefs(options).includes("/dashboard/workspaces/w1/plan"));
+  assert.ok(!hrefs(options).includes("/dashboard/workspaces/w1/statements"));
+  const base = "/dashboard/workspaces/w1";
+  assert.equal(navActive(`${base}/statements/2026-09`, `${base}/plan`, base), true);
   assert.ok(
     !hrefs({
       ...options,
@@ -121,7 +126,7 @@ test("monthly statements follow current billing permission, never project access
           billing: false,
         },
       },
-    }).includes("/dashboard/workspaces/w1/statements"),
+    }).includes("/dashboard/workspaces/w1/plan"),
   );
   assert.ok(
     !workspaceLinks({ id: "p1", type: "personal" }, options).some((link) =>

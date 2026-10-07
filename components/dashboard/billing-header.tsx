@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { PageHeader, PageTabs } from "@/components/ui";
 import { useT } from "@/lib/i18n/context";
 
-/** 플랜 · 결제 — one page with two tabs, so plan and usage stop repeating each other's numbers from two sidebar entries. */
+/** 플랜과 결제 — one page with two tabs, so plan and usage stop repeating each other's numbers from two sidebar entries. */
 export function BillingHeader({ actions }: { actions?: ReactNode }) {
   const t = useT();
   return (

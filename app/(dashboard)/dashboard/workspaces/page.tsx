@@ -97,7 +97,7 @@ export default function WorkspacesPage() {
                 section simply does not appear for them.
               */}
               {data.invitations.length > 0 && (
-                <section className="space-y-3 rounded-xl border border-border bg-surface p-6">
+                <section className="space-y-3 rounded-lg border border-border bg-surface p-6">
                   <h2 className="font-medium">{t("team.pending")}</h2>
                   <ul className="divide-y divide-border">
                     {data.invitations.map((invite) => (
@@ -195,7 +195,7 @@ function Spaces({
       <section className="space-y-3">
         <h2 className="text-sm font-medium">{t("team.teamsHeading")}</h2>
         {teams.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-border p-5 text-sm leading-6 text-muted">
+          <p className="rounded-lg border border-dashed border-border p-5 text-sm leading-6 text-muted">
             {t("team.personalOne")}
           </p>
         ) : (
@@ -228,7 +228,7 @@ function SpaceCard({
     <Link
       href={`/dashboard/workspaces/${workspace.id}`}
       data-space={personal ? "personal" : "team"}
-      className="flex items-center gap-4 rounded-xl border border-border p-5 transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-foreground"
+      className="flex items-center gap-4 rounded-lg border border-border p-5 transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-foreground"
     >
       <SpaceIcon kind={personal ? "personal" : "team"} />
       <div className="min-w-0 flex-1">
@@ -267,7 +267,7 @@ function SuspendedSpace({
   return (
     <div
       data-space="team"
-      className="space-y-3 rounded-xl border border-border bg-surface p-5"
+      className="space-y-3 rounded-lg border border-border bg-surface p-5"
     >
       <p className="font-medium">{workspace.name}</p>
       <p className="text-sm text-muted">

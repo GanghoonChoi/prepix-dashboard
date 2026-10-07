@@ -84,7 +84,7 @@ export default function UsagePage() {
                 { label: t("usage.remaining"), value: String(quota?.remainingFormatted ?? "—") },
               ].map((item) => (
                 <div key={item.label} className="px-6 py-4">
-                  <p className="text-[11px] font-medium uppercase tracking-widest text-muted">{item.label}</p>
+                  <p className="text-[11px] font-medium  text-muted">{item.label}</p>
                   <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">{item.value}</p>
                 </div>
               ))}
@@ -120,7 +120,7 @@ export default function UsagePage() {
               { label: t("usage.processing"), value: Number(videos?.processing ?? 0) },
             ].map((item) => (
               <div key={item.label} className="bg-surface px-5 py-4">
-                <p className="text-[11px] font-medium uppercase tracking-widest text-muted">{item.label}</p>
+                <p className="text-[11px] font-medium  text-muted">{item.label}</p>
                 <p className="mt-1 text-xl font-semibold tabular-nums text-foreground">
                   {item.allowance && item.value < 0
                     ? lang === "ko"

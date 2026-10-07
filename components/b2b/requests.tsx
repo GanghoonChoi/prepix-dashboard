@@ -39,7 +39,7 @@ import {
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
-import { B2bError, accessEnded, errorCode, useCopy } from "./shared";
+import { folderTabs, B2bError, accessEnded, errorCode, useCopy } from "./shared";
 
 // SOT: prepix-backend backend/docs/b2b-requests.md
 type Copy = [string, string];
@@ -280,7 +280,7 @@ function useReload(load: () => Promise<void>) {
 }
 function Badge({ children }: { children: React.ReactNode }) {
   return (
-    <span className="rounded-full border border-border px-2.5 py-1 text-xs">
+    <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs">
       {children}
     </span>
   );
@@ -563,12 +563,9 @@ function ProjectRequestsInner({ projectId }: { projectId: string }) {
     ["done", ["완료", "Done"]],
   ];
   return (
-    <TeamShell title={c("요청사항", "Requests")} description={project.name}>
+    <TeamShell title={c("요청사항", "Requests")} description={project.name} tabs={folderTabs(scope.workspaceId, project, c)}>
       <RequestPending scope={scope} />
-      <div className="flex flex-wrap gap-3">
-        <Link className={secondaryClass} href={base}>
-          {c("폴더 개요", "Folder overview")}
-        </Link>
+      <div className="flex flex-wrap gap-3 empty:hidden">
         {(list.allowedActions.create || list.allowedActions.propose) && (
           <button
             type="button"

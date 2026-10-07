@@ -136,7 +136,7 @@ export default function Page() {
       {!personal && data.pendingTransfer && (
         <div
           role="status"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface p-5"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface p-5"
         >
           <p className="text-sm leading-6">
             {data.pendingTransfer.toUserId === data.currentUserId
@@ -165,7 +165,7 @@ export default function Page() {
       */}
       {stats.length > 0 && (
         <section
-          className="grid gap-px overflow-hidden rounded-xl border border-border bg-border"
+          className="grid gap-px overflow-hidden rounded-lg border border-border bg-border"
           style={{
             gridTemplateColumns: `repeat(${stats.length}, minmax(0, 1fr))`,
           }}
@@ -174,7 +174,7 @@ export default function Page() {
             <div key={label} className="bg-background p-5">
               <p className="text-xs leading-5 text-muted">{label}</p>
               {value === null ? (
-                <div className="mt-3 h-6 w-20 animate-pulse rounded-md bg-foreground/[0.06]" />
+                <div className="mt-3 h-6 w-20 animate-pulse rounded-md bg-surface-secondary" />
               ) : (
                 <p className="mt-2 text-2xl font-semibold tabular-nums">
                   {value}
@@ -206,15 +206,15 @@ export default function Page() {
           {!archive ? (
             <div
               aria-hidden="true"
-              className="h-14 animate-pulse rounded-xl bg-foreground/[0.06]"
+              className="h-14 animate-pulse rounded-lg bg-surface-secondary"
             />
           ) : recent.length ? (
-            <ul className="divide-y divide-border rounded-xl border border-border">
+            <ul className="divide-y divide-border rounded-lg border border-border">
               {recent.map((asset) => (
                 <li key={asset.id}>
                   <Link
                     href={`${base}/media`}
-                    className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-foreground/[0.02]"
+                    className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-surface"
                   >
                     <File
                       size={18}
@@ -234,7 +234,7 @@ export default function Page() {
               ))}
             </ul>
           ) : (
-            <p className="rounded-xl border border-border px-5 py-8 text-center text-sm text-muted">
+            <p className="rounded-lg border border-border px-5 py-8 text-center text-sm text-muted">
               {c("아직 올린 원본이 없습니다.", "No originals uploaded yet.")}
             </p>
           )}
@@ -242,7 +242,7 @@ export default function Page() {
       )}
 
       {process.env.NEXT_PUBLIC_START_ONBOARDING === "1" && (
-        <section className="flex flex-wrap items-center justify-between gap-5 rounded-xl border border-border bg-surface p-6">
+        <section className="flex flex-wrap items-center justify-between gap-5 rounded-lg border border-border bg-surface p-6">
           <div>
             <h2 className="font-medium">
               {c("앱에서 첫 편집 시작하기", "Start your first edit in the app")}

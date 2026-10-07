@@ -57,7 +57,7 @@ export function TransferPanel({
   return (
     <section
       aria-label={c("전송 패널", "Transfer panel")}
-      className="space-y-4 rounded-xl border border-border bg-surface p-5"
+      className="space-y-4 rounded-lg border border-border bg-surface p-5"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         {/* Five counters, four of them usually zero. Only what is actually

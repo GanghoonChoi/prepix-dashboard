@@ -774,7 +774,7 @@ function AssignmentRow({
             ? (personName(person) ?? c("이전 참여자", "Former participant"))
             : c("내 배정", "My assignment")}
         </p>
-        <span className="rounded-full border border-border px-2.5 py-1 text-xs">
+        <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs">
           {stateLabel}
         </span>
       </div>

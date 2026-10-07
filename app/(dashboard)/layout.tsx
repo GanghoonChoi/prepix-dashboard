@@ -46,8 +46,11 @@ export default function DashboardLayout({
    * server does not ask for verification. The banner sat above a working
    * Accept button saying the button would not work yet.
    */
-  const onInvitationPage =
-    Boolean(usePathname()?.match(/^\/dashboard\/(?:b2b-)?invitations\//));
+  const pathname = usePathname() ?? "";
+  const onInvitationPage = /^\/dashboard\/(?:b2b-)?invitations\//.test(pathname);
+  const wide =
+    /\/reviews\/[0-9a-f-]{36}$/.test(pathname) ||
+    pathname.startsWith("/dashboard/review-shares/");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   // "checking" until we've confirmed a token client-side. We render only a
@@ -213,7 +216,16 @@ export default function DashboardLayout({
             <DashboardHeader onMobileMenuToggle={() => setMobileOpen(!mobileOpen)} />
             {/* One content column for the whole dashboard, so every entry in
                 the sidebar opens onto the same measure. */}
-            <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+            <main
+              className={
+                // The review screen is a workspace (video + feedback side by
+                // side) and takes the full width; everything else reads in
+                // one column.
+                wide
+                  ? "px-4 py-6 sm:px-6 lg:py-6"
+                  : "mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-10 lg:py-8"
+              }
+            >
               {/*
                 Every signed-in page, not just the team one: verification gates
                 accepting invitations, and `emailVerified` is now a real field

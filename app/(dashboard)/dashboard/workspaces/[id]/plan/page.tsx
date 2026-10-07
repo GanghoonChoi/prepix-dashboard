@@ -60,14 +60,14 @@ export default function Page() {
   return (
     <TeamShell title={c("플랜과 결제", "Plan and billing")}>
       {personal ? (
-        <section className="space-y-4 rounded-xl border border-border p-6">
+        <section className="space-y-4 rounded-lg border border-border p-6">
           <h2 className="font-medium">{t("team.kind.personal")}</h2>
           <p className="max-w-2xl text-sm leading-6 text-muted">
             {t("team.personalDesc")}
           </p>
         </section>
       ) : (
-        <section className="space-y-4 rounded-xl border border-border p-6">
+        <section className="space-y-4 rounded-lg border border-border p-6">
           <p className="text-xs text-muted">
             {c("현재 팀 플랜", "Current team plan")}
           </p>

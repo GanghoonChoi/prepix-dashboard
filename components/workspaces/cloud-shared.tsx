@@ -185,7 +185,7 @@ export function CloudError({
 export function StorageMeter({ storage }: { storage: StorageUsage }) {
   const { lang } = useI18n();
   return (
-    <div className="space-y-3 rounded-xl border border-border p-5">
+    <div className="space-y-3 rounded-lg border border-border p-5">
       <div className="flex flex-wrap justify-between gap-2 text-sm">
         <span>{lang === "ko" ? "팀 저장 용량" : "Team storage"}</span>
         <span className="tabular-nums">

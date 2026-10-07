@@ -48,7 +48,7 @@ export function VerifyEmailNotice() {
       // Named, so it is a real landmark a screen reader can jump to rather than
       // an anonymous <section> that exposes no role at all.
       aria-labelledby="verify-email-heading"
-      className="space-y-3 rounded-xl border border-border bg-surface p-5"
+      className="space-y-3 rounded-lg border border-border bg-surface p-5"
     >
       <h2
         id="verify-email-heading"
