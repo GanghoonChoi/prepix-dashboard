@@ -59,7 +59,10 @@ test("P08: selected audience only, explicit publication, lost audience receipt, 
     await expect.poll(async () => (await json(request.get(`${root}/reviews/${id}`, { headers: lead.headers }))).approval).toBe("approved");
     await L.page.reload();
     const audience = L.page.getByRole("heading", { name: "검토 대상 변경", exact: true }).locator("..");
-    await audience.getByRole("radio", { name: "선택한 사람만", exact: true }).check();
+    // M4: the form starts from the current selected round, never project-wide.
+    await expect(audience.getByRole("radio", { name: "선택한 사람만", exact: true })).toBeChecked({ timeout: 30_000 });
+    await expect(audience.getByRole("checkbox", { name: "aud-client · 검토자", exact: true })).toBeChecked();
+    await expect(audience.getByRole("combobox", { name: "승인자 선택", exact: true })).toHaveValue(client.id);
     await audience.getByRole("checkbox", { name: "aud-client · 검토자", exact: true }).uncheck();
     await audience.getByRole("checkbox", { name: "aud-producer · 제작자", exact: true }).check();
     await audience.getByRole("combobox", { name: "승인자 선택", exact: true }).selectOption(producer.id);
