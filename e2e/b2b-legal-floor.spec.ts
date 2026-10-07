@@ -279,11 +279,15 @@ test("re-consent to a price increase: a changed total needs a fresh confirmation
   await expect(page.locator("[data-consent-state]")).toHaveCount(0);
 });
 
-test("re-consent from free to paid: not answerable before it opens; a lost decline is recovered by its key; the team ends with the period; other members see none of it", async ({ page, request }) => {
+// (integration) E+ x H: no product on sale can have a 0-won base, and the
+// per-seat rules refuse to read such a stored version, so "free to paid" has
+// no reachable data. The 0-won earlier version made here by SQL is that case:
+// the question still goes out, as changed terms with an unknown earlier total.
+test("re-consent when the earlier version can't be read: not answerable before it opens; a lost decline is recovered by its key; the team ends with the period; other members see none of it", async ({ page, request }) => {
   test.setTimeout(300_000);
   const t = await paidTeam(request, "legal-decline");
   const { consent } = await consentRequired(request, t, 0);
-  expect(consent).toMatchObject({ reason: "free_to_paid", fromTotalKrw: 0, toTotalKrw: t.total });
+  expect(consent).toMatchObject({ reason: "terms_changed", fromTotalKrw: null, toTotalKrw: t.total });
   // Before the window opens the card explains when, and offers no answer.
   await page.route(`${t.base}/billing`, async (route) => {
     if (route.request().method() !== "GET") return route.continue();
@@ -294,7 +298,8 @@ test("re-consent from free to paid: not answerable before it opens; a lost decli
   });
   await login(page, t.owner.email, `/dashboard/workspaces/${t.id}/plan`);
   const card = page.getByRole("region", { name: "갱신 금액 변경 · 동의가 필요합니다" });
-  await expect(card).toContainText("무료였던 갱신이 유료로 바뀝니다.");
+  await expect(card).toContainText("다음 갱신의 상품 조건이 바뀝니다.");
+  await expect(card).toContainText("확인 불가");
   await expect(card).toContainText("부터 답할 수 있습니다. 그 전의 동의는 인정되지 않습니다.");
   await expect(card.getByRole("button", { name: /동의하고 갱신/ })).toHaveCount(0);
   await expect(card.getByRole("button", { name: /동의하지 않음/ })).toHaveCount(0);
