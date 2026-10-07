@@ -1,5 +1,6 @@
 import { apiClient } from "../client";
 import { clearSignedIn } from "@/lib/account-hint";
+import { purgeReviewLocalData } from "@/lib/b2b-reviews/operations";
 
 export interface LoginRequest {
   email: string;
@@ -131,6 +132,13 @@ export const authService = {
   },
 
   logout: () => {
+    let userId: string | null = null;
+    try {
+      userId = JSON.parse(localStorage.getItem("userInfo") ?? "null")?.id ?? null;
+    } catch {
+      /* unreadable profile: purge every account's review data */
+    }
+    void purgeReviewLocalData(userId);
     localStorage.clear();
     // The hint prepix.ai reads to decide between "sign in" and "dashboard".
     // It is not in localStorage — clearing it is a separate act.

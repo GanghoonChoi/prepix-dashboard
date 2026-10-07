@@ -10,6 +10,7 @@ import {
 } from "@/components/workspaces/shared";
 import { isPersonal, seatFigures } from "@/lib/workspaces/kind";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
+import { B2bHome } from "@/components/b2b/home";
 import { MembersContent } from "@/components/workspaces/members-content";
 import { cloudService, type Asset } from "@/lib/api/services/cloud.service";
 import type { StorageUsage } from "@/lib/api/services/cloud.service";
@@ -67,6 +68,7 @@ export default function Page() {
   const c = (ko: string, en: string) => (lang === "ko" ? ko : en);
   const personal = isPersonal(workspace);
   const seats = seatFigures(data);
+  if (context.b2b?.enrolled) return <B2bHome status={context.b2b} workspace={workspace} />;
   // The invite-first setup run belongs to a team, and to the person who made
   // it. A personal space is finished the moment it exists; an admin invited
   // into a half-set-up team is not mid-setup, they have just arrived, and

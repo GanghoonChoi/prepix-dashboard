@@ -10,6 +10,9 @@
  * and a three-second wifi drop must not unmount a half-typed invitation.
  */
 const GONE = new Set([
+  // Browser session lifetime ended; unlike a network failure, old private
+  // content must disappear even when this workspace still exists.
+  "API_SESSION_CHANGED",
   "WORKSPACE_NOT_FOUND",
   "WORKSPACE_MEMBER_SUSPENDED",
   "WORKSPACES_DISABLED",
@@ -27,8 +30,9 @@ const GONE = new Set([
   "ACCOUNT_UNAVAILABLE",
 ]);
 // Keep identical to REVOKED in prepix/apps/desktop/src/renderer/src/pages/
-// workspaces/state.ts, which adds only WORKSPACE_ACCOUNT_CHANGED (raised by the
-// desktop's local IPC account guard). Both clients read the same codes from the
+// workspaces/state.ts, which adds WORKSPACE_ACCOUNT_CHANGED (raised by the
+// desktop's local IPC account guard). API_SESSION_CHANGED is browser-only.
+// Both clients read the same remaining codes from the
 // same backend; a divergence means one blanks where the other keeps. Narrow
 // flags such as TEAM_UPLOADS_UNAVAILABLE stay out — they withdraw one action,
 // not the content.
@@ -46,6 +50,7 @@ export function contentGone(code: string) {
  * exist" hides the whole nav entry over a blip. Those get a retry instead.
  */
 export function capabilityFailure(error: unknown): "absent" | "unreachable" {
-  const status = (error as { response?: { status?: number } })?.response?.status;
+  const status = (error as { response?: { status?: number } })?.response
+    ?.status;
   return typeof status === "number" && status < 500 ? "absent" : "unreachable";
 }

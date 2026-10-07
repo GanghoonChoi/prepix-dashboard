@@ -5,6 +5,10 @@ import { bytes } from "@/lib/workspaces/upload";
 import type { StorageUsage } from "@/lib/api/services/cloud.service";
 import { secondaryClass } from "./shared";
 const messages: Record<string, [string, string]> = {
+  API_SESSION_CHANGED: [
+    "로그인 계정이나 연결된 서비스가 바뀌었습니다. 현재 계정으로 다시 불러오세요.",
+    "Your account or connected service changed. Reload with the current account.",
+  ],
   WORKSPACE_REAUTH_FAILED: [
     "본인 확인에 실패했습니다. 현재 계정의 비밀번호 또는 연결된 Google 계정을 확인하세요.",
     "Verification failed. Use your current password or linked Google account.",

@@ -1,5 +1,6 @@
 "use client";
 
+import { storeSession } from "@/lib/api/session";
 import { useEffect, useState } from "react";
 import { LoadingScreen } from "@/components/loading-screen";
 import { apiClient } from "@/lib/api/client";
@@ -56,11 +57,7 @@ export default function SessionPage() {
       })
       .then(({ data }) => {
         const session = data.data;
-        localStorage.setItem("accessToken", session.accessToken);
-        localStorage.setItem("refreshToken", session.refreshToken);
-        if (session.user) {
-          localStorage.setItem("userInfo", JSON.stringify(session.user));
-        }
+        storeSession(session.accessToken, session.refreshToken, session.user);
         // So prepix.ai's header can offer "dashboard" instead of "sign in".
         markSignedIn();
         const back = safeReturnTo(

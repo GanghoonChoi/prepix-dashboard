@@ -1,4 +1,6 @@
 "use client";
+import { OwnershipControls } from "@/components/b2b/ownership";
+import { LeaveTeam } from "@/components/b2b/leave-team";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n/context";
@@ -22,7 +24,7 @@ import {
   type MemberImpact,
 } from "@/lib/api/services/workspace.service";
 export default function Page() {
-  const { data, reload } = useWorkspace()!;
+  const { data, reload, b2b } = useWorkspace()!;
   const { lang, t } = useI18n();
   const router = useRouter();
   const c = (ko: string, en: string) => (lang === "ko" ? ko : en);
@@ -143,7 +145,7 @@ export default function Page() {
                 <span>{c("워크스페이스 이름", "Workspace name")}</span>
                 <input
                   className={inputClass}
-                  maxLength={80}
+                  maxLength={b2b?.enrolled ? 100 : 80}
                   required
                   disabled={!data.canManage || busy}
                   value={form.name}
@@ -200,7 +202,8 @@ export default function Page() {
             </form>
           )}
         </Block>
-        {!personal && (
+        {!personal && b2b?.enrolled && <OwnershipControls />}
+        {!personal && !b2b?.enrolled && (
           <Block
             title={c("소유권", "Ownership")}
             description={c(
@@ -364,7 +367,8 @@ export default function Page() {
               )}
           </Block>
         )}
-        {!personal && (
+        {!personal && b2b?.enrolled && <LeaveTeam />}
+        {!personal && !b2b?.enrolled && (
           <Block
             title={c("내 참여", "Your membership")}
             description={

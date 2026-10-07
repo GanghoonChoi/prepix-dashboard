@@ -1,3 +1,4 @@
+import type { B2bStatus } from "../api/generated/b2b";
 import { isPersonal } from "./kind";
 
 /**
@@ -27,6 +28,7 @@ export function workspaceLinks(
      * offers it anyway contradicts the role table two clicks away.
      */
     role?: string;
+    b2b?: B2bStatus;
   },
 ): NavLink[] {
   const base = `/dashboard/workspaces/${workspace.id}`;
@@ -64,6 +66,52 @@ export function workspaceLinks(
     landed at the organisation ones, so the same sidebar entry opened a
     different screen depending on a race.
   */
+  if (options.b2b?.enrolled) {
+    const status = options.b2b;
+    return [
+      { href: base, ko: "개요", en: "Overview" },
+      ...(status.allowedActions.projects
+        ? [
+            { href: `${base}/projects`, ko: "폴더", en: "Folders" },
+            { href: `${base}/library`, ko: "보관함", en: "Library" },
+          ]
+        : []),
+      ...(status.team.legacyArchive &&
+      options.cloudEnabled &&
+      options.role !== "reviewer"
+        ? [{ href: `${base}/media`, ko: "기존 아카이브", en: "Legacy archive" }]
+        : []),
+      ...(status.allowedActions.manage && status.team.currentState === "active"
+        ? [{ href: `${base}/members`, ko: "멤버", en: "Members" }]
+        : []),
+      ...(!["preparing", "deleting", "deleted"].includes(
+        status.team.currentState,
+      )
+        ? [
+            {
+              href: `${base}/licences`,
+              ko: status.allowedActions.manage
+                ? "편집 이용권"
+                : "내 편집 이용권",
+              en: status.allowedActions.manage
+                ? "Editing licences"
+                : "My editing licence",
+            },
+          ]
+        : []),
+      ...(status.allowedActions.billing
+        ? [{ href: `${base}/plan`, ko: "플랜과 결제", en: "Plan and billing" }]
+        : []),
+      // S25: monthly statements are billing documents, not project content.
+      ...(status.allowedActions.billing
+        ? [{ href: `${base}/statements`, ko: "월 이용명세서", en: "Statements" }]
+        : []),
+      { href: `${base}/status`, ko: "이용 상태", en: "Team status" },
+      ...(status.allowedActions.manage
+        ? [{ href: `${base}/settings`, ko: "설정", en: "Settings" }]
+        : []),
+    ];
+  }
   return [
     { href: base, ko: "개요", en: "Overview" },
     ...(options.cloudEnabled && options.role !== "reviewer"

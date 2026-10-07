@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { safeReturnTo } from "./return-to";
+import { safeReturnTo, withLocale } from "./return-to";
 
 // A post-auth redirect that accepts arbitrary URLs is a phishing primitive:
 // send `?returnTo=<lookalike>/login`, let the victim authenticate for real,
@@ -60,6 +60,14 @@ test('invitation destination survives authentication without accepting backslash
 test('the dashboard host preserves the team destination', () => {
   const target = 'https://dashboard.prepix.ai/dashboard/workspaces';
   assert.equal(safeReturnTo(target), target);
+});
+
+test("a known locale on the sign-in page follows an internal returnTo; unknown or existing ones do not", () => {
+  assert.equal(withLocale("/dashboard/x?a=1#h", "?locale=en"), "/dashboard/x?a=1&locale=en#h");
+  assert.equal(withLocale("/dashboard", "?locale=fr"), "/dashboard");
+  assert.equal(withLocale("/dashboard?locale=ko", "?locale=en"), "/dashboard?locale=ko");
+  assert.equal(withLocale("https://prepix.ai/start", "?locale=en"), "https://prepix.ai/start");
+  assert.equal(withLocale("//evil.example", "?locale=en"), "//evil.example");
 });
 
 // The old host now only redirects; a returnTo naming it is not one we hand a

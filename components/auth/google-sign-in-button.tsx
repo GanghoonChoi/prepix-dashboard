@@ -1,5 +1,6 @@
 "use client";
 
+import { storeSession } from "@/lib/api/session";
 import { useEffect, useRef } from "react";
 import { authService } from "@/lib/api/services/auth.service";
 import { markSignedIn } from "@/lib/account-hint";
@@ -65,13 +66,9 @@ export function GoogleSignInButton({
           try {
             const data = await authService.googleLogin(response.credential);
             if (data.accessToken && data.refreshToken) {
-              localStorage.setItem("accessToken", data.accessToken);
-              localStorage.setItem("refreshToken", data.refreshToken);
+              storeSession(data.accessToken, data.refreshToken, data.user);
               // So prepix.ai's header can offer "dashboard" instead of "sign in".
               markSignedIn();
-            }
-            if (data.user) {
-              localStorage.setItem("userInfo", JSON.stringify(data.user));
             }
             onSuccessRef.current(data.user);
           } catch (err: unknown) {

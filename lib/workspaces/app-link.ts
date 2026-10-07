@@ -27,3 +27,12 @@ export function buildAppOpenUrl(input: { workspaceId: string }): string | null {
   if (!isAppLinkId(workspaceId)) return null;
   return `prepix://open?workspace=${workspaceId}`;
 }
+
+/** New B2B project intent; keep the older archive grammar intact. */
+export function buildTeamProjectOpenUrl(input: {
+  workspaceId: string;
+  projectId: string;
+}): string | null {
+  if (!isAppLinkId(input.workspaceId) || !isAppLinkId(input.projectId)) return null;
+  return `prepix://team-project?workspace=${input.workspaceId}&project=${input.projectId}`;
+}

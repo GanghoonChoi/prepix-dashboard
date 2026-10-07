@@ -1,4 +1,5 @@
 import { apiClient } from "../client";
+import { mutationHeaders } from "../session";
 
 export type Role = "owner" | "admin" | "editor" | "reviewer";
 export type InviteRole = Exclude<Role, "owner">;
@@ -15,6 +16,7 @@ export type Workspace = {
    * reads it directly — `lib/workspaces/kind.ts` owns the absent case.
    */
   type?: "personal" | "team";
+  b2bEnrolled?: boolean;
   description?: string;
   revision?: number;
   seatLimit: number;
@@ -26,6 +28,9 @@ export type Capabilities = {
   enabled: boolean;
   canCreate: boolean;
   previewSeats: number;
+  creationRequestKeys?: boolean;
+  newTeamPolicy?: "b2b_v1" | "legacy";
+  maxTeamNameLength?: number;
   /**
    * How many more workspaces this account may create — the cap minus the ones
    * it created, floored at 0, and present even in the disabled response.
@@ -78,6 +83,7 @@ export type WorkspaceList = {
   pendingInvitationCount?: number;
 };
 export type WorkspaceDetail = {
+  b2bEnrolled?: boolean;
   workspace: Workspace;
   canManageMembers?: boolean;
   managementEnabled?: boolean;
@@ -182,8 +188,11 @@ const e = encodeURIComponent;
 
 const teamClient = {
   get: <T>(path: string) => apiClient.get<T>(path, { timeout: 15_000 }),
-  post: async <T = unknown>(path: string, body?: unknown) => {
-    const response = await apiClient.post<T>(path, body, { timeout: 30_000 });
+  post: async <T = unknown>(path: string, body?: unknown, account?: string) => {
+    const response = await apiClient.post<T>(path, body, {
+      timeout: 30_000,
+      ...mutationHeaders(account),
+    });
     if (typeof window !== "undefined" && !path.endsWith("reauth-challenges"))
       window.dispatchEvent(new Event("workspaces:changed"));
     return response;
@@ -216,7 +225,10 @@ export const workspaceService = {
       )
     ).data.data,
   transfer: async (id: string, targetId: string, credential: Credential) =>
-    teamClient.post(`/workspaces/${e(id)}/ownership`, { targetId, ...credential }),
+    teamClient.post(`/workspaces/${e(id)}/ownership`, {
+      targetId,
+      ...credential,
+    }),
   resolveTransfer: async (
     id: string,
     transferId: string,
@@ -242,15 +254,19 @@ export const workspaceService = {
       .data.data,
   list: async () =>
     (await teamClient.get<{ data: WorkspaceList }>("/workspaces")).data.data,
-  create: async (name: string) =>
+  create: async (name: string, requestKey?: string, account?: string) =>
     (
       await teamClient.post<{
         data: { workspace: Workspace; resumed: boolean };
-      }>("/workspaces", { name })
+      }>(
+        "/workspaces",
+        { name, ...(requestKey ? { requestKey } : {}) },
+        account,
+      )
     ).data.data,
   detail: async (id: string) =>
-    (await teamClient.get<{ data: WorkspaceDetail }>(`/workspaces/${e(id)}`)).data
-      .data,
+    (await teamClient.get<{ data: WorkspaceDetail }>(`/workspaces/${e(id)}`))
+      .data.data,
   complete: async (id: string) =>
     teamClient.post(`/workspaces/${e(id)}/complete-onboarding`),
   /** `lang` is the INVITER's language — the only signal we have for the mail
@@ -274,7 +290,9 @@ export const workspaceService = {
       )
     ).data.data,
   revoke: async (id: string, invitationId: string) =>
-    teamClient.post(`/workspaces/${e(id)}/invitations/${e(invitationId)}/revoke`),
+    teamClient.post(
+      `/workspaces/${e(id)}/invitations/${e(invitationId)}/revoke`,
+    ),
   preview: async (token: string) =>
     (
       await teamClient.get<{ data: InvitePreview }>(

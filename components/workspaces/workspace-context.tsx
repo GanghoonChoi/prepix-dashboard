@@ -1,5 +1,6 @@
 "use client";
 import {
+  Fragment,
   createContext,
   useContext,
   useState,
@@ -12,14 +13,23 @@ import {
   workspaceService,
   type WorkspaceDetail,
 } from "@/lib/api/services/workspace.service";
+import { b2bService, type B2bStatus } from "@/lib/api/services/b2b.service";
+import { isPersonal } from "@/lib/workspaces/kind";
 import { cloudService } from "@/lib/api/services/cloud.service";
 import { CloudError, cloudErrorCode } from "./cloud-shared";
 import { TeamLoading } from "./shared";
 import { contentGone } from "@/lib/workspaces/errors";
+import { apiClient } from "@/lib/api/client";
+import {
+  accountMoved,
+  pinMutationAccount,
+  readApiSession,
+} from "@/lib/api/session";
 const Context = createContext<{
   data: WorkspaceDetail;
   reload: () => Promise<void>;
   cloudEnabled: boolean;
+  b2b: B2bStatus | null;
 } | null>(null);
 export function useWorkspace() {
   return useContext(Context);
@@ -34,12 +44,32 @@ export function WorkspaceProvider({
   const [data, setData] = useState<WorkspaceDetail | null>(null);
   const [error, setError] = useState("");
   const [cloudEnabled, setCloudEnabled] = useState(false);
+  const [b2b, setB2b] = useState<B2bStatus | null>(null);
   const serial = useRef(0);
+  // Who the loaded view belongs to. It survives dropping the view so a burst of
+  // storage events (lineage, tokens, actor) keeps restarting the load until the
+  // last write has landed.
+  const viewOwner = useRef<{ userId: string | null; lineage: string | null } | null>(null);
+  useEffect(() => {
+    const account = data?.currentUserId ?? null;
+    pinMutationAccount(account);
+    return () => pinMutationAccount(null);
+  }, [data]);
   const reload = useCallback(async () => {
     const request = ++serial.current;
+    const base = apiClient.defaults.baseURL!;
+    const loadedLineage = readApiSession(base).lineage;
     try {
       const next = await workspaceService.detail(id);
+      const status = isPersonal(next.workspace) ? { enabled: false, enrolled: false } as const : await b2bService.status(id).catch((e) => {
+        // Older servers have no B2B route. Network failures keep the last
+        // response and are surfaced instead of silently reopening old UI.
+        if (e?.response?.status === 404) return { enabled: false, enrolled: false } as const;
+        throw e;
+      });
       if (request === serial.current) {
+        viewOwner.current = { userId: next.currentUserId ?? null, lineage: loadedLineage };
+        setB2b(status);
         setData(next);
         setError("");
       }
@@ -71,11 +101,31 @@ export function WorkspaceProvider({
     };
     const timer = setInterval(refresh, 30_000);
     window.addEventListener("focus", refresh);
+    const changed = () => void reload();
+    window.addEventListener("workspaces:changed", changed);
+    // Another tab signed in as someone else (or again): this view's children
+    // and their in-memory intents belong to the old session. Drop them now,
+    // not at the next poll, then load the new account's view.
+    const moved = () => {
+      const owner = viewOwner.current;
+      if (
+        !owner ||
+        !accountMoved(apiClient.defaults.baseURL!, owner.userId, owner.lineage)
+      )
+        return;
+      serial.current++;
+      setData(null);
+      setB2b(null);
+      void reload();
+    };
+    window.addEventListener("storage", moved);
     return () => {
       alive = false;
       window.clearTimeout(initial);
       clearInterval(timer);
       window.removeEventListener("focus", refresh);
+      window.removeEventListener("workspaces:changed", changed);
+      window.removeEventListener("storage", moved);
     };
   }, [id, reload]);
   // Loading keeps the structure (§5.1): the back link, the header block and the
@@ -91,7 +141,7 @@ export function WorkspaceProvider({
       </div>
     );
   return (
-    <Context.Provider value={{ data, reload, cloudEnabled }}>
+    <Context.Provider value={{ data, reload, cloudEnabled: cloudEnabled && (!b2b?.enrolled || b2b.team.legacyArchive), b2b }}>
       {/*
         A failed refresh is a banner over the page that is already there, never
         a replacement for it. Children — and their in-progress input — stay
@@ -102,7 +152,9 @@ export function WorkspaceProvider({
           <CloudError code={error} retry={reload} />
         </div>
       )}
-      {children}
+      {/* Another account is another view: its in-memory intents (pending
+          request keys, drafts) never carry over. Same account keeps them. */}
+      <Fragment key={data.currentUserId}>{children}</Fragment>
     </Context.Provider>
   );
 }

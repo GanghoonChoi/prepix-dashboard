@@ -1,5 +1,6 @@
 "use client";
 
+import { endSession } from "@/lib/api/session";
 import { useState, useEffect } from "react";
 import { WorkspaceCapabilities } from "@/components/workspaces/capabilities";
 import { usePathname } from "next/navigation";
@@ -45,7 +46,7 @@ export default function DashboardLayout({
    * Accept button saying the button would not work yet.
    */
   const onInvitationPage =
-    usePathname()?.startsWith("/dashboard/invitations/") ?? false;
+    Boolean(usePathname()?.match(/^\/dashboard\/(?:b2b-)?invitations\//));
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   // "checking" until we've confirmed a token client-side. We render only a
@@ -59,6 +60,17 @@ export default function DashboardLayout({
   useEffect(() => {
     const accessToken = localStorage.getItem("accessToken");
     const refreshToken = localStorage.getItem("refreshToken");
+    // A restricted review share carries its token in the URL fragment, which
+    // never reaches a server and is dropped by the login redirect. Keep it for
+    // this tab only so the share opens after signing in.
+    const share = window.location.pathname.match(/^\/dashboard\/review-shares\/([0-9a-f-]{36})$/i);
+    const shareToken = new URLSearchParams(window.location.hash.slice(1)).get("t");
+    if (share && shareToken && /^[0-9a-f]{64}$/.test(shareToken))
+      try {
+        sessionStorage.setItem(`prepix-review-share:${share[1]}`, shareToken);
+      } catch {
+        /* the share page explains a missing link */
+      }
     if (!accessToken && !refreshToken) {
       // Arriving here with no session means any hint left on `.prepix.ai` is
       // stale — drop it, or the marketing site keeps offering a dashboard this
@@ -79,9 +91,7 @@ export default function DashboardLayout({
        * account and belong on sign-in. Both screens carry `returnTo` on to the
        * other, so a wrong guess would cost one click rather than the journey.
        */
-      const invited = window.location.pathname.startsWith(
-        "/dashboard/invitations/",
-      );
+      const invited = /^\/dashboard\/(?:b2b-)?invitations\//.test(window.location.pathname);
       const needsAccount =
         new URLSearchParams(window.location.search).get("signup") === "1";
       window.location.replace(
@@ -143,9 +153,7 @@ export default function DashboardLayout({
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("userInfo");
+    endSession();
     clearSignedIn();
     window.location.href = loginHref();
   };

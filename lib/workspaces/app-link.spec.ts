@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildAppOpenUrl, isAppLinkId } from "./app-link";
+import { buildAppOpenUrl, buildTeamProjectOpenUrl, isAppLinkId } from "./app-link";
 
 // The desktop side is building `prepix://` registration against this exact
 // grammar in parallel (F06.2, superseded by D14): just the workspace. D14
@@ -10,6 +10,18 @@ import { buildAppOpenUrl, isAppLinkId } from "./app-link";
 // broken link.
 
 const WORKSPACE = "0d1a2b3c-4d5e-4f60-8a1b-2c3d4e5f6071";
+const PROJECT = "1d1a2b3c-4d5e-4f60-8a1b-2c3d4e5f6072";
+
+test("builds the new project grammar containing only fixed target ids", () => {
+  assert.equal(buildTeamProjectOpenUrl({ workspaceId: WORKSPACE, projectId: PROJECT }),
+    `prepix://team-project?workspace=${WORKSPACE}&project=${PROJECT}`);
+});
+test("refuses invalid project and workspace ids in a team project link", () => {
+  for (const invalid of ["", "bad", PROJECT.toUpperCase(), `${PROJECT}&token=secret`, "/tmp/file"]) {
+    assert.equal(buildTeamProjectOpenUrl({ workspaceId: WORKSPACE, projectId: invalid }), null);
+    assert.equal(buildTeamProjectOpenUrl({ workspaceId: invalid, projectId: PROJECT }), null);
+  }
+});
 
 test("builds the exact URL for a valid workspace id", () => {
   assert.equal(

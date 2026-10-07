@@ -1,0 +1,411 @@
+"use client";
+
+
+import { useI18n } from "@/lib/i18n/context";
+import type { ProjectRole, ProjectState, ProjectVisibility, TeamState } from "@/lib/api/services/b2b.service";
+import Link from "next/link";
+import { secondaryClass } from "@/components/workspaces/shared";
+import { useWorkspace } from "@/components/workspaces/workspace-context";
+import { accessNotice, kst } from "@/lib/b2b-lifecycle/view";
+
+export const stateLabels: Record<TeamState | ProjectState, [string, string]> = {
+  preparing: ["준비", "Preparing"],
+  active: ["이용 중", "Active"],
+  read_only: ["열람·다운로드 가능", "Read and export"],
+  recovery: ["복구 보관", "Recovery storage"],
+  deletion_due: ["삭제 예정", "Deletion pending"],
+  deleting: ["삭제 중", "Deleting"],
+  deleted: ["삭제 완료", "Deleted"],
+  draft: ["준비", "Draft"],
+  in_progress: ["진행", "In progress"],
+  completed: ["완료", "Completed"],
+  archived: ["보관", "Archived"],
+};
+export const roleLabels: Record<ProjectRole | "viewer", [string, string]> = {
+  lead: ["담당자", "Lead"],
+  producer: ["제작자", "Producer"],
+  reviewer: ["검토자", "Reviewer"],
+  viewer: ["팀 열람", "Team viewer"],
+};
+export const visibilityLabels: Record<ProjectVisibility, [string, string]> = {
+  team: ["팀 공개", "Team-wide"],
+  private: ["비공개", "Private"],
+};
+export function useCopy() {
+  const { lang } = useI18n();
+  return (ko: string, en: string) => (lang === "ko" ? ko : en);
+}
+export function errorCode(error: unknown): string {
+  const message = (error as { response?: { data?: { message?: unknown } } })
+    ?.response?.data?.message;
+  return typeof message === "string" ? message : "REQUEST_FAILED";
+}
+/** Mutations: the server itself refused, so the pending key may be freed. */
+export { serverRejected as definitivelyRejected } from "@/lib/api/session";
+/** Reads: the server or this browser's session fence ended access; clear it. */
+export { accessEnded, freeIntent } from "@/lib/api/session";
+const invitationErrors: Record<string, [string, string]> = {
+  B2B_DEVICE_RETIRED: [
+    "이미 등록 해제가 요청된 장치입니다. 현재 장치 상태를 확인해 주세요.",
+    "Retirement has already been requested for this device. Review its current state.",
+  ],
+  B2B_DEVICE_NOT_FOUND: [
+    "현재 계정의 등록 장치를 찾을 수 없습니다.",
+    "This account's registered device is unavailable.",
+  ],
+  B2B_DEVICE_LIMIT_REACHED: [
+    "장치 정원이 가득 찼습니다. 기존 장치의 반납 또는 만료를 확인한 뒤 등록해 주세요.",
+    "Device capacity is full. Wait for an old device to be discarded or expire before registering.",
+  ],
+  INVITATION_EMAIL_MISMATCH: [
+    "초대받은 이메일의 계정으로 로그인해 주세요.",
+    "Sign in with the invited email account.",
+  ],
+  INVITATION_UNAVAILABLE: [
+    "유효한 초대를 찾을 수 없습니다.",
+    "This invitation is unavailable.",
+  ],
+  INVITATION_EXPIRED: [
+    "초대가 만료되었습니다. 담당자에게 다시 초대해 달라고 요청하세요.",
+    "The invitation expired. Ask the lead for a new invitation.",
+  ],
+  INVITATION_REVOKED: ["취소된 초대입니다.", "This invitation was cancelled."],
+  B2B_ALREADY_INVITED: [
+    "해당 범위의 초대가 이미 대기 중입니다. 기존 초대를 확인해 주세요.",
+    "An invitation for this scope is already pending. Check the existing invitation.",
+  ],
+  B2B_ALREADY_PARTICIPATING: [
+    "이미 이 폴더에 참여하고 있습니다. 역할 변경을 이용해 주세요.",
+    "This person already participates. Use role changes instead.",
+  ],
+  B2B_PROJECT_INVITATION_REQUIRED: [
+    "새 참여자는 초대 수락 후 추가됩니다. 폴더 초대를 이용해 주세요.",
+    "New participation requires acceptance. Send a folder invitation.",
+  ],
+  B2B_AFFILIATION_CHANGE_REQUIRED: [
+    "현재 팀 참여 구분이 초대와 다릅니다. 소유자가 참여 구분을 먼저 확인해야 합니다.",
+    "The current affiliation differs. The owner must review it first.",
+  ],
+  B2B_INVITATION_CONFIGURATION_REQUIRED: [
+    "초대 메일 설정이 준비되지 않았습니다. 팀 관리자에게 문의하세요.",
+    "Invitation delivery is not configured. Contact a team administrator.",
+  ],
+  B2B_PROJECT_LEAD_TRANSFER_REQUIRED: [
+    "담당자 역할을 이전한 뒤 참여 구분을 변경해 주세요.",
+    "Transfer the lead role before changing affiliation.",
+  ],
+  B2B_EXTERNAL_ADMIN_DENIED: [
+    "외부 참여자는 팀 관리자가 될 수 없습니다.",
+    "External collaborators cannot become team administrators.",
+  ],
+};
+const errors: Record<string, [string, string]> = {
+  B2B_NATIVE_FORMAT_UNSUPPORTED: [
+    "지원하지 않는 작업 파일 형식이거나 필수 원본 목록이 올바르지 않습니다. 작업 파일 지원 설정과 파일을 확인해 주세요.",
+    "This working format or its required source list is unsupported. Check the file and native upload settings.",
+  ],
+  B2B_FILE_REFERENCED: ["사용 중인 폴더 연결이 있어 이 버전을 휴지통으로 이동할 수 없습니다. 허용된 폴더에서 연결을 먼저 제외하세요.", "An active folder reference prevents moving this version to trash. Remove its links in authorized folders first."],
+  B2B_FILE_RETENTION_REQUIRED: ["제출·승인·납품 등의 보존 근거가 있어 이 버전을 삭제할 수 없습니다.", "Submission, approval, delivery or other retention evidence prevents deletion."],
+  B2B_FILE_TRASH_NOT_FOUND: ["현재 이 휴지통 버전을 확인할 수 없습니다. 버전 주소와 현재 접근을 확인하세요.", "This trash version is unavailable. Check the version address and current access."],
+  B2B_FILE_TRASH_EXPIRED: ["복원 기한이 지났습니다. 팀을 복구해도 만료된 휴지통 버전은 복원되지 않습니다.", "Restoration has expired. Team recovery does not revive expired trash versions."],
+  B2B_FILE_TRASH_UNRECOVERABLE: ["영구 삭제가 요청된 버전은 복원할 수 없습니다.", "A version requested for permanent deletion cannot be restored."],
+  B2B_FILE_PURGE_CONFIRMATION_REQUIRED: ["복원 불가 확인이 필요합니다.", "Confirm that permanent deletion cannot be undone."],
+  B2B_FILE_DELETION_PAYMENT_HELD: ["복구 결제 확인으로 삭제가 보류 중입니다. 결제 상태가 확인된 뒤 재시도하세요.", "Deletion is held while recovery payment is checked. Retry after the payment is resolved."],
+
+  B2B_FILE_DOWNLOAD_INTEGRITY: ["받은 파일의 크기나 내용이 원본과 다릅니다. 검증하지 못한 파일은 저장하지 않습니다.", "The received size or content differs from the original. Unverified files are not saved."],
+  B2B_FILE_DOWNLOAD_RANGE_INVALID: ["서버의 부분 수령 응답을 확인할 수 없습니다. 브라우저 수령과 저장소 설정을 확인해 주세요.", "The partial response could not be verified. Check browser receipt and storage settings."],
+  B2B_FILE_DOWNLOAD_STORAGE_UNAVAILABLE: ["이 브라우저에서 임시 파일 수령을 사용할 수 없습니다. 최신 브라우저와 저장소 설정을 확인해 주세요.", "Staged receipt is unavailable in this browser. Check your browser version and storage settings."],
+  B2B_FILE_DOWNLOAD_STORAGE_FULL: ["브라우저 임시 저장 공간이 부족합니다. 다른 임시 수령을 정리한 뒤 재개해 주세요.", "Browser staging storage is full. Remove other staged receipts and resume."],
+  B2B_FILE_DOWNLOAD_BUSY: ["다른 탭에서 같은 원본을 수령하거나 정리 중입니다. 해당 작업을 마친 뒤 재시도해 주세요.", "Another tab is receiving or removing this original. Retry after it finishes."],
+  B2B_FILE_DOWNLOAD_INTERRUPTED: ["원본 수령이 중단되었습니다. 받은 부분을 확인한 뒤 이어 받을 수 있습니다.", "Receipt was interrupted. Received bytes can be checked before resuming."],
+  B2B_FILE_DOWNLOAD_DENIED: ["현재 계정에서 이 원본을 다운로드할 수 없습니다. 폴더와 자료의 다운로드 허용을 확인해 주세요.", "This account cannot download the original. Check folder and file download permissions."],
+  B2B_FILE_OPERATION_PENDING: ["이 변경의 처리 결과를 먼저 확인해 주세요. 처음 요청을 그대로 재시도할 수 있습니다.", "Confirm the pending change first. You can retry the original request."],
+  B2B_FILE_OPERATION_INVALID: ["변경 요청과 처리 결과를 확인할 수 없습니다. 원래 요청 기록을 유지합니다.", "The operation or its receipt could not be verified. The original request is retained."],
+  B2B_FILE_OPERATION_NOT_FOUND: ["현재 폴더에서 이 변경 요청을 확인할 수 없습니다.", "This operation is unavailable in the current folder."],
+  B2B_FILE_STEWARD_TRANSFER_REQUIRED: ["자료 담당자의 열람을 해제하려면 담당자를 먼저 이전해야 합니다.", "Transfer stewardship before removing the steward's read access."],
+  B2B_FILE_AI_INPUT_DENIED: ["현재 역할과 자료 권한으로는 AI 입력 사용을 허용할 수 없습니다.", "The current role and file permissions do not allow AI input use."],
+  B2B_FILE_RESELECT_REQUIRED: ["원본 파일을 다시 선택해 주세요. 크기와 전체 해시를 확인한 뒤 남은 부분부터 전송합니다.", "Choose the source file again. Its size and full hash are checked before remaining parts are sent."],
+  UPLOAD_RESUME_MISMATCH: ["처음 등록한 파일과 내용이 다릅니다. 같은 원본을 선택하거나 새 자료로 등록해 주세요.", "This file differs from the original upload. Choose the same source or register a new asset."],
+  B2B_FILE_SIZE_INVALID: ["빈 파일이거나 현재 파일당 크기 제한을 초과했습니다.", "The file is empty or exceeds the current per-file size limit."],
+  B2B_FILE_NAME_INVALID: ["파일 이름이 너무 길거나 경로·제어 문자가 포함되어 있습니다. 이름을 변경해 주세요.", "The filename is too long or contains path or control characters. Rename the file."],
+  B2B_FILE_STORAGE_FULL: ["팀 저장 정원이 부족합니다. 보관된 자료와 진행 중 예약을 함께 확인해 주세요.", "Team storage is full. Check both stored files and pending reservations."],
+  B2B_FILE_TRANSFER_STORAGE_UNAVAILABLE: ["이 브라우저에서 전송 기록을 보존할 수 없습니다. 브라우저 저장소를 확인한 뒤 다시 시도해 주세요.", "Transfer records cannot be saved in this browser. Check browser storage and retry."],
+  B2B_FILE_ACCOUNT_CHANGED: ["로그인 계정이 바뀌었습니다. 현재 계정으로 폴더를 다시 열어 주세요.", "The signed-in account changed. Reopen the folder for the current account."],
+  B2B_FILE_CANCEL_PENDING: ["취소 결과를 확인해야 합니다. 같은 전송의 취소 결과 재확인을 이용해 주세요.", "Cancellation needs confirmation. Retry cancellation for this transfer."],
+  B2B_FILE_BEGIN_CANCELLED: ["이 등록 요청은 취소되었습니다. 새 자료로 다시 등록할 수 있습니다.", "This registration was cancelled. You can register a new asset."],
+  B2B_FILE_ALREADY_REGISTERED: ["이미 보관이 확정된 버전입니다. 전송 취소로 보관 자료를 삭제할 수 없습니다.", "This version is already stored. Cancelling a transfer cannot delete it."],
+  B2B_FILE_NOT_FOUND: ["현재 계정에서 이 자료에 접근할 수 없습니다.", "This file is unavailable to the current account."],
+  B2B_FILE_UPLOAD_EXPIRED: ["전송이 만료되었습니다. 현재 상태를 확인한 뒤 새 자료로 등록해 주세요.", "The transfer expired. Check its state before registering a new asset."],
+  B2B_FILE_TRANSFER_RECORD_CONFLICT: ["전송 기록과 서버의 자료 정보가 일치하지 않습니다. 이 전송을 자동으로 이어 보내지 않습니다.", "The transfer record differs from the server. This transfer cannot resume automatically."],
+  B2B_AI_ACCOUNTING_REVIEW_REQUIRED: [
+    "사용량 기록을 확인하고 있습니다. 확인이 끝날 때까지 새 작업과 정산을 진행할 수 없습니다.",
+    "Usage records need review. New jobs and settlement are unavailable until this is resolved.",
+  ],
+  B2B_LICENCE_CAPACITY_FULL: [
+    "구매 정원이 가득 찼습니다. 회수 대기인 장치가 모두 종료되거나 추가 구매가 반영된 뒤 배정할 수 있습니다.",
+    "Purchased capacity is full. Assign after all pending devices end or added capacity is applied.",
+  ],
+  B2B_LICENCE_ALREADY_ASSIGNED: [
+    "이 기간에 이미 이용권이 배정되어 있습니다. 현재 배정 목록을 확인해 주세요.",
+    "A licence is already assigned for this period. Review the current assignments.",
+  ],
+  B2B_LICENCE_CLOSED: [
+    "이미 회수되거나 종료된 배정입니다. 최신 상태를 확인해 주세요.",
+    "This assignment has been revoked or ended. Review its current state.",
+  ],
+  B2B_LICENCE_PERIOD_CLOSED: [
+    "구매 기간이 종료되거나 변경되었습니다. 현재 구매 기간을 확인해 주세요.",
+    "The purchased period ended or changed. Review the current period.",
+  ],
+  B2B_PURCHASED_PERIOD_NOT_FOUND: [
+    "실제 구매가 반영된 기간을 확인할 수 없습니다. 이용 상태와 구매 내역을 확인해 주세요.",
+    "No applied purchase period could be verified. Review the team status and purchases.",
+  ],
+  B2B_EXTRA_AI_NOT_SOLD: [
+    "AI는 좌석마다 기간별로 제공되며 따로 구매하지 않습니다.",
+    "AI comes with each seat per period and is not sold separately.",
+  ],
+  B2B_LICENCE_SCHEDULE_INVALID: [
+    "이용기간 안의 미래 시각을 한국 시간으로 지정해 주세요.",
+    "Choose a future time within the period in Korea time.",
+  ],
+  B2B_LICENCE_SCHEDULE_HAS_LONGER_GRANTS: [
+    "이미 발급된 오프라인 허가보다 이른 예정 회수는 설정할 수 없습니다. 즉시 회수하면 장치 종료를 기다립니다.",
+    "The scheduled cutoff cannot precede an issued offline grant. Immediate revocation waits for devices to end.",
+  ],
+  B2B_PRODUCT_NOT_CONFIGURED: [
+    "상품과 제공량 설정이 아직 준비되지 않았습니다.",
+    "Product and allowance settings are not ready yet.",
+  ],
+  B2B_PRODUCT_VERSION_CONFLICT: [
+    "상품 조건을 확인할 수 없습니다. 결제 담당자에게 문의해 주세요.",
+    "The product conditions cannot be verified. Contact your billing administrator.",
+  ],
+  B2B_PRODUCT_VERSION_CHANGED: [
+    "상품 조건이 변경되었습니다. 최신 조건을 확인한 뒤 견적을 다시 만들어 주세요.",
+    "The product conditions changed. Review the latest conditions and request a new quote.",
+  ],
+  B2B_QUOTE_TARGET_CHANGED: [
+    "팀 이용 상태가 변경되었습니다. 현재 상태를 확인한 뒤 구매 대상을 다시 선택해 주세요.",
+    "The team status changed. Check its current status and select the purchase period again.",
+  ],
+  B2B_QUOTE_PERIOD_CHANGED: [
+    "구매 기간이 변경되었거나 확인되지 않았습니다. 현재 기간을 다시 확인해 주세요.",
+    "The purchased period changed or could not be verified. Check the current period again.",
+  ],
+  B2B_NEXT_PERIOD_ALREADY_PURCHASED: [
+    "다음 한 달을 이미 구매했습니다. 현재 구매 내역을 확인해 주세요.",
+    "The next month is already purchased. Review your purchase history.",
+  ],
+  B2B_QUOTE_SELECTION_INVALID: [
+    "추가 수량을 확인해 주세요. 현재 기간에 추가할 항목은 하나 이상 선택해야 합니다.",
+    "Check the quantities. Select at least one item when adding to the current period.",
+  ],
+  B2B_QUOTE_AMOUNT_TOO_SMALL: [
+    "남은 기간의 결제 금액이 너무 작습니다. 수량이나 다음 기간 구매를 확인해 주세요.",
+    "The remaining-period amount is too small. Check the quantities or the next-period purchase.",
+  ],
+  B2B_QUOTE_AMOUNT_INVALID: [
+    "이 수량의 견적을 계산할 수 없습니다. 구매 수량을 확인해 주세요.",
+    "A quote cannot be calculated for these quantities. Review the selection.",
+  ],
+  B2B_QUOTE_NOT_FOUND: [
+    "견적을 찾을 수 없습니다. 팀과 견적 주소를 확인해 주세요.",
+    "The quote could not be found. Check the team and quote address.",
+  ],
+  B2B_OWNER_REQUIRED: [
+    "팀 소유자만 이 변경을 할 수 있습니다.",
+    "Only the team owner can make this change.",
+  ],
+  B2B_OWNER_PROTECTED: [
+    "소유자는 소유권 이전을 완료한 뒤 참여를 종료할 수 있습니다.",
+    "Complete ownership transfer before ending the owner's participation.",
+  ],
+  B2B_SELF_CHANGE_DENIED: [
+    "본인의 역할 변경은 소유자에게 요청해 주세요. 탈퇴는 설정에서 할 수 있습니다.",
+    "Ask the owner to change your role. Leave through settings.",
+  ],
+  B2B_MEMBER_STATE_CONFLICT: [
+    "참여 상태가 이미 변경되었습니다. 최신 명단을 확인해 주세요.",
+    "Participation has already changed. Review the current roster.",
+  ],
+  B2B_TEAM_MANAGER_REQUIRED: [
+    "내부 팀 관리자만 이 화면에 접근할 수 있습니다.",
+    "This page requires an internal team administrator.",
+  ],
+  B2B_LEAD_RECOVERY_NOT_ALLOWED: [
+    "현재 담당자가 유효한 폴더는 소유자가 담당자를 대신 변경할 수 없습니다.",
+    "The owner cannot replace a currently valid folder lead.",
+  ],
+  B2B_ACCEPTED_SUCCESSOR_REQUIRED: [
+    "이미 폴더 참여를 수락한 내부 참여자를 지정해 주세요.",
+    "Choose an internal participant who has already accepted folder participation.",
+  ],
+  B2B_BILLING_PERMISSION_REQUIRED: [
+    "결제 권한이 필요한 화면입니다.",
+    "This page requires billing permission.",
+  ],
+  B2B_PROJECT_NOT_FOUND: [
+    "폴더를 찾을 수 없거나 접근 권한이 없습니다.",
+    "This folder is unavailable or you no longer have access.",
+  ],
+  B2B_TEAM_NOT_FOUND: [
+    "팀에 접근할 수 없습니다.",
+    "You cannot access this team.",
+  ],
+  B2B_REVISION_CONFLICT: [
+    "다른 사람이 먼저 변경했습니다. 입력 내용은 보존했습니다. 최신 내용을 확인한 뒤 다시 시도해 주세요.",
+    "Someone changed this first. Your draft is preserved. Review the current version before trying again.",
+  ],
+  B2B_REQUEST_KEY_CONFLICT: [
+    "처리 중인 요청의 내용이 달라졌습니다. 결과를 확인한 뒤 새 요청을 만들어 주세요.",
+    "The pending request has different contents. Check its result before creating a new request.",
+  ],
+  B2B_TEAM_PREPARING: [
+    "첫 이용권 반영 후 폴더 업무를 시작할 수 있습니다.",
+    "Folder work starts after the first purchase is applied.",
+  ],
+  B2B_TEAM_READ_ONLY: [
+    "이용기간이 종료되어 열람과 다운로드만 가능합니다.",
+    "The team period has ended. Reading and downloading remain available.",
+  ],
+  B2B_TEAM_RECOVERY: [
+    "복구 보관 중에는 폴더 자료를 열 수 없습니다.",
+    "Folder content is unavailable during recovery storage.",
+  ],
+  B2B_PROJECT_REOPEN_REQUIRED: [
+    "완료하거나 보관한 폴더는 재개 후 변경할 수 있습니다.",
+    "Reopen the completed folder before changing it.",
+  ],
+  B2B_PROJECT_LEAD_REQUIRED: [
+    "폴더 담당자만 변경할 수 있습니다.",
+    "Only the folder lead can make this change.",
+  ],
+  B2B_PROJECT_PARTICIPATION_REQUIRED: [
+    "팀 공개 폴더를 열람 중입니다. 작업하려면 담당자에게 참여를 요청하세요.",
+    "You are viewing a team-wide folder. Ask the lead to add you to work on it.",
+  ],
+  B2B_PROJECT_VISIBILITY_CONFIRMATION_REQUIRED: [
+    "팀 전체 공개로 바꾸려면 공개 범위를 확인해 주세요.",
+    "Confirm who will see the folder before making it team-wide.",
+  ],
+  B2B_PROJECT_VISIBILITY_UNCHANGED: [
+    "이미 같은 공개 범위입니다. 최신 상태를 확인해 주세요.",
+    "The folder already has this visibility. Check the current state.",
+  ],
+  B2B_REASON_REQUIRED: ["사유를 입력해 주세요.", "Enter a reason."],
+  B2B_PROJECT_PEOPLE_RESTRICTED: [
+    "이 역할에서는 참여자 명단을 볼 수 없습니다.",
+    "This role cannot view the participant roster.",
+  ],
+  B2B_PROJECT_LEAD_PROTECTED: [
+    "담당자는 후임에게 역할을 이전한 뒤 변경할 수 있습니다.",
+    "Transfer the lead role before changing this participant.",
+  ],
+  B2B_INTERNAL_SUCCESSOR_REQUIRED: [
+    "팀 내부 참여자를 후임으로 지정해 주세요.",
+    "Choose an internal team participant as successor.",
+  ],
+};
+/** S32: a team-state refusal. Exact boundary times, no target names. */
+function TeamAccessNotice({ code, notice }: { code: string; notice: [string, string] }) {
+  const c = useCopy();
+  const { lang } = useI18n();
+  const context = useWorkspace();
+  const status = context?.b2b?.enrolled ? context.b2b : null;
+  const end = status?.team.periodEndsAt ?? null;
+  const base = context ? `/dashboard/workspaces/${context.data.workspace.id}` : null;
+  const next =
+    end && code === "B2B_TEAM_READ_ONLY"
+      ? [c("복구 보관 시작", "Recovery storage from"), new Date(Date.parse(end) + 30 * 86400000).toISOString()]
+      : end && code === "B2B_TEAM_RECOVERY"
+        ? [c("삭제 시작 예정", "Deletion from"), new Date(Date.parse(end) + 60 * 86400000).toISOString()]
+        : null;
+  return (
+    <div role="alert" data-testid="team-access-notice" className="space-y-3 rounded-lg border border-border bg-surface p-4 text-sm leading-6">
+      <p>{c(...notice)}</p>
+      {next && (
+        <p className="text-muted tabular-nums">
+          {next[0]}: {kst(next[1], lang)}
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        {base && (
+          <Link className={secondaryClass} href={`${base}/status`}>
+            {c("이용 상태 확인", "Check team status")}
+          </Link>
+        )}
+        {base && (
+          <Link className={secondaryClass} href={base}>
+            {c("팀 홈", "Team home")}
+          </Link>
+        )}
+        <Link className={secondaryClass} href="/dashboard/settings">
+          {c("계정 확인", "Check account")}
+        </Link>
+      </div>
+    </div>
+  );
+}
+export function B2bError({
+  code,
+  retry,
+}: {
+  code: string;
+  retry?: () => void;
+}) {
+  const c = useCopy();
+  const notice = accessNotice(code);
+  if (notice) return <TeamAccessNotice code={code} notice={notice} />;
+  const message = errors[code] ??
+    invitationErrors[code] ?? [
+      "요청을 완료하지 못했습니다. 입력을 유지한 채 다시 시도할 수 있습니다.",
+      "The request could not be completed. Your input is preserved.",
+    ];
+  return (
+    <div
+      role="alert"
+      className="rounded-lg border border-border bg-surface p-4 text-sm leading-6"
+    >
+      <p>{c(...message)}</p>
+      {retry && (
+        <button
+          type="button"
+          className={`${secondaryClass} mt-3`}
+          onClick={retry}
+        >
+          {c("다시 확인", "Check again")}
+        </button>
+      )}
+    </div>
+  );
+}
+export function VisibilityBadge({ visibility }: { visibility: ProjectVisibility }) {
+  const c = useCopy();
+  return (
+    <span className="rounded-full border border-border px-2.5 py-1 text-xs">
+      {c(...visibilityLabels[visibility])}
+    </span>
+  );
+}
+export function StateBadge({ state }: { state: TeamState | ProjectState }) {
+  const c = useCopy();
+  return (
+    <span className="rounded-full border border-border px-2.5 py-1 text-xs">
+      {c(...stateLabels[state])}
+    </span>
+  );
+}
+
+export function previewStateCopy(
+  state: "not_requested" | "pending" | "processing" | "ready" | "failed",
+  c: (ko: string, en: string) => string,
+) {
+  switch (state) {
+    case "pending": return c("미리보기 준비 대기", "Preview queued");
+    case "processing": return c("미리보기 변환 중", "Preparing preview");
+    case "ready": return c("미리보기 준비됨", "Preview ready");
+    case "failed": return c("미리보기 처리 실패 · 원본은 보관됨", "Preview failed; original stored");
+    default: return c("미리보기 미생성", "Preview not generated");
+  }
+}

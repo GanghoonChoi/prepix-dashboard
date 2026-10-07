@@ -90,7 +90,7 @@ export function bytes(value: number) {
 // Send the headers the server signed and no others. Only the server knows
 // which the provider takes — R2 answers an unsupported `x-amz-checksum-sha256`
 // with 501, and every header here also has to survive the CORS preflight.
-const put = (
+export const putPart = (
   url: string,
   headers: Record<string, string>,
   body: Blob,
@@ -200,7 +200,7 @@ export async function uploadFile(input: {
     const digest = sha256(new Uint8Array(await chunk.arrayBuffer()));
     const checksum = btoa(String.fromCharCode(...digest));
     const part = await cloudService.part(w, id, number, checksum);
-    await put(part.url, part.headers, chunk, signal, (n) =>
+    await putPart(part.url, part.headers, chunk, signal, (n) =>
       onProgress("uploading", Math.min(file.size, sent + n)),
     );
     sent += chunk.size;

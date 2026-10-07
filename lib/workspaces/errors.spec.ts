@@ -20,7 +20,9 @@ test("a transient failure keeps the screen; only a gone workspace clears it", ()
     );
 
   const missing = { response: { status: 404 } };
-  const revoked = { response: { status: 403, data: { message: "WORKSPACE_NOT_FOUND" } } };
+  const revoked = {
+    response: { status: 403, data: { message: "WORKSPACE_NOT_FOUND" } },
+  };
   const suspended = {
     response: { status: 403, data: { message: "WORKSPACE_MEMBER_SUSPENDED" } },
   };
@@ -46,4 +48,17 @@ test("an unanswered capability probe is not the same as a server without the fea
   assert.equal(capabilityFailure({ response: { status: 500 } }), "unreachable");
   assert.equal(capabilityFailure({ response: { status: 502 } }), "unreachable");
   assert.equal(capabilityFailure(new Error("boom")), "unreachable");
+});
+
+test("an ended browser session clears old private content and retains a stable refusal code", async () => {
+  const { sessionChanged } = await import("../api/session");
+  const failure = sessionChanged();
+  assert.equal(failure.response.status, 401);
+  assert.equal(workspaceError(failure), "API_SESSION_CHANGED");
+  assert.equal(contentGone(workspaceError(failure)), true);
+  assert.equal(
+    "config" in failure,
+    false,
+    "synthetic401 must not trigger refresh or logout",
+  );
 });
