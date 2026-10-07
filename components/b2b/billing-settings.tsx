@@ -516,7 +516,7 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
               onChange={(e) => setPlan({ ...plan, extraSeats: e.target.value === "" ? null : Number(e.target.value) })}
             />
           </label>
-          {/* AI is per seat: a renewal never buys AI packs (always 0). */}
+          {/* No AI packs: a seat carries AI limits like a personal plan (always 0). */}
           <label className="block space-y-2 text-sm">
             <span>{c("다음 기간 저장 팩", "Next-period storage packs")}</span>
             <input

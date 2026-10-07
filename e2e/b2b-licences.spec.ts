@@ -208,7 +208,7 @@ async function invite(
   ).toBe(201);
 }
 
-test("purchased capacity, lost-response assignment, read-only seat AI, private self-view and every-device revocation", async ({
+test("purchased capacity, lost-response assignment, no web AI figures, private self-view and every-device revocation", async ({
   page,
   request,
   browser,
@@ -281,8 +281,7 @@ test("purchased capacity, lost-response assignment, read-only seat AI, private s
     name: "편집 이용권 배정",
     exact: true,
   });
-  // Per-seat AI: an assignment takes a seat and its AI; there is no limit to set.
-  await expect(form.getByText(/빈 좌석 하나와 그 좌석의 이번 기간 AI/)).toBeVisible();
+  // An assignment takes a seat; there is no AI limit to set.
   await expect(form.getByRole("spinbutton")).toHaveCount(0);
   await form.getByLabel("배정 대상", { exact: true }).selectOption(guest.id);
   let original: unknown,
@@ -332,46 +331,13 @@ test("purchased capacity, lost-response assignment, read-only seat AI, private s
   ).toBe(201);
   const d1 = await device(request, team.id, guest, project.id),
     d2 = await device(request, team.id, guest, project.id);
-  paidFixture({
-    workspaceId: team.id,
-    action: "usage",
-    periodId,
-    userId: guest.id,
-    confirmedUnits: 500,
-    reservedUnits: 200,
-  });
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(form.getByText(/배정 가능 정원이 없습니다/)).toBeVisible();
-  // Managers read each seat's AI; nothing here edits it.
-  const seat = current.getByRole("region", {
-    name: "2번 좌석 · licence-guest · 좌석 AI",
-    exact: true,
-  });
-  await expect(seat).toContainText("3,000 검증 단위");
-  await expect(seat).toContainText("500 검증 단위");
-  await expect(seat).toContainText("200 검증 단위");
-  await expect(seat).toContainText("2,300 검증 단위");
+  // Seats show who holds them; AI usage lives in the app, on the person's seat.
   await expect(
-    current.getByRole("region", { name: "1번 좌석 · licence-owner · 좌석 AI", exact: true }),
-  ).toContainText("3,000 검증 단위");
-  await expect(current.getByText("개인 AI 한도 변경")).toHaveCount(0);
-  await current
-    .getByRole("region", { name: "좌석별 AI 사용", exact: true })
-    .screenshot({ path: `${process.env.B2B_E2E_SHOTS ?? "/tmp"}/licences-seat-ai.png` });
-  await expect(
-    current.getByRole("region", { name: "좌석별 AI 사용", exact: true }).getByRole("spinbutton"),
+    current.getByRole("region", { name: "좌석별 AI 사용", exact: true }),
   ).toHaveCount(0);
-  expect(
-    (
-      await request.post(
-        `${endpoint}/licences/periods/${periodId}/users/${guest.id}/limit`,
-        {
-          headers: owner.headers,
-          data: { requestKey: randomUUID(), revision: 0, limitUnits: 700, reason: "gone" },
-        },
-      )
-    ).status(),
-  ).toBe(404);
+  await expect(current.getByText(/검증 단위/)).toHaveCount(0);
   const guestContext = await browser.newContext({ locale: "ko-KR" }),
     guestPage = await guestContext.newPage();
   try {
@@ -485,21 +451,6 @@ test("purchased capacity, lost-response assignment, read-only seat AI, private s
   await expect(
     current.getByRole("region", { name: "licence-guest · 배정 중", exact: true }),
   ).toBeVisible();
-  const after = (
-    await (
-      await request.get(`${endpoint}/licences`, { headers: owner.headers })
-    ).json()
-  ).data;
-  // Reassignment hands over the seat as it is: same row, never reset or minted.
-  const retained = after.budgets.find(
-    (b: { periodId: string; slot: number }) => b.periodId === periodId && b.slot === 2,
-  );
-  expect(retained.confirmedUnits).toBe(500);
-  expect(retained.reservedUnits).toBe(200);
-  expect(retained.limitUnits).toBe(3000);
-  expect(
-    after.budgets.filter((b: { periodId: string }) => b.periodId === periodId),
-  ).toHaveLength(3);
   const { periodId: nextPeriodId } = paidFixture({
     workspaceId: team.id,
     action: "purchase",
@@ -556,18 +507,7 @@ test("purchased capacity, lost-response assignment, read-only seat AI, private s
         }),
       })
       .first();
-    const mySeat = ownCurrent.getByRole("region", {
-      name: "내 좌석 · 좌석 AI",
-      exact: true,
-    });
-    await expect(mySeat).toContainText("3,000 검증 단위");
-    await expect(mySeat).toContainText("2,300 검증 단위");
-    await expect(
-      ownNext.getByRole("region", {
-        name: "내 좌석 · 좌석 AI",
-        exact: true,
-      }),
-    ).toContainText("3,000 검증 단위");
+    await expect(ownCurrent.getByText(/검증 단위/)).toHaveCount(0);
     await expect(
       ownNext.getByText(
         "시작 시각 전에는 이 이용권과 AI를 사용할 수 없습니다.",

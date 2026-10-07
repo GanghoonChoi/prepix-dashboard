@@ -47,12 +47,11 @@ test.beforeAll(async () => {
       resolveDir: root,
       loader: "tsx",
       contents: `
-    import React from "react";import {createRoot} from "react-dom/client";import {B2bHome} from "./components/b2b/home";import {ProjectAiRun} from "./components/b2b/ai-run";import {apiClient} from "./lib/api/client";
+    import React from "react";import {createRoot} from "react-dom/client";import {B2bHome} from "./components/b2b/home";import {apiClient} from "./lib/api/client";
     const root=createRoot(document.getElementById("root"));window.client=apiClient;window.calls=[];window.hold=false;window.deny=false;
     window.mount=(fixture,home)=>{window.fixture=fixture;window.home=home;apiClient.defaults.baseURL=location.origin+"/v2";root.render(<React.StrictMode><B2bHome status={fixture.b2b} workspace={fixture.data.workspace}/></React.StrictMode>)};
-    window.mountAi=(fixture,projectId,execution)=>{window.fixture=fixture;window.execution=execution;apiClient.defaults.baseURL=location.origin+"/v2";root.render(<React.StrictMode><ProjectAiRun projectId={projectId}/></React.StrictMode>)};
     window.unmount=()=>root.unmount();
-    apiClient.defaults.adapter=async config=>{const saved=config.url.endsWith("/execution")?window.execution:window.home;window.calls.push({method:config.method,url:config.url,account:config.headers['X-Prepix-Account-ID']});if(window.hold)await new Promise(r=>window.releaseHome=r);if(window.deny)throw {config,response:{status:403,data:{message:"B2B_PROJECT_NOT_FOUND"}}};return {config,status:200,statusText:"OK",headers:{},data:{data:saved}}};
+    apiClient.defaults.adapter=async config=>{const saved=window.home;window.calls.push({method:config.method,url:config.url,account:config.headers['X-Prepix-Account-ID']});if(window.hold)await new Promise(r=>window.releaseHome=r);if(window.deny)throw {config,response:{status:403,data:{message:"B2B_PROJECT_NOT_FOUND"}}};return {config,status:200,statusText:"OK",headers:{},data:{data:saved}}};
   `,
     },
     bundle: true,
@@ -204,115 +203,3 @@ for (const change of [
     ).toHaveCount(0);
   });
 }
-for (const late of [false, true])
-  test(`home exact AI job link is GET-only and ${late ? "rejects a late switched account" : "preserves the original saved run"}`, async ({
-    page,
-  }) => {
-    const userId = randomUUID(),
-      workspaceId = randomUUID(),
-      projectId = randomUUID(),
-      jobId = randomUUID();
-    const path = `/dashboard/workspaces/${workspaceId}/projects/${projectId}/ai?jobId=${jobId}`;
-    const fixture = {
-      data: {
-        currentUserId: userId,
-        workspace: { id: workspaceId, name: "Exact home job" },
-      },
-      b2b: { enrolled: true, allowedActions: { projects: true } },
-    };
-    const execution = {
-      job: {
-        id: jobId,
-        workspaceId,
-        projectId,
-        userId,
-        quoteId: randomUUID(),
-        operation: "transcript",
-        state: "running",
-        maximumUnits: 17,
-        reservedUnits: 17,
-        confirmedUnits: 0,
-        returnedUnits: 0,
-        acceptedAt: "2026-10-06T00:00:00.000Z",
-        deadline: "2026-10-07T00:00:00.000Z",
-      },
-      progress: { phase: "running", totalStages: 2, completedStages: 0 },
-      result: null,
-    };
-    await page.route(`**${path}`, (route) =>
-      route.fulfill({
-        contentType: "text/html",
-        body: '<html><body><div id="root"></div></body></html>',
-      }),
-    );
-    await page.goto(path);
-    const storeKey = `prepix-b2b-ai-run:${JSON.stringify([new URL(page.url()).origin, userId, workspaceId, projectId])}`;
-    await page.evaluate(
-      ({ userId, storeKey }) => {
-        localStorage.setItem("accessToken", "local-fixture");
-        localStorage.setItem("userInfo", JSON.stringify({ id: userId }));
-        localStorage.setItem(
-          storeKey,
-          '{"original":"retain this saved intent"}',
-        );
-      },
-      { userId, storeKey },
-    );
-    await page.addScriptTag({ content: bundle });
-    if (late) await page.evaluate("window.hold=true");
-    await page.evaluate(
-      ({ fixture, projectId, execution }) =>
-        (
-          window as unknown as {
-            mountAi(f: unknown, p: string, e: unknown): void;
-          }
-        ).mountAi(fixture, projectId, execution),
-      { fixture, projectId, execution },
-    );
-    if (late) {
-      await expect
-        .poll(() => page.evaluate("typeof window.releaseHome"))
-        .toBe("function");
-      await page.evaluate(
-        `localStorage.setItem('userInfo',JSON.stringify({id:'${randomUUID()}'}));window.releaseHome()`,
-      );
-      await expect(
-        page.getByText(
-          "다른 계정, 팀 또는 요청의 응답이라 반영하지 않았습니다.",
-        ),
-      ).toBeVisible();
-      await expect(
-        page.getByRole("heading", { name: "작업 진행" }),
-      ).toHaveCount(0);
-    } else {
-      await expect(
-        page.getByRole("heading", { name: "작업 진행" }),
-      ).toBeVisible();
-      await expect(page.getByText("승인 최대량")).toBeVisible();
-      await expect(page.getByRole("button", { name: "작업 취소" })).toHaveCount(
-        0,
-      );
-      await expect(page.getByRole("button", { name: "견적 받기" })).toHaveCount(
-        0,
-      );
-    }
-    expect(
-      await page.evaluate(
-        (storeKey) => localStorage.getItem(storeKey),
-        storeKey,
-      ),
-    ).toBe('{"original":"retain this saved intent"}');
-    const calls =
-      await page.evaluate<{ url: string; method: string; account: string }[]>(
-        "window.calls",
-      );
-    expect(calls.length).toBeGreaterThan(0);
-    expect(
-      calls.every(
-        (c) =>
-          c.method === "get" &&
-          c.url.endsWith(`/jobs/${jobId}/execution`) &&
-          c.account === userId,
-      ),
-    ).toBe(true);
-  });

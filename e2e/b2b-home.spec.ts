@@ -101,7 +101,7 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
     });
     expect(source.status(), await source.text()).toBe(201);
     await O.page.reload();
-    const periods = O.page.getByRole("region", { name: "내 이용기간과 AI" });
+    const periods = O.page.getByRole("region", { name: "내 이용기간" });
     await expect(
       periods.getByText("현재 이용기간", { exact: true }),
     ).toBeVisible();
@@ -111,16 +111,13 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
     await expect(
       periods.getByText("편집 이용권 배정 중", { exact: true }),
     ).toBeVisible();
-    await expect(periods.getByText(/내 좌석 AI 3,000/)).toBeVisible();
+    // Team AI is the app's, on the person's seat: the web shows no AI figures.
+    await expect(periods.getByText(/AI/)).toHaveCount(0);
     const home = (await json(
       request.get(`${endpoint}/home`, { headers: owner.headers }),
     )) as TeamHome;
     expect(home.currentUserId).toBe(owner.id);
     expect(home.workspaceId).toBe(team);
-    expect(home.aiUsage?.reconciled).toBe(true);
-    expect(
-      home.periods.find((p) => p.id === period.id)?.aiBudget?.limitUnits,
-    ).toBe(3000);
     expect(home.projects.items.map((p) => p.id)).toEqual([own]);
     expect(home.projects.hasMore).toBe(false);
     expect(home.transfers.items.map((t) => t.name)).toEqual([
@@ -180,7 +177,9 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
     ).toBe(404);
     await O.page.setViewportSize({ width: 390, height: 844 });
     await O.page.reload();
-    await expect(periods.getByText(/내 좌석 AI 3,000/)).toBeVisible();
+    await expect(
+      periods.getByText("편집 이용권 배정 중", { exact: true }),
+    ).toBeVisible();
     expect(
       await O.page.evaluate(
         () => document.documentElement.scrollWidth <= window.innerWidth + 1,
@@ -199,7 +198,7 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
       O.page.getByRole("region", { name: "내 프로젝트", exact: true }),
     ).toHaveCount(0);
     await expect(
-      O.page.getByRole("region", { name: "전송·AI·납품 업무", exact: true }),
+      O.page.getByRole("region", { name: "전송·납품 업무", exact: true }),
     ).toHaveCount(0);
     await expect(
       O.page.getByRole("link", { name: "이용 상태", exact: true }),
@@ -211,7 +210,6 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
     for (const list of [
       hidden.projects,
       hidden.transfers,
-      hidden.aiJobs,
       hidden.deliveries,
     ])
       expect(list).toEqual({ items: [], hasMore: false });

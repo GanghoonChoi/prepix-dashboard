@@ -437,7 +437,7 @@ export function BillingOrder({ workspaceId, orderId }: { workspaceId: string; or
             </div>
             {preview && (
               <p className="text-sm leading-6 sm:col-span-2" role="status">
-                {c("공급가액", "Supply")} {won(preview.amounts.supplyKrw)} · {c("부가세", "VAT")} {won(preview.amounts.vatKrw)} · {c("이용권", "Licences")} {preview.allowances.seats} · AI {preview.allowances.aiUnits} · {c("기준 시각", "Measured at")} {kst(preview.basisAt)}
+                {c("공급가액", "Supply")} {won(preview.amounts.supplyKrw)} · {c("부가세", "VAT")} {won(preview.amounts.vatKrw)} · {c("이용권", "Licences")} {preview.allowances.seats} · {c("기준 시각", "Measured at")} {kst(preview.basisAt)}
               </p>
             )}
           </form>

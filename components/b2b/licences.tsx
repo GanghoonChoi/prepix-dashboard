@@ -32,7 +32,6 @@ import {
 import { B2bError, freeIntent, errorCode, useCopy } from "./shared";
 
 type Period = LicenceOverview["periods"][number];
-type Budget = LicenceOverview["budgets"][number];
 const labels = {
   active: ["배정 중", "Assigned"],
   scheduled: ["다음 기간 배정", "Scheduled"],
@@ -42,7 +41,6 @@ const labels = {
 } as const;
 const occupies = (assignment: LicenceAssignment) =>
   ["active", "scheduled", "revoking"].includes(assignment.state);
-const number = (value: number) => new Intl.NumberFormat("ko-KR").format(value);
 const instant = (value: string) =>
   new Intl.DateTimeFormat("ko-KR", {
     timeZone: "Asia/Seoul",
@@ -215,8 +213,8 @@ export function TeamLicences() {
         manager ? "Editing licences" : "My editing licence",
       )}
       description={c(
-        "팀 앱 편집과 팀 AI는 해당 팀의 이용권을 함께 확인합니다. AI는 좌석마다 따로 있으며, 배정과 재배정은 AI를 새로 만들지 않습니다.",
-        "Team app editing and team AI use the same team licence. AI belongs to each seat; assigning or reassigning never creates new AI.",
+        "팀 앱 편집은 이 팀의 이용권을 확인합니다. 이용권 하나에 개인 요금제와 같은 앱 편집·AI 한도가 포함됩니다.",
+        "Team app editing checks this team's licence. Each licence includes app editing and AI limits like a personal plan.",
       )}
     >
       <SpaceBadge workspace={data.workspace} />
@@ -475,17 +473,16 @@ function PersonalLicences({
   onSaved: () => Promise<void>;
 }) {
   const c = useCopy();
-  // Personal views contain no team roster or purchased capacity. Couple my
-  // seat's AI to its own assignment period so future and past stay distinct.
+  // Personal views contain no team roster or purchased capacity; group my
+  // assignments by period so future and past stay distinct.
   const periods = [...new Set(overview.assignments.map((a) => a.periodId))]
     .map((periodId) => ({
       periodId,
       rows: overview.assignments.filter((a) => a.periodId === periodId),
-      budget: overview.budgets.find((b) => b.periodId === periodId),
     }))
     .sort((a, b) => b.rows[0].startsAt.localeCompare(a.rows[0].startsAt));
   const now = Date.parse(overview.serverTime);
-  return periods.map(({ periodId, rows, budget }) => {
+  return periods.map(({ periodId, rows }) => {
     const future = Date.parse(rows[0].startsAt) > now,
       ended = Date.parse(rows[0].endsAt) <= now;
     return (
@@ -524,14 +521,6 @@ function PersonalLicences({
             onSaved={onSaved}
           />
         ))}
-        {budget && (
-          <>
-            <p className="text-xs leading-5 text-muted">
-              {budget.unitDescription}
-            </p>
-            <BudgetRow budget={budget} own />
-          </>
-        )}
       </Block>
     );
   });
@@ -556,8 +545,7 @@ function PeriodLicences({
     ended =
       Date.parse(period.endsAt) <= now ||
       ["ended", "revoked"].includes(period.state);
-  const rows = overview.assignments.filter((a) => a.periodId === period.id),
-    budgets = overview.budgets.filter((b) => b.periodId === period.id);
+  const rows = overview.assignments.filter((a) => a.periodId === period.id);
   const counts = {
     active: rows.filter((a) => a.state === "active").length,
     scheduled: rows.filter((a) => a.state === "scheduled").length,
@@ -628,46 +616,6 @@ function PeriodLicences({
         writable={writable}
         onSaved={onSaved}
       />
-      {budgets.length > 0 && (
-        <section
-          aria-label={c("좌석별 AI 사용", "AI use per seat")}
-          className="space-y-4 pt-4"
-        >
-          <h3 className="text-sm font-medium">
-            {c("좌석별 AI 사용", "AI use per seat")}
-          </h3>
-          <p className="text-xs leading-5 text-muted">
-            {period.aiUnitDescription}{" "}
-            {c(
-              "AI는 좌석마다 따로 있고 팀이 함께 쓰지 않습니다. 좌석의 AI는 구매 조건으로 정해지며 바꿀 수 없습니다. 좌석을 다른 사람에게 넘기면 그 좌석에 남은 양을 이어서 씁니다. 다 쓰면 다음 기간까지 기다립니다.",
-              "AI belongs to each seat and is not shared across the team. A seat's AI is set by the purchase and cannot be changed. Moving a seat to someone else hands over what that seat has left. When it runs out, it waits for the next period.",
-            )}
-          </p>
-          {[...budgets]
-            .sort((a, b) => a.slot - b.slot)
-            .map((budget) => {
-              const holder = rows.find(
-                (a) => a.slot === budget.slot && occupies(a),
-              );
-              return (
-                <BudgetRow
-                  key={budget.slot}
-                  budget={budget}
-                  person={
-                    holder
-                      ? people.find((p) => p.userId === holder.userId)
-                      : undefined
-                  }
-                  empty={!holder}
-                  withdrawn={budget.slot > period.capacity}
-                  carried={rows.some(
-                    (a) => a.slot === budget.slot && a.userId !== holder?.userId,
-                  )}
-                />
-              );
-            })}
-        </section>
-      )}
     </Block>
   );
 }
@@ -761,12 +709,6 @@ function AssignForm({
             ))}
           </select>
         </div>
-        <p className="text-xs leading-5 text-muted">
-          {c(
-            `배정하면 빈 좌석 하나와 그 좌석의 이번 기간 AI를 함께 씁니다. AI 한도는 정하지 않으며, 다른 사람이 쓰던 좌석이면 남은 양을 이어서 씁니다. 단위: ${period.aiUnitLabel}`,
-            `An assignment takes a free seat together with that seat's AI for the period. There is no limit to set; a seat someone used before hands over what it has left. Unit: ${period.aiUnitLabel}`,
-          )}
-        </p>
       </fieldset>
       {free === 0 && (
         <p role="status" className="text-sm leading-6 text-muted">
@@ -998,8 +940,8 @@ function AssignmentEditor({
           </div>
           <p className="text-xs leading-5 text-muted">
             {c(
-              "즉시 회수는 새 편집·팀 AI를 막고 기존 모든 장치가 종료될 때까지 정원을 유지합니다. 이미 발급된 오프라인 허가보다 이른 예정 시각은 설정할 수 없습니다.",
-              "Immediate revocation blocks new editing and team AI but retains capacity until every device ends. A scheduled cutoff cannot precede an issued offline grant.",
+              "즉시 회수는 새 앱 편집·AI를 막고 기존 모든 장치가 종료될 때까지 정원을 유지합니다. 이미 발급된 오프라인 허가보다 이른 예정 시각은 설정할 수 없습니다.",
+              "Immediate revocation blocks new app editing and AI but retains capacity until every device ends. A scheduled cutoff cannot precede an issued offline grant.",
             )}
           </p>
         </fieldset>
@@ -1023,68 +965,5 @@ function AssignmentEditor({
         </button>
       </form>
     </details>
-  );
-}
-function BudgetRow({
-  budget,
-  person,
-  own = false,
-  empty = false,
-  withdrawn = false,
-  carried = false,
-}: {
-  budget: Budget;
-  person?: TeamPerson;
-  own?: boolean;
-  empty?: boolean;
-  // The seat was withdrawn by a refund (above the period's capacity now).
-  withdrawn?: boolean;
-  // The seat's used total includes a previous holder's use.
-  carried?: boolean;
-}) {
-  const c = useCopy();
-  const seat = c(`${budget.slot}번 좌석`, `Seat ${budget.slot}`);
-  const name = own
-    ? c("내 좌석", "My seat")
-    : `${seat} · ${
-        withdrawn
-          ? c("회수된 좌석", "withdrawn seat")
-          : empty
-            ? c("비어 있음", "empty")
-            : (personName(person) ?? c("참여자", "Participant"))
-      }`;
-  return (
-    <section
-      className="space-y-3 border-l border-border pl-4 text-sm"
-      aria-label={`${name} · ${c("좌석 AI", "Seat AI")}`}
-    >
-      {!own && <p className="break-all font-medium">{name}</p>}
-      <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          [c("좌석 AI", "Seat AI"), budget.limitUnits],
-          [c("확정 사용", "Confirmed"), budget.confirmedUnits],
-          [c("예약", "Reserved"), budget.reservedUnits],
-          [
-            c("이번 기간 남은 양", "Left this period"),
-            budget.limitUnits - budget.confirmedUnits - budget.reservedUnits,
-          ],
-        ].map(([label, value]) => (
-          <div key={label}>
-            <dt className="text-xs text-muted">{label}</dt>
-            <dd className="mt-1 tabular-nums">
-              {number(Number(value))} {budget.unitLabel}
-            </dd>
-          </div>
-        ))}
-      </dl>
-      {carried && (
-        <p className="text-xs text-muted">
-          {c(
-            "이전 보유자 사용 포함. 좌석을 넘기면 남은 양을 이어서 씁니다.",
-            "Includes the previous holder's use. A moved seat carries on with what is left.",
-          )}
-        </p>
-      )}
-    </section>
   );
 }

@@ -4,9 +4,6 @@ import { homeEnvironment, readHome, type HomeScope } from "../../b2b-home/home";
 import type {
   B2bStatus,
   TeamHome,
-  TeamAiJob,
-  TeamAiJobList,
-  TeamAiUsageOverview,
   EditingDeviceOverview,
   RetireEditingDevice,
   LicenceOverview,
@@ -80,23 +77,6 @@ export const b2bService = {
           )
         ).data.data,
       signal,
-    ),
-  aiUsage: (id: string) => get<TeamAiUsageOverview>(`${base(id)}/ai/usage`),
-  aiJobs: (id: string, cursor?: string) =>
-    get<TeamAiJobList>(
-      `${base(id)}/ai/jobs${cursor ? `?cursor=${e(cursor)}` : ""}`,
-    ),
-  aiJob: (id: string, projectId: string, jobId: string) =>
-    get<TeamAiJob>(`${projectPath(id, projectId)}/ai/jobs/${e(jobId)}`),
-  cancelAiJob: (
-    id: string,
-    projectId: string,
-    jobId: string,
-    requestKey: string,
-  ) =>
-    post<{ jobId: string; requestId: string }>(
-      `${projectPath(id, projectId)}/ai/jobs/${e(jobId)}/cancel`,
-      { requestKey },
     ),
   editingDevices: (id: string) =>
     get<EditingDeviceOverview>(`${base(id)}/licences/devices`),

@@ -14,7 +14,6 @@ export function projectSurfaces(role: Project["role"]) {
     delivery: participant,
     publications: participant,
     people: worker,
-    ai: worker,
     app: worker,
   };
 }

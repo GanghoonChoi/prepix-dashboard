@@ -57,7 +57,7 @@ test("the overview does not stay lit on its own children", () => {
   assert.equal(navActive(`${base}/members`, `${base}/members`, base), true);
 });
 
-test("team AI usage stays scoped to enrolled teams with current project reading access", () => {
+test("a team has no web AI entry: team AI runs in the app on the person's seat", () => {
   const b2b = {
     enabled: true,
     enrolled: true,
@@ -71,33 +71,17 @@ test("team AI usage stays scoped to enrolled teams with current project reading 
       legacyArchive: false,
       revision: 0,
     },
-    member: { kind: "internal", billingAllowed: false, revision: 0 },
+    member: { kind: "internal", billingAllowed: true, revision: 0 },
     allowedActions: {
       projects: true,
-      createProject: false,
-      manage: false,
-      billing: false,
+      createProject: true,
+      manage: true,
+      billing: true,
     },
   } as const;
-  const options = { cloudEnabled: false, managementEnabled: false, b2b };
-  assert.ok(hrefs(options).includes("/dashboard/workspaces/w1/ai"));
   assert.ok(
-    !hrefs({
-      ...options,
-      b2b: {
-        ...b2b,
-        allowedActions: { ...b2b.allowedActions, projects: false },
-      },
-    }).includes("/dashboard/workspaces/w1/ai"),
-  );
-  assert.ok(
-    !hrefs({ cloudEnabled: false, managementEnabled: false }).some((link) =>
-      link.endsWith("/ai"),
-    ),
-  );
-  assert.ok(
-    !workspaceLinks({ id: "p1", type: "personal" }, options).some((link) =>
-      link.href.endsWith("/ai"),
+    !hrefs({ cloudEnabled: true, managementEnabled: true, b2b }).some(
+      (href) => href.endsWith("/ai"),
     ),
   );
 });

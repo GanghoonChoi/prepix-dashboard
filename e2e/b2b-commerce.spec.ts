@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { harnessEnv } from "./harness-env";
 const api = harnessEnv("B2B_E2E_API_URL"),
   password = "LocalPreview123";
-test("team purchase quote preserves a lost response, separates VAT and per-seat AI, sells no extra AI, and never grants on quote", async ({
+test("team purchase quote preserves a lost response, separates VAT, shows no AI figures, sells no AI packs, and never grants on quote", async ({
   page,
   request,
 }) => {
@@ -48,8 +48,11 @@ test("team purchase quote preserves a lost response, separates VAT and per-seat 
   await expect(
     page.getByText("로컬 검증용 팀 상품", { exact: true }),
   ).toBeVisible();
-  // Per seat: AI per seat is shown, and AI is never sold on its own.
-  await expect(page.getByText("좌석당 AI", { exact: true })).toBeVisible();
+  // A seat carries the person's AI limits like a personal plan; no AI figures,
+  // and AI is never sold on its own.
+  await expect(
+    page.getByText("개인 요금제와 같은 앱 편집·AI 한도 포함", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByLabel("추가 AI 팩")).toHaveCount(0);
   await page.getByLabel("추가 편집 이용권", { exact: true }).fill("2");
   await page.getByLabel("저장 추가 팩", { exact: true }).fill("1");
@@ -67,8 +70,6 @@ test("team purchase quote preserves a lost response, separates VAT and per-seat 
         const quote = (await response.json()).data.quote;
         expect(input.aiPacks).toBe(0);
         expect(quote.allowances.seats).toBe(5);
-        expect(quote.allowances.periodAiUnits).toBe(5 * 3000);
-        expect(quote.allowances.extraAiUnits).toBe(0);
         expect(quote.amounts).toEqual({
           supplyKrw: 130000,
           vatKrw: 13000,
@@ -99,7 +100,10 @@ test("team purchase quote preserves a lost response, separates VAT and per-seat 
   await expect(quoted.getByText("143,000원", { exact: true })).toBeVisible();
   await page.screenshot({ path: `${process.env.B2B_E2E_SHOTS ?? "/tmp"}/purchase-per-seat.png`, fullPage: true });
   await expect(quoted.getByText("13,000원", { exact: true })).toBeVisible();
-  await expect(quoted.getByText(/좌석 AI 3,000 검증 단위 × 좌석 수 · 합계 15,000 검증 단위/)).toBeVisible();
+  await expect(
+    quoted.getByText(/좌석마다 개인 요금제와 같은 앱 편집·AI 한도 포함/),
+  ).toBeVisible();
+  await expect(quoted.getByText(/검증 단위/)).toHaveCount(0);
   expect(
     (
       await request.post(`${api}/v2/workspaces/${workspace.id}/b2b/commerce/quotes`, {
@@ -120,7 +124,6 @@ test("team purchase quote preserves a lost response, separates VAT and per-seat 
     ).json()
   ).data;
   expect(saved.quote.id).toBe(quoteId);
-  expect(saved.quote.conditions.aiUnitLabel).toBe("검증 단위");
   const status = (
     await (
       await request.get(`${api}/v2/workspaces/${workspace.id}/b2b/status`, {

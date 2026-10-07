@@ -219,8 +219,6 @@ export function monthLabel(month: string, lang: "ko" | "en" = "ko") {
 }
 export const won = (value: number) =>
   `${new Intl.NumberFormat("ko-KR").format(value)}원`;
-export const units = (value: string | number) =>
-  new Intl.NumberFormat("ko-KR").format(BigInt(value));
 export const kst = (iso: string | null) => {
   if (!iso) return "-";
   const civil = new Date(Date.parse(iso) + 9 * 3_600_000).toISOString();

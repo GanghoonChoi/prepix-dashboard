@@ -4,10 +4,10 @@ import { projectSurfaces, visibilityChange } from "./visibility";
 
 test("a team viewer loads no work surface; participants keep their v1 surfaces", () => {
   assert.deepEqual(projectSurfaces("viewer"), {
-    requests: false, requestWork: false, delivery: false, publications: false, people: false, ai: false, app: false,
+    requests: false, requestWork: false, delivery: false, publications: false, people: false, app: false,
   });
   assert.deepEqual(projectSurfaces("reviewer"), {
-    requests: true, requestWork: true, delivery: true, publications: true, people: false, ai: false, app: false,
+    requests: true, requestWork: true, delivery: true, publications: true, people: false, app: false,
   });
   for (const role of ["lead", "producer"] as const)
     assert.ok(Object.values(projectSurfaces(role)).every(Boolean));

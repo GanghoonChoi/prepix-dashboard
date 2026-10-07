@@ -186,14 +186,6 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
             {c("등록된 결과", "Registered results")}
           </Link>
         )}
-        {surfaces.ai && (
-          <Link
-            className={secondaryClass}
-            href={`/dashboard/workspaces/${id}/projects/${projectId}/ai`}
-          >
-            {c("AI 작업", "AI job")}
-          </Link>
-        )}
       </div>
       {editing && project.allowedActions.edit ? (
         <ProjectEditor

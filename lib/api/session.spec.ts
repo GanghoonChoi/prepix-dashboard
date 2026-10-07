@@ -17,7 +17,6 @@ import {
   type ApiSession,
 } from "./session";
 import { storeSession, endSession } from "./session";
-import { rejected as aiRejected } from "../b2b-ai/run";
 import { pendingOutcome } from "../b2b-billing/operations";
 const original: ApiSession = {
   serviceBase: "https://api.example.test/v2",
@@ -99,7 +98,6 @@ test("a local session fence ends a read but is never a server rejection of a mut
   for (const local of [sessionChanged(), localRefusal("B2B_STATEMENT_ACCOUNT_CHANGED"), localRefusal("B2B_FILE_ACCOUNT_CHANGED", 403)]) {
     assert.equal(accessEnded(local), true);
     assert.equal(serverRejected(local), false);
-    assert.equal(aiRejected(local), false);
     assert.equal(pendingOutcome(local), true);
   }
   for (const status of [400, 401, 403, 404, 409, 422])
@@ -199,7 +197,6 @@ test("an unsent refusal frees a first attempt; later attempts free only through 
   assert.equal(freeable(unsent), true);
   assert.equal(freeable(sentThenFenced), false);
   assert.equal(freeable(server), true);
-  assert.equal(aiRejected(unsent), false);
   const run = async (error: unknown, attempts: number, lookup: () => Promise<unknown>) => {
     const calls: string[] = [];
     await releaseRejected(error, attempts, async () => void calls.push("first"), async () => (calls.push("lookup"), lookup()), async () => void calls.push("discard"));
