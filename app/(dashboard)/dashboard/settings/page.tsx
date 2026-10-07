@@ -13,6 +13,8 @@ import { userService, type Profile } from "@/lib/api/services/user.service";
 import { authService } from "@/lib/api/services/auth.service";
 import { useT } from "@/lib/i18n/context";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { ThemeSwitcher } from "@/components/theme-switcher";
+import { PageHeader } from "@/components/ui";
 
 const SUPPORT_EMAIL = "support@prepix.ai";
 
@@ -87,7 +89,7 @@ export default function SettingsPage() {
     // setting a narrower one made 설정 measurably different from every other
     // page in the sidebar.
     <div className="space-y-8">
-      <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">{t("settings.title")}</h1>
+      <PageHeader title={t("settings.title")} />
 
       {/* Account */}
       <Block title={t("settings.account")}>
@@ -114,6 +116,12 @@ export default function SettingsPage() {
         title={t("settings.language")}
         description={t("settings.languageHint")}
         actions={<LanguageSwitcher />}
+      />
+
+      <Block
+        title={t("settings.theme")}
+        description={t("settings.themeHint")}
+        actions={<ThemeSwitcher />}
       />
 
       <Block

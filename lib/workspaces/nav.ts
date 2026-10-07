@@ -15,7 +15,32 @@ import { isPersonal } from "./kind";
  * other people here. Nothing to invite into is nothing to invite into by
  * mistake, which is the whole guardrail.
  */
-export type NavLink = { href: string; ko: string; en: string };
+export type NavGroup = "work" | "team" | "manage";
+export type NavIcon =
+  | "home"
+  | "archive"
+  | "folder"
+  | "library"
+  | "members"
+  | "licence"
+  | "status"
+  | "plan"
+  | "statement"
+  | "settings";
+export type NavLink = {
+  href: string;
+  ko: string;
+  en: string;
+  group: NavGroup;
+  icon: NavIcon;
+};
+
+/** Sidebar section headings, in order. A group with no links is not drawn. */
+export const NAV_GROUPS: { key: NavGroup; ko: string; en: string }[] = [
+  { key: "work", ko: "작업", en: "Work" },
+  { key: "team", ko: "팀", en: "Team" },
+  { key: "manage", ko: "관리", en: "Manage" },
+];
 
 export function workspaceLinks(
   workspace: { id: string; type?: string },
@@ -41,13 +66,33 @@ export function workspaceLinks(
   // routes and only borrows the archive.
   if (personal) {
     return [
-      { href: "/dashboard", ko: "개요", en: "Overview" },
+      { href: "/dashboard", ko: "홈", en: "Home", group: "work", icon: "home" },
       ...(options.cloudEnabled
-        ? [{ href: `${base}/media`, ko: "아카이브", en: "Archive" }]
+        ? ([
+            {
+              href: `${base}/media`,
+              ko: "아카이브",
+              en: "Archive",
+              group: "work",
+              icon: "archive",
+            },
+          ] as const)
         : []),
-      { href: "/dashboard/usage", ko: "사용량", en: "Usage" },
-      { href: "/dashboard/plan", ko: "플랜", en: "Plan" },
-      { href: "/dashboard/settings", ko: "설정", en: "Settings" },
+      // Usage is a tab of this page now (navActive lights it there too).
+      {
+        href: "/dashboard/plan",
+        ko: "플랜 · 결제",
+        en: "Plan & billing",
+        group: "manage",
+        icon: "plan",
+      },
+      {
+        href: "/dashboard/settings",
+        ko: "설정",
+        en: "Settings",
+        group: "manage",
+        icon: "settings",
+      },
     ];
   }
 
@@ -69,25 +114,53 @@ export function workspaceLinks(
   if (options.b2b?.enrolled) {
     const status = options.b2b;
     return [
-      { href: base, ko: "개요", en: "Overview" },
+      { href: base, ko: "홈", en: "Home", group: "work", icon: "home" },
       ...(status.allowedActions.projects
-        ? [
-            { href: `${base}/projects`, ko: "폴더", en: "Folders" },
-            { href: `${base}/library`, ko: "보관함", en: "Library" },
-          ]
+        ? ([
+            {
+              href: `${base}/projects`,
+              ko: "폴더",
+              en: "Folders",
+              group: "work",
+              icon: "folder",
+            },
+            {
+              href: `${base}/library`,
+              ko: "보관함",
+              en: "Library",
+              group: "work",
+              icon: "library",
+            },
+          ] as const)
         : []),
       ...(status.team.legacyArchive &&
       options.cloudEnabled &&
       options.role !== "reviewer"
-        ? [{ href: `${base}/media`, ko: "기존 아카이브", en: "Legacy archive" }]
+        ? ([
+            {
+              href: `${base}/media`,
+              ko: "기존 아카이브",
+              en: "Legacy archive",
+              group: "work",
+              icon: "archive",
+            },
+          ] as const)
         : []),
       ...(status.allowedActions.manage && status.team.currentState === "active"
-        ? [{ href: `${base}/members`, ko: "멤버", en: "Members" }]
+        ? ([
+            {
+              href: `${base}/members`,
+              ko: "멤버",
+              en: "Members",
+              group: "team",
+              icon: "members",
+            },
+          ] as const)
         : []),
       ...(!["preparing", "deleting", "deleted"].includes(
         status.team.currentState,
       )
-        ? [
+        ? ([
             {
               href: `${base}/licences`,
               ko: status.allowedActions.manage
@@ -96,34 +169,94 @@ export function workspaceLinks(
               en: status.allowedActions.manage
                 ? "Editing licences"
                 : "My editing licence",
+              group: "team",
+              icon: "licence",
             },
-          ]
+          ] as const)
         : []),
       ...(status.allowedActions.billing
-        ? [{ href: `${base}/plan`, ko: "플랜과 결제", en: "Plan and billing" }]
+        ? ([
+            {
+              href: `${base}/plan`,
+              ko: "플랜 · 결제",
+              en: "Plan & billing",
+              group: "manage",
+              icon: "plan",
+            },
+          ] as const)
         : []),
       // S25: monthly statements are billing documents, not project content.
       ...(status.allowedActions.billing
-        ? [{ href: `${base}/statements`, ko: "월 이용명세서", en: "Statements" }]
+        ? ([
+            {
+              href: `${base}/statements`,
+              ko: "월 이용명세서",
+              en: "Statements",
+              group: "manage",
+              icon: "statement",
+            },
+          ] as const)
         : []),
-      { href: `${base}/status`, ko: "이용 상태", en: "Team status" },
+      {
+        href: `${base}/status`,
+        ko: "이용 상태",
+        en: "Team status",
+        group: "team",
+        icon: "status",
+      },
       ...(status.allowedActions.manage
-        ? [{ href: `${base}/settings`, ko: "설정", en: "Settings" }]
+        ? ([
+            {
+              href: `${base}/settings`,
+              ko: "설정",
+              en: "Settings",
+              group: "manage",
+              icon: "settings",
+            },
+          ] as const)
         : []),
     ];
   }
   return [
-    { href: base, ko: "개요", en: "Overview" },
+    { href: base, ko: "홈", en: "Home", group: "work", icon: "home" },
     ...(options.cloudEnabled && options.role !== "reviewer"
-      ? [{ href: `${base}/media`, ko: "아카이브", en: "Archive" }]
+      ? ([
+          {
+            href: `${base}/media`,
+            ko: "아카이브",
+            en: "Archive",
+            group: "work",
+            icon: "archive",
+          },
+        ] as const)
       : []),
-    { href: `${base}/members`, ko: "멤버", en: "Members" },
-    { href: `${base}/plan`, ko: "플랜과 결제", en: "Plan and billing" },
+    {
+      href: `${base}/members`,
+      ko: "멤버",
+      en: "Members",
+      group: "team",
+      icon: "members",
+    },
+    {
+      href: `${base}/plan`,
+      ko: "플랜 · 결제",
+      en: "Plan & billing",
+      group: "manage",
+      icon: "plan",
+    },
     // No activity entry. The audit trail is still recorded and the page is
     // still at `${base}/activity`, but nobody was going there on purpose and a
     // nav is worth what its least-used row costs the rows above it.
     ...(options.managementEnabled
-      ? [{ href: `${base}/settings`, ko: "설정", en: "Settings" }]
+      ? ([
+          {
+            href: `${base}/settings`,
+            ko: "설정",
+            en: "Settings",
+            group: "manage",
+            icon: "settings",
+          },
+        ] as const)
       : []),
   ];
 }
@@ -136,5 +269,7 @@ export function navActive(pathname: string, href: string, base: string) {
   // Both overviews are prefixes of every page beneath them, so they have to
   // match exactly or they stay lit on all of their own children.
   const isOverview = href === base || href === "/dashboard";
+  if (href === "/dashboard/plan" && pathname.startsWith("/dashboard/usage"))
+    return true;
   return isOverview ? pathname === href : pathname.startsWith(href);
 }

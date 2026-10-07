@@ -3,6 +3,7 @@
 import { endSession } from "@/lib/api/session";
 import { useState, useEffect } from "react";
 import { WorkspaceCapabilities } from "@/components/workspaces/capabilities";
+import { CurrentSpace } from "@/components/dashboard/current-space";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/dashboard/sidebar";
 import { DashboardHeader } from "@/components/dashboard/dashboard-header";
@@ -129,7 +130,16 @@ export default function DashboardLayout({
                 }
               },
               checkout: {
-                settings: { displayMode: "overlay", theme: "dark", showAddDiscounts: true },
+                settings: {
+                  displayMode: "overlay",
+                  // Follow the dashboard's scheme rather than flash a dark
+                  // overlay over a light page.
+                  theme:
+                    document.documentElement.dataset.theme === "light"
+                      ? "light"
+                      : "dark",
+                  showAddDiscounts: true,
+                },
               },
             });
             window.__paddleReady = true;
@@ -167,11 +177,12 @@ export default function DashboardLayout({
   return (
     <ToastProvider>
       <WorkspaceCapabilities>
+      <CurrentSpace>
         <CheckoutErrorListener />
         <div className="min-h-dvh bg-background">
           {mobileOpen && (
             <div
-              className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+              className="fixed inset-0 z-40 bg-black/40 lg:hidden"
               onClick={() => setMobileOpen(false)}
             />
           )}
@@ -186,7 +197,7 @@ export default function DashboardLayout({
             id="mobile-navigation"
             inert={!mobileOpen}
             aria-hidden={!mobileOpen}
-            className={`fixed inset-y-0 left-0 z-50 w-[220px] transform transition-transform duration-200 lg:hidden ${
+            className={`fixed inset-y-0 left-0 z-50 w-60 transform transition-transform duration-200 lg:hidden ${
               mobileOpen ? "translate-x-0" : "-translate-x-full"
             }`}
           >
@@ -198,13 +209,11 @@ export default function DashboardLayout({
           </div>
 
           {/* Content */}
-          <div className="lg:pl-[220px]">
+          <div className="lg:pl-60">
             <DashboardHeader onMobileMenuToggle={() => setMobileOpen(!mobileOpen)} />
-            {/* One content column for the whole dashboard. The workspace pages
-                carried `mx-auto max-w-4xl` themselves and the personal pages
-                carried nothing, so the app had two different measures
-                depending on which entry in the sidebar you clicked. */}
-            <main className="mx-auto max-w-4xl px-6 py-8 lg:px-10 lg:py-10">
+            {/* One content column for the whole dashboard, so every entry in
+                the sidebar opens onto the same measure. */}
+            <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
               {/*
                 Every signed-in page, not just the team one: verification gates
                 accepting invitations, and `emailVerified` is now a real field
@@ -212,7 +221,7 @@ export default function DashboardLayout({
                 Strictly `=== false` — an older server omits it entirely.
               */}
               {profile?.emailVerified === false && !onInvitationPage && (
-                <div className="mb-8">
+                <div className="mb-6">
                   <VerifyEmailNotice />
                 </div>
               )}
@@ -220,6 +229,7 @@ export default function DashboardLayout({
             </main>
           </div>
         </div>
+      </CurrentSpace>
       </WorkspaceCapabilities>
     </ToastProvider>
   );

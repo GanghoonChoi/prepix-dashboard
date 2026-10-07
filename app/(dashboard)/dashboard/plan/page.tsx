@@ -18,6 +18,8 @@ import { useI18n } from "@/lib/i18n/context";
 import { RefundRequestCard } from "@/components/dashboard/refund-request-card";
 import { legalUrl } from "@/lib/i18n/config";
 import { CouponDialog } from "@/components/dashboard/coupon-dialog";
+import { BillingHeader } from "@/components/dashboard/billing-header";
+import { useSearchParams } from "next/navigation";
 import { couponService, type CouponBenefits } from "@/lib/api/services/coupon.service";
 
 export default function PlanPage() {
@@ -91,6 +93,20 @@ export default function PlanPage() {
     // Once, on arrival: it reads the address the page was opened with.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ?redeem=1 — "쿠폰 등록" from home or ⌘K. Watched rather than read once,
+  // because ⌘K can send it while this page is already open.
+  const redeem = useSearchParams().get("redeem");
+  useEffect(() => {
+    if (redeem !== "1") return;
+    setLinkedCoupon(null);
+    couponModal.open();
+    const params = new URLSearchParams(window.location.search);
+    params.delete("redeem");
+    const rest = params.toString();
+    window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : ""));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [redeem]);
 
   // Back from a hosted checkout. Toss has already written the plan by the time
   // the buyer arrives, but the others tell us through a webhook that can trail
@@ -376,14 +392,16 @@ export default function PlanPage() {
   };
 
   return (
-    <div className="space-y-10">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">{t("plan.title")}</h1>
-        <Button variant="outline" size="sm" onPress={() => { setLinkedCoupon(null); couponModal.open(); }}>
-          <Ticket size={15} strokeWidth={1.75} aria-hidden="true" />
-          {t("coupon.open")}
-        </Button>
-      </div>
+    <div>
+      <BillingHeader
+        actions={
+          <Button variant="outline" size="sm" onPress={() => { setLinkedCoupon(null); couponModal.open(); }}>
+            <Ticket size={15} strokeWidth={1.75} aria-hidden="true" />
+            {t("coupon.open")}
+          </Button>
+        }
+      />
+      <div className="space-y-10">
 
       {justUpgraded && (
         <div className="rounded-md border border-border bg-foreground/[0.03] px-4 py-3 text-sm text-foreground">
@@ -765,6 +783,7 @@ export default function PlanPage() {
           </Button>
         </div>
       </Dialog>
+      </div>
     </div>
   );
 }

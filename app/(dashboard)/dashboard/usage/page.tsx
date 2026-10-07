@@ -10,6 +10,7 @@ import { Skeleton, Button } from "@heroui/react";
 import { usageService } from "@/lib/api/services/usage.service";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useI18n } from "@/lib/i18n/context";
+import { BillingHeader } from "@/components/dashboard/billing-header";
 
 export default function UsagePage() {
   const { t, lang } = useI18n();
@@ -47,8 +48,9 @@ export default function UsagePage() {
     n.toLocaleString(lang === "ko" ? "ko-KR" : "en-US");
 
   return (
-    <div className="space-y-10">
-      <h1 className="text-2xl font-semibold tracking-tight text-foreground">{t("usage.title")}</h1>
+    <div>
+      <BillingHeader />
+      <div className="space-y-10">
 
       {loadError && !loading && (
         <div className="flex items-center justify-between rounded-lg border border-danger/30 bg-danger/5 p-6">
@@ -131,6 +133,7 @@ export default function UsagePage() {
           </div>
         )}
       </section>
+      </div>
     </div>
   );
 }

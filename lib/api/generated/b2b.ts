@@ -135,6 +135,11 @@ export type Invitation = {
   teamRole: Exclude<TeamRole, "owner">;
   projectRole: Exclude<ProjectRole, "lead"> | null;
   canDownload: boolean;
+  /** Assign an editing seat when accepted (a seat already paid for). */
+  assignSeat: boolean;
+  /** For an accepted invitation that asked for a seat: whether the person
+   * holds one now, or is waiting for a free seat. Null otherwise. */
+  seat: "assigned" | "waiting" | null;
   expiresAt: string;
   acceptedAt: string | null;
   revokedAt: string | null;
@@ -160,6 +165,8 @@ export type IssueInvitation = Mutation & {
   projectId?: string;
   projectRole?: Exclude<ProjectRole, "lead">;
   canDownload?: boolean;
+  /** Assign an editing seat when accepted (not for reviewers). */
+  assignSeat?: boolean;
   lang?: "ko" | "en";
 };
 export type ChangeInvitation = RevisionMutation & { reason: string };
@@ -1887,7 +1894,7 @@ export type ReviewAudienceCandidates = {
   // only when listed.
   candidates: { userId: string; label: string; role: "lead" | "producer" | "reviewer"; external: boolean }[];
 };
-/** "selected" (default, 0067): `audienceUserIds` and an approver among them.
+/** "selected" (default, 0068): `audienceUserIds` and an approver among them.
  * "project" (V): every internal member who can see the project (team viewers
  * and internal participants) plus the participants listed in
  * `audienceUserIds` — external participants (clients) see a project round
@@ -2176,7 +2183,7 @@ export type TeamStatementAiUnit = {
   confirmed: string;
   returned: string;
   expired: string;
-  // Refund withholding (E1 0064): revoked never spendable; reinstated returns
+  // Refund withholding (0071): revoked never spendable; reinstated returns
   // it after a rejected/failed refund (an expired grant re-expires at once).
   revoked: string;
   reinstated: string;
