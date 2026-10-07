@@ -8,6 +8,8 @@ export interface PlanPrice {
   currency: string;
   unitAmount: number;
   launchDiscountPercent?: number | null;
+  // A coupon this buyer holds for the plan: first payment only, on top of the launch promo.
+  couponDiscountPercent?: number | null;
 }
 
 export interface CatalogPlan {

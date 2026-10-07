@@ -23,7 +23,6 @@ const ALLOWED_HOSTS = new Set([
   "prepix.ai",
   "www.prepix.ai",
   "dashboard.prepix.ai",
-  "dashboard.laskerstudio.com", // Existing desktop dashboard URL.
 ]);
 
 import { isLang } from "./i18n/config";

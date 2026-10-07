@@ -33,6 +33,9 @@ export default function UsagePage() {
 
   const quota = usage?.inferenceQuota;
   const videos = usage?.videos;
+  // Coupon time is already inside total/remaining; this just says how much of
+  // it there is and when the soonest of it lapses, so it is not a surprise.
+  const bonus = (usage as { bonus?: { remainingSeconds: number; nextExpiresAt: number | null } } | null)?.bonus;
   const remaining = Number(quota?.remaining ?? 0);
   const total = Number(quota?.total ?? 0);
   const pct = total > 0 ? (remaining / total) * 100 : 100;
@@ -84,6 +87,16 @@ export default function UsagePage() {
                 </div>
               ))}
             </div>
+            {bonus && bonus.remainingSeconds > 0 && (
+              <p className="border-t border-border px-6 py-3 text-xs text-muted">
+                {t("coupon.usageBonus", {
+                  minutes: String(Math.floor(bonus.remainingSeconds / 60)),
+                  date: bonus.nextExpiresAt
+                    ? new Date(bonus.nextExpiresAt).toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", { month: "long", day: "numeric" })
+                    : "—",
+                })}
+              </p>
+            )}
           </div>
         )}
       </section>

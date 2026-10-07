@@ -57,8 +57,8 @@ test('invitation destination survives authentication without accepting backslash
   assert.equal(safeReturnTo('/\n/evil.example'), '/dashboard');
 });
 
-test('legacy desktop dashboard host preserves the team destination', () => {
-  const target = 'https://dashboard.laskerstudio.com/dashboard/workspaces';
+test('the dashboard host preserves the team destination', () => {
+  const target = 'https://dashboard.prepix.ai/dashboard/workspaces';
   assert.equal(safeReturnTo(target), target);
 });
 
@@ -68,4 +68,10 @@ test("a known locale on the sign-in page follows an internal returnTo; unknown o
   assert.equal(withLocale("/dashboard?locale=ko", "?locale=en"), "/dashboard?locale=ko");
   assert.equal(withLocale("https://prepix.ai/start", "?locale=en"), "https://prepix.ai/start");
   assert.equal(withLocale("//evil.example", "?locale=en"), "//evil.example");
+});
+
+// The old host now only redirects; a returnTo naming it is not one we hand a
+// freshly signed-in visitor to.
+test('a host that is not ours, including a retired one, falls back', () => {
+  assert.equal(safeReturnTo('https://dashboard.example.com/dashboard'), '/dashboard');
 });

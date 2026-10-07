@@ -11,7 +11,7 @@ test("a reload preserves the step someone reached, not a claimed completion", ()
     const state = { step, workspace: null };
     assert.deepEqual(
       readStartState(
-        new URL(startHref(state, "ko"), "https://dashboard.laskerstudio.com")
+        new URL(startHref(state, "ko"), "https://dashboard.prepix.ai")
           .search,
       ),
       state,

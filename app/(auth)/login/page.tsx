@@ -12,6 +12,7 @@ import { sleep } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useI18n } from "@/lib/i18n/context";
 import { readReturnTo } from "@/lib/return-to";
+import { CouponWaiting } from "@/components/auth/coupon-waiting";
 import { markSignedIn } from "@/lib/account-hint";
 import { signupHref } from "@/lib/auth-entry";
 
@@ -130,6 +131,8 @@ export default function LoginPage() {
           </Link>
         </p>
       </div>
+
+      <CouponWaiting returnTo={authDestination} />
 
       {/* Error */}
       {error && (
