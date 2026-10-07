@@ -51,7 +51,6 @@ test("W20 live whole-job roughcut: two exact videos, consent, original request r
           requestKey: randomUUID(),
           periodId: licence.id,
           userId: owner.id,
-          limitUnits: 200,
         },
       })
     ).status(),

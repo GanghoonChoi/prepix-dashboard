@@ -204,6 +204,9 @@ export type OwnershipTransfer = {
 };
 
 export type Rounding = "floor" | "ceil" | "half_up";
+// Team AI is per seat (decision 2026-10-06): every paid seat, base or extra,
+// carries the same allotment for its period. No pooled team AI, no AI packs.
+// SOT: backend/docs/b2b-ai-accounting.md "Per-seat AI"
 export type TeamProduct = {
   version: string;
   name: string;
@@ -213,19 +216,12 @@ export type TeamProduct = {
   base: {
     supplyKrw: number;
     seats: number;
-    aiUnits: number;
     storageBytes: number;
     transferBytes: number;
   };
-  extraSeat: { supplyKrw: number; aiUnits: number };
-  aiPack: {
-    supplyKrw: number;
-    units: number;
-    currentPricing: "full_pack" | "remaining_time";
-    validity: "period" | "days";
-    validityDays: number | null;
-    carry: boolean;
-  };
+  extraSeat: { supplyKrw: number };
+  // Q: AI units one paid seat carries for one period (P17 sets the value).
+  seatAiUnits: number;
   storagePack: {
     supplyKrw: number;
     bytes: number;
@@ -240,9 +236,30 @@ export type TeamProduct = {
     refundPolicyVersion: string;
   };
 };
+// A version sold before the per-seat decision: team base AI (Q0), per extra
+// seat AI and AI packs. Stored rows keep it so historical orders stay readable
+// and refundable; it is never sold again.
+export type LegacyTeamProduct = Omit<
+  TeamProduct,
+  "base" | "extraSeat" | "seatAiUnits"
+> & {
+  base: TeamProduct["base"] & { aiUnits: number };
+  extraSeat: { supplyKrw: number; aiUnits: number };
+  aiPack: {
+    supplyKrw: number;
+    units: number;
+    currentPricing: "full_pack" | "remaining_time";
+    validity: "period" | "days";
+    validityDays: number | null;
+    carry: boolean;
+  };
+};
+export type StoredTeamProduct = TeamProduct | LegacyTeamProduct;
 export type QuoteTarget = "initial" | "current" | "next" | "restore";
 export type PurchaseSelection = {
   extraSeats: number;
+  // Always 0: extra AI is not sold (422 B2B_EXTRA_AI_NOT_SOLD). Kept so
+  // historical selections stay readable.
   aiPacks: number;
   storagePacks: number;
 };
@@ -254,7 +271,7 @@ export type CreateTeamQuote = PurchaseSelection & {
   sourcePeriodId?: string;
 };
 export type TeamQuote = {
-  conditions: TeamProduct;
+  conditions: StoredTeamProduct;
   id: string;
   workspaceId: string;
   productVersion: string;
@@ -286,7 +303,10 @@ export type TeamQuote = {
   };
   allowances: {
     seats: number;
+    // Sum of the seat allotments this purchase adds (seats x Q, prorated per
+    // seat for a mid-period addition).
     periodAiUnits: number;
+    // Historical AI packs only; 0 for every product sold now.
     extraAiUnits: number;
     storageBytes: number;
     transferBytes: number;
@@ -309,7 +329,9 @@ export type TeamCommerce =
         endsAt: string;
         anchorDay: number;
         extraSeats: number;
-        product: TeamProduct;
+        // null: the period was bought under pooled-AI terms that are no
+        // longer sold, so nothing can be added to it.
+        product: TeamProduct | null;
       } | null;
       nextPurchased: boolean;
     };
@@ -746,18 +768,22 @@ export type LicenceAssignment = {
   revision: number;
   createdAt: string;
 };
-export type UserAiBudget = {
+// One seat's AI for one period (per-seat decision 2026-10-06). The limit is
+// system-set (Q of the period's product, prorated for a seat bought mid-period)
+// and belongs to the slot: whoever holds the slot spends from it, and a new
+// holder gets what is left. Read only; no manager changes it.
+export type SeatAiBudget = {
   workspaceId: string;
   periodId: string;
-  userId: string;
+  slot: number;
   limitUnits: number;
   confirmedUnits: number;
   reservedUnits: number;
-  revision: number;
 };
 export type LicenceOverview = {
   assignments: LicenceAssignment[];
-  budgets: (UserAiBudget & { unitLabel: string; unitDescription: string })[];
+  // Managers: every seat. A member: only the seat they hold (or held to E).
+  budgets: (SeatAiBudget & { unitLabel: string; unitDescription: string })[];
   periods: {
     id: string;
     startsAt: string;
@@ -781,7 +807,6 @@ export type AssignLicence = {
   requestKey: string;
   periodId: string;
   userId: string;
-  limitUnits: number;
 };
 export type RevokeLicence = {
   requestKey: string;
@@ -790,12 +815,6 @@ export type RevokeLicence = {
 };
 export type ScheduleLicenceRevocation = RevokeLicence & {
   scheduledRevokeAt: string | null;
-};
-export type ChangeUserAiLimit = {
-  requestKey: string;
-  revision: number;
-  limitUnits: number;
-  reason: string;
 };
 export type EditingDeviceRegistration = {
   requestKey: string;
@@ -891,20 +910,17 @@ export type TeamAiJobList = {
   nextCursor: string | null;
   serverTime: string;
 };
+// The caller's own AI only: their seat in each period they hold (or held to
+// its end) a licence, newest first. No team total is shown to anyone here.
 export type TeamAiUsageOverview = {
-  // Team aggregates are decimal strings to preserve sums beyond Number.MAX_SAFE_INTEGER.
   reconciled: boolean;
-  availableUnits: string | null;
-  reservedUnits: string;
-  confirmedUnits: string;
-  expiredUnits: string;
-  returnedUnits: string;
   personalBudgets: {
     periodId: string;
     startsAt: string;
     endsAt: string;
     unitLabel: string;
     unitDescription: string;
+    slot: number;
     limitUnits: number;
     reservedUnits: number;
     confirmedUnits: number;
@@ -959,12 +975,12 @@ export type TeamAiQuoteInput = {
   durationMs: number;
   units: number;
 };
-// Team balance and personal limit are separate: the personal limit only caps
-// how much of the shared team balance this person may reserve.
+// What the caller's own seat still has this period; nothing is shared.
 export type TeamAiAvailability = {
   reconciled: boolean;
-  teamAvailableUnits: string | null;
   personalRemainingUnits: number | null;
+  /** End of the period the caller's seat is read for (when a spent seat next has AI). */
+  periodEndsAt: string | null;
   unitLabel: string | null;
   unitDescription: string | null;
   submittable: boolean;
@@ -2286,7 +2302,8 @@ export type TeamHome = {
     aiBudget: { limitUnits: number; reservedUnits: number; confirmedUnits: number; remainingUnits: number } | null;
     aiUnitLabel: string; aiUnitDescription: string;
   }[];
-  aiUsage: { reconciled: boolean; availableUnits: string | null; sampledAt: string } | null;
+  // Only whether AI accounting is reconciled; there is no team AI total.
+  aiUsage: { reconciled: boolean; sampledAt: string } | null;
   aiUsageError: string | null;
   projects: { items: { id: string; name: string; state: ProjectState; role: ProjectRole; updatedAt: string }[]; hasMore: boolean };
   transfers: { items: { id: string; projectId: string; projectName: string; name: string; state: string; size: number; lastActivityAt: string }[]; hasMore: boolean };

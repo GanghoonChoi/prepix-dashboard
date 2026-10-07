@@ -64,7 +64,7 @@ async function prepare(request: APIRequestContext, label: string, wavName: strin
   const { periodId } = JSON.parse(
     execFileSync(process.execPath, [resolve(process.env.B2B_E2E_FIXTURE_DIR ?? "../prepix-backend/backend/scripts", "b2b-paid-test-fixture.cjs"), JSON.stringify({ workspaceId: team.id, action: "purchase", target: "initial" })], { encoding: "utf8", timeout: 15000 }),
   );
-  expect((await request.post(`${endpoint}/licences/assignments`, { headers: owner.headers, data: { requestKey: randomUUID(), periodId, userId: owner.id, limitUnits: 50 } })).status()).toBe(201);
+  expect((await request.post(`${endpoint}/licences/assignments`, { headers: owner.headers, data: { requestKey: randomUUID(), periodId, userId: owner.id } })).status()).toBe(201);
   const project = (await (await request.post(`${endpoint}/projects`, { headers: owner.headers, data: { requestKey: randomUUID(), name: "AI 실행 프로젝트" } })).json()).data.project;
   const root = `${endpoint}/projects/${project.id}`;
   const bytes = wav(3000, seed);
@@ -110,10 +110,11 @@ test("S30: registered input, quote, explicit run, response loss, refresh, verifi
   await expect(page.getByRole("heading", { name: "견적", exact: true })).toBeVisible();
   const recovered = (await (await request.get(`${root}/ai/quote-requests/${quoteKey}`, { headers: owner.headers })).json()).data.quote;
   expect(recovered.maximumUnits).toBe(3);
-  await expect(page.getByText("팀 공동 사용 가능량")).toBeVisible();
-  await expect(page.getByText("팀 잔액을 쓸 수 있는 내 상한이며 별도로 지급된 양이 아닙니다.")).toBeVisible();
-  await expect(page.getByText("9000", { exact: true })).toBeVisible();
-  await expect(page.getByText("50", { exact: true })).toBeVisible();
+  // Per seat: my seat's remaining only, no team balance.
+  await expect(page.getByText("팀 공동 사용 가능량")).toHaveCount(0);
+  await expect(page.getByText("이번 기간 내 남은 AI")).toBeVisible();
+  await expect(page.getByText("내 좌석의 몫입니다. 팀이 함께 쓰지 않으며, 다 쓰면 다음 기간까지 기다립니다.")).toBeVisible();
+  await expect(page.getByText("3000", { exact: true })).toBeVisible();
   await page.screenshot({ path: `${process.env.B2B_E2E_SHOTS ?? "/tmp"}/s30-quote-desktop.png`, fullPage: true });
   await expect(page.getByRole("button", { name: "실행", exact: true })).toBeDisabled();
   await page.getByRole("checkbox", { name: /최대 3 .* 예약에 동의합니다/ }).check();

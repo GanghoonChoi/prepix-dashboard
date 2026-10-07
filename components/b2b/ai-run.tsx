@@ -47,6 +47,8 @@ import {
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
+import { useI18n } from "@/lib/i18n/context";
+import { kst } from "@/lib/b2b-lifecycle/view";
 import { B2bError, useCopy } from "./shared";
 
 const messages: Record<string, [string, string]> = {
@@ -99,12 +101,12 @@ const messages: Record<string, [string, string]> = {
     "Approve the quote's exact maximum to run.",
   ],
   B2B_AI_PERSONAL_LIMIT_EXCEEDED: [
-    "내 이번 기간 한도가 부족합니다. 팀 관리자에게 한도 조정을 요청하세요.",
-    "Your period limit is insufficient. Ask a team admin to adjust it.",
+    "내 좌석의 이번 기간 AI가 부족합니다. 다음 기간에 다시 채워집니다.",
+    "Your seat's AI for this period is not enough. It refills next period.",
   ],
   B2B_AI_TEAM_BALANCE_EXCEEDED: [
-    "팀 공동 AI 잔량이 부족합니다. 결제 권한자에게 추가 구매를 요청하세요.",
-    "The shared team balance is insufficient. Ask a billing manager to purchase more.",
+    "사용 기록 확인이 필요합니다. 고객 지원에 문의해 주세요.",
+    "Usage records need a check. Please contact support.",
   ],
   B2B_EDITING_LICENCE_REQUIRED: [
     "이 팀의 편집 이용권이 있어야 팀 AI를 실행할 수 있습니다.",
@@ -167,15 +169,32 @@ const code = (error: unknown) => {
     return error.message;
   return "REQUEST_FAILED";
 };
-function AiError({ code: c, retry }: { code: string; retry?: () => void }) {
+function AiError({
+  code: c,
+  retry,
+  periodEndsAt,
+}: {
+  code: string;
+  retry?: () => void;
+  periodEndsAt?: string | null;
+}) {
   const copy = useCopy();
+  const { lang } = useI18n();
   if (!messages[c]) return <B2bError code={c} retry={retry} />;
+  // A spent seat comes back with the next period, and only when the team uses it.
+  const spent =
+    c === "B2B_AI_PERSONAL_LIMIT_EXCEEDED" && periodEndsAt
+      ? copy(
+          `이번 기간 좌석 AI를 다 썼습니다. ${kst(periodEndsAt, lang)} 이후 다음 기간 좌석으로 쓸 수 있습니다(팀이 다음 기간을 이용할 때).`,
+          `Your seat's AI for this period is used up. After ${kst(periodEndsAt, lang)} you can use the next period's seat, if the team is on the next period.`,
+        )
+      : null;
   return (
     <div
       role="alert"
       className="rounded-lg border border-border bg-surface p-4 text-sm leading-6"
     >
-      <p>{copy(...messages[c])}</p>
+      <p>{spent ?? copy(...messages[c])}</p>
       {retry && (
         <button
           type="button"
@@ -1128,23 +1147,7 @@ function QuoteView({
         </div>
         <div>
           <dt className="text-muted">
-            {c("팀 공동 사용 가능량", "Shared team balance")}
-          </dt>
-          <dd className="tabular-nums">
-            {a.reconciled && a.teamAvailableUnits !== null
-              ? a.teamAvailableUnits
-              : c("확인 필요", "Needs review")}
-          </dd>
-          <dd className="text-xs text-muted">
-            {c(
-              "팀 전체가 함께 쓰는 잔액입니다.",
-              "The balance the whole team shares.",
-            )}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-muted">
-            {c("내 이번 기간 잔여 한도", "My remaining period limit")}
+            {c("이번 기간 내 남은 AI", "My AI left this period")}
           </dt>
           <dd className="tabular-nums">
             {a.personalRemainingUnits ??
@@ -1152,8 +1155,8 @@ function QuoteView({
           </dd>
           <dd className="text-xs text-muted">
             {c(
-              "팀 잔액을 쓸 수 있는 내 상한이며 별도로 지급된 양이 아닙니다.",
-              "A cap on how much of the team balance you may use, not a separate grant.",
+              "내 좌석의 몫입니다. 팀이 함께 쓰지 않으며, 다 쓰면 다음 기간까지 기다립니다.",
+              "Your seat's own share. The team does not share it; when it runs out, it waits for the next period.",
             )}
           </dd>
         </div>
@@ -1164,7 +1167,9 @@ function QuoteView({
           "Running reserves the maximum. Only verified completed stages settle; the rest returns. Service failures return everything; cancelling settles only completed stages.",
         )}
       </p>
-      {a.blockedReason && <AiError code={a.blockedReason} />}
+      {a.blockedReason && (
+        <AiError code={a.blockedReason} periodEndsAt={a.periodEndsAt} />
+      )}
       {quote.jobId ? (
         <p role="status" className="text-sm">
           {c("이미 실행한 견적입니다.", "This quote was already run.")}

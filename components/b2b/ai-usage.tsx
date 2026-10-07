@@ -123,8 +123,8 @@ export function TeamAiUsage() {
     <TeamShell
       title={c("팀 AI 사용량", "Team AI usage")}
       description={c(
-        "이 팀의 공동 사용량과 내 작업을 확인합니다. 개인 한도는 팀 잔액을 사용할 수 있는 상한입니다.",
-        "Review this team's shared usage and your jobs. A personal limit caps how much of the team balance you can use.",
+        "내 좌석의 AI와 내 작업을 확인합니다. AI는 좌석마다 따로 있고 팀이 함께 쓰지 않습니다.",
+        "Review your seat's AI and your jobs. AI belongs to each seat and is not shared across the team.",
       )}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -150,54 +150,74 @@ export function TeamAiUsage() {
           {!view.usage.reconciled && (
             <B2bError code="B2B_AI_ACCOUNTING_REVIEW_REQUIRED" />
           )}
+          {(() => {
+            // AI is per seat: a member sees only what their own seat has
+            // left this period, never a team total.
+            const now = Date.parse(view.usage.serverTime);
+            const current = view.usage.personalBudgets.find(
+              (b) => Date.parse(b.startsAt) <= now && now < Date.parse(b.endsAt),
+            );
+            return (
+              <Block
+                title={c("이번 기간 내 AI", "My AI this period")}
+                description={c(
+                  "AI는 좌석마다 따로 있고 팀이 함께 쓰지 않습니다. 다 쓰면 다음 기간까지 기다립니다.",
+                  "AI belongs to each seat and is not shared across the team. When it runs out, it waits for the next period.",
+                )}
+              >
+                {current ? (
+                  <dl className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">
+                    {[
+                      [
+                        c("남은 양", "Left"),
+                        view.usage.reconciled
+                          ? count(
+                              current.limitUnits -
+                                current.confirmedUnits -
+                                current.reservedUnits,
+                            )
+                          : c("확인 필요", "Needs review"),
+                      ],
+                      [c("좌석 AI", "Seat AI"), count(current.limitUnits)],
+                      [c("사용 확정", "Confirmed"), count(current.confirmedUnits)],
+                      [c("예약 중", "Reserved"), count(current.reservedUnits)],
+                    ].map(([label, value]) => (
+                      <div key={label}>
+                        <dt className="text-sm text-muted">{label}</dt>
+                        <dd className="mt-2 text-2xl font-medium tabular-nums">
+                          {value}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : (
+                  <p className="text-sm text-muted">
+                    {c(
+                      "이번 기간에 쓰는 좌석이 없습니다. 팀 AI를 쓰려면 편집 이용권이 필요합니다.",
+                      "You hold no seat this period. Team AI needs an editing licence.",
+                    )}
+                  </p>
+                )}
+                <p className="text-xs text-muted">
+                  {current ? `${current.unitLabel} · ` : ""}
+                  {c("한국 시간 확인", "checked in Korea time")}{" "}
+                  {instant(view.usage.serverTime)}
+                </p>
+              </Block>
+            );
+          })()}
           <Block
-            title={c("팀 공동 사용량", "Shared team usage")}
+            title={c("내 좌석의 기간별 AI", "My seat's AI by period")}
             description={c(
-              "확정·반환·만료는 누적 기록입니다. 반환량은 원래 지급 건에 기록되며, 만료된 양은 사용 가능량에 더하지 않습니다.",
-              "Confirmed, returned and expired amounts are cumulative records. Returns stay on the original grant; expired units do not become available again.",
-            )}
-          >
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-3 lg:grid-cols-5">
-              {[
-                [
-                  c("사용 가능", "Available"),
-                  view.usage.reconciled && view.usage.availableUnits !== null
-                    ? count(view.usage.availableUnits)
-                    : c("확인 필요", "Needs review"),
-                ],
-                [c("예약 중", "Reserved"), count(view.usage.reservedUnits)],
-                [c("사용 확정", "Confirmed"), count(view.usage.confirmedUnits)],
-                [c("예약 반환", "Returned"), count(view.usage.returnedUnits)],
-                [c("만료", "Expired"), count(view.usage.expiredUnits)],
-              ].map(([label, value]) => (
-                <div key={label}>
-                  <dt className="text-sm text-muted">{label}</dt>
-                  <dd className="mt-2 text-2xl font-medium tabular-nums">
-                    {value}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-            <p className="text-xs text-muted">
-              {c(
-                "AI 사용량 단위 · 한국 시간 확인",
-                "AI usage units · checked in Korea time",
-              )}{" "}
-              {instant(view.usage.serverTime)}
-            </p>
-          </Block>
-          <Block
-            title={c("내 기간별 한도", "My limits by period")}
-            description={c(
-              "한도 변경이나 이용권 재배정은 팀 AI를 새로 지급하지 않습니다. 새 실행에는 해당 팀의 유효한 편집 이용권이 필요합니다.",
-              "Changing a limit or reassigning a licence does not grant new AI units. New jobs require a valid editing licence in this team.",
+              "좌석을 넘겨받으면 그 좌석에 남은 양을 이어서 씁니다. 재배정은 AI를 새로 만들지 않습니다. 새 실행에는 해당 팀의 유효한 편집 이용권이 필요합니다.",
+              "Taking over a seat hands you what it has left; a reassignment never creates new AI. New jobs require a valid editing licence in this team.",
             )}
           >
             {view.usage.personalBudgets.length === 0 ? (
               <p className="text-sm text-muted">
                 {c(
-                  "배정된 기간별 한도가 없습니다.",
-                  "No personal period limits are assigned.",
+                  "배정된 좌석이 없습니다.",
+                  "No seat is assigned to you.",
                 )}
               </p>
             ) : (
@@ -219,7 +239,7 @@ export function TeamAiUsage() {
                       <dl className="flex flex-wrap gap-x-6 gap-y-2 text-sm tabular-nums">
                         <div>
                           <dt className="inline text-muted">
-                            {c("한도", "Limit")}{" "}
+                            {c("좌석 AI", "Seat AI")}{" "}
                           </dt>
                           <dd className="inline">{count(budget.limitUnits)}</dd>
                         </div>
@@ -241,7 +261,7 @@ export function TeamAiUsage() {
                         </div>
                         <div>
                           <dt className="inline text-muted">
-                            {c("잔여 한도", "Remaining limit")}{" "}
+                            {c("남은 양", "Left")}{" "}
                           </dt>
                           <dd className="inline">
                             {!view.usage.reconciled

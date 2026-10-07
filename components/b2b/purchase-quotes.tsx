@@ -51,9 +51,9 @@ export function PurchaseQuotes({
         : "initial",
   );
   const [renewal, setRenewal] = useState<"one_off" | "automatic">("one_off");
+  // Team AI is per seat: nothing to buy but seats (no extra AI packs).
   const [quantities, setQuantities] = useState({
     extraSeats: "0",
-    aiPacks: "0",
     storagePacks: "0",
   });
   const pending = useRef<CreateTeamQuote | null>(null);
@@ -96,15 +96,21 @@ export function PurchaseQuotes({
         )}
       </p>
     );
+  // A period bought under the old pooled-AI terms has no product on sale:
+  // nothing more can be added to it (the next month uses the current product).
+  const pooled =
+    target === "current" &&
+    !!catalogue.currentPeriod &&
+    !catalogue.currentPeriod.product;
   const product =
-    target === "current" && catalogue.currentPeriod
-      ? catalogue.currentPeriod.product
-      : catalogue.product;
+    (target === "current" && catalogue.currentPeriod?.product) ||
+    catalogue.product;
   const active = status.team.currentState === "active";
   const validScope =
     target === "current" || target === "next"
       ? active &&
         !!catalogue.currentPeriod &&
+        !pooled &&
         !(target === "next" && catalogue.nextPurchased)
       : target === "initial"
         ? !status.team.periodEndsAt
@@ -124,11 +130,10 @@ export function PurchaseQuotes({
           </dd>
         </div>
         <div>
-          <dt className="text-muted">
-            {c("공동 AI 기본량", "Included shared AI")}
-          </dt>
+          <dt className="text-muted">{c("좌석당 AI", "AI per seat")}</dt>
           <dd className="mt-1">
-            {number(product.base.aiUnits)} {product.aiUnitLabel}
+            {number(product.seatAiUnits)} {product.aiUnitLabel}
+            {c(" · 좌석마다 따로", " · each seat its own")}
           </dd>
         </div>
         <div>
@@ -147,7 +152,11 @@ export function PurchaseQuotes({
         </div>
       </dl>
       <p className="text-xs leading-5 text-muted">
-        {product.aiUnitDescription}
+        {product.aiUnitDescription}{" "}
+        {c(
+          "AI는 좌석마다 이번 기간 몫이 있고 팀이 함께 쓰지 않습니다. 다 쓰면 다음 기간까지 기다리며, AI만 따로 사지 않습니다.",
+          "Each seat has its own AI for the period; the team does not share it. When it runs out it waits for the next period; AI is not sold separately.",
+        )}
       </p>
       <form
         className="space-y-5"
@@ -162,7 +171,7 @@ export function PurchaseQuotes({
             target,
             renewal,
             extraSeats: Number(quantities.extraSeats),
-            aiPacks: Number(quantities.aiPacks),
+            aiPacks: 0,
             storagePacks: Number(quantities.storagePacks),
             ...(target === "current" || target === "next"
               ? { sourcePeriodId: catalogue.currentPeriod?.id }
@@ -212,15 +221,13 @@ export function PurchaseQuotes({
             )}
           </select>
         </label>
-        <div className="grid gap-4 sm:grid-cols-3">
-          {(["extraSeats", "aiPacks", "storagePacks"] as const).map((key) => (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {(["extraSeats", "storagePacks"] as const).map((key) => (
             <label key={key} className="block space-y-2 text-sm">
               <span>
                 {key === "extraSeats"
                   ? c("추가 편집 이용권", "Extra editing licences")
-                  : key === "aiPacks"
-                    ? c("추가 AI 팩", "Extra AI packs")
-                    : c("저장 추가 팩", "Extra storage packs")}
+                  : c("저장 추가 팩", "Extra storage packs")}
               </span>
               <input
                 className={inputClass}
@@ -258,11 +265,19 @@ export function PurchaseQuotes({
         </label>
         <p className="text-xs leading-5 text-muted">
           {c(
-            "방식 변경과 견적 확인만으로 결제되거나 제공량이 지급되지 않습니다. 추가 이용권 요금과 해당 AI 제공량은 현재 기간의 남은 시간으로 함께 계산합니다.",
-            "Changing the mode or checking a quote does not charge you or grant allowances. Extra licence fees and their AI use the same remaining-period fraction.",
+            "방식 변경과 견적 확인만으로 결제되거나 제공량이 지급되지 않습니다. 추가 이용권 요금과 그 좌석의 AI는 현재 기간의 남은 시간으로 함께 계산합니다.",
+            "Changing the mode or checking a quote does not charge you or grant allowances. An extra licence's fee and its seat's AI use the same remaining-period fraction.",
           )}
         </p>
-        {!validScope && (
+        {pooled && (
+          <p role="status" className="text-sm text-muted">
+            {c(
+              "이 기간은 예전 공동 AI 조건으로 구매해 더 추가할 수 없습니다. 다음 한 달은 좌석별 AI 상품으로 구매합니다.",
+              "This period was bought under the old shared-AI terms, so nothing more can be added. The next month uses the per-seat product.",
+            )}
+          </p>
+        )}
+        {!validScope && !pooled && (
           <p role="status" className="text-sm text-muted">
             {c(
               "현재 구매 기간을 다시 확인해야 합니다. 다음 기간을 이미 선구매했다면 같은 기간을 다시 구매하지 않습니다.",
@@ -340,11 +355,17 @@ export function PurchaseQuotes({
                 : "Editing capacity",
             )}{" "}
             {number(quote.allowances.seats)}
-            {c("명", " people")} ·{" "}
-            {c("기본 및 이용권 AI", "Base and licence AI")}{" "}
-            {number(quote.allowances.periodAiUnits)}{" "}
-            {quote.conditions.aiUnitLabel} · {c("별도 AI 팩", "Extra AI packs")}{" "}
-            {number(quote.allowances.extraAiUnits)}{" "}
+            {c("명", " people")} · {c("좌석 AI", "Seat AI")}{" "}
+            {number(
+              quote.allowances.seats
+                ? Math.floor(
+                    quote.allowances.periodAiUnits / quote.allowances.seats,
+                  )
+                : 0,
+            )}{" "}
+            {quote.conditions.aiUnitLabel}
+            {c(" × 좌석 수", " × seats")} ·{" "}
+            {c("합계", "total")} {number(quote.allowances.periodAiUnits)}{" "}
             {quote.conditions.aiUnitLabel}
           </p>
           <p className="text-xs text-muted">

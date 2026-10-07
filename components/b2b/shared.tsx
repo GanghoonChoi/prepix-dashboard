@@ -159,17 +159,9 @@ const errors: Record<string, [string, string]> = {
     "실제 구매가 반영된 기간을 확인할 수 없습니다. 이용 상태와 구매 내역을 확인해 주세요.",
     "No applied purchase period could be verified. Review the team status and purchases.",
   ],
-  B2B_USER_LIMIT_BELOW_USAGE: [
-    "개인 한도는 확정 사용과 예약의 합보다 낮출 수 없습니다. 최신 사용량을 확인해 주세요.",
-    "The personal limit cannot be below confirmed and reserved usage. Review the current usage.",
-  ],
-  B2B_USER_LIMIT_SEPARATE_CHANGE_REQUIRED: [
-    "재배정은 기존 개인 한도를 유지합니다. 한도 변경은 별도 변경 화면에서 처리해 주세요.",
-    "Reassignment keeps the existing personal limit. Change it separately.",
-  ],
-  B2B_USER_LIMIT_INVALID: [
-    "AI 한도에 0 이상의 정수를 입력해 주세요.",
-    "Enter a non-negative whole number for the AI limit.",
+  B2B_EXTRA_AI_NOT_SOLD: [
+    "AI는 좌석마다 기간별로 제공되며 따로 구매하지 않습니다.",
+    "AI comes with each seat per period and is not sold separately.",
   ],
   B2B_LICENCE_SCHEDULE_INVALID: [
     "이용기간 안의 미래 시각을 한국 시간으로 지정해 주세요.",

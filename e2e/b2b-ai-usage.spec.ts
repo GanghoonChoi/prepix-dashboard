@@ -58,7 +58,7 @@ async function account(request: APIRequestContext, label: string) {
   ).toBe(200);
   return { email, headers, id: session.user.id as string };
 }
-test("team usage, original failure returns, lost cancellation response, review-needed balance and current project privacy", async ({
+test("my seat's AI, original failure returns, lost cancellation response, review-needed state and current project privacy", async ({
   page,
   request,
 }) => {
@@ -130,7 +130,6 @@ test("team usage, original failure returns, lost cancellation response, review-n
           requestKey: randomUUID(),
           periodId,
           userId: user.id,
-          limitUnits: 1000,
         },
       })
     ).status(),
@@ -170,17 +169,20 @@ test("team usage, original failure returns, lost cancellation response, review-n
   await expect(
     page.getByRole("link", { name: "팀 AI 사용량", exact: true }),
   ).toBeVisible();
+  // Per seat: only my seat's numbers, never a team total.
   const summary = page
     .locator("section")
     .filter({
-      has: page.getByRole("heading", { name: "팀 공동 사용량", exact: true }),
+      has: page.getByRole("heading", { name: "이번 기간 내 AI", exact: true }),
     });
-  await expect(summary.getByText("30", { exact: true })).toBeVisible();
+  await expect(summary.getByText("2,970", { exact: true })).toBeVisible();
+  await expect(summary.getByText("3,000", { exact: true })).toBeVisible();
   await expect(summary.getByText("10", { exact: true })).toBeVisible();
+  await expect(summary.getByText("20", { exact: true })).toBeVisible();
+  await expect(page.getByText("팀 공동 사용량")).toHaveCount(0);
   await expect(
     page.getByText("실패 · 예약 반환", { exact: false }),
   ).toBeVisible();
-  await expect(page.getByText("970", { exact: true })).toBeVisible();
   await expect(page.getByRole("article")).toHaveCount(3);
   await page.screenshot({
     path: "/tmp/prepix-team-ai-usage-desktop.png",
@@ -217,7 +219,7 @@ test("team usage, original failure returns, lost cancellation response, review-n
   await expect(dialog).toHaveCount(0);
   expect(cancellationKeys).toHaveLength(2);
   expect(cancellationKeys[0]).toBe(cancellationKeys[1]);
-  await expect(summary.getByText("50", { exact: true })).toBeVisible();
+  await expect(summary.getByText("2,990", { exact: true })).toBeVisible();
   const cancelled = (
     await (
       await request.get(
@@ -241,7 +243,7 @@ test("team usage, original failure returns, lost cancellation response, review-n
       response,
       json: {
         ...envelope,
-        data: { ...envelope.data, reconciled: false, availableUnits: null },
+        data: { ...envelope.data, reconciled: false },
       },
     });
   });

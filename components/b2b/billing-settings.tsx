@@ -482,7 +482,7 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
               mode: plan.mode,
               methodId: automatic ? (plan.methodId ?? active[0]?.id ?? null) : null,
               extraSeats: plan.extraSeats,
-              aiPacks: plan.aiPacks,
+              aiPacks: 0,
               storagePacks: plan.storagePacks,
               retainedUserIds: plan.retainedUserIds,
               ...(automatic ? { consentVersion: r.autoPayConsentVersion ?? undefined, productVersion: product?.version } : {}),
@@ -516,20 +516,19 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
               onChange={(e) => setPlan({ ...plan, extraSeats: e.target.value === "" ? null : Number(e.target.value) })}
             />
           </label>
-          {(["aiPacks", "storagePacks"] as const).map((key) => (
-            <label key={key} className="block space-y-2 text-sm">
-              <span>{key === "aiPacks" ? c("다음 기간 AI 팩", "Next-period AI packs") : c("다음 기간 저장 팩", "Next-period storage packs")}</span>
-              <input
-                className={inputClass}
-                type="number"
-                min={0}
-                max={10000}
-                value={plan[key]}
-                disabled={!!lockedPlan || !!busy}
-                onChange={(e) => setPlan({ ...plan, [key]: Number(e.target.value) })}
-              />
-            </label>
-          ))}
+          {/* AI is per seat: a renewal never buys AI packs (always 0). */}
+          <label className="block space-y-2 text-sm">
+            <span>{c("다음 기간 저장 팩", "Next-period storage packs")}</span>
+            <input
+              className={inputClass}
+              type="number"
+              min={0}
+              max={10000}
+              value={plan.storagePacks}
+              disabled={!!lockedPlan || !!busy}
+              onChange={(e) => setPlan({ ...plan, storagePacks: Number(e.target.value) })}
+            />
+          </label>
           {billing.retainedCandidates && (
             <fieldset className="space-y-2 text-sm sm:col-span-2">
               <legend>{c("다음 기간 유지 대상", "Members to keep next period")}</legend>

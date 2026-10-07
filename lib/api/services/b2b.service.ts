@@ -11,11 +11,9 @@ import type {
   RetireEditingDevice,
   LicenceOverview,
   LicenceAssignment,
-  UserAiBudget,
   AssignLicence,
   RevokeLicence,
   ScheduleLicenceRevocation,
-  ChangeUserAiLimit,
   TeamCommerce,
   TeamLifecycle,
   TeamQuote,
@@ -129,16 +127,6 @@ export const b2bService = {
   ) =>
     post<{ assignment: LicenceAssignment; requestId: string }>(
       `${base(id)}/licences/assignments/${e(assignmentId)}/schedule`,
-      input,
-    ),
-  changeUserLimit: (
-    id: string,
-    periodId: string,
-    userId: string,
-    input: ChangeUserAiLimit,
-  ) =>
-    post<{ budget: UserAiBudget; requestId: string }>(
-      `${base(id)}/licences/periods/${e(periodId)}/users/${e(userId)}/limit`,
       input,
     ),
   commerce: (id: string) => get<TeamCommerce>(`${base(id)}/commerce`),
