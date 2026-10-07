@@ -1494,6 +1494,12 @@ export type TeamPublication = {
   // reviewed version is independently reported here.
   currentReviewVersionId: string | null;
   publishedAt: string | null;
+  // V: why automatic publication will not open this registered result —
+  // "superseded": a newer version of its series is already under review;
+  // "legacy": registered before automatic publication. null: it opens to the
+  // team's internal members when its review copy is ready (or is published).
+  // The lead may still publish a skipped result explicitly.
+  automaticSkip: "superseded" | "legacy" | null;
   allowedActions: { publish: boolean };
 };
 export type PublicationMutationResult = {
@@ -1815,8 +1821,9 @@ export type ReviewDetail = {
     createdAt: string;
     updatedAt: string;
     audienceConfirmed: boolean;
-    /** V: "project" = everyone who can see the project (publication rounds,
-     * no audience list); "selected" = the explicit audience below. */
+    /** V: "project" = every internal member who can see the project
+     * (publication rounds) plus the external participants listed in
+     * `audience`; "selected" = exactly the explicit audience below. */
     audienceScope: "project" | "selected";
   };
   rounds: ReviewRound[];
@@ -1847,11 +1854,16 @@ export type ReviewAudiencePerson = ReviewPerson & {
 };
 export type ReviewAudienceCandidates = {
   currentUserId: string;
-  candidates: { userId: string; label: string; role: "lead" | "producer" | "reviewer" }[];
+  // external: a client participant; under "project" scope it sees the round
+  // only when listed.
+  candidates: { userId: string; label: string; role: "lead" | "producer" | "reviewer"; external: boolean }[];
 };
 /** "selected" (default, 0067): `audienceUserIds` and an approver among them.
- * "project" (V): everyone who can see the project; no list; the approver is
- * optional and must be a current explicit participant. */
+ * "project" (V): every internal member who can see the project (team viewers
+ * and internal participants) plus the participants listed in
+ * `audienceUserIds` — external participants (clients) see a project round
+ * only when the lead lists them for that round (automatic publication lists
+ * none). The approver is optional; an external approver must be listed. */
 export type ConfirmReviewAudience = {
   audienceScope?: "selected" | "project";
   audienceUserIds?: string[];
