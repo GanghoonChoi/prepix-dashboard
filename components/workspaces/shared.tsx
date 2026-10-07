@@ -1,6 +1,7 @@
 "use client";
 import { Building2, UserRound } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
+import { PageHeader } from "@/components/ui";
 import { useI18n } from "@/lib/i18n/context";
 import {
   isPersonal,
@@ -9,12 +10,13 @@ import {
 } from "@/lib/workspaces/kind";
 import type { WorkspaceDetail } from "@/lib/api/services/workspace.service";
 
+// Controls are 36px on a pointer and keep the 44px touch target below `sm`.
 export const inputClass =
-  "w-full rounded-md border border-border bg-field-background px-3 py-2.5 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-foreground/40";
+  "w-full rounded-md border border-field-border bg-field-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted focus-visible:border-foreground/40 focus-visible:ring-2 focus-visible:ring-foreground/10";
 export const primaryClass =
-  "inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-85 disabled:cursor-wait disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground";
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-accent px-3.5 py-1.5 text-[13px] font-medium text-accent-foreground transition-opacity hover:opacity-85 disabled:cursor-wait disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus sm:min-h-9";
 export const secondaryClass =
-  "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-border px-4 py-2 text-sm text-foreground transition-colors hover:bg-surface disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground";
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-border bg-background px-3.5 py-1.5 text-[13px] font-medium text-foreground transition-colors hover:bg-surface-secondary disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus sm:min-h-9";
 export function TeamShell({
   title,
   description,
@@ -29,20 +31,9 @@ export function TeamShell({
     /* The sidebar switcher names the space and the sidebar nav lists its
        pages, so a breadcrumb and a tab row here were the second and third
        copies of the same navigation. */
-    <div className="space-y-8 text-foreground">
-      {title && (
-        <header>
-          <h1 className="text-balance text-2xl font-semibold tracking-tight sm:text-3xl">
-            {title}
-          </h1>
-          {description && (
-            <p className="mt-3 max-w-2xl text-pretty text-sm leading-6 text-muted">
-              {description}
-            </p>
-          )}
-        </header>
-      )}
-      {children}
+    <div className="text-foreground">
+      {title && <PageHeader title={title} description={description} />}
+      <div className="space-y-8">{children}</div>
     </div>
   );
 }
@@ -122,9 +113,9 @@ export function TeamLoading() {
       <p role="status" className="sr-only">
         {t("team.loading")}
       </p>
-      <div className="h-8 w-48 animate-pulse rounded-md bg-foreground/[0.06]" />
-      <div className="h-28 animate-pulse rounded-xl bg-foreground/[0.06]" />
-      <div className="h-44 animate-pulse rounded-xl bg-foreground/[0.06]" />
+      <div className="h-7 w-40 animate-pulse rounded-md bg-surface-secondary" />
+      <div className="h-28 animate-pulse rounded-lg bg-surface-secondary" />
+      <div className="h-44 animate-pulse rounded-lg bg-surface-secondary" />
     </div>
   );
 }

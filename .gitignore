@@ -47,3 +47,4 @@ next-env.d.ts
 # Local browser verification
 /test-results/
 /playwright-report/
+.superpowers/

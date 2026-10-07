@@ -425,7 +425,7 @@ function NotificationsView({
   );
 }
 
-/** Sidebar entry with the account's unread count. A failure shows no number,
+/** Top-bar bell with the account's unread count. A failure shows no number,
  * never a zero; a disabled B2B service hides the entry. */
 export function NotificationEntry({ onClose }: { onClose?: () => void }) {
   const c = useCopy();
@@ -478,19 +478,20 @@ export function NotificationEntry({ onClose }: { onClose?: () => void }) {
     };
   }, [account]);
   if (hidden || !account) return null;
+  const label = count
+    ? c(`알림 · 읽지 않음 ${count}개`, `Notifications · ${count} unread`)
+    : c("알림", "Notifications");
   return (
     <Link
       href="/dashboard/notifications"
       onClick={onClose}
-      className="mx-3 mt-2 flex min-h-11 items-center gap-2 rounded-md px-3 text-[13px] text-muted transition-colors hover:text-foreground"
+      aria-label={label}
+      title={label}
+      className="relative grid size-8 place-items-center rounded-md text-muted transition-colors hover:bg-surface-secondary hover:text-foreground"
     >
-      <Bell className="h-4 w-4" aria-hidden />
-      <span className="flex-1">{c("알림", "Notifications")}</span>
+      <Bell size={16} strokeWidth={1.75} aria-hidden />
       {count ? (
-        <span
-          className="rounded-full bg-accent px-2 py-0.5 text-[11px] font-medium text-accent-foreground"
-          aria-label={c(`읽지 않은 알림 ${count}개`, `${count} unread`)}
-        >
+        <span className="absolute right-0.5 top-0.5 grid min-w-4 place-items-center rounded-full bg-foreground px-1 text-[10px] font-semibold leading-4 text-background tabular-nums">
           {count > 99 ? "99+" : count}
         </span>
       ) : null}

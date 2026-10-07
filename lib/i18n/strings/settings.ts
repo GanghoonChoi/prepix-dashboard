@@ -3,7 +3,9 @@ import type { Lang } from "../config";
 
 export const settings: Record<Lang, Record<string, string>> = {
   en: {
-    "settings.title": "Settings",
+    "settings.title": "Account settings",
+    "settings.theme": "Theme",
+    "settings.themeHint": "Follow your system, or keep the dashboard light or dark.",
     "settings.account": "Account",
     "settings.name": "Name",
     "settings.email": "Email",
@@ -34,7 +36,9 @@ export const settings: Record<Lang, Record<string, string>> = {
     "settings.deleteMailBody": "Please delete my Prepix account ({email}).",
   },
   ko: {
-    "settings.title": "설정",
+    "settings.title": "계정 설정",
+    "settings.theme": "테마",
+    "settings.themeHint": "시스템 설정을 따르거나 라이트·다크로 고정해요.",
     "settings.account": "계정",
     "settings.name": "이름",
     "settings.email": "이메일",

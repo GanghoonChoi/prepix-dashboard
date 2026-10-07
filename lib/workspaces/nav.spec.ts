@@ -80,8 +80,8 @@ test("a team has no web AI entry: team AI runs in the app on the person's seat",
     },
   } as const;
   assert.ok(
-    !hrefs({ cloudEnabled: true, managementEnabled: true, b2b }).some(
-      (href) => href.endsWith("/ai"),
+    !hrefs({ cloudEnabled: true, managementEnabled: true, b2b }).some((href) =>
+      href.endsWith("/ai"),
     ),
   );
 });
@@ -115,7 +115,11 @@ test("monthly statements follow current billing permission, never project access
       ...options,
       b2b: {
         ...b2b,
-        allowedActions: { ...b2b.allowedActions, projects: true, billing: false },
+        allowedActions: {
+          ...b2b.allowedActions,
+          projects: true,
+          billing: false,
+        },
       },
     }).includes("/dashboard/workspaces/w1/statements"),
   );
@@ -124,4 +128,29 @@ test("monthly statements follow current billing permission, never project access
       link.href.endsWith("/statements"),
     ),
   );
+});
+
+test("usage is a tab of plan & billing, so the plan entry stays lit there", () => {
+  assert.equal(
+    navActive("/dashboard/usage", "/dashboard/plan", "/dashboard"),
+    true,
+  );
+  assert.equal(
+    navActive("/dashboard/usage", "/dashboard", "/dashboard"),
+    false,
+  );
+  const personal = workspaceLinks(
+    { id: "p1", type: "personal" },
+    { cloudEnabled: false, managementEnabled: true },
+  );
+  assert.ok(!personal.some((link) => link.href === "/dashboard/usage"));
+});
+
+test("a personal space draws no 팀 section", () => {
+  const groups = workspaceLinks(
+    { id: "p1", type: "personal" },
+    { cloudEnabled: true, managementEnabled: true },
+  ).map((link) => link.group);
+  assert.ok(!groups.includes("team"));
+  assert.deepEqual(new Set(groups), new Set(["work", "manage"]));
 });

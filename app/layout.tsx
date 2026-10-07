@@ -38,8 +38,9 @@ export const metadata: Metadata = {
  * product.
  *
  * Order: `?theme=` (the site passes what the reader chose, the same way it
- * passes `?locale=`) → the OS preference → dark, which is what this app has
- * always been and stays the default for anyone arriving cold.
+ * passes `?locale=`) → the choice saved from the account menu (`lib/theme.ts`)
+ * → the OS preference → dark, which is what this app has always been and
+ * stays the default for anyone arriving cold.
  *
  * Inline and synchronous because a React effect runs after the first paint,
  * and a white flash on a dark page is worse than no theming at all. Failing
@@ -47,7 +48,8 @@ export const metadata: Metadata = {
  */
 const PICK_SCHEME = `try{
 var q=new URLSearchParams(location.search).get('theme');
-var t=(q==='light'||q==='dark')?q:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');
+var s=null;try{s=localStorage.getItem('px-theme')}catch(e){}
+var t=(q==='light'||q==='dark')?q:(s==='light'||s==='dark')?s:(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark');
 var e=document.documentElement;
 e.classList.toggle('dark',t==='dark');
 e.classList.toggle('light',t==='light');
