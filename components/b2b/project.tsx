@@ -285,12 +285,12 @@ function VisibilitySection({
       <p className="max-w-3xl text-sm leading-6 text-muted">
         {project.visibility === "team"
           ? c(
-              "팀 전체 공개: 팀의 모든 내부 멤버가 이 프로젝트와 발행된 영상을 보고 코멘트할 수 있고, 팀 검토자를 제외한 멤버는 팀 공용 클라우드처럼 자료를 올리고 받고 결과를 발행할 수 있습니다. 공개 범위·완료·승인자·공유 링크 관리는 담당자만 합니다. 외부 참여자는 담당자가 회차에 추가하거나 공유 링크를 보낼 때만 봅니다. AI 사용은 자료별 권한을 따릅니다.",
-              "Team-wide: every internal team member can see this project and its published videos and comment on them; members other than team reviewers can also upload and download files and publish results, like a shared team cloud. Visibility, completion, approver and share links stay with the lead. External participants see a video only when the lead adds them to the round or sends a share link. AI use follows per-file permissions.",
+              "팀 전체 공개: 팀의 모든 내부 멤버가 이 프로젝트와 발행된 영상을 보고 코멘트할 수 있고, 팀 검토자를 제외한 멤버는 팀 공용 클라우드처럼 자료를 올리고 받고 결과를 발행할 수 있습니다. 공개 범위·완료·승인자·공유 링크 관리는 담당자만 합니다. 외부 참여자는 자기가 발행한 결과의 회차와, 담당자가 회차에 추가하거나 공유 링크를 보낸 영상만 봅니다. AI 사용은 자료별 권한을 따릅니다.",
+              "Team-wide: every internal team member can see this project and its published videos and comment on them; members other than team reviewers can also upload and download files and publish results, like a shared team cloud. Visibility, completion, approver and share links stay with the lead. External participants see the rounds of results they published themselves, and others only when the lead adds them to the round or sends a share link. AI use follows per-file permissions.",
             )
           : c(
-              "비공개: 참여자만 이 프로젝트를 볼 수 있습니다. 참여하지 않은 소유자·관리자에게도 보이지 않습니다. 발행 영상은 내부 참여자에게 자동 공개되고, 외부 참여자는 담당자가 회차에 추가하거나 공유 링크를 보낼 때만 봅니다.",
-              "Private: only participants can see this project, including owners and admins who don't participate. Published videos open to internal participants automatically; external participants see them only when the lead adds them to the round or sends a share link.",
+              "비공개: 참여자만 이 프로젝트를 볼 수 있습니다. 참여하지 않은 소유자·관리자에게도 보이지 않습니다. 발행 영상은 내부 참여자에게 자동 공개되고, 외부 참여자는 자기가 발행한 결과의 회차와, 담당자가 회차에 추가하거나 공유 링크를 보낸 영상만 봅니다.",
+              "Private: only participants can see this project, including owners and admins who don't participate. Published videos open to internal participants automatically; external participants see the rounds of results they published themselves, and others only when the lead adds them to the round or sends a share link.",
             )}
       </p>
       {project.allowedActions.changeVisibility && !open && (
