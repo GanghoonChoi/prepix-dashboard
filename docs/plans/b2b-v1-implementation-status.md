@@ -2,11 +2,22 @@
 
 기준 문서: `b2b-v1-implementation-plan-2026-10-05.md`. 목표는 계획 전체 구현이며 아래 첫 묶음으로 범위를 축소하지 않는다. 데스크톱 기준은 사용자 지정 `prepix(beta)`다. 서버와 beta 앱은 `codex/b2b-v1`, 현재 웹은 `/Users/spagettimaker/.codex/worktrees/b2b-file-lifecycle/prepix-dashboard`의 `codex/b2b-file-lifecycle`에서 작업한다. 원래 웹 폴더의 별도 작업 브랜치는 유지한다.
 
+## 최종 통합 요약: 2026-10-07
+
+레인 W·A·F·E+·E+web·G·H·T·V·K를 주 저장소에 모두 합쳤다(push·배포 없음). 최종 HEAD는 서버 `codex/b2b-v1` `9d53b6e`, 웹 `codex/b2b-file-lifecycle`(이 문서 커밋), 앱 `codex/b2b-v1` `491e6c0a3`, 콘솔 `codex/b2b-v1` `b57b932`. migration은 0000~0090(91개)이고, 새 DB 전체 적용과 0089 상태 DB(H 시절 팀 AI 행 포함)에 0090만 얹는 승격을 둘 다 확인했다.
+
+- **팀 AI는 사용자 결정으로 없앴다(2026-10-07).** 팀 공간의 AI는 개인 AI와 같고, 사람마다 팀 미터(`b2b_team_ai_usage`, 좌석당 값)에서 차감된다(K). 그래서 S30 AI 실행 화면·팀 AI 사용량 화면·홈 AI 목록과 서버 팀 AI 경로(`ai/jobs`·`ai/usage`·`ai/capabilities`·`…/ai/quotes`)를 내렸다(웹·API 모두 404 확인). 결정 문서: `b2b-v1-decision-team-space-ai-2026-10-07.md`.
+- **H2(`claude/final-seat-ai-ux`)는 K에 대체되어 병합하지 않았다.** H(좌석별 팀 AI 원장)는 병합돼 있지만, 팀 공간 AI 요금은 K의 사람별 미터가 맡는다.
+- 핵심 시나리오를 한 번에 끝까지 돌렸다(실제 API·Chrome·빌드 Electron·PG 대역·공급자 대역). 팀 생성·좌석 구매 → 초대·좌석 배정 → 팀 사본에서 AI(팀 미터만 3초) → 개인 프로젝트 AI(개인 미터만 3초) → 앱 발행 → 좌석 없는 내부 멤버가 웹 '최근 발행'에서 재생·코멘트, 소유자도 확인 → 앱 업로드 원본을 웹에서 SHA 일치로 수령 → 부정 경로 4종. 증거는 `prepix-parallel/final/shared-scratch/int/scenario/`.
+- 통합 중 고친 것: 앱에서 좌석이 끝난 팀 사본의 분석 거절이 '중간에 멈춤·다시 시도'로 보이던 문제와 옛 견적형 팀 AI를 설명하던 배너 문구(앱 `783719f2f`). 오래된 시험 셋을 고쳤다(서버 `9d53b6e`, 웹 `fa0e2bd`, 앱 `491e6c0a3`).
+- 게이트: 서버 전체 1048/1052(실패 4 = 날짜 고정 toss-renewal 기준선), 웹 단위 248·tsc·eslint 0·production 빌드·Chrome 60/60, 앱 lint 0·typecheck 17/17·vitest 16148 통과(실패 1 = 기존 atomic-rename 계약)·빌드 Electron 10/10, 콘솔 기본 4+통합 3/3.
+- 남은 것: P17 좌석당 값, 앱 밖 하네스(기본 차단) 허용 여부, 퇴역 팀 AI 코드(`ponytail:`) 삭제, 홈·이용권 응답에 남은 옛 `aiJobs`/`aiUsage`/`budgets` 필드, 목록을 열기만 해도 참여 행이 생기는 지연 참여. 자세한 것은 `prepix-parallel/final/HANDOFF.md`의 "최종 통합"에 있다.
+
 ## 결정 변경: 2026-10-06 팀 공개 범위·발행 즉시 검토 (V)
 
 - 유저 결정으로 프로젝트 공개 범위를 "팀 전체 + 선택적 비공개"로, 결과 발행을 "검토본 준비 즉시 팀 검토"로 바꿨다(기존 행은 비공개로 이행). 결정·기본값·원 항목(P01/P02·P03·F03·F04·F09·F12·F14·F15·S34·F19) 변경은 `b2b-v1-decision-team-visibility-2026-10-06.md`, 서버 SOT는 백엔드 `backend/docs/b2b-team-visibility.md`.
 
-## 최신 요약: 2026-10-06 홈·원본 복구·전체 입력 AI 보강
+## 이전 요약: 2026-10-06 홈·원본 복구·전체 입력 AI 보강
 
 C/D/E 리뷰 통합을 유지하며 F03 홈, F11 클라우드 원본 복구, F07 전체 입력 러프컷/다중 분석을 추가했다. 전체 개발 추정은 **약 70%**다. 기능·클라이언트 연결과 남은 정책/운영 인수를 고려한 추정이며 테스트 통과율이나 출시 준비율이 아니다. 웹 홈/러프컷의 최종 production 인수도 통과했다. 목록 복귀·발행 전송 제어·정확한 검토 연결·공통 인증 회귀 보강은 진행 중이며 아래 완료분과 구분한다.
 
