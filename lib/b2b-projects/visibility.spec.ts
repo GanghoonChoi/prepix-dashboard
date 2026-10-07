@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { projectSurfaces, visibilityChange } from "./visibility";
+import { projectSurfaces, projectTabs, visibilityChange } from "./visibility";
 
 test("a team viewer loads no work surface; participants keep their v1 surfaces", () => {
   assert.deepEqual(projectSurfaces("viewer"), {
@@ -23,4 +23,14 @@ test("widening to team needs the confirmation and a reason before anything is se
   assert.throws(() => visibilityChange(project, { reason: "공유", confirmed: false }), { message: "B2B_PROJECT_VISIBILITY_CONFIRMATION_REQUIRED" });
   assert.throws(() => visibilityChange(project, { reason: " ", confirmed: true }), { message: "B2B_REASON_REQUIRED" });
   assert.deepEqual(visibilityChange(project, { reason: " 팀 공유 ", confirmed: true }), { visibility: "team", revision: 7, confirmTeamWide: true, reason: "팀 공유" });
+});
+
+test("folder tabs follow the same surfaces as the pages behind them", () => {
+  const labels = (role: Parameters<typeof projectTabs>[1]) =>
+    projectTabs("/f", role).map((t) => t.ko);
+  assert.deepEqual(labels("lead"), ["개요", "자료", "영상 검토", "요청사항", "참여자", "납품"]);
+  // A reviewer works in reviews and requests, never the roster.
+  assert.ok(!labels("reviewer").includes("참여자"));
+  // A team viewer reads; no requests, delivery or roster.
+  assert.deepEqual(labels("viewer"), ["개요", "자료", "영상 검토"]);
 });

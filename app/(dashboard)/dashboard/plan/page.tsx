@@ -404,7 +404,7 @@ export default function PlanPage() {
       <div className="space-y-10">
 
       {justUpgraded && (
-        <div className="rounded-md border border-border bg-foreground/[0.03] px-4 py-3 text-sm text-foreground">
+        <div className="rounded-md border border-border bg-surface px-4 py-3 text-sm text-foreground">
           {t("plan.paymentReceived")}
         </div>
       )}
@@ -574,7 +574,7 @@ export default function PlanPage() {
                   key={plan.id}
                   className={`flex flex-col rounded-lg border p-6 transition-colors ${
                     isCurrent
-                      ? "border-foreground/30 bg-foreground/[0.02]"
+                      ? "border-foreground/30 bg-surface"
                       : emphasize
                         ? "border-foreground/25 hover:border-foreground/40"
                         : "border-border hover:border-foreground/15"
@@ -584,10 +584,10 @@ export default function PlanPage() {
                     <div className="flex items-center justify-between">
                       <p className="text-base font-semibold text-foreground">{plan.displayName}</p>
                       {emphasize && (
-                        <span className="text-[10px] font-medium uppercase tracking-widest text-muted">{t("plan.popular")}</span>
+                        <span className="text-[10px] font-medium  text-muted">{t("plan.popular")}</span>
                       )}
                       {isCurrent && (
-                        <span className="text-[10px] font-medium uppercase tracking-widest text-muted">{t("plan.current")}</span>
+                        <span className="text-[10px] font-medium  text-muted">{t("plan.current")}</span>
                       )}
                     </div>
 

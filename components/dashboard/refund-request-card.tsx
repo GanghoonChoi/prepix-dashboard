@@ -86,7 +86,7 @@ export function RefundRequestCard({
   };
 
 
-  if (loading) return <Skeleton className="h-32 w-full rounded-xl" />;
+  if (loading) return <Skeleton className="h-32 w-full rounded-lg" />;
   // The offer already says a request is pending; failing to load the thread
   // should not also erase that fact.
   if (!thread) return null;
@@ -105,7 +105,7 @@ export function RefundRequestCard({
         : t("refund.statusOpen");
 
   return (
-    <section className="rounded-xl border border-border bg-surface p-5 sm:p-6">
+    <section className="rounded-lg border border-border bg-surface p-5 sm:p-6">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-sm font-medium text-foreground">{t("refund.cardTitle")}</h2>

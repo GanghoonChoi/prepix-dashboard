@@ -121,6 +121,21 @@ export const billingCode = (e: unknown) =>
 /** The billing view of one team for the signed-in account. Reads after the
  * first pin the account; a changed account, team or service clears every
  * value from the previous one and never shows its business data. */
+/** One topic, three pages: the plan, the billing details it runs on, and the
+ * monthly statements it produces. They used to be two sidebar entries and a
+ * button, with no way across from statements back to the plan. */
+export const billingTabs = (
+  workspaceId: string,
+  c: (ko: string, en: string) => string,
+) => {
+  const base = `/dashboard/workspaces/${workspaceId}`;
+  return [
+    { href: `${base}/plan`, label: c("개요", "Overview") },
+    { href: `${base}/plan/settings`, label: c("결제 정보", "Billing details") },
+    { href: `${base}/statements`, label: c("월 이용명세서", "Statements") },
+  ];
+};
+
 export function useTeamBilling(workspaceId: string) {
   const store = useMemo(() => new BrowserBillingStore(), []);
   const [billing, setBilling] = useState<TeamBilling | null>(null);

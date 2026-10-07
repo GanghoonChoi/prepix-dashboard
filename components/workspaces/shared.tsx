@@ -1,7 +1,7 @@
 "use client";
 import { Building2, UserRound } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
-import { PageHeader } from "@/components/ui";
+import { PageHeader, PageTabs } from "@/components/ui";
 import { useI18n } from "@/lib/i18n/context";
 import {
   isPersonal,
@@ -20,11 +20,17 @@ export const secondaryClass =
 export function TeamShell({
   title,
   description,
+  tabs,
+  actions,
   children,
 }: {
   /** Omit when the page's first section already carries its own heading. */
   title?: string;
   description?: string;
+  /** Sibling pages of one topic (e.g. 플랜과 결제 · 결제 정보 · 월 이용명세서). */
+  tabs?: { href: string; label: string }[];
+  /** The page's own actions, beside the title. */
+  actions?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -32,7 +38,8 @@ export function TeamShell({
        pages, so a breadcrumb and a tab row here were the second and third
        copies of the same navigation. */
     <div className="text-foreground">
-      {title && <PageHeader title={title} description={description} />}
+      {title && <PageHeader title={title} description={description} actions={actions} />}
+      {tabs && <PageTabs tabs={tabs} />}
       <div className="space-y-8">{children}</div>
     </div>
   );
@@ -177,7 +184,7 @@ export function ConfirmDialog({
       role="alertdialog"
       aria-modal="true"
       aria-label={label}
-      className="space-y-4 rounded-xl border border-border bg-surface p-5"
+      className="space-y-4 rounded-lg border border-border bg-surface p-5"
     >
       {children}
     </div>
@@ -327,12 +334,12 @@ export function SeatBreakdown({
   return (
     <section
       data-seats="split"
-      className="space-y-5 rounded-xl border border-border p-5"
+      className="space-y-5 rounded-lg border border-border p-5"
     >
       <h2 className="text-sm font-medium">{t("team.seats")}</h2>
       {groups.map(([group, rows]) => (
         <div key={group} className="space-y-3">
-          <p className="text-[11px] uppercase tracking-wide text-muted">
+          <p className="text-[11px]  text-muted">
             {t(group)}
           </p>
           <dl className="grid grid-cols-2 gap-x-4 gap-y-4 sm:grid-cols-3">

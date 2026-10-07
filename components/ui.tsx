@@ -45,7 +45,11 @@ export function PageTabs({
   return (
     <nav className="-mt-2 mb-6 flex gap-5 border-b border-border text-[13px]">
       {tabs.map((tab) => {
-        const active = path === tab.href;
+        // The first tab is the topic's own page; the others also stay lit on
+        // their children (a statement month, a request).
+        const active =
+          path === tab.href ||
+          (tab.href !== tabs[0].href && path.startsWith(`${tab.href}/`));
         return (
           <Link
             key={tab.href}

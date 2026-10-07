@@ -95,7 +95,7 @@ export const plan: Record<Lang, Record<string, string>> = {
   },
   ko: {
     "plan.title": "플랜",
-    "plan.sectionTitle": "플랜 · 결제",
+    "plan.sectionTitle": "플랜과 결제",
     "plan.statusActive": "활성",
     "plan.statusTrial": "체험",
     "plan.statusPastDue": "결제 필요",

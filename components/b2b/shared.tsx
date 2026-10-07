@@ -1,4 +1,5 @@
 "use client";
+import { projectTabs } from "@/lib/b2b-projects/visibility";
 
 
 import { useI18n } from "@/lib/i18n/context";
@@ -31,6 +32,18 @@ export const visibilityLabels: Record<ProjectVisibility, [string, string]> = {
   team: ["팀 공개", "Team-wide"],
   private: ["비공개", "Private"],
 };
+/** The folder tab row for a page of `project` (see `projectTabs`). */
+export function folderTabs(
+  workspaceId: string,
+  project: { id: string; role: Parameters<typeof projectTabs>[1] },
+  c: (ko: string, en: string) => string,
+) {
+  return projectTabs(
+    `/dashboard/workspaces/${workspaceId}/projects/${project.id}`,
+    project.role,
+  ).map((t) => ({ href: t.href, label: c(t.ko, t.en) }));
+}
+
 export function useCopy() {
   const { lang } = useI18n();
   return (ko: string, en: string) => (lang === "ko" ? ko : en);
@@ -383,7 +396,7 @@ export function B2bError({
 export function VisibilityBadge({ visibility }: { visibility: ProjectVisibility }) {
   const c = useCopy();
   return (
-    <span className="rounded-full border border-border px-2.5 py-1 text-xs">
+    <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs">
       {c(...visibilityLabels[visibility])}
     </span>
   );
@@ -391,7 +404,7 @@ export function VisibilityBadge({ visibility }: { visibility: ProjectVisibility 
 export function StateBadge({ state }: { state: TeamState | ProjectState }) {
   const c = useCopy();
   return (
-    <span className="rounded-full border border-border px-2.5 py-1 text-xs">
+    <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs">
       {c(...stateLabels[state])}
     </span>
   );

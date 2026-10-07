@@ -23,6 +23,7 @@ import {
   type WorkspaceDetail,
 } from "@/lib/api/services/workspace.service";
 import { useI18n } from "@/lib/i18n/context";
+import { useWorkspace } from "@/components/workspaces/workspace-context";
 import { bytes } from "@/lib/workspaces/upload";
 import { contentGone } from "@/lib/workspaces/errors";
 import { isPersonal } from "@/lib/workspaces/kind";
@@ -84,6 +85,7 @@ export default function MediaPage({
 
 function Content({ id }: { id: string }) {
   const { lang } = useI18n();
+  const legacy = !!useWorkspace()?.b2b?.enrolled;
   const c = (ko: string, en: string) => (lang === "ko" ? ko : en);
   const [data, setData] = useState<ArchiveDetail | null>(null);
   const [team, setTeam] = useState<WorkspaceDetail | null>(null);
@@ -378,7 +380,10 @@ function Content({ id }: { id: string }) {
       title={
         personal
           ? c("내 아카이브", "Your archive")
-          : c("팀 아카이브", "Team archive")
+          : // A B2B team keeps its pre-B2B files here; the nav names it so.
+            legacy
+            ? c("기존 아카이브", "Legacy archive")
+            : c("팀 아카이브", "Team archive")
       }
     >
       {appFallback && appLink && (
@@ -521,7 +526,7 @@ function Content({ id }: { id: string }) {
                       onClick={() => chooseView(mode)}
                       className={`grid size-9 place-items-center rounded transition-colors ${
                         view === mode
-                          ? "bg-foreground/[0.08] text-foreground"
+                          ? "bg-surface-secondary text-foreground"
                           : "text-muted hover:text-foreground"
                       }`}
                     >
@@ -627,7 +632,7 @@ function Content({ id }: { id: string }) {
             <TransferPanel queue={queue} onCancel={cancelTransfer} />
             {editing && (
               <form
-                className="space-y-4 rounded-xl border border-border bg-surface p-5"
+                className="space-y-4 rounded-lg border border-border bg-surface p-5"
                 onSubmit={(e) => {
                   e.preventDefault();
                   void action("edit", async () => {
@@ -680,7 +685,7 @@ function Content({ id }: { id: string }) {
             )}
 
             {files.length === 0 && subfolders.length === 0 ? (
-              <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border px-6 py-14 text-center">
+              <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border px-6 py-14 text-center">
                 <Video size={26} strokeWidth={1.25} className="text-muted" />
                 <h3 className="font-medium">
                   {trash

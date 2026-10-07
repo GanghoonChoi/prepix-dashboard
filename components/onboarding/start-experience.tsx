@@ -237,7 +237,7 @@ export function StartExperience() {
         )}
 
         {!signedIn ? (
-          <section className="space-y-5 rounded-xl border border-border p-6">
+          <section className="space-y-5 rounded-lg border border-border p-6">
             <h2 className="font-medium">
               {copy("First, connect your account", "먼저 계정을 연결하세요")}
             </h2>
@@ -267,7 +267,7 @@ export function StartExperience() {
             {copy("Loading your workspace", "워크스페이스를 불러오는 중")}
           </p>
         ) : status === "error" ? (
-          <section className="space-y-4 rounded-xl border border-border p-6">
+          <section className="space-y-4 rounded-lg border border-border p-6">
             <p role="alert" className="text-sm leading-6">
               {copy(
                 "We could not reach your workspace. Nothing is lost — try again, or go straight to the app.",
@@ -293,7 +293,7 @@ export function StartExperience() {
           // Deliberately not a create button. Every account has a workspace; an
           // empty list means the server has not finished, and asking the user
           // to fix that by making one is how you end up with two.
-          <section className="space-y-4 rounded-xl border border-border p-6">
+          <section className="space-y-4 rounded-lg border border-border p-6">
             <p role="status" className="text-sm leading-6">
               {copy(
                 "Your workspace is being prepared. This usually takes a moment.",
@@ -352,7 +352,7 @@ export function StartExperience() {
             // form here that could pretend otherwise. The step stays in the
             // sequence so the shape of first run does not change under people
             // who came back to it.
-            <section className="space-y-5 rounded-xl border border-border p-6">
+            <section className="space-y-5 rounded-lg border border-border p-6">
               <p className="text-sm leading-6">{t("team.startNoTeam")}</p>
               <button
                 className={secondaryClass}
@@ -374,7 +374,7 @@ export function StartExperience() {
         {signedIn && (step === "app" || step === "edit") && (
           <>
             {workspace && step === "app" && (
-              <aside className="space-y-2 rounded-xl border border-border bg-surface p-5">
+              <aside className="space-y-2 rounded-lg border border-border bg-surface p-5">
                 <p className="font-medium">
                   {personal ? t("team.kind.personal") : workspace.name}
                 </p>
@@ -396,7 +396,7 @@ export function StartExperience() {
               </aside>
             )}
             {step === "app" ? (
-              <section className="space-y-6 rounded-xl border border-border p-6">
+              <section className="space-y-6 rounded-lg border border-border p-6">
                 <div className="flex flex-wrap gap-3">
                   <a
                     className={primaryClass}
@@ -431,7 +431,7 @@ export function StartExperience() {
                 </p>
               </section>
             ) : (
-              <section className="space-y-6 rounded-xl border border-border p-6">
+              <section className="space-y-6 rounded-lg border border-border p-6">
                 <ol className="space-y-6">
                   {[
                     [
@@ -506,7 +506,7 @@ function JoinStep({
   const copy = (en: string, korean: string) => (ko ? korean : en);
   const count = list.pendingInvitationCount ?? list.invitations.length;
   return (
-    <section className="space-y-5 rounded-xl border border-border p-6">
+    <section className="space-y-5 rounded-lg border border-border p-6">
       {list.invitations.length > 0 ? (
         <ul className="divide-y divide-border">
           {list.invitations.map((invite) => (
@@ -580,7 +580,7 @@ function PersonalStep({
   }, []);
   const b2b = capabilities?.newTeamPolicy === "b2b_v1";
   return (
-    <section className="space-y-5 rounded-xl border border-border p-6">
+    <section className="space-y-5 rounded-lg border border-border p-6">
       <p className="text-sm leading-6 text-muted">{t("team.personalDesc")}</p>
       {open ? (
         <form
@@ -723,7 +723,7 @@ function WorkspaceStep({
     }
   }
   return (
-    <section className="space-y-5 rounded-xl border border-border p-6">
+    <section className="space-y-5 rounded-lg border border-border p-6">
       {canRename ? (
         <form className="space-y-4" onSubmit={save}>
           <label
@@ -824,7 +824,7 @@ function InviteStep({
     return () => window.clearTimeout(initial);
   }, [load]);
   return (
-    <section className="space-y-5 rounded-xl border border-border p-6">
+    <section className="space-y-5 rounded-lg border border-border p-6">
       {detail?.b2bEnrolled ? (
         <div className="space-y-3">
           <p className="text-sm leading-6 text-muted">

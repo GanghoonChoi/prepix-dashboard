@@ -117,7 +117,7 @@ export function RoleGuide() {
         onClick={guide.open}
         aria-label={title}
         title={title}
-        className="ml-1 inline-flex size-5 items-center justify-center rounded-full align-middle text-muted transition-colors hover:bg-foreground/[0.06] hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
+        className="ml-1 inline-flex size-5 items-center justify-center rounded-full align-middle text-muted transition-colors hover:bg-surface-secondary hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
       >
         <HelpCircle size={14} strokeWidth={1.75} aria-hidden="true" />
       </button>

@@ -1,6 +1,5 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { apiClient } from "@/lib/api/client";
 import {
   b2bService,
@@ -17,13 +16,12 @@ import { bytes } from "@/lib/workspaces/upload";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
   inputClass,
-  primaryClass,
   secondaryClass,
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
 import { FileTransfers } from "./file-transfers";
-import { B2bError, useCopy, previewStateCopy } from "./shared";
+import { folderTabs, B2bError, useCopy, previewStateCopy } from "./shared";
 import { useFileOperations } from "@/lib/b2b-files/use-operations";
 import {
   FileManager,
@@ -121,13 +119,8 @@ function FilesView({ scope }: { scope: FileScope }) {
     <TeamShell
       title={c("폴더 자료", "Folder files")}
       description={project.name}
+      tabs={folderTabs(scope.workspaceId, project, c)}
     >
-      <Link
-        className={secondaryClass}
-        href={`/dashboard/workspaces/${scope.workspaceId}/projects/${scope.projectId}`}
-      >
-        {c("폴더 개요", "Folder overview")}
-      </Link>
       <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted tabular-nums">
         <span>
           {c("팀 사용량", "Team storage used")}:{" "}
@@ -191,7 +184,7 @@ function FilesView({ scope }: { scope: FileScope }) {
               )}
             />
           </label>
-          <button type="submit" className={primaryClass}>
+          <button type="submit" className={secondaryClass}>
             {c("검색", "Search")}
           </button>
         </form>

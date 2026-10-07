@@ -64,7 +64,7 @@ export default function Page() {
           >
             {lang === "ko" ? "새로고침" : "Refresh"}
           </button>
-          <ol className="divide-y divide-border rounded-xl border border-border px-5">
+          <ol className="divide-y divide-border rounded-lg border border-border px-5">
             {result?.events.map((row) => (
               <li key={row.id} className="space-y-2 py-4">
                 <p className="text-sm font-medium">

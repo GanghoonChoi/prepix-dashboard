@@ -25,7 +25,6 @@ export type NavIcon =
   | "licence"
   | "status"
   | "plan"
-  | "statement"
   | "settings";
 export type NavLink = {
   href: string;
@@ -81,7 +80,7 @@ export function workspaceLinks(
       // Usage is a tab of this page now (navActive lights it there too).
       {
         href: "/dashboard/plan",
-        ko: "플랜 · 결제",
+        ko: "플랜과 결제",
         en: "Plan & billing",
         group: "manage",
         icon: "plan",
@@ -178,25 +177,15 @@ export function workspaceLinks(
         ? ([
             {
               href: `${base}/plan`,
-              ko: "플랜 · 결제",
+              ko: "플랜과 결제",
               en: "Plan & billing",
               group: "manage",
               icon: "plan",
             },
           ] as const)
         : []),
-      // S25: monthly statements are billing documents, not project content.
-      ...(status.allowedActions.billing
-        ? ([
-            {
-              href: `${base}/statements`,
-              ko: "월 이용명세서",
-              en: "Statements",
-              group: "manage",
-              icon: "statement",
-            },
-          ] as const)
-        : []),
+      // S25: monthly statements are billing documents, not project content —
+      // a tab of 플랜과 결제, under the same billing permission.
       {
         href: `${base}/status`,
         ko: "이용 상태",
@@ -239,7 +228,7 @@ export function workspaceLinks(
     },
     {
       href: `${base}/plan`,
-      ko: "플랜 · 결제",
+      ko: "플랜과 결제",
       en: "Plan & billing",
       group: "manage",
       icon: "plan",
@@ -269,7 +258,13 @@ export function navActive(pathname: string, href: string, base: string) {
   // Both overviews are prefixes of every page beneath them, so they have to
   // match exactly or they stay lit on all of their own children.
   const isOverview = href === base || href === "/dashboard";
-  if (href === "/dashboard/plan" && pathname.startsWith("/dashboard/usage"))
-    return true;
+  // 플랜과 결제 is lit on its other tabs: usage (personal), statements (team).
+  if (href.endsWith("/plan")) {
+    const tab =
+      href === "/dashboard/plan"
+        ? "/dashboard/usage"
+        : href.replace(/\/plan$/, "/statements");
+    if (pathname.startsWith(tab)) return true;
+  }
   return isOverview ? pathname === href : pathname.startsWith(href);
 }

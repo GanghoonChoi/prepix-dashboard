@@ -1,4 +1,5 @@
 "use client";
+import { billingTabs } from "./billing-shared";
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { apiClient } from "@/lib/api/client";
@@ -206,13 +207,13 @@ export function TeamStatements() {
   if (!b2b?.enrolled) return <B2bError code="B2B_TEAM_NOT_FOUND" />;
   if (!allowed) return <B2bError code="B2B_BILLING_PERMISSION_REQUIRED" />;
   return (
-    <TeamShell
-      title={c("월 이용명세서", "Monthly statements")}
-      description={c(
+    <TeamShell title={c("플랜과 결제", "Plan and billing")} tabs={billingTabs(scope.workspaceId, c)}>
+      <p className="text-[13px] text-muted">
+        {c(
         "한국 시간 달력 월마다 구매 금액을 정리합니다. 확정본과 정정본은 바뀌지 않으며 PDF로 받을 수 있습니다.",
         "Purchases per Korean calendar month. Issued and corrected versions never change and can be downloaded as PDF.",
       )}
-    >
+      </p>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SpaceBadge workspace={data.workspace} />
         <button className={secondaryClass} disabled={busy} onClick={() => void load()}>

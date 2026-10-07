@@ -253,8 +253,8 @@ function BenefitCard({
   }
 
   return (
-    <div className="flex gap-4 rounded-lg border border-border bg-foreground/[0.02] p-4">
-      <span className="grid size-10 shrink-0 place-items-center rounded-md bg-foreground/[0.06] text-foreground">
+    <div className="flex gap-4 rounded-lg border border-border bg-surface p-4">
+      <span className="grid size-10 shrink-0 place-items-center rounded-md bg-surface-secondary text-foreground">
         <Icon size={20} strokeWidth={1.5} aria-hidden="true" />
       </span>
       <div className="min-w-0">

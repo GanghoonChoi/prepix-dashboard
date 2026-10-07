@@ -132,7 +132,7 @@ export function Dialog({
             onClick={() => state.close()}
             aria-label={closeLabel}
             title={closeLabel}
-            className="absolute right-4 top-4 grid size-9 place-items-center rounded-md text-muted transition-colors hover:bg-foreground/[0.06] hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
+            className="absolute right-4 top-4 grid size-9 place-items-center rounded-md text-muted transition-colors hover:bg-surface-secondary hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
           >
             <X size={18} strokeWidth={1.5} aria-hidden="true" />
           </button>

@@ -118,7 +118,7 @@ export function RowMenu({
           }
           setOpen((was) => !was);
         }}
-        className="grid size-9 place-items-center rounded-md text-muted transition-colors hover:bg-foreground/[0.06] hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground aria-expanded:bg-foreground/[0.06]"
+        className="grid size-9 place-items-center rounded-md text-muted transition-colors hover:bg-surface-secondary hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground aria-expanded:bg-surface-secondary"
       >
         <MoreVertical size={16} strokeWidth={1.5} aria-hidden="true" />
       </button>
@@ -162,7 +162,7 @@ export function RowMenuItem({
       className={`flex min-h-10 w-full items-center rounded-md px-2 text-left text-[13px] transition-colors disabled:opacity-50 ${
         tone === "danger"
           ? "text-danger hover:bg-danger/[0.08]"
-          : "text-foreground/80 hover:bg-foreground/[0.04] hover:text-foreground"
+          : "text-foreground/80 hover:bg-surface hover:text-foreground"
       }`}
     >
       {children}

@@ -26,7 +26,7 @@ import {
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
-import { B2bError, accessEnded, freeIntent, errorCode, useCopy } from "./shared";
+import { folderTabs, B2bError, accessEnded, freeIntent, errorCode, useCopy } from "./shared";
 import { ReviewPending } from "./review-pending";
 
 // SOT: prepix-backend backend/docs/b2b-reviews.md (S34)
@@ -203,7 +203,7 @@ export const kst = (iso: string) =>
     timeStyle: "short",
   });
 export function Badge({ children }: { children: React.ReactNode }) {
-  return <span className="rounded-full border border-border px-2.5 py-1 text-xs">{children}</span>;
+  return <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs">{children}</span>;
 }
 export function useTeamScope() {
   const context = useWorkspace()!;
@@ -571,13 +571,10 @@ function ProjectReviewsInner({ projectId }: { projectId: string }) {
   const { project, list } = data;
   const base = `/dashboard/workspaces/${team}/projects/${projectId}`;
   return (
-    <TeamShell title={c("영상 검토", "Video reviews")} description={project.name}>
+    <TeamShell title={c("영상 검토", "Video reviews")} description={project.name} tabs={folderTabs(team, project, c)}>
       <ReviewPending scope={scope} />
       {stale && <ReviewError code={error} retry={() => void load()} />}
-      <div className="flex flex-wrap gap-3">
-        <Link className={secondaryClass} href={base}>
-          {c("폴더 개요", "Folder overview")}
-        </Link>
+      <div className="flex flex-wrap gap-3 empty:hidden">
         {list.allowedActions.create && (
           <button type="button" className={primaryClass} onClick={() => setCreating((v) => !v)}>
             {c("새 검토", "New review")}

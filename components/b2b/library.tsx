@@ -22,7 +22,6 @@ import { useFileDownloads } from "@/lib/b2b-files/use-downloads";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
   inputClass,
-  primaryClass,
   secondaryClass,
   TeamLoading,
   TeamShell,
@@ -213,7 +212,7 @@ function LibraryView({
             <option value="working">{c("작업 자료", "Working files")}</option>
           </select>
         </label>
-        <button className={primaryClass}>{c("검색", "Search")}</button>
+        <button className={secondaryClass}>{c("검색", "Search")}</button>
       </form>
       {error ? (
         <B2bError code={error} retry={() => void reload()} />

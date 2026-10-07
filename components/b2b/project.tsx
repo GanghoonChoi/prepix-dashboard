@@ -23,7 +23,7 @@ import {
   TeamShell,
 } from "@/components/workspaces/shared";
 import { PublishedItems, useRun } from "./reviews";
-import {
+import { folderTabs,
   B2bError,
   errorCode,
   StateBadge,
@@ -116,7 +116,29 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
   });
   const surfaces = projectSurfaces(project.role);
   return (
-    <TeamShell title={project.name}>
+    <TeamShell
+      title={project.name}
+      tabs={folderTabs(id, project, c)}
+      actions={
+        <>
+        {APP_ENTRY && appUrl && surfaces.app && (
+          <a className={secondaryClass} href={appUrl}>
+            {c("앱에서 작업하기", "Work in app")}
+          </a>
+        )}
+        {project.allowedActions.edit && (
+          <button
+            className={secondaryClass}
+            onClick={() => setEditing(!editing)}
+          >
+            {editing
+              ? c("개요 보기", "View overview")
+              : c("개요 수정", "Edit overview")}
+          </button>
+        )}
+        </>
+      }
+    >
       {error && <B2bError code={error} retry={() => void reload()} />}
       <div className="flex flex-wrap items-center gap-3">
         <SpaceBadge workspace={context.data.workspace} />
@@ -131,43 +153,6 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
           )}
         </p>
       )}
-      <div className="flex flex-wrap gap-3">
-        {APP_ENTRY && appUrl && surfaces.app && (
-          <a className={secondaryClass} href={appUrl}>
-            {c("앱에서 작업하기", "Work in app")}
-          </a>
-        )}
-        <Link
-          className={secondaryClass}
-          href={`/dashboard/workspaces/${id}/projects`}
-        >
-          {c("폴더 목록", "Folders")}
-        </Link>
-        <Link
-          className={secondaryClass}
-          href={`/dashboard/workspaces/${id}/projects/${projectId}/files`}
-        >
-          {c("자료", "Files")}
-        </Link>
-        {surfaces.people && (
-          <Link
-            className={secondaryClass}
-            href={`/dashboard/workspaces/${id}/projects/${projectId}/people`}
-          >
-            {c("참여자", "Participants")}
-          </Link>
-        )}
-        {project.allowedActions.edit && (
-          <button
-            className={secondaryClass}
-            onClick={() => setEditing(!editing)}
-          >
-            {editing
-              ? c("개요 보기", "View overview")
-              : c("개요 수정", "Edit overview")}
-          </button>
-        )}
-      </div>
       {editing && project.allowedActions.edit ? (
         <ProjectEditor
           key={project.id}
@@ -197,17 +182,9 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
             <h2 className="text-sm text-muted">
               {c("요청·납품·완료", "Requests, delivery and completion")}
             </h2>
+            {/* Requests and delivery are tabs now; the app's registered
+                results stay a link — they are a log, not a place to work. */}
             <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
-              {surfaces.requests && (
-                <Link className={moreLink} href={`/dashboard/workspaces/${id}/projects/${projectId}/requests`}>
-                  {c("요청사항", "Requests")}
-                </Link>
-              )}
-              {surfaces.delivery && (
-                <Link className={moreLink} href={`/dashboard/workspaces/${id}/projects/${projectId}/delivery`}>
-                  {c("납품·폴더 완료", "Delivery and completion")}
-                </Link>
-              )}
               {surfaces.publications && (
                 <Link className={moreLink} href={`/dashboard/workspaces/${id}/projects/${projectId}/publications`}>
                   {c("등록된 결과", "Registered results")}
@@ -639,14 +616,9 @@ export function ProjectParticipants({ projectId }: { projectId: string }) {
     <TeamShell
       title={c("폴더 참여자", "Folder participants")}
       description={project.name}
+      tabs={folderTabs(id, project, c)}
     >
       <SpaceBadge workspace={context.data.workspace} />
-      <Link
-        className={secondaryClass}
-        href={`/dashboard/workspaces/${id}/projects/${projectId}`}
-      >
-        {c("폴더 개요", "Folder overview")}
-      </Link>
       {rosterError && (
         <B2bError code={rosterError} retry={() => void loadPeople()} />
       )}

@@ -12,7 +12,6 @@ import {
   House,
   Library,
   LogOut,
-  ReceiptText,
   Settings,
   Ticket,
   UserRound,
@@ -40,7 +39,6 @@ export const NAV_ICONS: Record<NavIcon, LucideIcon> = {
   licence: Ticket,
   status: Activity,
   plan: CreditCard,
-  statement: ReceiptText,
   settings: Settings,
 };
 
