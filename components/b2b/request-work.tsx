@@ -84,8 +84,8 @@ function ScopedPanel({
             className={`${inputClass} min-w-0 max-w-64`}
             aria-label={c("요청 업무 검색", "Search request work")}
             placeholder={c(
-              "요청·프로젝트 검색",
-              "Search requests and projects",
+              "요청·폴더 검색",
+              "Search requests and folders",
             )}
             maxLength={100}
             value={search}
@@ -252,7 +252,7 @@ function WorkPage({
                 className={secondaryClass}
                 href={`/dashboard/workspaces/${scope.workspaceId}/projects/${scope.projectId}/requests`}
               >
-                {c("프로젝트 요청 전체", "All project requests")}
+                {c("폴더 요청 전체", "All folder requests")}
               </Link>
             )}
             <button className={secondaryClass} onClick={() => void load()}>

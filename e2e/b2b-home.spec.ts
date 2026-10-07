@@ -124,7 +124,7 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
       "내 원본 전송 준비.wav",
     ]);
     const projects = O.page.getByRole("region", {
-      name: "내 프로젝트",
+      name: "내 폴더",
       exact: true,
     });
     await expect(
@@ -142,7 +142,7 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
     );
     await transfer.click();
     await expect(
-      O.page.getByRole("heading", { name: "프로젝트 자료", exact: true }),
+      O.page.getByRole("heading", { name: "폴더 자료", exact: true }),
     ).toBeVisible();
     await O.page.goto(base);
     await expect(
@@ -159,7 +159,7 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
     E = await open(browser, external, base);
     await expect(
       E.page
-        .getByRole("region", { name: "내 프로젝트", exact: true })
+        .getByRole("region", { name: "내 폴더", exact: true })
         .getByText("홈에서 여는 내 프로젝트"),
     ).toBeVisible();
     await expect(
@@ -195,7 +195,7 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
       O.page.getByText("팀 자료 접근이 중지되었습니다.", { exact: false }),
     ).toBeVisible();
     await expect(
-      O.page.getByRole("region", { name: "내 프로젝트", exact: true }),
+      O.page.getByRole("region", { name: "내 폴더", exact: true }),
     ).toHaveCount(0);
     await expect(
       O.page.getByRole("region", { name: "전송·납품 업무", exact: true }),

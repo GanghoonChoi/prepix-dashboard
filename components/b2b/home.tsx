@@ -184,8 +184,8 @@ function ScopedHome({
               )
             : state === "active"
               ? c(
-                  "참여한 프로젝트와 지금 해야 할 업무를 확인하세요. 웹 참여와 앱 편집 이용권은 따로 관리됩니다.",
-                  "Review participating projects and current work. Web access and app editing licences are managed separately.",
+                  "참여한 폴더와 지금 해야 할 업무를 확인하세요. 웹 참여와 앱 편집 이용권은 따로 관리됩니다.",
+                  "Review participating folders and current work. Web access and app editing licences are managed separately.",
                 )
               : state === "read_only"
                 ? c(
@@ -200,7 +200,7 @@ function ScopedHome({
         <div className="flex flex-wrap gap-3">
           {status.allowedActions.projects && (
             <Link className={secondaryClass} href={`${base}/projects`}>
-              {c("내 프로젝트 전체", "All my projects")}
+              {c("내 폴더 전체", "All my folders")}
             </Link>
           )}
           {status.allowedActions.billing && (
@@ -233,8 +233,8 @@ function ScopedHome({
       {!data && !error && (
         <p role="status" className="text-sm text-muted">
           {c(
-            "내 프로젝트와 이용 상태를 확인하고 있습니다.",
-            "Checking your projects and entitlement status.",
+            "내 폴더와 이용 상태를 확인하고 있습니다.",
+            "Checking your folders and entitlement status.",
           )}
         </p>
       )}
@@ -326,11 +326,11 @@ function ScopedHome({
             <>
               <section
                 className="space-y-4 border-b border-border pb-8"
-                aria-label={c("내 프로젝트", "My projects")}
+                aria-label={c("내 폴더", "My folders")}
               >
                 <div className="flex items-center justify-between gap-3">
                   <h2 className="font-medium">
-                    {c("내 프로젝트", "My projects")}
+                    {c("내 폴더", "My folders")}
                   </h2>
                   <Link
                     href={`${base}/projects`}
@@ -366,16 +366,16 @@ function ScopedHome({
                 ) : (
                   <p className="text-sm text-muted">
                     {c(
-                      "현재 참여한 프로젝트가 없습니다. 담당자의 프로젝트 초대를 확인하세요.",
-                      "You have no current participating projects. Check for a project invitation.",
+                      "현재 참여한 폴더가 없습니다. 담당자의 폴더 초대를 확인하세요.",
+                      "You have no current participating folders. Check for a folder invitation.",
                     )}
                   </p>
                 )}
                 {data.projects.hasMore && (
                   <p className="text-xs text-muted">
                     {c(
-                      "최근 변경된 프로젝트 일부입니다. 나머지는 전체 보기에서 확인하세요.",
-                      "These are recently updated projects. View all to see the rest.",
+                      "최근 변경된 폴더 일부입니다. 나머지는 전체 보기에서 확인하세요.",
+                      "These are recently updated folders. View all to see the rest.",
                     )}
                   </p>
                 )}
@@ -425,8 +425,8 @@ function ScopedHome({
                 {data.recentPublications.hasMore && (
                   <p className="text-xs text-muted">
                     {c(
-                      "최근 발행 일부입니다. 나머지는 각 프로젝트의 영상 검토에서 확인하세요.",
-                      "These are the latest publications. Open a project's reviews for the rest.",
+                      "최근 발행 일부입니다. 나머지는 각 폴더의 영상 검토에서 확인하세요.",
+                      "These are the latest publications. Open a folder's reviews for the rest.",
                     )}
                   </p>
                 )}
@@ -544,8 +544,8 @@ function WorkList({
       {more && (
         <p className="text-xs text-muted">
           {c(
-            "더 많은 항목이 있습니다. 해당 프로젝트에서 전체 기록을 확인하세요.",
-            "More items exist. Open the project for its full history.",
+            "더 많은 항목이 있습니다. 해당 폴더에서 전체 기록을 확인하세요.",
+            "More items exist. Open the folder for its full history.",
           )}
         </p>
       )}

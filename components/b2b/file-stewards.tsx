@@ -207,8 +207,8 @@ function TransferForm({
       </h3>
       <p className="text-sm leading-6 text-muted">
         {c(
-          "자료 계열의 관리 책임을 후임에게 넘깁니다. 후임의 새 보관함 열람은 지금 선택한 버전에만 추가되며, 다른 비공개 버전과 프로젝트 참여는 함께 부여하지 않습니다. 기존 담당자의 열람 허용은 유지됩니다. 진행 중인 이 자료의 새 버전 전송은 중단됩니다.",
-          "Transfer responsibility for this file series. New library access is granted only to the selected version. Other private versions and project participation remain separately controlled. Existing read access is retained; pending new-version uploads for this series are stopped.",
+          "자료 계열의 관리 책임을 후임에게 넘깁니다. 후임의 새 보관함 열람은 지금 선택한 버전에만 추가되며, 다른 비공개 버전과 폴더 참여는 함께 부여하지 않습니다. 기존 담당자의 열람 허용은 유지됩니다. 진행 중인 이 자료의 새 버전 전송은 중단됩니다.",
+          "Transfer responsibility for this file series. New library access is granted only to the selected version. Other private versions and folder participation remain separately controlled. Existing read access is retained; pending new-version uploads for this series are stopped.",
         )}
       </p>
       <PendingStewards operations={operations} />
@@ -669,8 +669,8 @@ export function StewardInbox({
                   "Record why this request is cancelled. Accepted stewardship cannot be undone by cancelling the request.",
                 )
               : c(
-                  "지정된 버전의 보관함 열람과 자료 계열의 관리 책임을 수락합니다. 다른 비공개 버전과 프로젝트 참여는 추가되지 않습니다.",
-                  "Accept access to the named immutable version and responsibility for its file series. Other private versions and project participation remain separate.",
+                  "지정된 버전의 보관함 열람과 자료 계열의 관리 책임을 수락합니다. 다른 비공개 버전과 폴더 참여는 추가되지 않습니다.",
+                  "Accept access to the named immutable version and responsibility for its file series. Other private versions and folder participation remain separate.",
                 )}
           </p>
           {!cancelling && (

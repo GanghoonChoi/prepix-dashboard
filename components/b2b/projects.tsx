@@ -189,17 +189,17 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
     );
   return (
     <TeamShell
-      title={c("프로젝트", "Projects")}
+      title={c("폴더", "Folders")}
       description={c(
-        "참여 중인 프로젝트와 팀 공개 프로젝트가 표시됩니다.",
-        "Projects you participate in and team-wide projects are shown.",
+        "참여 중인 폴더와 팀 공개 폴더가 표시됩니다.",
+        "Folders you participate in and team-wide folders are shown.",
       )}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SpaceBadge workspace={context.data.workspace} />
         {status.enrolled && status.allowedActions.createProject && (
           <Link className={primaryClass} href={`${base}/new`}>
-            {c("프로젝트 만들기", "Create project")}
+            {c("폴더 만들기", "Create folder")}
           </Link>
         )}
       </div>
@@ -249,12 +249,12 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
         <p className="py-8 text-sm leading-6 text-muted">
           {status.enrolled && status.member.kind === "internal"
             ? c(
-                "참여한 프로젝트가 없습니다. 새 프로젝트를 만들 수 있습니다.",
-                "You have no projects yet. Create one to begin.",
+                "참여한 폴더가 없습니다. 새 폴더를 만들 수 있습니다.",
+                "You have no folders yet. Create one to begin.",
               )
             : c(
-                "초대된 프로젝트가 없습니다. 프로젝트 담당자에게 문의하세요.",
-                "There are no invited projects. Contact your project lead.",
+                "초대된 폴더가 없습니다. 폴더 담당자에게 문의하세요.",
+                "There are no invited folders. Contact your folder lead.",
               )}
         </p>
       ) : (
@@ -311,10 +311,10 @@ export function NewProject() {
     return <B2bError code="B2B_PROJECT_NOT_FOUND" />;
   return (
     <TeamShell
-      title={c("프로젝트 만들기", "Create project")}
+      title={c("폴더 만들기", "Create folder")}
       description={c(
-        "파일 없이 시작할 수 있습니다. 생성자는 프로젝트 담당자가 됩니다.",
-        "Start without uploading files. You become the project lead.",
+        "파일 없이 시작할 수 있습니다. 생성자는 폴더 담당자가 됩니다.",
+        "Start without uploading files. You become the folder lead.",
       )}
     >
       <SpaceBadge workspace={data.workspace} />
@@ -357,7 +357,7 @@ export function NewProject() {
         }}
       >
         <label className="block space-y-2 text-sm">
-          <span>{c("프로젝트명", "Project name")}</span>
+          <span>{c("폴더명", "Folder name")}</span>
           <input
             className={inputClass}
             maxLength={100}
@@ -402,8 +402,8 @@ export function NewProject() {
           />
           <span>
             {c(
-              "프로젝트에서 원본 공유 허용",
-              "Allow original sharing in the project",
+              "폴더에서 원본 공유 허용",
+              "Allow original sharing in the folder",
             )}
           </span>
         </label>
@@ -415,8 +415,8 @@ export function NewProject() {
                 "team",
                 c("팀 전체 공개", "Team-wide"),
                 c(
-                  "팀의 모든 내부 멤버가 프로젝트와 발행된 영상을 보고 코멘트하고, 팀 검토자를 제외한 멤버는 자료를 올리고 받고 결과를 발행할 수 있습니다(팀 공용 클라우드).",
-                  "Every internal team member can see the project and its published videos and comment; members other than team reviewers can also upload, download and publish results (shared team cloud).",
+                  "팀의 모든 내부 멤버가 폴더와 발행된 영상을 보고 코멘트하고, 팀 검토자를 제외한 멤버는 자료를 올리고 받고 결과를 발행할 수 있습니다(팀 공용 클라우드).",
+                  "Every internal team member can see the folder and its published videos and comment; members other than team reviewers can also upload, download and publish results (shared team cloud).",
                 ),
               ],
               [
@@ -449,7 +449,7 @@ export function NewProject() {
         <button className={primaryClass} disabled={busy || !name.trim()}>
           {busy
             ? c("만드는 중…", "Creating…")
-            : c("프로젝트 만들기", "Create project")}
+            : c("폴더 만들기", "Create folder")}
         </button>
       </form>
     </TeamShell>

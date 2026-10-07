@@ -18,7 +18,7 @@ test("F16 web: separate conditions, full-byte delivery attestation, completion l
   const L = await open(browser, lead, `${base}/files`);
   let R: Awaited<ReturnType<typeof open>> | undefined;
   try {
-    await expect(L.page.getByRole("heading", { name: "프로젝트 자료", exact: true })).toBeVisible();
+    await expect(L.page.getByRole("heading", { name: "폴더 자료", exact: true })).toBeVisible();
     await L.page.getByRole("combobox", { name: "자료 종류", exact: true }).selectOption("output");
     await upload(L.page, "cut-v1.mp4");
     await expect.poll(async () => (await json(request.get(`${root}/files`, { headers: lead.headers }))).versions.length, { timeout: 60_000 }).toBe(1);
@@ -29,11 +29,11 @@ test("F16 web: separate conditions, full-byte delivery attestation, completion l
     const review = await json(request.get(`${root}/reviews/${made.review.id}`, { headers: recipient.headers }));
     expect((await request.post(`${root}/reviews/${made.review.id}/decisions`, { headers: recipient.headers, data: { requestKey: randomUUID(), revision: review.review.revision, round: 1, versionId: video.id, decision: "approved", reason: "" } })).status()).toBe(201);
     await L.page.goto(`${base}/delivery`);
-    await expect(L.page.getByRole("heading", { name: "납품 확인과 프로젝트 완료", exact: true })).toBeVisible();
+    await expect(L.page.getByRole("heading", { name: "납품 확인과 폴더 완료", exact: true })).toBeVisible();
     await L.page.getByLabel("최종 영상 버전", { exact: true }).selectOption(video.id);
     await expect(L.page.getByRole("row").filter({ hasText: "최종 영상 승인" })).toContainText("충족");
     await expect(L.page.getByRole("row").filter({ hasText: "편집 자료 전달" })).toContainText("확인 필요");
-    await expect(L.page.getByRole("button", { name: "프로젝트 완료", exact: true })).toBeDisabled();
+    await expect(L.page.getByRole("button", { name: "폴더 완료", exact: true })).toBeDisabled();
     await L.page.getByLabel("편집 도구", { exact: true }).selectOption("external");
     const editing = { name: "local-fixture.project", mimeType: "application/octet-stream", buffer: Buffer.from("explicit local editor fixture: project and linked source") };
     const source = { name: "cut-v1.mp4", mimeType: "video/mp4", buffer: await readFile(resolve(media, "cut-v1.mp4")) };
@@ -74,20 +74,20 @@ test("F16 web: separate conditions, full-byte delivery attestation, completion l
     expect((await json(request.get(`${root}/delivery`, { headers: recipient.headers }))).receipts[0].sourceKind).toBe("external_tool_attestation");
     await L.page.reload();
     await expect(L.page.getByRole("row").filter({ hasText: "편집 자료 전달" })).toContainText("충족");
-    await expect(L.page.getByRole("button", { name: "프로젝트 완료", exact: true })).toBeEnabled();
+    await expect(L.page.getByRole("button", { name: "폴더 완료", exact: true })).toBeEnabled();
     let sends = 0, lost = false;
     await L.page.route(`${root}/delivery/receipts/complete/**`, (route) => lost ? route.abort() : route.continue());
     await L.page.route(`${root}/completion`, async (route) => { sends++; lost = true; expect((await route.fetch()).status()).toBe(201); await route.abort(); });
-    await L.page.getByRole("button", { name: "프로젝트 완료", exact: true }).click();
+    await L.page.getByRole("button", { name: "폴더 완료", exact: true }).click();
     await expect(L.page.getByText("결과 확인이 필요한 납품 변경", { exact: true })).toBeVisible();
     lost = false;
     await L.page.unroute(`${root}/completion`); await L.page.unroute(`${root}/delivery/receipts/complete/**`);
     await L.page.reload();
     await expect(L.page.getByText("결과 확인이 필요한 납품 변경", { exact: true })).toHaveCount(0);
-    await expect(L.page.getByRole("button", { name: "완료한 프로젝트 보관", exact: true })).toBeVisible();
+    await expect(L.page.getByRole("button", { name: "완료한 폴더 보관", exact: true })).toBeVisible();
     const completed = await json(request.get(`${root}/delivery`, { headers: lead.headers }));
     expect(completed.state).toBe("completed"); expect(completed.snapshots).toHaveLength(1); expect(sends).toBe(1);
-    await L.page.getByRole("button", { name: "완료한 프로젝트 보관", exact: true }).click();
+    await L.page.getByRole("button", { name: "완료한 폴더 보관", exact: true }).click();
     await expect(L.page.getByRole("button", { name: "보관 해제(완료 상태로)", exact: true })).toBeVisible();
     await L.page.getByRole("button", { name: "보관 해제(완료 상태로)", exact: true }).click();
     await expect(L.page.getByRole("heading", { name: "사유를 남기고 작업 재개", exact: true })).toBeVisible();
@@ -98,7 +98,7 @@ test("F16 web: separate conditions, full-byte delivery attestation, completion l
     await expect(L.page.getByText(/^작업 재개 · .*최종 장면 변경 요청$/)).toBeVisible();
     const reopened = await json(request.get(`${root}/delivery`, { headers: lead.headers }));
     expect(reopened.state).toBe("in_progress"); expect(reopened.snapshots).toHaveLength(1); expect(reopened.reopens[0].reconfirm.video).toBe(true);
-    await expect(L.page.getByRole("button", { name: "프로젝트 완료", exact: true })).toBeDisabled();
+    await expect(L.page.getByRole("button", { name: "폴더 완료", exact: true })).toBeDisabled();
     await L.page.setViewportSize({ width: 390, height: 844 });
     expect(await L.page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
     expect(L.errors).toEqual([]); expect(R.errors).toEqual([]);

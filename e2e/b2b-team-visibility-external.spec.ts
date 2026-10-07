@@ -68,7 +68,7 @@ test("V: an external client does not see an automatically published round until 
   // current (project) round, and the client is ticked as an external.
   const L = await open(browser, lead, `${base}/reviews/${reviewId}`);
   const audience = L.page.getByRole("heading", { name: "검토 대상 변경", exact: true }).locator("..");
-  await expect(audience.getByRole("radio", { name: "프로젝트 내부 전체 공개", exact: true })).toBeChecked({ timeout: 30_000 });
+  await expect(audience.getByRole("radio", { name: "폴더 내부 전체 공개", exact: true })).toBeChecked({ timeout: 30_000 });
   await expect(audience.getByText("외부 참여자에게도 이 회차 공개 (선택)", { exact: true })).toBeVisible();
   await audience.getByRole("checkbox", { name: "tvx-client · 검토자", exact: true }).check();
   await audience.getByLabel("대상 변경 사유(필수)", { exact: true }).fill("고객 검토 시작");
@@ -77,7 +77,7 @@ test("V: an external client does not see an automatically published round until 
   await expect(L.page.getByText(/V1 · 회차 2/)).toBeVisible({ timeout: 30_000 });
   const opened = await json(request.get(`${root}/reviews/${reviewId}`, { headers: lead.headers }));
   expect([opened.review.audienceScope, opened.review.round, opened.audience.map((p: { userId: string }) => p.userId)]).toEqual(["project", 2, [client.id]]);
-  await expect(L.page.getByText("현재 검토 대상: 프로젝트 내부 전체 공개 · 외부 tvx-client", { exact: true })).toBeVisible();
+  await expect(L.page.getByText("현재 검토 대상: 폴더 내부 전체 공개 · 외부 tvx-client", { exact: true })).toBeVisible();
 
   // The client now sees round 2 only; round 1 and its internal comment stay internal.
   const seen = await json(request.get(`${root}/reviews/${reviewId}`, { headers: client.headers }));

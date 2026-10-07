@@ -129,8 +129,8 @@ function TrashForm({
       </p>
       <p className="text-sm text-muted">
         {c(
-          "선택한 버전만 휴지통으로 이동합니다. 다른 프로젝트에서 사용 중이거나 보존 근거가 있으면 이동할 수 없습니다. 휴지통에서도 팀 저장 용량에 포함되며, 복원 기한은 30일과 팀 삭제 예정일 중 빠른 날짜입니다.",
-          "Only this version moves to trash. Current project references or retention evidence block the move. Trash counts toward team storage; restoration ends at the earlier of 30 days or team deletion.",
+          "선택한 버전만 휴지통으로 이동합니다. 다른 폴더에서 사용 중이거나 보존 근거가 있으면 이동할 수 없습니다. 휴지통에서도 팀 저장 용량에 포함되며, 복원 기한은 30일과 팀 삭제 예정일 중 빠른 날짜입니다.",
+          "Only this version moves to trash. Current folder references or retention evidence block the move. Trash counts toward team storage; restoration ends at the earlier of 30 days or team deletion.",
         )}
       </p>
       <PendingTrash operations={operations} />
@@ -246,8 +246,8 @@ export function TrashPanel({
       <h2 className="font-medium">{c("휴지통", "Trash")}</h2>
       <p className="text-sm text-muted">
         {c(
-          "현재 접근이 허용된 버전만 표시합니다. 복원해도 해제된 프로젝트 연결이나 회수된 권한은 되살리지 않습니다. 영구 삭제 요청 후에는 복원할 수 없습니다.",
-          "Only currently accessible versions are listed. Restoring does not revive removed project links or permissions. Permanent deletion requests cannot be undone.",
+          "현재 접근이 허용된 버전만 표시합니다. 복원해도 해제된 폴더 연결이나 회수된 권한은 되살리지 않습니다. 영구 삭제 요청 후에는 복원할 수 없습니다.",
+          "Only currently accessible versions are listed. Restoring does not revive removed folder links or permissions. Permanent deletion requests cannot be undone.",
         )}
       </p>
       <PendingTrash operations={operations} />

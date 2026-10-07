@@ -119,14 +119,14 @@ function FilesView({ scope }: { scope: FileScope }) {
   );
   return (
     <TeamShell
-      title={c("프로젝트 자료", "Project files")}
+      title={c("폴더 자료", "Folder files")}
       description={project.name}
     >
       <Link
         className={secondaryClass}
         href={`/dashboard/workspaces/${scope.workspaceId}/projects/${scope.projectId}`}
       >
-        {c("프로젝트 개요", "Project overview")}
+        {c("폴더 개요", "Folder overview")}
       </Link>
       <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted tabular-nums">
         <span>
@@ -293,7 +293,7 @@ function FilesView({ scope }: { scope: FileScope }) {
                         setManagement({ versionId: version.id, mode: "link" })
                       }
                     >
-                      {c("다른 프로젝트에 연결", "Link to another project")}
+                      {c("다른 폴더에 연결", "Link to another folder")}
                     </button>
                   </>
                 )}
@@ -305,7 +305,7 @@ function FilesView({ scope }: { scope: FileScope }) {
                       setManagement({ versionId: version.id, mode: "unlink" })
                     }
                   >
-                    {c("프로젝트 연결 제외", "Unlink from project")}
+                    {c("폴더 연결 제외", "Unlink from folder")}
                   </button>
                 )}
               </div>

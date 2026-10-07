@@ -567,7 +567,7 @@ function ProjectRequestsInner({ projectId }: { projectId: string }) {
       <RequestPending scope={scope} />
       <div className="flex flex-wrap gap-3">
         <Link className={secondaryClass} href={base}>
-          {c("프로젝트 개요", "Project overview")}
+          {c("폴더 개요", "Folder overview")}
         </Link>
         {(list.allowedActions.create || list.allowedActions.propose) && (
           <button
@@ -803,8 +803,8 @@ function ProjectRequestViewInner({
           className="rounded-lg border border-border p-4 text-sm"
         >
           {c(
-            "확인 이력은 보존되어 있지만 제출 버전을 현재 프로젝트에서 사용할 수 없어 현재 완료 근거가 아닙니다. 담당자가 정확한 제출 버전을 다시 연결하거나 사유를 남겨 요청을 다시 열어 주세요.",
-            "The confirmation history is preserved, but the submitted version is unavailable in this project and cannot serve as current completion evidence. Ask the lead to relink the exact version or reopen the request with a reason.",
+            "확인 이력은 보존되어 있지만 제출 버전을 현재 폴더에서 사용할 수 없어 현재 완료 근거가 아닙니다. 담당자가 정확한 제출 버전을 다시 연결하거나 사유를 남겨 요청을 다시 열어 주세요.",
+            "The confirmation history is preserved, but the submitted version is unavailable in this folder and cannot serve as current completion evidence. Ask the lead to relink the exact version or reopen the request with a reason.",
           )}
         </div>
       )}
@@ -1285,8 +1285,8 @@ function SubmitForm({
         ) : !versions.length ? (
           <p className="text-muted">
             {c(
-              "이 프로젝트에서 열 수 있는 자료가 없습니다. 자료 화면에서 먼저 등록해 주세요.",
-              "No files you can open in this project. Upload them on the files page first.",
+              "이 폴더에서 열 수 있는 자료가 없습니다. 자료 화면에서 먼저 등록해 주세요.",
+              "No files you can open in this folder. Upload them on the files page first.",
             )}
           </p>
         ) : (

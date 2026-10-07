@@ -367,7 +367,7 @@ test("F13 requests by role: exact-version submission after a lost response, conf
   const externalView = await open(browser, external, `${base}/files`);
   const X = externalView.page;
   await expect(
-    X.getByRole("heading", { name: "프로젝트 자료", exact: true }),
+    X.getByRole("heading", { name: "폴더 자료", exact: true }),
   ).toBeVisible();
   await X.getByLabel("보관할 파일", { exact: true }).setInputFiles({
     name: "edit.wav",
@@ -438,7 +438,7 @@ test("F13 requests by role: exact-version submission after a lost response, conf
     `${base}/requests/${requestId}`,
   );
   await expect(memberView.page.locator("main [role=alert]")).toContainText(
-    "프로젝트를 찾을 수 없거나",
+    "폴더를 찾을 수 없거나",
   );
   await expect(memberView.page.getByText("편집 파일 전달")).toHaveCount(0);
 
@@ -1129,6 +1129,8 @@ test("F03 request work on team home and project overview: live counts, paging, f
   await expect(queue.getByRole("listitem")).toHaveCount(0);
   await X.getByRole("button", { name: "로그아웃", exact: true }).click();
   await loginOnPage(X, external, overview);
+  // P (2026-10-07): a folder folds its request work under "더 보기".
+  await X.locator("summary", { hasText: "더 보기" }).click();
   await expect(queue.getByTestId("required-request-progress")).toHaveText(
     "필수 요청 확인: 0 / 25",
   );
@@ -1137,6 +1139,8 @@ test("F03 request work on team home and project overview: live counts, paging, f
     X.getByRole("heading", { name: "내 담당 영상 24", exact: true }),
   ).toBeVisible();
   await X.goto(overview);
+  // P (2026-10-07): a folder folds its request work under "더 보기".
+  await X.locator("summary", { hasText: "더 보기" }).click();
   const reassigned = assigned[24];
   expect(
     (
@@ -1239,7 +1243,7 @@ test("F03 request work on team home and project overview: live counts, paging, f
     .getByRole("button", { name: "업무 새로고침", exact: true })
     .click();
   await expect(
-    X.getByText("프로젝트를 찾을 수 없거나 접근 권한이 없습니다.", {
+    X.getByText("폴더를 찾을 수 없거나 접근 권한이 없습니다.", {
       exact: true,
     }),
   ).toBeVisible();
