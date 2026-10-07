@@ -293,12 +293,12 @@ function VisibilitySection({
       <p className="max-w-3xl text-sm leading-6 text-muted">
         {project.visibility === "team"
           ? c(
-              "팀 전체 공개: 팀의 모든 내부 멤버가 이 프로젝트와 발행된 영상을 보고 코멘트할 수 있습니다. 받기와 AI 사용은 자료별 권한을 따릅니다.",
-              "Team-wide: every internal team member can see this project and its published videos and comment on them. Downloads and AI use follow per-file permissions.",
+              "팀 전체 공개: 팀의 모든 내부 멤버가 이 프로젝트와 발행된 영상을 보고 코멘트할 수 있습니다. 외부 참여자는 담당자가 회차에 추가하거나 공유 링크를 보낼 때만 봅니다. 받기와 AI 사용은 자료별 권한을 따릅니다.",
+              "Team-wide: every internal team member can see this project and its published videos and comment on them. External participants see a video only when the lead adds them to the round or sends a share link. Downloads and AI use follow per-file permissions.",
             )
           : c(
-              "비공개: 참여자만 이 프로젝트를 볼 수 있습니다. 참여하지 않은 소유자·관리자에게도 보이지 않습니다.",
-              "Private: only participants can see this project, including owners and admins who don't participate.",
+              "비공개: 참여자만 이 프로젝트를 볼 수 있습니다. 참여하지 않은 소유자·관리자에게도 보이지 않습니다. 발행 영상은 내부 참여자에게 자동 공개되고, 외부 참여자는 담당자가 회차에 추가하거나 공유 링크를 보낼 때만 봅니다.",
+              "Private: only participants can see this project, including owners and admins who don't participate. Published videos open to internal participants automatically; external participants see them only when the lead adds them to the round or sends a share link.",
             )}
       </p>
       {project.allowedActions.changeVisibility && !open && (

@@ -463,8 +463,8 @@ function ScopedHome({
                 ) : (
                   <p className="text-sm text-muted">
                     {c(
-                      "지금 볼 수 있는 발행 영상이 없습니다. 결과의 검토본이 준비되면 여기에 표시됩니다.",
-                      "No published videos you can open yet. Results appear here once their review copy is ready.",
+                      "지금 볼 수 있는 발행 영상이 없습니다. 내부 구성원에게는 검토본이 준비되면 표시되고, 외부 참여자는 담당자가 회차에 추가하거나 공유 링크를 보낼 때만 봅니다.",
+                      "No published videos you can open yet. Internal members see results once their review copy is ready; external participants see them only when the lead adds them to the round or sends a share link.",
                     )}
                   </p>
                 )}
