@@ -2,7 +2,19 @@
 
 기준 문서: `b2b-v1-implementation-plan-2026-10-05.md`. 목표는 계획 전체 구현이며 아래 첫 묶음으로 범위를 축소하지 않는다. 데스크톱 기준은 사용자 지정 `prepix(beta)`다. 서버와 beta 앱은 `codex/b2b-v1`, 현재 웹은 `/Users/spagettimaker/.codex/worktrees/b2b-file-lifecycle/prepix-dashboard`의 `codex/b2b-file-lifecycle`에서 작업한다. 원래 웹 폴더의 별도 작업 브랜치는 유지한다.
 
-## 최종 통합 요약: 2026-10-07
+## 최종 통합 요약 2: 2026-10-07 (D·P)
+
+K까지 합친 트리에 결정 반영(D, `claude/final-decisions`)과 로컬 작업 → 팀 폴더 발행(P, `claude/final-publish-from-local`)을 차례로 합쳤다(push·배포 없음, migration 추가 없음 — 0000~0090 그대로). 최종 HEAD는 서버 `codex/b2b-v1` `34290f8`, 웹 `codex/b2b-file-lifecycle`(이 문서 커밋), 앱 `codex/b2b-v1` `c3441f6ac`, 콘솔 `codex/b2b-v1` `b57b932`(변경 없음).
+
+- **D**: 지연 참여(읽기는 참여를 만들지 않음, `PublicationList.currentParticipationId: string | null`), 외부 제작자는 자기 회차를 봄, 새 명세서 회차에 AI 없음, 공유 링크 상한 기본 30일, S3(R2) 백업 어댑터, 출시 기본값(`backend/scripts/fixtures/b2b-launch-defaults.cjs` + `b2b-v1-launch-defaults-2026-10-07.md`). 앱: 재로그인 자동 재확인, 한도 토스트에 팀 이름, 퇴역 팀 AI 앱 코드 삭제, 21번 철회.
+- **가격 조정(메인, 유저 위임)**: 부가세 포함가가 정확하도록 기본 2석 **77,000원**(공급가 70,000), 추가 이용권 **38,500원**(공급가 35,000). 추가 1개 합계 115,500원, 모든 좌석 수에서 정확.
+- **P**: 팀 맥락의 로컬 작업(앱에서 팀 선택 → 새 프로젝트, AI는 팀 미터), 결과는 폴더(= 팀 프로젝트)에 발행, "기본"은 필요할 때 생성, 같은 작업 재발행은 같은 항목의 다음 회차, 발행자는 자기 항목을 외부 공유. 웹은 "폴더", 요청·납품·완료는 "더 보기". 앱의 "클라우드 팀 프로젝트 열기" 입구는 숨김.
+- **항목 이름 하나(메인 기본값)**: 홈 "최근 발행"이 회차마다의 발행 제목 대신 항목(검토) 제목 + 버전("봄 광고 · v2")을 보인다. 폴더 목록은 이미 항목 제목·버전. 회차별 제목은 검토 화면에 그대로.
+- 핵심 시나리오를 P의 흐름으로 새 DB에서 한 번에 다시 돌렸다(웹 Chrome → 빌드 Electron → 웹 Chrome → DB 단언 14/14): 좌석 구매 → 초대·좌석 → 앱에서 팀 선택·로컬 작업 AI(팀 미터 3초만) → "기본" 발행·재발행(2회차)·새 폴더 "고객사 X" → 개인 AI(개인 미터 3초만) → 좌석 없는 C가 웹 홈·폴더에서 재생·코멘트·이 버전 받기(SHA 일치) → B가 웹에서 폴더에 파일 추가, C가 받기(SHA 일치) → 부정 경로(외부 0건·비공개 폴더 은닉·좌석 없는 팀 AI 거절·퇴역 팀 AI 404·앱 링크로 작업 사본 안 생김). 증거 `prepix-parallel/final/shared-scratch/int/scenario/p/`.
+- 게이트: 서버 전체 1059/1068(실패 = toss-renewal 기준선 4 + 내 제목 변경에 맞춰 고친 V 시험 1 + 부하 흔들림 ai-execution 1, 단독 51/51), 웹 단위 250·tsc·eslint 0·production 빌드·Chrome 64/68(실패 4 = `b2b-projects.spec`이 팀 생성에 `requestKey`를 안 보냄, 서버 `93df4fc`부터의 기존 낡은 시험), 앱 lint 0·typecheck·vitest 16086 통과(실패 3 = atomic-rename 기준선 + 부하 2, 단독 통과)·빌드 Electron(P 새 e2e·팀 발행·personal-ai-live·납품) 통과.
+- 남은 것: P17 좌석당 값, 앱 밖 하네스 허용 여부, "기본" 폴더를 담당자가 비공개·완료·보관하면 기본 발행 실패, 팀 맥락 좌석은 화면 관문(오프라인 첫 실행 허용), 숨긴 입구 코드(`ponytail:`) 삭제, 홈·이용권 응답의 옛 AI 필드, 법무 확인 항목(출시 기본값 문서). 자세한 것은 `prepix-parallel/final/HANDOFF.md`의 "최종 통합 2 (D·P)".
+
+## 이전 통합 요약: 2026-10-07 (K까지)
 
 레인 W·A·F·E+·E+web·G·H·T·V·K를 주 저장소에 모두 합쳤다(push·배포 없음). 최종 HEAD는 서버 `codex/b2b-v1` `9d53b6e`, 웹 `codex/b2b-file-lifecycle`(이 문서 커밋), 앱 `codex/b2b-v1` `491e6c0a3`, 콘솔 `codex/b2b-v1` `b57b932`. migration은 0000~0090(91개)이고, 새 DB 전체 적용과 0089 상태 DB(H 시절 팀 AI 행 포함)에 0090만 얹는 승격을 둘 다 확인했다.
 
