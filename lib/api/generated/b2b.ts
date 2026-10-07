@@ -1822,6 +1822,10 @@ export type ReviewComment = {
   updatedAt: string;
   // Present once converted. state/title only when the viewer can see the request.
   request: { requestId: string; state: string | null; title: string | null } | null;
+  // 0093: a reply names its top-level comment; replies share its time.
+  parentId: string | null;
+  // 0093: the latest resolution, when the comment is currently resolved.
+  resolved: { at: string; by: ReviewPerson } | null;
   canEdit: boolean;
   canConvert: boolean;
 };
@@ -1925,7 +1929,11 @@ export type CreateReviewComment = Mutation & {
   startMs: number;
   endMs: number | null;
   body: string;
+  // A reply: a top-level comment of the same round. Its time is the parent's.
+  parentId?: string;
 };
+// Top-level comments only; anyone who may comment on the round may resolve.
+export type ResolveReviewComment = Mutation & { resolved: boolean };
 export type EditReviewComment = RevisionMutation & { body: string };
 // `revision` pins the exact comment text the converter saw.
 export type ConvertReviewComment = Mutation & {
@@ -1988,7 +1996,8 @@ export type ReviewMutationAction =
   | "edit"
   | "convert"
   | "share"
-  | "revoke";
+  | "revoke"
+  | "resolve";
 export type ReviewMutationResult = {
   requestId: string;
   review: { id: string; revision: number; round: number };
@@ -2582,7 +2591,8 @@ export type UserNotificationKind =
   | "notice.deletion_scheduled"
   | "review.requested"
   | "review.approval_assigned"
-  | "review.decided";
+  | "review.decided"
+  | "review.commented";
 export type UserNotification = {
   id: string;
   kind: UserNotificationKind;

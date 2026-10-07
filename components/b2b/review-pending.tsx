@@ -29,6 +29,7 @@ const actionCopy: Record<ReviewRecord["action"], [string, string]> = {
   convert: ["요청 전환", "Convert to request"],
   share: ["검토 공유", "Share"],
   revoke: ["공유 회수", "Revoke share"],
+  resolve: ["코멘트 완료 표시", "Mark comment done"],
 };
 
 /** Unconfirmed changes of this account/service/access path. Automatic checks

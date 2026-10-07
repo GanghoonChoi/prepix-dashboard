@@ -114,6 +114,8 @@ function mutationPath(r: ReviewRecord) {
       return `${review}/shares`;
     case "revoke":
       return `${review}/shares/${t}/revoke`;
+    case "resolve":
+      return `${review}/comments/${t}/resolution`;
   }
 }
 export function reviewApi(s: ReviewScope, token?: string | null): ReviewApi {
