@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   b2bService,
@@ -33,6 +34,9 @@ export function InvitationPanel({
   const [role, setRole] = useState<"producer" | "reviewer">("producer");
   const [admin, setAdmin] = useState(false);
   const [download, setDownload] = useState(false);
+  // Team invitations: take a paid seat when accepted (never buys one).
+  const [seat, setSeat] = useState(true);
+  const seats = useSeats(id, !projectId && editable);
   const [busy, setBusy] = useState(false);
   const [reason, setReason] = useState("");
   const pending = useRef<{ hash: string; key: string } | null>(null);
@@ -65,6 +69,7 @@ export function InvitationPanel({
     };
   }, [load]);
   const live = rows.filter((row) => !row.acceptedAt && !row.revokedAt);
+  const waiting = rows.filter((row) => row.acceptedAt && row.seat === "waiting");
   async function change(
     row: Pick<Invitation, "id" | "revision">,
     action: "resend" | "revoke",
@@ -111,10 +116,15 @@ export function InvitationPanel({
           : c("내부 팀 참여자 초대", "Invite internal team participants")}
       </h2>
       <p className="max-w-2xl text-sm leading-6 text-muted">
-        {c(
-          "수락한 뒤 참여 권한이 생깁니다. 초대는 편집 이용권이나 AI를 지급하지 않습니다.",
-          "Participation starts after acceptance. Invitations grant no editing licence or AI allowance.",
-        )}
+        {projectId
+          ? c(
+              "수락한 뒤 참여 권한이 생깁니다. 초대는 편집 이용권이나 AI를 지급하지 않습니다.",
+              "Participation starts after acceptance. Invitations grant no editing licence or AI allowance.",
+            )
+          : c(
+              "수락한 뒤 참여 권한이 생깁니다. 좌석 배정을 켜면 수락할 때 이미 구매한 좌석 하나를 배정합니다. 초대로 결제되지는 않습니다.",
+              "Participation starts after acceptance. With a seat on, acceptance takes one seat you already bought. Inviting never charges.",
+            )}
       </p>
       {editable && (
         <form
@@ -134,6 +144,7 @@ export function InvitationPanel({
               projectId,
               projectRole: projectId ? role : undefined,
               canDownload: projectId ? download : false,
+              assignSeat: projectId ? undefined : seat,
             };
             const hash = JSON.stringify(input);
             if (pending.current && pending.current.hash !== hash) {
@@ -237,6 +248,45 @@ export function InvitationPanel({
               {c("팀 관리자로 초대", "Invite as team administrator")}
             </label>
           )}
+          {!projectId && (
+            <div className="space-y-1">
+              <label className="flex min-h-11 items-center gap-3 text-sm">
+                <input
+                  type="checkbox"
+                  checked={seat}
+                  disabled={busy || !!pending.current || !!pendingChange.current}
+                  onChange={(e) => setSeat(e.target.checked)}
+                />
+                {c("수락하면 편집 좌석 배정", "Assign an editing seat on acceptance")}
+              </label>
+              {seat && seats && (
+                <p className="text-xs leading-5 text-muted" data-testid="invite-seat-info">
+                  {seats.free > 0
+                    ? c(
+                        `남은 좌석 ${seats.free}/${seats.capacity}석 · 수락하면 하나를 배정합니다.`,
+                        `${seats.free} of ${seats.capacity} seats free · one is assigned on acceptance.`,
+                      )
+                    : c(
+                        "남은 좌석이 없습니다. 수락하면 좌석 대기로 들어가고, 좌석을 추가하면 이용권 화면에서 배정합니다.",
+                        "No seat is free. They join waiting for a seat; add one, then assign it on the licences page.",
+                      )}
+                  {seats.extraKrw !== null &&
+                    c(
+                      ` 추가 좌석은 월 ${seats.extraKrw.toLocaleString("ko-KR")}원(부가세 별도), 남은 기간은 일할 계산됩니다.`,
+                      ` An extra seat is ₩${seats.extraKrw.toLocaleString("en-US")}/month before VAT, prorated for the rest of the period.`,
+                    )}{" "}
+                  {seats.free === 0 && (
+                    <Link
+                      className="underline"
+                      href={`/dashboard/workspaces/${id}/plan`}
+                    >
+                      {c("좌석 추가", "Add a seat")}
+                    </Link>
+                  )}
+                </p>
+              )}
+            </div>
+          )}
           <button
             className={primaryClass}
             disabled={busy || !!pendingChange.current || !email.trim()}
@@ -307,6 +357,8 @@ export function InvitationPanel({
                               "Email failed · Can resend",
                             )
                           : c("메일 발송 대기", "Email queued")}
+                    {row.assignSeat &&
+                      c(" · 수락하면 좌석 배정", " · Seat on acceptance")}
                   </p>
                 </div>
                 {editable && (
@@ -344,6 +396,72 @@ export function InvitationPanel({
           </ul>
         </>
       )}
+      {waiting.length > 0 && (
+        <div className="space-y-2" data-testid="invite-seat-waiting">
+          <h3 className="text-sm font-medium">{c("좌석 대기", "Waiting for a seat")}</h3>
+          <p className="text-xs text-muted">
+            {c(
+              "수락했지만 남은 좌석이 없어 배정되지 않았습니다. 좌석을 추가한 뒤 이용권 화면에서 배정하세요.",
+              "Accepted, but no seat was free. Add a seat, then assign it on the licences page.",
+            )}{" "}
+            <Link className="underline" href={`/dashboard/workspaces/${id}/licences`}>
+              {c("이용권 화면", "Licences")}
+            </Link>
+          </p>
+          <ul className="divide-y divide-border">
+            {waiting.map((row) => (
+              <li key={row.id} className="break-all py-3 text-sm">
+                {row.email}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </section>
   );
+}
+
+/** Free seats in the current paid period and the extra-seat price, for the
+ * team invite form. Null when unknown (no purchase yet, or not readable). */
+function useSeats(id: string, enabled: boolean) {
+  const [seats, setSeats] = useState<{
+    free: number;
+    capacity: number;
+    extraKrw: number | null;
+  } | null>(null);
+  useEffect(() => {
+    if (!enabled) return;
+    let alive = true;
+    void Promise.all([
+      b2bService.licences(id),
+      b2bService.commerce(id).catch(() => null),
+    ])
+      .then(([overview, commerce]) => {
+        const now = Date.parse(overview.serverTime);
+        const period = overview.periods.find(
+          (p) =>
+            p.state === "active" &&
+            Date.parse(p.startsAt) <= now &&
+            Date.parse(p.endsAt) > now,
+        );
+        if (!alive || !period) return;
+        const taken = overview.assignments.filter(
+          (a) =>
+            a.periodId === period.id &&
+            ["active", "scheduled", "revoking"].includes(a.state),
+        ).length;
+        setSeats({
+          free: Math.max(0, period.capacity - taken),
+          capacity: period.capacity,
+          extraKrw: commerce?.configured
+            ? commerce.product.extraSeat.supplyKrw
+            : null,
+        });
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [id, enabled]);
+  return seats;
 }
