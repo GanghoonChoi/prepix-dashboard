@@ -2,6 +2,10 @@
 
 기준 문서: `b2b-v1-implementation-plan-2026-10-05.md`. 목표는 계획 전체 구현이며 아래 첫 묶음으로 범위를 축소하지 않는다. 데스크톱 기준은 사용자 지정 `prepix(beta)`다. 서버와 beta 앱은 `codex/b2b-v1`, 현재 웹은 `/Users/spagettimaker/.codex/worktrees/b2b-file-lifecycle/prepix-dashboard`의 `codex/b2b-file-lifecycle`에서 작업한다. 원래 웹 폴더의 별도 작업 브랜치는 유지한다.
 
+## 결정 변경: 2026-10-07 로컬 작업 → 팀 폴더에 발행 (P)
+
+- 유저 결정으로 팀이 공유받는 것은 "팀 프로젝트"가 아니라 팀 맥락에서 로컬로 작업한 영상을 **발행한 결과**다. 폴더 = 팀 프로젝트, "기본" 폴더는 필요할 때 생성, 같은 작업 재발행은 같은 항목의 다음 회차, 팀원은 웹에서 보고·코멘트·받기, 발행자는 자기 항목을 외부 공유. 결정·대응·숨김/유지는 `b2b-v1-decision-publish-from-local-2026-10-07.md`, 서버 SOT는 백엔드 `backend/docs/b2b-publish-from-local.md`.
+
 ## 결정 변경: 2026-10-06 팀 공개 범위·발행 즉시 검토 (V)
 
 - 유저 결정으로 프로젝트 공개 범위를 "팀 전체 + 선택적 비공개"로, 결과 발행을 "검토본 준비 즉시 팀 검토"로 바꿨다(기존 행은 비공개로 이행). 결정·기본값·원 항목(P01/P02·P03·F03·F04·F09·F12·F14·F15·S34·F19) 변경은 `b2b-v1-decision-team-visibility-2026-10-06.md`, 서버 SOT는 백엔드 `backend/docs/b2b-team-visibility.md`.
