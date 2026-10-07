@@ -37,7 +37,7 @@ test.beforeAll(async () => {
   const root = process.cwd();
   const stubs: Record<string, string> = {
     "next/navigation":
-      "export function useSearchParams(){return new URLSearchParams(location.search)}",
+      "export function useSearchParams(){return new URLSearchParams(location.search)}export function usePathname(){return location.pathname}",
     "next/link":
       'import React from "react"; export default function Link({href,children,...props}){return <a href={href} {...props}>{children}</a>}',
     "@/components/workspaces/workspace-context":

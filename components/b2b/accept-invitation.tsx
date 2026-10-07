@@ -10,6 +10,8 @@ import {
 import { clearSignedIn } from "@/lib/account-hint";
 import { loginHref } from "@/lib/auth-entry";
 import {
+  Details,
+  KeyValues,
   primaryClass,
   secondaryClass,
   TeamLoading,
@@ -55,7 +57,22 @@ export function AcceptInvitation({ token }: { token: string }) {
     ? `/dashboard/workspaces/${invite.workspaceId}${invite.projectId ? `/projects/${invite.projectId}` : ""}`
     : "";
   return (
-    <TeamShell title={c("참여 초대", "Participation invitation")}>
+    <TeamShell
+      title={c("참여 초대", "Participation invitation")}
+      description={
+        invite
+          ? invite.kind === "external"
+            ? c(
+                "외부 참여자로 이 폴더에만 참여합니다.",
+                "You join this folder only, as an external collaborator.",
+              )
+            : c(
+                "내부 참여자로 초대되었습니다.",
+                "You are invited as an internal participant.",
+              )
+          : undefined
+      }
+    >
       {error ? (
         <>
           <B2bError code={error} retry={() => void load()} />
@@ -87,67 +104,50 @@ export function AcceptInvitation({ token }: { token: string }) {
       ) : !invite ? (
         <TeamLoading />
       ) : (
-        <section className="max-w-2xl space-y-5">
-          <h2 className="text-xl font-medium">{invite.workspaceName}</h2>
-          {invite.projectName && (
-            <p className="text-sm">
-              {c("초대 폴더", "Invited folder")}: {invite.projectName}
-            </p>
-          )}
-          <p className="text-sm leading-6 text-muted">
-            {invite.kind === "external"
-              ? c(
-                  "외부 참여자로 해당 폴더에 참여합니다. 다른 폴더나 직원 명단에는 자동 편입되지 않습니다.",
-                  "Join this folder as an external collaborator. Access to other folders or the employee organisation is not granted.",
-                )
-              : c(
-                  "내부 참여자로 초대되었습니다.",
-                  "You are invited as an internal participant.",
-                )}
-          </p>
-          <p className="text-sm leading-6 text-muted">
-            {c(
-              "이 초대는 편집 이용권이나 AI 제공량을 지급하지 않습니다. 웹 검토와 허용된 자료 업로드·다운로드는 참여 권한에 따릅니다.",
-              "This invitation grants no editing licence or AI allowance. Web review and permitted uploads and downloads follow your participation rights.",
-            )}
-          </p>
-          <dl className="space-y-3 text-sm">
-            <div>
-              <dt className="text-muted">
-                {c("초대 역할", "Invitation role")}
-              </dt>
-              <dd className="mt-1">
-                {invite.projectRole === "producer"
+        <section className="max-w-xl space-y-6 rounded-lg border border-border p-6">
+          <KeyValues
+            items={[
+              [c("팀", "Team"), invite.workspaceName],
+              ...(invite.projectName
+                ? [[c("초대 폴더", "Invited folder"), invite.projectName] as [string, string]]
+                : []),
+              [
+                c("초대 역할", "Invitation role"),
+                invite.projectRole === "producer"
                   ? c("폴더 제작자", "Folder producer")
                   : invite.projectRole === "reviewer"
                     ? c("폴더 검토자", "Folder reviewer")
                     : invite.teamRole === "admin"
                       ? c("팀 관리자", "Team administrator")
-                      : c("팀 참여자", "Team participant")}
-              </dd>
-            </div>
-            {invite.projectId && (
-              <div>
-                <dt className="text-muted">{c("다운로드", "Downloads")}</dt>
-                <dd className="mt-1">
-                  {invite.canDownload
-                    ? c("허용", "Allowed")
-                    : c("허용되지 않음", "Not allowed")}
-                </dd>
-              </div>
-            )}
-            <div>
-              <dt className="text-muted">
-                {c("초대 만료", "Invitation expiry")}
-              </dt>
-              <dd className="mt-1">
-                {new Date(invite.expiresAt).toLocaleString("ko-KR", {
-                  timeZone: "Asia/Seoul",
-                })}{" "}
-                (KST)
-              </dd>
-            </div>
-          </dl>
+                      : c("팀 참여자", "Team participant"),
+              ],
+              ...(invite.projectId
+                ? [
+                    [
+                      c("다운로드", "Downloads"),
+                      invite.canDownload
+                        ? c("허용", "Allowed")
+                        : c("허용되지 않음", "Not allowed"),
+                    ] as [string, string],
+                  ]
+                : []),
+            ]}
+          />
+          <p className="text-xs text-muted">
+            {c("초대 만료", "Expires")}:{" "}
+            {new Date(invite.expiresAt).toLocaleString("ko-KR", {
+              timeZone: "Asia/Seoul",
+            })}{" "}
+            (KST)
+          </p>
+          <Details>
+            <p>
+              {c(
+                "이 초대는 편집 이용권이나 AI 제공량을 지급하지 않습니다. 웹 검토와 허용된 자료 업로드·다운로드는 참여 권한에 따릅니다.",
+                "This invitation grants no editing licence or AI allowance. Web review and permitted uploads and downloads follow your participation rights.",
+              )}
+            </p>
+          </Details>
           {invite.accepted ? (
             <Link className={primaryClass} href={href}>
               {c("참여한 업무 열기", "Open joined work")}

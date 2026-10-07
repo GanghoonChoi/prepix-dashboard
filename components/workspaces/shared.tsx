@@ -27,7 +27,7 @@ export function TeamShell({
 }: {
   /** Omit when the page's first section already carries its own heading. */
   title?: string;
-  description?: string;
+  description?: ReactNode;
   /** Sibling pages of one topic (e.g. 플랜과 결제 · 결제 정보 · 월 이용명세서). */
   tabs?: { href: string; label: string }[];
   /** The page's own actions, beside the title. */
@@ -59,15 +59,24 @@ export function Block({
   title,
   description,
   actions,
+  id,
+  label,
   children,
 }: {
   title: string;
-  description?: string;
+  description?: ReactNode;
   actions?: ReactNode;
+  id?: string;
+  /** Names the section as a landmark (role region) when given. */
+  label?: string;
   children?: ReactNode;
 }) {
   return (
-    <section className="space-y-4 border-b border-border pb-8 last:border-b-0 last:pb-0">
+    <section
+      id={id}
+      aria-label={label}
+      className="space-y-4 border-b border-border pb-8 last:border-b-0 last:pb-0"
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-[15px] font-medium">{title}</h2>
@@ -143,7 +152,7 @@ export function Notice({
   role,
 }: {
   children: ReactNode;
-  role?: "status" | "note";
+  role?: "status" | "note" | "alert";
 }) {
   return (
     <div

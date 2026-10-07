@@ -21,25 +21,35 @@ import { useFileOperations } from "@/lib/b2b-files/use-operations";
 import { useFileDownloads } from "@/lib/b2b-files/use-downloads";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
+  Block,
+  Details,
+  EmptyState,
   inputClass,
+  KeyValues,
   secondaryClass,
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
-import { bytes } from "@/lib/workspaces/upload";
-import { B2bError, useCopy, previewStateCopy } from "./shared";
+import { B2bError, useCopy } from "./shared";
 import { FileTransfers } from "./file-transfers";
 import { FileDownloads } from "./file-downloads";
 import { TransferSteward, VersionAddress, StewardInbox } from "./file-stewards";
-import { FileManager, PendingFileOperations } from "./file-management";
-
+import {
+  FileManager,
+  PendingFileOperations,
+  textAction,
+} from "./file-management";
+import { VersionHeader, versionFacts } from "./files";
 import { TrashPanel, TrashVersion } from "./file-trash";
 
 type TeamScope = Omit<FileScope, "projectId">;
 export function TeamLibrary({
   versionId,
   sourceProjectId,
-}: { versionId?: string; sourceProjectId?: string }) {
+}: {
+  versionId?: string;
+  sourceProjectId?: string;
+}) {
   const context = useWorkspace()!,
     { id } = context.data.workspace,
     userId = context.data.currentUserId;
@@ -68,7 +78,11 @@ function LibraryView({
   scope,
   versionId,
   sourceProjectId,
-}: { scope: TeamScope; versionId?: string; sourceProjectId?: string }) {
+}: {
+  scope: TeamScope;
+  versionId?: string;
+  sourceProjectId?: string;
+}) {
   const context = useWorkspace()!;
   const c = useCopy();
   const directScope = useMemo<FileScope>(
@@ -168,66 +182,61 @@ function LibraryView({
       window.removeEventListener("focus", refresh);
     };
   }, [reload]);
+  const searchForm = (
+    <form
+      className="flex gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        setCursor(undefined);
+        setSearch(query.trim());
+      }}
+    >
+      <label className="min-w-0 flex-1">
+        <span className="sr-only">
+          {c("자료 이름 검색", "Search file names")}
+        </span>
+        <input
+          className={inputClass}
+          maxLength={100}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={c("자료 이름 검색", "Search file names")}
+        />
+      </label>
+      <label className="w-32 shrink-0 sm:w-40">
+        <span className="sr-only">{c("자료 종류", "File kind")}</span>
+        <select
+          className={inputClass}
+          value={kind}
+          onChange={(e) => {
+            setCursor(undefined);
+            setKind(e.target.value);
+          }}
+        >
+          <option value="">{c("모든 종류", "All kinds")}</option>
+          <option value="original">{c("원본", "Original")}</option>
+          <option value="output">{c("결과물", "Output")}</option>
+          <option value="working">{c("작업 자료", "Working files")}</option>
+        </select>
+      </label>
+      <button className={secondaryClass}>{c("검색", "Search")}</button>
+    </form>
+  );
+  const listed = data?.entries.some((e) => e.version.id !== versionId);
   return (
     <TeamShell
       title={c("보관함", "Library")}
       description={c(
-        "폴더를 선택하지 않고 자료를 등록할 수 있습니다. 현재 접근이 허용된 버전만 표시하며, 사용할 폴더에 정확한 버전을 연결합니다.",
-        "Register files without choosing a folder. Only accessible versions are shown; link an exact version to the folder where you need it.",
+        "폴더 없이 자료를 보관하고, 필요한 폴더에 연결합니다.",
+        "Store files without a folder and link them where they're needed.",
       )}
     >
-      <form
-        className="flex flex-col gap-3 sm:flex-row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          setCursor(undefined);
-          setSearch(query.trim());
-        }}
-      >
-        <label className="flex-1">
-          <span className="sr-only">
-            {c("자료 이름 검색", "Search file names")}
-          </span>
-          <input
-            className={inputClass}
-            maxLength={100}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={c("접근 가능한 자료 검색", "Search accessible files")}
-          />
-        </label>
-        <label>
-          <span className="sr-only">{c("자료 종류", "File kind")}</span>
-          <select
-            className={inputClass}
-            value={kind}
-            onChange={(e) => {
-              setCursor(undefined);
-              setKind(e.target.value);
-            }}
-          >
-            <option value="">{c("모든 종류", "All kinds")}</option>
-            <option value="original">{c("원본", "Original")}</option>
-            <option value="output">{c("결과물", "Output")}</option>
-            <option value="working">{c("작업 자료", "Working files")}</option>
-          </select>
-        </label>
-        <button className={secondaryClass}>{c("검색", "Search")}</button>
-      </form>
       {error ? (
         <B2bError code={error} retry={() => void reload()} />
       ) : !data ? (
         <TeamLoading />
       ) : (
         <>
-          {context.b2b?.enrolled &&
-            context.b2b.team.currentState === "active" &&
-            context.b2b.member.kind === "internal" &&
-            context.data.role !== "reviewer" && (
-              <StewardInbox scope={scope} changed={reload} />
-            )}
-          <TrashPanel scope={scope} changed={reload} />
-          {storageError && <B2bError code={storageError} />}
           {versionId && (
             <AddressedVersion
               key={`${versionId}:${sourceProjectId ?? "library"}`}
@@ -247,44 +256,67 @@ function LibraryView({
               changed={reload}
             />
           )}
-          {!data.entries.length && (
-            <p className="py-6 text-sm text-muted">
-              {c(
-                "현재 접근할 수 있는 보관 자료가 없습니다.",
-                "No stored files are accessible to you.",
-              )}
-            </p>
-          )}
-          {scopes.map((s) => (
-            <LibraryGroup
-              key={scopeKey(s)}
-              scope={s}
-              entries={data.entries.filter(
-                (e) =>
-                  e.version.id !== versionId &&
-                  (e.version.projectId ?? LIBRARY_SOURCE) === s.projectId,
-              )}
-              changed={reload}
-            />
-          ))}
-          <div className="flex flex-wrap gap-3">
-            {cursor && (
-              <button
-                className={secondaryClass}
-                onClick={() => setCursor(undefined)}
-              >
-                {c("처음으로", "First page")}
-              </button>
+          {storageError && <B2bError code={storageError} />}
+          <section
+            className="space-y-4 border-b border-border pb-8"
+            aria-label={c("보관된 자료", "Stored files")}
+          >
+            {(data.entries.length > 0 || search || kind) && searchForm}
+            {!data.entries.length && (
+              <EmptyState
+                title={
+                  search || kind
+                    ? c("검색 결과가 없습니다.", "No matching files.")
+                    : c("아직 보관된 자료가 없습니다.", "No files yet.")
+                }
+              />
             )}
-            {data.nextCursor && (
-              <button
-                className={secondaryClass}
-                onClick={() => setCursor(data.nextCursor!)}
-              >
-                {c("다음 자료", "More files")}
-              </button>
+            {/* Every source keeps its group mounted — each owns the receipts
+                and pending changes of its scope — so the rows share one rule
+                line instead of each group drawing its own list. */}
+            <div className={listed ? "border-t border-border" : undefined}>
+              {scopes.map((s) => (
+                <LibraryGroup
+                  key={scopeKey(s)}
+                  scope={s}
+                  entries={data.entries.filter(
+                    (e) =>
+                      e.version.id !== versionId &&
+                      (e.version.projectId ?? LIBRARY_SOURCE) === s.projectId,
+                  )}
+                  changed={reload}
+                />
+              ))}
+            </div>
+            {(cursor || data.nextCursor) && (
+              <div className="flex flex-wrap gap-3">
+                {cursor && (
+                  <button
+                    className={secondaryClass}
+                    onClick={() => setCursor(undefined)}
+                  >
+                    {c("처음으로", "First page")}
+                  </button>
+                )}
+                {data.nextCursor && (
+                  <button
+                    className={secondaryClass}
+                    onClick={() => setCursor(data.nextCursor!)}
+                  >
+                    {c("다음 자료", "More files")}
+                  </button>
+                )}
+              </div>
             )}
-          </div>
+            {/* Stewardship recoveries involving me; renders nothing without. */}
+            {context.b2b?.enrolled &&
+              context.b2b.team.currentState === "active" &&
+              context.b2b.member.kind === "internal" &&
+              context.data.role !== "reviewer" && (
+                <StewardInbox scope={scope} changed={reload} />
+              )}
+          </section>
+          <TrashPanel scope={scope} changed={reload} />
         </>
       )}
     </TeamShell>
@@ -352,42 +384,42 @@ function AddressedVersion({
     };
   }, [reload]);
   return (
-    <section
-      className="space-y-3 rounded-lg border border-border p-4"
-      aria-label={c("주소로 선택한 버전", "Version selected by address")}
-    >
-      <h2 className="font-medium">
-        {c("주소로 선택한 버전", "Version selected by address")}
-      </h2>
+    <Block title={c("주소로 선택한 버전", "Version selected by address")}>
       {error ? (
         <B2bError code={error} retry={() => void reload()} />
       ) : !entry ? (
         <TeamLoading />
       ) : (
-        <LibraryGroup
-          scope={frozen}
-          entries={[entry]}
-          changed={() => {
-            void reload();
-            changed();
-          }}
-        />
+        <div className="border-t border-border">
+          <LibraryGroup
+            scope={frozen}
+            entries={[entry]}
+            changed={() => {
+              void reload();
+              changed();
+            }}
+          />
+        </div>
       )}
-    </section>
+    </Block>
   );
 }
 function LibraryGroup({
   scope,
   entries,
   changed,
-}: { scope: FileScope; entries: TeamLibraryEntry[]; changed: () => void }) {
+}: {
+  scope: FileScope;
+  entries: TeamLibraryEntry[];
+  changed: () => void;
+}) {
   const c = useCopy(),
     operations = useFileOperations(scope, true, changed),
     downloads = useFileDownloads(scope, true, changed);
   const [selection, setSelection] = useState<string>();
   const selected = entries.find((e) => e.version.id === selection && e.canLink);
   return (
-    <section className="space-y-4">
+    <section className="empty:hidden">
       <FileDownloads downloads={downloads} />
       <PendingFileOperations operations={operations} />
       {selected && (
@@ -400,105 +432,102 @@ function LibraryGroup({
           close={() => setSelection(undefined)}
         />
       )}
-      <ul className="divide-y divide-border">
-        {entries.map((entry) => {
-          const v = entry.version;
-          return (
-            <li
-              key={v.id}
-              data-testid={`library-file-${v.id}`}
-              className="space-y-3 py-5"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <h2 className="break-all font-medium">{v.assetName}</h2>
-                  <p className="mt-1 break-all text-sm text-muted">
-                    {v.name} · {c("버전", "Version")} {v.ordinal} ·{" "}
-                    {bytes(v.size)} ·{" "}
-                    {v.kind === "original"
-                      ? c("원본", "Original")
-                      : v.kind === "output"
-                        ? c("결과물", "Output")
-                        : c("작업 자료", "Working files")}
-                  </p>
-                  <p className="mt-1 text-sm text-muted" aria-live="polite">
-                    {previewStateCopy(v.previewState, c)}
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {v.allowedActions.download && (
-                    <button
-                      className={secondaryClass}
-                      onClick={() => void downloads.start(v)}
-                    >
-                      {c("원본 받기", "Receive original")}
-                    </button>
+      {!!entries.length && (
+        <ul>
+          {entries.map((entry) => {
+            const v = entry.version;
+            return (
+              <li
+                key={v.id}
+                data-testid={`library-file-${v.id}`}
+                className="space-y-1 border-b border-border py-3"
+              >
+                <VersionHeader
+                  version={v}
+                  action={
+                    v.allowedActions.download && (
+                      <button
+                        className={secondaryClass}
+                        onClick={() => void downloads.start(v)}
+                      >
+                        {c("원본 받기", "Receive original")}
+                      </button>
+                    )
+                  }
+                />
+                {(entry.canLink || v.allowedActions.manage) && (
+                  <div className="flex flex-wrap items-center gap-x-4">
+                    {entry.canLink && (
+                      <button
+                        className={textAction}
+                        onClick={() => setSelection(v.id)}
+                      >
+                        {c("폴더에 연결", "Link to folder")}
+                      </button>
+                    )}
+                    {v.allowedActions.manage && (
+                      <TransferSteward
+                        scope={scope}
+                        version={v}
+                        changed={changed}
+                      />
+                    )}
+                    {entry.canLink && !entry.linked && (
+                      <TrashVersion
+                        scope={scope}
+                        version={v}
+                        changed={changed}
+                      />
+                    )}
+                  </div>
+                )}
+                <Details
+                  summary={c(
+                    "버전 상세와 사용 위치",
+                    "Version details and locations",
                   )}
-                  {entry.canLink && (
-                    <button
-                      className={secondaryClass}
-                      onClick={() => setSelection(v.id)}
-                    >
-                      {c("폴더에 연결", "Link to folder")}
-                    </button>
-                  )}
-                  {entry.canLink && !entry.linked && (
-                    <TrashVersion scope={scope} version={v} changed={changed} />
-                  )}
-                  {v.allowedActions.manage && (
-                    <TransferSteward
-                      scope={scope}
-                      version={v}
-                      changed={changed}
-                    />
-                  )}
-                </div>
-              </div>
-              <details className="text-sm">
-                <summary className="cursor-pointer text-muted">
-                  {c("버전 상세와 사용 위치", "Version details and locations")}
-                </summary>
-                <div className="mt-3 space-y-2">
+                >
+                  <KeyValues
+                    items={[
+                      [
+                        c("등록 시각", "Registered"),
+                        new Date(v.createdAt).toLocaleString(
+                          c("ko-KR", "en-US"),
+                          { timeZone: "Asia/Seoul" },
+                        ),
+                      ],
+                      ...versionFacts(v, c),
+                      [
+                        c("사용 위치", "Used in"),
+                        entry.locations.length ? (
+                          <ul className="space-y-1">
+                            {entry.locations.map((p) => (
+                              <li key={p.projectId}>
+                                <Link
+                                  className="break-all text-foreground underline underline-offset-4"
+                                  href={`/dashboard/workspaces/${scope.workspaceId}/projects/${p.projectId}/files`}
+                                >
+                                  {p.name}
+                                </Link>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          c(
+                            "현재 표시할 수 있는 폴더 연결이 없습니다.",
+                            "No folder links are currently visible.",
+                          )
+                        ),
+                      ],
+                    ]}
+                  />
                   <VersionAddress scope={scope} versionId={v.id} />
-                  <p className="text-muted">
-                    {c("등록 시각", "Registered")}:{" "}
-                    {new Date(v.createdAt).toLocaleString(c("ko-KR", "en-US"), {
-                      timeZone: "Asia/Seoul",
-                    })}
-                  </p>
-                  <p className="text-muted">
-                    {v.metadata.container} ·{" "}
-                    {v.metadata.durationMs !== null
-                      ? `${(v.metadata.durationMs / 1000).toFixed(2)} ${c("초", "seconds")}`
-                      : c("재생 길이 정보 없음", "Duration unavailable")}
-                  </p>
-                  {entry.locations.length ? (
-                    <ul className="space-y-2">
-                      {entry.locations.map((p) => (
-                        <li key={p.projectId}>
-                          <Link
-                            className="underline underline-offset-4 break-all"
-                            href={`/dashboard/workspaces/${scope.workspaceId}/projects/${p.projectId}/files`}
-                          >
-                            {p.name}
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-muted">
-                      {c(
-                        "현재 표시할 수 있는 폴더 연결이 없습니다. 보관된 파일은 유지됩니다.",
-                        "No folder links are currently visible. The stored file is retained.",
-                      )}
-                    </p>
-                  )}
-                </div>
-              </details>
-            </li>
-          );
-        })}
-      </ul>
+                </Details>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </section>
   );
 }

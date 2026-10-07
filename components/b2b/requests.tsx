@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { apiClient } from "@/lib/api/client";
 import {
@@ -32,14 +33,27 @@ import {
 import { fileApi } from "@/lib/b2b-files/api";
 import { bytes } from "@/lib/workspaces/upload";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
+import { cardClass } from "@/components/ui";
 import {
+  BackLink,
+  Block,
+  Details,
+  EmptyState,
   inputClass,
+  KeyValues,
+  Notice,
   primaryClass,
   secondaryClass,
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
-import { folderTabs, B2bError, accessEnded, errorCode, useCopy } from "./shared";
+import {
+  folderTabs,
+  B2bError,
+  accessEnded,
+  errorCode,
+  useCopy,
+} from "./shared";
 
 // SOT: prepix-backend backend/docs/b2b-requests.md
 type Copy = [string, string];
@@ -396,15 +410,6 @@ function RequestFields({
           onChange={(e) => set({ ...draft, body: e.target.value })}
         />
       </label>
-      <RequestReferencePicker
-        scope={scope}
-        value={draft.referenceVersionIds}
-        onChange={(referenceVersionIds) =>
-          set({ ...draft, referenceVersionIds })
-        }
-        existing={references}
-        disabled={disabled}
-      />
       {lead && (
         <>
           <label className="block space-y-2 text-sm">
@@ -418,26 +423,29 @@ function RequestFields({
               onChange={(e) => set({ ...draft, criteria: e.target.value })}
             />
           </label>
-          <label className="block space-y-2 text-sm">
-            <span>{c("파일 형식", "File format")}</span>
-            <input
-              className={inputClass}
-              maxLength={200}
-              disabled={disabled}
-              value={draft.format}
-              onChange={(e) => set({ ...draft, format: e.target.value })}
-            />
-          </label>
-          <label className="flex min-h-11 items-center gap-3 text-sm">
-            <input
-              type="checkbox"
-              checked={draft.required}
-              disabled={disabled || requiredLocked}
-              onChange={(e) => set({ ...draft, required: e.target.checked })}
-            />
-            {c("완료에 필수", "Required for completion")}
-          </label>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block space-y-2 text-sm">
+              <span>{c("파일 형식", "File format")}</span>
+              <input
+                className={inputClass}
+                maxLength={200}
+                disabled={disabled}
+                value={draft.format}
+                onChange={(e) => set({ ...draft, format: e.target.value })}
+              />
+            </label>
+            <label className="block space-y-2 text-sm">
+              <span>{c("기한 (한국 시간)", "Due (Korea time)")}</span>
+              <input
+                type="datetime-local"
+                className={inputClass}
+                disabled={disabled}
+                value={draft.due}
+                onChange={(e) => set({ ...draft, due: e.target.value })}
+              />
+            </label>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
             <label className="block space-y-2 text-sm">
               <span>{c("확인자", "Confirmer")}</span>
               <select
@@ -477,31 +485,41 @@ function RequestFields({
                   ))}
               </select>
             </label>
-            <label className="block space-y-2 text-sm">
-              <span>{c("기한 (한국 시간)", "Due (Korea time)")}</span>
+          </div>
+          <div className="flex flex-wrap gap-x-6">
+            <label className="flex min-h-11 items-center gap-3 text-sm">
               <input
-                type="datetime-local"
-                className={inputClass}
-                disabled={disabled}
-                value={draft.due}
-                onChange={(e) => set({ ...draft, due: e.target.value })}
+                type="checkbox"
+                checked={draft.required}
+                disabled={disabled || requiredLocked}
+                onChange={(e) => set({ ...draft, required: e.target.checked })}
               />
+              {c("완료에 필수", "Required for completion")}
+            </label>
+            <label className="flex min-h-11 items-center gap-3 text-sm">
+              <input
+                type="checkbox"
+                checked={draft.shared}
+                disabled={disabled}
+                onChange={(e) => set({ ...draft, shared: e.target.checked })}
+              />
+              {c(
+                "검토자와 외부 참여자 모두에게 공개",
+                "Share with reviewers and external participants",
+              )}
             </label>
           </div>
-          <label className="flex min-h-11 items-center gap-3 text-sm">
-            <input
-              type="checkbox"
-              checked={draft.shared}
-              disabled={disabled}
-              onChange={(e) => set({ ...draft, shared: e.target.checked })}
-            />
-            {c(
-              "검토자와 외부 참여자 모두에게 공개",
-              "Share with reviewers and external participants",
-            )}
-          </label>
         </>
       )}
+      <RequestReferencePicker
+        scope={scope}
+        value={draft.referenceVersionIds}
+        onChange={(referenceVersionIds) =>
+          set({ ...draft, referenceVersionIds })
+        }
+        existing={references}
+        disabled={disabled}
+      />
     </div>
   );
 }
@@ -562,11 +580,14 @@ function ProjectRequestsInner({ projectId }: { projectId: string }) {
     ["waiting", ["확인 대기", "Waiting"]],
     ["done", ["완료", "Done"]],
   ];
+  const canCreate = list.allowedActions.create || list.allowedActions.propose;
   return (
-    <TeamShell title={c("요청사항", "Requests")} description={project.name} tabs={folderTabs(scope.workspaceId, project, c)}>
-      <RequestPending scope={scope} />
-      <div className="flex flex-wrap gap-3 empty:hidden">
-        {(list.allowedActions.create || list.allowedActions.propose) && (
+    <TeamShell
+      title={c("요청사항", "Requests")}
+      description={project.name}
+      tabs={folderTabs(scope.workspaceId, project, c)}
+      actions={
+        canCreate && (
           <button
             type="button"
             className={primaryClass}
@@ -574,150 +595,166 @@ function ProjectRequestsInner({ projectId }: { projectId: string }) {
           >
             {lead ? c("요청 등록", "New request") : c("제안 등록", "Propose")}
           </button>
-        )}
-      </div>
-      <p className="text-sm text-muted tabular-nums">
-        {c(
-          `필수 요청 ${list.required.total}건 중 ${list.required.satisfied}건 확인·면제`,
-          `${list.required.satisfied} of ${list.required.total} required requests confirmed or waived`,
-        )}
-      </p>
-      {creating &&
-        (list.allowedActions.create || list.allowedActions.propose) && (
-          <form
-            className="max-w-3xl space-y-4 border-y border-border py-6"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              const input = draftInput(draft, lead);
-              const { result } = await mutation.run(input, (requestKey) =>
-                requestsService.create(team, projectId, me, {
-                  ...input,
-                  requestKey,
-                }),
-              );
-              if (result) router.push(`${base}/requests/${result.request.id}`);
-            }}
-          >
+        )
+      }
+    >
+      <RequestPending scope={scope} />
+      {creating && canCreate && (
+        <form
+          className={`${cardClass} max-w-3xl space-y-5 p-5`}
+          onSubmit={async (event) => {
+            event.preventDefault();
+            const input = draftInput(draft, lead);
+            const { result } = await mutation.run(input, (requestKey) =>
+              requestsService.create(team, projectId, me, {
+                ...input,
+                requestKey,
+              }),
+            );
+            if (result) router.push(`${base}/requests/${result.request.id}`);
+          }}
+        >
+          <div>
+            <h2 className="text-[15px] font-medium">
+              {lead
+                ? c("새 요청", "New request")
+                : c("새 제안", "New proposal")}
+            </h2>
             {!lead && (
-              <p className="text-sm text-muted">
+              <p className="mt-1 text-[13px] text-muted">
                 {c(
-                  "제안은 담당자가 접수하면서 확인 기준과 담당을 정합니다. 접수 전에는 완료 조건이 아닙니다.",
-                  "The lead sets criteria and owners when accepting a proposal. Proposals do not block completion.",
+                  "담당자가 접수하면 요청이 됩니다.",
+                  "It becomes a request once the lead accepts it.",
                 )}
               </p>
             )}
-            <RequestFields
-              projectId={projectId}
-              draft={draft}
-              set={setDraft}
-              lead={lead}
-              disabled={mutation.busy || mutation.locked}
-            />
-            {mutation.error && <RequestError code={mutation.error} />}
-            <button
-              className={primaryClass}
-              disabled={
-                mutation.busy || !draft.title.trim() || !draft.body.trim()
-              }
-            >
-              {mutation.busy
-                ? c("저장 중…", "Saving…")
-                : lead
-                  ? c("요청 저장", "Save request")
-                  : c("제안 보내기", "Send proposal")}
-            </button>
-          </form>
-        )}
-      <div className="flex flex-wrap gap-2" role="group">
-        {tabs.map(([key, label]) => (
+          </div>
+          <RequestFields
+            projectId={projectId}
+            draft={draft}
+            set={setDraft}
+            lead={lead}
+            disabled={mutation.busy || mutation.locked}
+          />
+          {mutation.error && <RequestError code={mutation.error} />}
           <button
-            key={key}
-            type="button"
-            aria-pressed={tab === key}
-            className={`${secondaryClass} ${tab === key ? "bg-surface font-medium" : ""}`}
-            onClick={() => {
-              setTab(key);
-              setCursor(undefined);
-            }}
+            className={primaryClass}
+            disabled={
+              mutation.busy || !draft.title.trim() || !draft.body.trim()
+            }
           >
-            {c(...label)}
+            {mutation.busy
+              ? c("저장 중…", "Saving…")
+              : lead
+                ? c("요청 저장", "Save request")
+                : c("제안 보내기", "Send proposal")}
           </button>
-        ))}
-      </div>
-      {!filtered.length && (
-        <p className="py-6 text-sm text-muted">
-          {c("표시할 요청이 없습니다.", "No requests to show.")}
-        </p>
+        </form>
       )}
-      <ul className="divide-y divide-border">
-        {filtered.map((r) => (
-          <li
-            key={r.id}
-            className="flex flex-wrap items-center justify-between gap-3 py-4"
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div
+            role="group"
+            aria-label={c("보기", "View")}
+            className="inline-flex flex-wrap rounded-md border border-border p-0.5"
           >
-            <div className="min-w-0">
-              <Link
-                href={`${base}/requests/${r.id}`}
-                className="break-words font-medium underline-offset-4 hover:underline"
+            {tabs.map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={tab === key}
+                className="rounded px-3 py-1.5 text-[13px] text-muted transition-colors hover:text-foreground aria-pressed:bg-surface-secondary aria-pressed:font-medium aria-pressed:text-foreground"
+                onClick={() => {
+                  setTab(key);
+                  setCursor(undefined);
+                }}
               >
-                {r.title}
-              </Link>
-              <p className="mt-1 text-xs text-muted">
-                {r.required && `${c("필수", "Required")} · `}
-                {r.state === "proposed"
-                  ? `${c("제안", "Proposed by")} ${person(r.createdBy)}`
-                  : person(r.assignee)}
-                {" · "}
-                {r.dueAt ? kst(r.dueAt) : c("기한 없음", "No due date")}
-              </p>
-              {((r.assignee && !r.assignmentCurrent.assignee) ||
-                (r.confirmer && !r.assignmentCurrent.confirmer)) && (
-                <p className="mt-1 text-xs text-muted">
-                  {c("업무 재지정 필요", "Duty reassignment needed")}
-                </p>
-              )}
-              {r.evidenceMissing && (
-                <p className="mt-1 text-xs text-muted">
-                  {c(
-                    "제출 근거 사용 불가 · 완료 조건 미충족",
-                    "Submission evidence unavailable · completion requirement unmet",
+                {c(...label)}
+              </button>
+            ))}
+          </div>
+          <p className="text-[13px] text-muted tabular-nums">
+            {c(
+              `필수 요청 ${list.required.total}건 중 ${list.required.satisfied}건 확인·면제`,
+              `${list.required.satisfied} of ${list.required.total} required requests confirmed or waived`,
+            )}
+          </p>
+        </div>
+        {!filtered.length ? (
+          <EmptyState
+            title={c("표시할 요청이 없습니다.", "No requests to show.")}
+            description={
+              tab === "all" && !cursor
+                ? c(
+                    "시간에 걸린 의견은 영상 코멘트로, 확인이 필요한 결과물은 요청으로 남깁니다.",
+                    "Leave time-based feedback as video comments; use requests for deliverables that need confirmation.",
+                  )
+                : undefined
+            }
+          />
+        ) : (
+          <ul className="divide-y divide-border border-y border-border">
+            {filtered.map((r) => (
+              <li
+                key={r.id}
+                className="flex items-center justify-between gap-3 py-3"
+              >
+                <div className="min-w-0">
+                  <Link
+                    href={`${base}/requests/${r.id}`}
+                    className="break-words text-sm font-medium underline-offset-4 hover:underline"
+                  >
+                    {r.title}
+                  </Link>
+                  <p className="mt-0.5 text-xs text-muted">
+                    {r.required && `${c("필수", "Required")} · `}
+                    {r.state === "proposed"
+                      ? `${c("제안", "Proposed by")} ${person(r.createdBy)}`
+                      : person(r.assignee)}
+                    {" · "}
+                    {r.dueAt ? kst(r.dueAt) : c("기한 없음", "No due date")}
+                  </p>
+                  {((r.assignee && !r.assignmentCurrent.assignee) ||
+                    (r.confirmer && !r.assignmentCurrent.confirmer)) && (
+                    <p className="mt-0.5 text-xs">
+                      {c("업무 재지정 필요", "Duty reassignment needed")}
+                    </p>
                   )}
-                </p>
-              )}
-            </div>
-            <Badge>{c(...stateCopy[r.state])}</Badge>
-          </li>
-        ))}
-      </ul>
-      <div className="flex flex-wrap gap-3">
-        {cursor && (
-          <button
-            className={secondaryClass}
-            onClick={() => setCursor(undefined)}
-          >
-            {c("요청 처음으로", "First request page")}
-          </button>
+                  {r.evidenceMissing && (
+                    <p className="mt-0.5 text-xs">
+                      {c(
+                        "제출 근거 사용 불가 · 완료 조건 미충족",
+                        "Submission evidence unavailable · completion requirement unmet",
+                      )}
+                    </p>
+                  )}
+                </div>
+                <Badge>{c(...stateCopy[r.state])}</Badge>
+              </li>
+            ))}
+          </ul>
         )}
-        {list.nextCursor && (
-          <button
-            className={secondaryClass}
-            onClick={() => setCursor(list.nextCursor!)}
-          >
-            {c("다음 요청", "More requests")}
-          </button>
+        {(cursor || list.nextCursor) && (
+          <div className="flex flex-wrap gap-2">
+            {cursor && (
+              <button
+                className={secondaryClass}
+                onClick={() => setCursor(undefined)}
+              >
+                {c("요청 처음으로", "First request page")}
+              </button>
+            )}
+            {list.nextCursor && (
+              <button
+                className={secondaryClass}
+                onClick={() => setCursor(list.nextCursor!)}
+              >
+                {c("다음 요청", "More requests")}
+              </button>
+            )}
+          </div>
         )}
       </div>
-      <section className="max-w-3xl rounded-lg border border-border p-4 text-sm leading-6 text-muted">
-        <h2 className="font-medium text-foreground">
-          {c("요청의 구분", "What belongs here")}
-        </h2>
-        <p>
-          {c(
-            "시간에 연결된 의견은 영상 코멘트에 남깁니다. 작업 결과와 확인 기준이 필요한 내용은 요청사항에 등록합니다.",
-            "Leave time-based feedback as video comments. Use requests for deliverables that need confirmation criteria.",
-          )}
-        </p>
-      </section>
     </TeamShell>
   );
 }
@@ -725,7 +762,10 @@ function ProjectRequestsInner({ projectId }: { projectId: string }) {
 export function ProjectRequestView({
   projectId,
   requestId,
-}: { projectId: string; requestId: string }) {
+}: {
+  projectId: string;
+  requestId: string;
+}) {
   const { team, me } = useScope();
   const origin = new URL(apiClient.defaults.baseURL!).origin;
   return (
@@ -770,194 +810,225 @@ function ProjectRequestViewInner({
     setEditing(false);
     await load();
   };
+  const editable =
+    request.allowedActions.update || request.allowedActions.accept;
+  const reassign = c(" · 재지정 필요", " · reassignment needed");
   return (
-    <TeamShell title={request.title} description={project.name}>
-      <RequestPending scope={scope} />
-      <div className="flex flex-wrap items-center gap-3">
-        <Badge>{c(...stateCopy[request.state])}</Badge>
-        {request.required && <Badge>{c("완료에 필수", "Required")}</Badge>}
-        <Link
-          className={secondaryClass}
+    <>
+      <div className="mb-3">
+        <BackLink
           href={`/dashboard/workspaces/${team}/projects/${projectId}/requests`}
         >
           {c("요청 목록", "All requests")}
-        </Link>
-        {(request.allowedActions.update || request.allowedActions.accept) && (
-          <button
-            type="button"
-            className={secondaryClass}
-            onClick={() => setEditing(!editing)}
-          >
-            {request.allowedActions.accept
-              ? c("접수하기", "Accept proposal")
-              : c("요청 변경", "Edit request")}
-          </button>
+        </BackLink>
+      </div>
+      <TeamShell
+        title={request.title}
+        description={project.name}
+        actions={
+          editable && (
+            <button
+              type="button"
+              className={secondaryClass}
+              onClick={() => setEditing(!editing)}
+            >
+              {request.allowedActions.accept
+                ? c("접수하기", "Accept proposal")
+                : c("요청 변경", "Edit request")}
+            </button>
+          )
+        }
+      >
+        <RequestPending scope={scope} />
+        {request.evidenceMissing && (
+          <Notice role="status">
+            {c(
+              "확인 이력은 보존되어 있지만 제출 버전을 이 폴더에서 쓸 수 없어 완료 근거가 되지 않습니다. 정확한 버전을 다시 연결하거나 요청을 다시 열어 주세요.",
+              "The confirmation history is preserved, but the submitted version is unavailable in this folder, so it is not completion evidence. Relink the exact version or reopen the request.",
+            )}
+          </Notice>
         )}
-      </div>
-      {request.evidenceMissing && (
-        <div
-          role="status"
-          className="rounded-lg border border-border p-4 text-sm"
-        >
-          {c(
-            "확인 이력은 보존되어 있지만 제출 버전을 현재 폴더에서 사용할 수 없어 현재 완료 근거가 아닙니다. 담당자가 정확한 제출 버전을 다시 연결하거나 사유를 남겨 요청을 다시 열어 주세요.",
-            "The confirmation history is preserved, but the submitted version is unavailable in this folder and cannot serve as current completion evidence. Ask the lead to relink the exact version or reopen the request with a reason.",
-          )}
-        </div>
-      )}
-      <RequestReferenceFiles
-        files={basis.references}
-        scope={scope}
-        invalidate={load}
-      />
-      <div className="grid gap-8 lg:grid-cols-[1fr_18rem]">
-        <section className="space-y-3">
-          <h2 className="font-medium">
-            {c("요청 내용", "Request")} ·{" "}
-            {c(`요청 버전 ${basis.number}`, `Revision ${basis.number}`)}
-          </h2>
-          <p className="whitespace-pre-wrap break-words text-sm leading-6">
-            {basis.body}
-          </p>
-          <dl className="grid gap-2 text-sm sm:grid-cols-[8rem_1fr]">
-            <dt className="text-muted">{c("확인 기준", "Criteria")}</dt>
-            <dd className="whitespace-pre-wrap break-words">
-              {basis.criteria || c("없음", "None")}
-            </dd>
-            <dt className="text-muted">{c("파일 형식", "Format")}</dt>
-            <dd>{basis.format || c("지정 없음", "Any")}</dd>
-          </dl>
-        </section>
-        <section aria-label={c("업무 정보", "Work details")}>
-          <dl className="grid grid-cols-[6rem_1fr] gap-2 text-sm">
-            <dt className="text-muted">{c("작업 담당", "Assignee")}</dt>
-            <dd>
-              {person(request.assignee)}
-              {request.assignee &&
-                !request.assignmentCurrent.assignee &&
-                c(" · 재지정 필요", " · reassignment needed")}
-            </dd>
-            <dt className="text-muted">{c("확인자", "Confirmer")}</dt>
-            <dd>
-              {person(request.confirmer)}
-              {request.confirmer &&
-                !request.assignmentCurrent.confirmer &&
-                c(" · 재지정 필요", " · reassignment needed")}
-            </dd>
-            <dt className="text-muted">{c("기한", "Due")}</dt>
-            <dd>{request.dueAt ? kst(request.dueAt) : c("없음", "None")}</dd>
-            <dt className="text-muted">{c("공개", "Audience")}</dt>
-            <dd>
-              {request.shared
-                ? c("참여자 전체", "All participants")
-                : c(
-                    "내부 제작진과 지정된 사람",
-                    "Internal crew and named people",
-                  )}
-            </dd>
-            <dt className="text-muted">{c("등록", "Created by")}</dt>
-            <dd>{person(request.createdBy)}</dd>
-          </dl>
-        </section>
-      </div>
-      {request.resolution && (
-        <p className="rounded-lg border border-border p-4 text-sm">
-          {c(...stateCopy[request.state])} · {person(request.resolution.by)} ·{" "}
-          {kst(request.resolution.at)}
-          <br />
-          {c("사유", "Reason")}: {request.resolution.reason}
-        </p>
-      )}
-      {editing &&
-        (request.allowedActions.update || request.allowedActions.accept) && (
+        {request.resolution && (
+          <Notice>
+            <p>
+              {c(...stateCopy[request.state])} · {person(request.resolution.by)}{" "}
+              · {kst(request.resolution.at)}
+            </p>
+            <p>
+              {c("사유", "Reason")}: {request.resolution.reason}
+            </p>
+          </Notice>
+        )}
+        {editing && editable ? (
           <RequestEditor
             projectId={projectId}
             key={`edit:${request.id}`}
             detail={detail}
             onDone={done}
           />
-        )}
-      {request.allowedActions.decide && latest && (
-        <DecideForm
-          projectId={projectId}
-          key={latest.id}
-          request={request}
-          submission={latest}
-          onDone={done}
-        />
-      )}
-      {request.allowedActions.submit && (
-        <SubmitForm
-          projectId={projectId}
-          key={`submit:${request.id}`}
-          request={request}
-          onDone={done}
-        />
-      )}
-      {request.allowedActions.close && (
-        <CloseForm
-          projectId={projectId}
-          key={`close:${request.id}`}
-          request={request}
-          onDone={done}
-        />
-      )}
-      {request.allowedActions.reopen && (
-        <CloseForm
-          projectId={projectId}
-          key={`reopen:${request.id}`}
-          request={request}
-          onDone={done}
-          reopen
-        />
-      )}
-      <section className="space-y-4">
-        <h2 className="font-medium">{c("제출과 확인", "Submissions")}</h2>
-        {!submissions.length && (
-          <p className="text-sm text-muted">
-            {c("아직 제출이 없습니다.", "Nothing submitted yet.")}
-          </p>
-        )}
-        <ol className="divide-y divide-border">
-          {[...submissions].reverse().map((s) => (
-            <SubmissionItem
-              key={s.id}
-              submission={s}
-              current={request.requestRevision}
-              missingEvidence={
-                request.evidenceMissing && s.number === request.submissionCount
-              }
+        ) : (
+          <Block
+            title={`${c("요청 내용", "Request")} · ${c(`요청 버전 ${basis.number}`, `Revision ${basis.number}`)}`}
+          >
+            <p className="max-w-3xl whitespace-pre-wrap break-words text-sm leading-6">
+              {basis.body}
+            </p>
+            <KeyValues
+              items={[
+                [
+                  c("상태", "Status"),
+                  <span key="state" className="flex flex-wrap gap-2">
+                    <Badge>{c(...stateCopy[request.state])}</Badge>
+                    {request.required && (
+                      <Badge>{c("완료에 필수", "Required")}</Badge>
+                    )}
+                  </span>,
+                ],
+                [
+                  c("작업 담당", "Assignee"),
+                  <>
+                    {person(request.assignee)}
+                    {request.assignee &&
+                      !request.assignmentCurrent.assignee &&
+                      reassign}
+                  </>,
+                ],
+                [
+                  c("확인자", "Confirmer"),
+                  <>
+                    {person(request.confirmer)}
+                    {request.confirmer &&
+                      !request.assignmentCurrent.confirmer &&
+                      reassign}
+                  </>,
+                ],
+                [
+                  c("기한", "Due"),
+                  request.dueAt ? kst(request.dueAt) : c("없음", "None"),
+                ],
+                [
+                  c("확인 기준", "Criteria"),
+                  <span key="criteria" className="whitespace-pre-wrap">
+                    {basis.criteria || c("없음", "None")}
+                  </span>,
+                ],
+                [
+                  c("파일 형식", "Format"),
+                  basis.format || c("지정 없음", "Any"),
+                ],
+                [
+                  c("공개", "Audience"),
+                  request.shared
+                    ? c("참여자 전체", "All participants")
+                    : c(
+                        "내부 제작진과 지정된 사람",
+                        "Internal crew and named people",
+                      ),
+                ],
+                [c("등록", "Created by"), person(request.createdBy)],
+                [
+                  c("참고 자료", "References"),
+                  <RequestReferenceFiles
+                    key="references"
+                    files={basis.references}
+                    scope={scope}
+                    invalidate={load}
+                  />,
+                ],
+              ]}
             />
-          ))}
-        </ol>
-      </section>
-      <details className="text-sm">
-        <summary className="min-h-11 cursor-pointer py-3">
-          {c(
-            `요청 변경 이력 ${revisions.length}건`,
-            `${revisions.length} request revisions`,
+            <Details
+              summary={c(
+                `요청 변경 이력 ${revisions.length}건`,
+                `${revisions.length} request revisions`,
+              )}
+            >
+              <ol className="space-y-3">
+                {[...revisions].reverse().map((r) => (
+                  <li
+                    key={r.number}
+                    className="rounded-md border border-border p-3 text-foreground"
+                  >
+                    <p className="text-xs text-muted">
+                      {c(`요청 버전 ${r.number}`, `Revision ${r.number}`)} ·{" "}
+                      {person(r.createdBy)} · {kst(r.createdAt)}
+                      {r.required ? ` · ${c("필수", "Required")}` : ""}
+                    </p>
+                    <p className="mt-2 whitespace-pre-wrap break-words">
+                      {r.body}
+                    </p>
+                    {!!r.references.length && (
+                      <ReferenceList files={r.references} />
+                    )}
+                    <p className="mt-1 whitespace-pre-wrap break-words text-muted">
+                      {c("확인 기준", "Criteria")}:{" "}
+                      {r.criteria || c("없음", "None")}
+                      {" · "}
+                      {c("형식", "Format")}: {r.format || c("지정 없음", "Any")}
+                    </p>
+                  </li>
+                ))}
+              </ol>
+            </Details>
+          </Block>
+        )}
+        {request.allowedActions.decide && latest && (
+          <DecideForm
+            projectId={projectId}
+            key={latest.id}
+            request={request}
+            submission={latest}
+            onDone={done}
+          />
+        )}
+        {request.allowedActions.submit && (
+          <SubmitForm
+            projectId={projectId}
+            key={`submit:${request.id}`}
+            request={request}
+            onDone={done}
+          />
+        )}
+        <Block title={c("제출과 확인", "Submissions")}>
+          {!submissions.length ? (
+            <p className="text-[13px] text-muted">
+              {c("아직 제출이 없습니다.", "Nothing submitted yet.")}
+            </p>
+          ) : (
+            <ol className="divide-y divide-border border-y border-border">
+              {[...submissions].reverse().map((s) => (
+                <SubmissionItem
+                  key={s.id}
+                  submission={s}
+                  current={request.requestRevision}
+                  missingEvidence={
+                    request.evidenceMissing &&
+                    s.number === request.submissionCount
+                  }
+                />
+              ))}
+            </ol>
           )}
-        </summary>
-        <ol className="space-y-3">
-          {[...revisions].reverse().map((r) => (
-            <li key={r.number} className="rounded-lg border border-border p-3">
-              <p className="text-xs text-muted">
-                {c(`요청 버전 ${r.number}`, `Revision ${r.number}`)} ·{" "}
-                {person(r.createdBy)} · {kst(r.createdAt)}
-                {r.required ? ` · ${c("필수", "Required")}` : ""}
-              </p>
-              <p className="mt-2 whitespace-pre-wrap break-words">{r.body}</p>
-              {!!r.references.length && <ReferenceList files={r.references} />}
-              <p className="mt-1 whitespace-pre-wrap break-words text-muted">
-                {c("확인 기준", "Criteria")}: {r.criteria || c("없음", "None")}
-                {" · "}
-                {c("형식", "Format")}: {r.format || c("지정 없음", "Any")}
-              </p>
-            </li>
-          ))}
-        </ol>
-      </details>
-    </TeamShell>
+        </Block>
+        {request.allowedActions.close && (
+          <CloseForm
+            projectId={projectId}
+            key={`close:${request.id}`}
+            request={request}
+            onDone={done}
+          />
+        )}
+        {request.allowedActions.reopen && (
+          <CloseForm
+            projectId={projectId}
+            key={`reopen:${request.id}`}
+            request={request}
+            onDone={done}
+            reopen
+          />
+        )}
+      </TeamShell>
+    </>
   );
 }
 
@@ -974,7 +1045,7 @@ function SubmissionItem({
   const person = usePerson();
   const decision = s.confirmation;
   return (
-    <li className="space-y-2 py-4 text-sm">
+    <li className="space-y-1.5 py-3 text-sm">
       <p className="font-medium">
         {c(`제출 ${s.number}차`, `Submission ${s.number}`)} ·{" "}
         {c(`요청 버전 ${s.requestRevision}`, `revision ${s.requestRevision}`)}
@@ -1003,7 +1074,7 @@ function SubmissionItem({
         </p>
       )}
       {decision && (
-        <p className="rounded-md border border-border p-3">
+        <p className="rounded-md bg-surface-secondary px-3 py-2 text-[13px]">
           {decision.decision === "returned"
             ? c("보완 요청", "Returned")
             : decision.current
@@ -1079,88 +1150,96 @@ function RequestEditor({
     draft.format.trim() !== basis.format ||
     draft.required !== basis.required;
   return (
-    <form
-      className="max-w-3xl space-y-4 border-y border-border py-6"
-      onSubmit={async (event) => {
-        event.preventDefault();
-        const input = {
-          ...draftInput(draft, true),
-          revision,
-          ...(reassignAssignee ? { reassignAssignee: true } : {}),
-          ...(reassignConfirmer ? { reassignConfirmer: true } : {}),
-        };
-        const call = accept ? requestsService.accept : requestsService.update;
-        const { result } = await mutation.run(input, (requestKey) =>
-          call(team, projectId, me, request.id, { ...input, requestKey }),
-        );
-        if (result) await onDone();
-      }}
+    <Block
+      title={
+        accept
+          ? c("제안 접수", "Accept proposal")
+          : c("요청 편집", "Edit request")
+      }
     >
-      <RequestFields
-        projectId={projectId}
-        draft={draft}
-        set={setDraft}
-        lead
-        requiredLocked={request.required}
-        references={basis.references}
-        disabled={mutation.busy || mutation.locked}
-      />
-      {((request.assignee && !request.assignmentCurrent.assignee) ||
-        (request.confirmer && !request.assignmentCurrent.confirmer)) && (
-        <div className="space-y-3 rounded-lg border border-border p-4 text-sm">
-          <p>
+      <form
+        className="max-w-3xl space-y-5"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          const input = {
+            ...draftInput(draft, true),
+            revision,
+            ...(reassignAssignee ? { reassignAssignee: true } : {}),
+            ...(reassignConfirmer ? { reassignConfirmer: true } : {}),
+          };
+          const call = accept ? requestsService.accept : requestsService.update;
+          const { result } = await mutation.run(input, (requestKey) =>
+            call(team, projectId, me, request.id, { ...input, requestKey }),
+          );
+          if (result) await onDone();
+        }}
+      >
+        <RequestFields
+          projectId={projectId}
+          draft={draft}
+          set={setDraft}
+          lead
+          requiredLocked={request.required}
+          references={basis.references}
+          disabled={mutation.busy || mutation.locked}
+        />
+        {((request.assignee && !request.assignmentCurrent.assignee) ||
+          (request.confirmer && !request.assignmentCurrent.confirmer)) && (
+          <div className="space-y-1 rounded-md bg-surface-secondary px-3 py-2 text-sm">
+            <p className="text-[13px]">
+              {c(
+                "참여가 끝난 사람의 지정은 재초대해도 복구되지 않습니다. 다른 사람을 고르거나 아래에서 다시 지정하세요.",
+                "Reinviting someone does not restore their former duties. Pick someone else or reassign them below.",
+              )}
+            </p>
+            {request.assignee &&
+              !request.assignmentCurrent.assignee &&
+              draft.assigneeId === request.assignee.userId && (
+                <label className="flex min-h-11 items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={reassignAssignee}
+                    disabled={mutation.busy || mutation.locked}
+                    onChange={(e) => setReassignAssignee(e.target.checked)}
+                  />
+                  {c(
+                    "작업 담당을 현재 참여에 다시 지정",
+                    "Reassign assignee to current participation",
+                  )}
+                </label>
+              )}
+            {request.confirmer &&
+              !request.assignmentCurrent.confirmer &&
+              draft.confirmerId === request.confirmer.userId && (
+                <label className="flex min-h-11 items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={reassignConfirmer}
+                    disabled={mutation.busy || mutation.locked}
+                    onChange={(e) => setReassignConfirmer(e.target.checked)}
+                  />
+                  {c(
+                    "확인자를 현재 참여에 다시 지정",
+                    "Reassign confirmer to current participation",
+                  )}
+                </label>
+              )}
+          </div>
+        )}
+        {basisChanged && ["submitted", "confirmed"].includes(request.state) && (
+          <Notice role="status">
             {c(
-              "참여가 종료된 이전 지정은 재초대만으로 복구되지 않습니다. 다른 참여자를 선택하거나, 같은 사람에게 다시 맡길 항목을 선택해 주세요. 제목이나 기한만 바꾸면 이전 지정은 유지됩니다.",
-              "Reinviting someone does not restore their former duties. Select a different participant or explicitly reassign the same person. Editing only the title or due date keeps the former assignment.",
+              "저장하면 새 요청 버전이 만들어지고 다시 제출과 확인이 필요합니다.",
+              "Saving creates a new revision; it must be submitted and confirmed again.",
             )}
-          </p>
-          {request.assignee &&
-            !request.assignmentCurrent.assignee &&
-            draft.assigneeId === request.assignee.userId && (
-              <label className="flex min-h-11 items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={reassignAssignee}
-                  disabled={mutation.busy || mutation.locked}
-                  onChange={(e) => setReassignAssignee(e.target.checked)}
-                />
-                {c(
-                  "작업 담당을 현재 참여에 다시 지정",
-                  "Reassign assignee to current participation",
-                )}
-              </label>
-            )}
-          {request.confirmer &&
-            !request.assignmentCurrent.confirmer &&
-            draft.confirmerId === request.confirmer.userId && (
-              <label className="flex min-h-11 items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={reassignConfirmer}
-                  disabled={mutation.busy || mutation.locked}
-                  onChange={(e) => setReassignConfirmer(e.target.checked)}
-                />
-                {c(
-                  "확인자를 현재 참여에 다시 지정",
-                  "Reassign confirmer to current participation",
-                )}
-              </label>
-            )}
-        </div>
-      )}
-      {basisChanged && ["submitted", "confirmed"].includes(request.state) && (
-        <p role="status" className="text-sm">
-          {c(
-            "내용·확인 기준·형식·필수 여부·참고 첨부를 바꾸면 새 요청 버전이 만들어지고 기존 확인은 이력으로 남습니다. 다시 제출과 확인이 필요합니다.",
-            "Changing details, criteria, format, required or references creates a new revision; the existing confirmation becomes history and must be redone.",
-          )}
-        </p>
-      )}
-      {mutation.error && <RequestError code={mutation.error} />}
-      <button className={primaryClass} disabled={mutation.busy}>
-        {accept ? c("접수", "Accept") : c("변경 저장", "Save changes")}
-      </button>
-    </form>
+          </Notice>
+        )}
+        {mutation.error && <RequestError code={mutation.error} />}
+        <button className={primaryClass} disabled={mutation.busy}>
+          {accept ? c("접수", "Accept") : c("변경 저장", "Save changes")}
+        </button>
+      </form>
+    </Block>
   );
 }
 
@@ -1221,176 +1300,189 @@ function SubmitForm({
   }, [loadVersions]);
   const disabled = mutation.busy || mutation.locked;
   return (
-    <form
-      className="max-w-3xl space-y-4 border-y border-border py-6"
-      onSubmit={async (event) => {
-        event.preventDefault();
-        const external = location.trim()
-          ? {
-              externalLocation: location.trim(),
-              externalFiles: externalFiles
-                .split("\n")
-                .map((name) => name.trim())
-                .filter(Boolean),
-            }
-          : {};
-        const input = {
-          requestRevision: request.requestRevision,
-          versionIds: selected,
-          note: note.trim(),
-          ...external,
-        };
-        const { result, error } = await mutation.run(input, (requestKey) =>
-          requestsService.submit(team, projectId, me, request.id, {
-            ...input,
-            requestKey,
-          }),
-        );
-        if (result) {
-          setSelected([]);
-          setNote("");
-          setLocation("");
-          setExternalFiles("");
-        }
-        // Show the changed criteria; the selection stays for resubmission.
-        if (result || error === "B2B_REQUEST_REVISION_CHANGED") await onDone();
-      }}
+    <Block
+      title={c("자료 제출", "Submit")}
+      description={c(
+        `요청 버전 ${request.requestRevision} 기준으로 제출합니다.`,
+        `Submits against revision ${request.requestRevision}.`,
+      )}
     >
-      <h2 className="font-medium">
-        {c(
-          `요청 버전 ${request.requestRevision} 기준으로 제출`,
-          `Submit against revision ${request.requestRevision}`,
-        )}
-      </h2>
-      <label className="block space-y-2 text-sm">
-        <span>{c("제출 자료 검색", "Search submission files")}</span>
-        <input
-          className={inputClass}
-          value={search}
-          disabled={disabled}
-          maxLength={100}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setCursor(undefined);
-          }}
-        />
-      </label>
-      <fieldset className="space-y-2 text-sm">
-        <legend className="mb-2">{c("제출할 자료", "Files to submit")}</legend>
-        {versions === null ? (
-          <TeamLoading />
-        ) : !versions.length ? (
-          <p className="text-muted">
-            {c(
-              "이 폴더에서 열 수 있는 자료가 없습니다. 자료 화면에서 먼저 등록해 주세요.",
-              "No files you can open in this folder. Upload them on the files page first.",
-            )}
-          </p>
-        ) : (
-          versions.map((v) => (
-            <label key={v.id} className="flex min-h-11 items-center gap-3">
-              <input
-                type="checkbox"
-                disabled={disabled}
-                checked={selected.includes(v.id)}
-                onChange={(e) =>
-                  setSelected(
-                    e.target.checked
-                      ? [...selected, v.id]
-                      : selected.filter((id) => id !== v.id),
-                  )
-                }
-              />
-              <span className="break-all">
-                {v.name} · {c("버전", "Version")} {v.ordinal} · {bytes(v.size)}
-              </span>
-            </label>
-          ))
-        )}
-      </fieldset>
-      <div className="flex flex-wrap gap-3 text-sm">
-        <span>
-          {c(
-            `선택한 버전 ${selected.length}개`,
-            `${selected.length} versions selected`,
-          )}
-        </span>
-        {cursor && (
-          <button
-            type="button"
-            className={secondaryClass}
-            onClick={() => setCursor(undefined)}
-          >
-            {c("자료 처음으로", "First files page")}
-          </button>
-        )}
-        {nextCursor && (
-          <button
-            type="button"
-            className={secondaryClass}
-            onClick={() => setCursor(nextCursor!)}
-          >
-            {c("다음 제출 자료", "More submission files")}
-          </button>
-        )}
-      </div>
-      <label className="block space-y-2 text-sm">
-        <span>{c("제출 메모", "Submission note")}</span>
-        <textarea
-          aria-label={c("제출 메모", "Submission note")}
-          className={inputClass}
-          maxLength={2000}
-          disabled={disabled}
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-        />
-      </label>
-      <details className="text-sm">
-        <summary className="min-h-11 cursor-pointer py-3">
-          {c("NAS 등 외부 위치로 전달", "Delivered to an external location")}
-        </summary>
-        <div className="space-y-3">
-          <label className="block space-y-2">
-            <span>{c("전달 위치", "Location")}</span>
-            <input
-              className={inputClass}
-              maxLength={1000}
-              disabled={disabled}
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-            />
-          </label>
-          <label className="block space-y-2">
-            <span>
+      <form
+        className="max-w-3xl space-y-4"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          const external = location.trim()
+            ? {
+                externalLocation: location.trim(),
+                externalFiles: externalFiles
+                  .split("\n")
+                  .map((name) => name.trim())
+                  .filter(Boolean),
+              }
+            : {};
+          const input = {
+            requestRevision: request.requestRevision,
+            versionIds: selected,
+            note: note.trim(),
+            ...external,
+          };
+          const { result, error } = await mutation.run(input, (requestKey) =>
+            requestsService.submit(team, projectId, me, request.id, {
+              ...input,
+              requestKey,
+            }),
+          );
+          if (result) {
+            setSelected([]);
+            setNote("");
+            setLocation("");
+            setExternalFiles("");
+          }
+          // Show the changed criteria; the selection stays for resubmission.
+          if (result || error === "B2B_REQUEST_REVISION_CHANGED")
+            await onDone();
+        }}
+      >
+        <fieldset className="space-y-2 text-sm">
+          <legend className="mb-2">
+            {c("제출할 자료", "Files to submit")}
+          </legend>
+          <input
+            className={`${inputClass} sm:max-w-xs`}
+            aria-label={c("제출 자료 검색", "Search submission files")}
+            placeholder={c("자료 검색", "Search files")}
+            value={search}
+            disabled={disabled}
+            maxLength={100}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setCursor(undefined);
+            }}
+          />
+          {versions === null ? (
+            <TeamLoading />
+          ) : !versions.length ? (
+            <p className="text-[13px] text-muted">
               {c(
-                "전달한 파일 (한 줄에 하나)",
-                "Delivered files (one per line)",
+                "열 수 있는 자료가 없습니다. 자료 화면에서 먼저 올려 주세요.",
+                "No files you can open here. Upload them on the files page first.",
+              )}
+            </p>
+          ) : (
+            <div className="max-h-72 divide-y divide-border overflow-y-auto rounded-md border border-border px-3">
+              {versions.map((v) => (
+                <label key={v.id} className="flex min-h-11 items-center gap-3">
+                  <input
+                    type="checkbox"
+                    disabled={disabled}
+                    checked={selected.includes(v.id)}
+                    onChange={(e) =>
+                      setSelected(
+                        e.target.checked
+                          ? [...selected, v.id]
+                          : selected.filter((id) => id !== v.id),
+                      )
+                    }
+                  />
+                  <span className="break-all">
+                    {v.name} · {c("버전", "Version")} {v.ordinal} ·{" "}
+                    {bytes(v.size)}
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-2 text-[13px] text-muted tabular-nums">
+            <span className="mr-auto">
+              {c(
+                `선택한 버전 ${selected.length}개`,
+                `${selected.length} versions selected`,
               )}
             </span>
-            <textarea
-              aria-label={c(
-                "전달한 파일 (한 줄에 하나)",
-                "Delivered files (one per line)",
-              )}
-              className={inputClass}
-              disabled={disabled}
-              value={externalFiles}
-              onChange={(e) => setExternalFiles(e.target.value)}
-            />
-          </label>
-          <p className="text-muted">
-            {c(
-              "위치만 등록하면 확인 대기입니다. 확인자가 실제로 열어 본 뒤에만 충족됩니다.",
-              "A location alone stays pending until the confirmer opens it.",
+            {cursor && (
+              <button
+                type="button"
+                className={secondaryClass}
+                onClick={() => setCursor(undefined)}
+              >
+                {c("자료 처음으로", "First files page")}
+              </button>
             )}
-          </p>
-        </div>
-      </details>
-      {mutation.error && <RequestError code={mutation.error} />}
-      <button className={primaryClass} disabled={mutation.busy}>
-        {mutation.busy ? c("제출 중…", "Submitting…") : c("제출", "Submit")}
-      </button>
-    </form>
+            {nextCursor && (
+              <button
+                type="button"
+                className={secondaryClass}
+                onClick={() => setCursor(nextCursor!)}
+              >
+                {c("다음 제출 자료", "More submission files")}
+              </button>
+            )}
+          </div>
+        </fieldset>
+        <label className="block space-y-2 text-sm">
+          <span>{c("제출 메모", "Submission note")}</span>
+          <textarea
+            aria-label={c("제출 메모", "Submission note")}
+            className={inputClass}
+            maxLength={2000}
+            disabled={disabled}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
+        </label>
+        <details className="group text-sm">
+          <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 text-[13px] text-muted transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
+            <ChevronRight
+              size={14}
+              strokeWidth={1.75}
+              aria-hidden="true"
+              className="transition-transform group-open:rotate-90"
+            />
+            {c("NAS 등 외부 위치로 전달", "Delivered to an external location")}
+          </summary>
+          <div className="space-y-3 pt-1">
+            <label className="block space-y-2">
+              <span>{c("전달 위치", "Location")}</span>
+              <input
+                className={inputClass}
+                maxLength={1000}
+                disabled={disabled}
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+              />
+            </label>
+            <label className="block space-y-2">
+              <span>
+                {c(
+                  "전달한 파일 (한 줄에 하나)",
+                  "Delivered files (one per line)",
+                )}
+              </span>
+              <textarea
+                aria-label={c(
+                  "전달한 파일 (한 줄에 하나)",
+                  "Delivered files (one per line)",
+                )}
+                className={inputClass}
+                disabled={disabled}
+                value={externalFiles}
+                onChange={(e) => setExternalFiles(e.target.value)}
+              />
+            </label>
+            <p className="text-[13px] text-muted">
+              {c(
+                "확인자가 실제로 열어 본 뒤에 충족됩니다.",
+                "It counts once the confirmer has opened it.",
+              )}
+            </p>
+          </div>
+        </details>
+        {mutation.error && <RequestError code={mutation.error} />}
+        <button className={primaryClass} disabled={mutation.busy}>
+          {mutation.busy ? c("제출 중…", "Submitting…") : c("제출", "Submit")}
+        </button>
+      </form>
+    </Block>
   );
 }
 
@@ -1426,71 +1518,72 @@ function DecideForm({
   };
   const disabled = mutation.busy || mutation.locked;
   return (
-    <section className="max-w-3xl space-y-4 border-y border-border py-6">
-      <h2 className="font-medium">
-        {c(
-          `제출 ${submission.number}차 확인`,
-          `Decide submission ${submission.number}`,
-        )}
-      </h2>
-      {submission.submittedBy.userId === me && (
-        <p role="status" className="text-sm">
-          {c(
-            "본인이 제출한 자료를 확인합니다. 기록에 본인 확인으로 표시됩니다.",
-            "You submitted this. The record will show a self-confirmation.",
-          )}
-        </p>
+    <Block
+      title={c(
+        `제출 ${submission.number}차 확인`,
+        `Decide submission ${submission.number}`,
       )}
-      <label className="block space-y-2 text-sm">
-        <span>
-          {c("확인 메모 (보완 요청 시 필수)", "Note (required to return)")}
-        </span>
-        <textarea
-          aria-label={c(
-            "확인 메모 (보완 요청 시 필수)",
-            "Note (required to return)",
-          )}
-          className={inputClass}
-          maxLength={2000}
-          disabled={disabled}
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-        />
-      </label>
-      {submission.external && (
-        <label className="flex min-h-11 items-center gap-3 text-sm">
-          <input
-            type="checkbox"
-            checked={opened}
+      description={
+        submission.submittedBy.userId === me
+          ? c(
+              "본인이 제출한 자료라 본인 확인으로 기록됩니다.",
+              "You submitted this, so it is recorded as a self-confirmation.",
+            )
+          : undefined
+      }
+    >
+      <div className="max-w-3xl space-y-4">
+        <label className="block space-y-2 text-sm">
+          <span>
+            {c("확인 메모 (보완 요청 시 필수)", "Note (required to return)")}
+          </span>
+          <textarea
+            aria-label={c(
+              "확인 메모 (보완 요청 시 필수)",
+              "Note (required to return)",
+            )}
+            className={inputClass}
+            maxLength={2000}
             disabled={disabled}
-            onChange={(e) => setOpened(e.target.checked)}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
           />
-          {c(
-            "전달 위치에서 파일을 실제로 열어 확인했습니다",
-            "I opened the delivered files at that location",
-          )}
         </label>
-      )}
-      {mutation.error && <RequestError code={mutation.error} />}
-      <div className="flex flex-wrap gap-3">
-        <button
-          type="button"
-          className={secondaryClass}
-          disabled={mutation.busy || !note.trim()}
-          onClick={() => void decide("returned")}
-        >
-          {c("보완 요청", "Return for changes")}
-        </button>
-        <button
-          type="button"
-          className={primaryClass}
-          disabled={mutation.busy || (!!submission.external && !opened)}
-          onClick={() => void decide("confirmed")}
-        >
-          {c("확인 완료", "Confirm")}
-        </button>
+        {submission.external && (
+          <label className="flex min-h-11 items-center gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={opened}
+              disabled={disabled}
+              onChange={(e) => setOpened(e.target.checked)}
+            />
+            {c(
+              "전달 위치에서 파일을 실제로 열어 확인했습니다",
+              "I opened the delivered files at that location",
+            )}
+          </label>
+        )}
+        {mutation.error && <RequestError code={mutation.error} />}
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className={primaryClass}
+            disabled={mutation.busy || (!!submission.external && !opened)}
+            onClick={() => void decide("confirmed")}
+          >
+            {c("확인 완료", "Confirm")}
+          </button>
+          <button
+            type="button"
+            className={secondaryClass}
+            disabled={mutation.busy || !note.trim()}
+            onClick={() => void decide("returned")}
+          >
+            {c("보완 요청", "Return for changes")}
+          </button>
+        </div>
       </div>
-    </section>
+    </Block>
   );
 }
 
@@ -1516,59 +1609,70 @@ function CloseForm({
       : request.required
         ? ["면제", "Waive"]
         : ["취소", "Cancel request"];
+  const title: Copy = reopen
+    ? ["요청 다시 열기", "Reopen request"]
+    : request.state === "proposed"
+      ? ["제안 반려", "Decline proposal"]
+      : request.required
+        ? ["요청 면제", "Waive request"]
+        : ["요청 취소", "Cancel request"];
   return (
-    <form
-      className="max-w-3xl space-y-3"
-      onSubmit={async (event) => {
-        event.preventDefault();
-        const input = { revision: request.revision, reason: reason.trim() };
-        const { result } = await mutation.run(input, (requestKey) =>
-          (reopen ? requestsService.reopen : requestsService.close)(
-            team,
-            projectId,
-            me,
-            request.id,
-            {
-              ...input,
-              requestKey,
-            },
-          ),
-        );
-        if (result) await onDone();
-      }}
+    <Block
+      title={c(...title)}
+      description={
+        request.required && !reopen
+          ? c(
+              "필수 요청은 취소 대신 사유를 남겨 면제합니다.",
+              "Required requests are waived with a reason, never cancelled.",
+            )
+          : undefined
+      }
     >
-      <label className="block space-y-2 text-sm">
-        <span>
-          {c(`${label[0]} 사유`, `Reason to ${label[1].toLowerCase()}`)}
-        </span>
-        <textarea
-          aria-label={c(
-            `${label[0]} 사유`,
-            `Reason to ${label[1].toLowerCase()}`,
-          )}
-          className={inputClass}
-          required
-          maxLength={1000}
-          disabled={mutation.busy || mutation.locked}
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-        />
-      </label>
-      {request.required && !reopen && (
-        <p className="text-sm text-muted">
-          {c(
-            "필수 요청은 삭제나 취소 대신 사유를 남긴 면제로 완료 조건을 충족합니다.",
-            "Required requests are waived with a reason, never deleted or cancelled.",
-          )}
-        </p>
-      )}
-      {mutation.error && <RequestError code={mutation.error} />}
-      <button
-        className={secondaryClass}
-        disabled={mutation.busy || !reason.trim()}
+      <form
+        className="max-w-3xl space-y-3"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          const input = { revision: request.revision, reason: reason.trim() };
+          const { result } = await mutation.run(input, (requestKey) =>
+            (reopen ? requestsService.reopen : requestsService.close)(
+              team,
+              projectId,
+              me,
+              request.id,
+              {
+                ...input,
+                requestKey,
+              },
+            ),
+          );
+          if (result) await onDone();
+        }}
       >
-        {c(...label)}
-      </button>
-    </form>
+        <label className="block space-y-2 text-sm">
+          <span>
+            {c(`${label[0]} 사유`, `Reason to ${label[1].toLowerCase()}`)}
+          </span>
+          <textarea
+            aria-label={c(
+              `${label[0]} 사유`,
+              `Reason to ${label[1].toLowerCase()}`,
+            )}
+            className={inputClass}
+            required
+            maxLength={1000}
+            disabled={mutation.busy || mutation.locked}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+        </label>
+        {mutation.error && <RequestError code={mutation.error} />}
+        <button
+          className={secondaryClass}
+          disabled={mutation.busy || !reason.trim()}
+        >
+          {c(...label)}
+        </button>
+      </form>
+    </Block>
   );
 }

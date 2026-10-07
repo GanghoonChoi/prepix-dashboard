@@ -1,6 +1,13 @@
 "use client";
 import { isDirectLibrary } from "@/lib/b2b-files/api";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type {
   Project,
   ProjectPeople,
@@ -13,71 +20,75 @@ import type { useFileOperations } from "@/lib/b2b-files/use-operations";
 import {
   ConfirmDialog,
   inputClass,
+  Notice,
   primaryClass,
   secondaryClass,
   TeamLoading,
 } from "@/components/workspaces/shared";
 import { B2bError, useCopy } from "./shared";
 
+/** A version row's secondary actions: named buttons without a box each. */
+export const textAction =
+  "inline-flex min-h-11 items-center text-[13px] text-muted transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus sm:min-h-9";
+
 export type FileManagementMode = "permission" | "link" | "unlink";
 type Operations = ReturnType<typeof useFileOperations>;
 export function PendingFileOperations({
   operations,
-}: { operations: Operations }) {
+}: {
+  operations: Operations;
+}) {
   const c = useCopy();
+  if (!operations.confirmed && !operations.error && !operations.pending.length)
+    return null;
   return (
     <section
-      className="space-y-3"
+      className="space-y-2"
       aria-label={c("자료 변경 결과", "File operation results")}
     >
       {operations.confirmed && (
-        <p role="status" className="text-sm">
+        <Notice role="status">
           {c(
             "변경이 반영되었습니다. 현재 자료 목록과 권한을 다시 확인합니다.",
             "The change was applied. Refreshing current files and access.",
           )}
-        </p>
+        </Notice>
       )}
       {operations.error && <B2bError code={operations.error} />}
       {!!operations.pending.length && (
-        <>
-          <p className="text-sm text-muted">
-            {c(
-              "처리 결과를 확인할 요청이 있습니다. 재시도는 처음 요청한 내용 그대로 보내며, 이미 처리됐다면 다시 변경하지 않습니다.",
-              "Some requests need confirmation. Retrying sends the original request and does not repeat an applied change.",
-            )}
-          </p>
-          <ul className="space-y-2">
-            {operations.pending.map((r) => (
-              <li
-                key={operations.key(r)}
-                className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-3"
-              >
-                <span className="text-sm">
-                  {r.kind === "permission"
-                    ? c("자료 권한 변경", "File permission change")
-                    : r.kind === "link"
-                      ? c("폴더에 버전 연결", "Link version to folder")
-                      : c("폴더 연결 제외", "Unlink version from folder")}
-                </span>
-                <button
-                  className={secondaryClass}
-                  disabled={operations.busy}
-                  onClick={() => void operations.refresh()}
-                >
-                  {c("결과 확인", "Check result")}
-                </button>
-                <button
-                  className={secondaryClass}
-                  disabled={operations.busy}
-                  onClick={() => void operations.run(r)}
-                >
-                  {c("같은 요청 재시도", "Retry original request")}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </>
+        <ul className="space-y-2">
+          {operations.pending.map((r) => (
+            <li key={operations.key(r)}>
+              <Notice>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <span className="mr-auto">
+                    {r.kind === "permission"
+                      ? c("자료 권한 변경", "File permission change")
+                      : r.kind === "link"
+                        ? c("폴더에 버전 연결", "Link version to folder")
+                        : c("폴더 연결 제외", "Unlink version from folder")}
+                    {" · "}
+                    {c("처리 결과 확인 필요", "Result unconfirmed")}
+                  </span>
+                  <button
+                    className={secondaryClass}
+                    disabled={operations.busy}
+                    onClick={() => void operations.refresh()}
+                  >
+                    {c("결과 확인", "Check result")}
+                  </button>
+                  <button
+                    className={secondaryClass}
+                    disabled={operations.busy}
+                    onClick={() => void operations.run(r)}
+                  >
+                    {c("같은 요청 재시도", "Retry original request")}
+                  </button>
+                </div>
+              </Notice>
+            </li>
+          ))}
+        </ul>
       )}
     </section>
   );
@@ -97,7 +108,8 @@ export function FileManager({
   close: () => void;
 }) {
   const c = useCopy(),
-    api = useMemo(() => fileApi(scope), [scope]);
+    api = useMemo(() => fileApi(scope), [scope]),
+    formId = useId();
   const invalidate = operations.invalidate;
   const [data, setData] = useState<{
     permissions?: TeamFilePermissionList;
@@ -206,6 +218,7 @@ export function FileManager({
         <TeamLoading />
       ) : (
         <form
+          id={formId}
           className="space-y-4"
           onSubmit={async (e) => {
             e.preventDefault();
@@ -270,8 +283,8 @@ export function FileManager({
             <>
               <p className="text-sm text-muted">
                 {c(
-                  "이 폴더에 연결된 자료 시리즈 전체에 적용합니다. 다운로드에는 폴더의 다운로드 허용도 필요합니다.",
-                  "Applies to this asset series in this folder. Download also requires folder download permission.",
+                  "이 자료의 모든 버전에 적용되며, 다운로드에는 폴더 다운로드 허용도 필요합니다.",
+                  "Applies to every version of this file. Download also needs folder download permission.",
                 )}
               </p>
               <label className="block space-y-2">
@@ -364,8 +377,8 @@ export function FileManager({
             <>
               <p className="text-sm text-muted">
                 {c(
-                  "이 버전만 연결하며 파일을 복제하지 않습니다. 연결한 폴더의 다른 참여자 권한은 별도로 허용해야 합니다.",
-                  "Links this exact version without copying bytes. Grant other participants access separately in the target folder.",
+                  "이 버전만 연결합니다. 그 폴더 참여자의 권한은 따로 허용해야 합니다.",
+                  "Links this exact version. Grant access to that folder's participants separately.",
                 )}
               </p>
               <label className="block space-y-2">
@@ -378,9 +391,7 @@ export function FileManager({
                   disabled={operations.busy}
                   onChange={(e) => setTarget(e.target.value)}
                 >
-                  <option value="">
-                    {c("폴더 선택", "Select folder")}
-                  </option>
+                  <option value="">{c("폴더 선택", "Select folder")}</option>
                   {data.projects?.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
@@ -436,8 +447,8 @@ export function FileManager({
           {mode === "unlink" && (
             <p className="text-sm text-muted">
               {c(
-                "이 폴더에서 이 버전의 연결을 제외합니다. 보관된 파일과 팀 저장 사용량은 유지됩니다.",
-                "Removes this version's reference from this folder. Stored bytes and team storage usage remain.",
+                "이 폴더에서만 빠지며, 보관된 파일은 그대로 남습니다.",
+                "It leaves this folder only; the stored file remains.",
               )}
             </p>
           )}
@@ -457,14 +468,21 @@ export function FileManager({
           {pending && (
             <p className="text-sm text-muted">
               {c(
-                "이 변경의 처리 결과를 먼저 확인해 주세요. 위의 결과 확인 또는 같은 요청 재시도를 사용할 수 있습니다.",
-                "Confirm the pending change using Check result or Retry original request above.",
+                "이 변경의 처리 결과를 먼저 확인해 주세요.",
+                "Confirm the pending change first.",
               )}
             </p>
           )}
+        </form>
+      )}
+      {/* 닫기 outlives the form (it is focused while the form loads), so the
+          submit joins it here through `form=`. */}
+      <div className="flex flex-wrap gap-3">
+        {data && !error && (
           <button
             className={primaryClass}
             type="submit"
+            form={formId}
             disabled={
               operations.busy ||
               pending ||
@@ -476,11 +494,11 @@ export function FileManager({
           >
             {operations.busy ? c("결과 확인 중", "Confirming result") : title}
           </button>
-        </form>
-      )}
-      <button className={secondaryClass} type="button" onClick={close}>
-        {c("닫기", "Close")}
-      </button>
+        )}
+        <button className={secondaryClass} type="button" onClick={close}>
+          {c("닫기", "Close")}
+        </button>
+      </div>
     </ConfirmDialog>
   );
 }

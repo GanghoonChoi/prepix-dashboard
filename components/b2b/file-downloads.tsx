@@ -1,35 +1,31 @@
 "use client";
 import type { useFileDownloads } from "@/lib/b2b-files/use-downloads";
 import { bytes } from "@/lib/workspaces/upload";
-import { secondaryClass } from "@/components/workspaces/shared";
+import { Details, secondaryClass } from "@/components/workspaces/shared";
 import { B2bError, useCopy } from "./shared";
 export function FileDownloads({
   downloads,
-}: { downloads: ReturnType<typeof useFileDownloads> }) {
+}: {
+  downloads: ReturnType<typeof useFileDownloads>;
+}) {
   const c = useCopy();
   if (!downloads.jobs.length && !downloads.error) return null;
   return (
     <section
-      className="space-y-4"
+      className="space-y-3"
       aria-label={c("원본 수령", "Original file receipts")}
     >
-      <h2 className="font-medium">
+      <h2 className="text-[15px] font-medium">
         {c("원본 수령", "Original file receipts")}
       </h2>
-      <p className="text-sm text-muted">
-        {c(
-          "받은 부분은 이 브라우저에 임시 보관합니다. 크기와 전체 해시, 현재 다운로드 권한을 확인한 뒤 파일 저장을 시작합니다.",
-          "Received bytes are staged in this browser. Saving starts after the size, full hash and current download access are verified.",
-        )}
-      </p>
       {downloads.error && <B2bError code={downloads.error} />}
-      <ul className="divide-y divide-border">
+      <ul className="divide-y divide-border border-y border-border">
         {downloads.jobs.map((job) => {
           const busy = ["checking", "receiving", "authorizing"].includes(
             job.state,
           );
           return (
-            <li key={job.record.versionId} className="space-y-3 py-4">
+            <li key={job.record.versionId} className="space-y-2 py-3">
               <p className="break-all text-sm font-medium">
                 {job.version
                   ? `${job.version.assetName} · ${c("버전", "Version")} ${job.version.ordinal}`
@@ -38,7 +34,7 @@ export function FileDownloads({
                       "Receipt unavailable to the current account",
                     )}
               </p>
-              <p role="status" className="text-sm text-muted tabular-nums">
+              <p role="status" className="text-[13px] text-muted tabular-nums">
                 {job.state === "checking"
                   ? c("받은 부분 확인 중", "Checking received bytes")
                   : job.state === "receiving"
@@ -78,7 +74,7 @@ export function FileDownloads({
                 </div>
               )}
               {job.error && <B2bError code={job.error} />}
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-2">
                 {busy ? (
                   <button
                     className={secondaryClass}
@@ -114,6 +110,12 @@ export function FileDownloads({
           );
         })}
       </ul>
+      <Details>
+        {c(
+          "받은 부분은 이 브라우저에 임시 보관합니다. 크기와 전체 해시, 현재 다운로드 권한을 확인한 뒤 파일 저장을 시작합니다.",
+          "Received bytes are staged in this browser. Saving starts after the size, full hash and current download access are verified.",
+        )}
+      </Details>
     </section>
   );
 }

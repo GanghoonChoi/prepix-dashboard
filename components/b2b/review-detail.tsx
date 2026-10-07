@@ -1442,7 +1442,8 @@ function SharedDownload({ scope, token }: { scope: ReviewScope; token: string | 
           }
         }}
       >
-        {c("원본 받기(허용된 공유)", "Download original (allowed by this share)")}
+        <Download size={14} strokeWidth={1.75} aria-hidden="true" />
+        {c("원본 받기", "Download original")}
       </button>
       {info && (
         <p className="break-all text-xs text-muted">
@@ -1467,7 +1468,7 @@ function LeadTools({
   return (
     <section className="space-y-3" aria-label={c("검토 관리", "Review tools")}>
       <h2 className="text-[13px] font-medium text-muted">{c("검토 관리", "Review tools")}</h2>
-      <div className="grid gap-3 xl:grid-cols-2">
+      <div className="grid gap-3 xl:grid-cols-2 xl:items-start">
         <Shares scope={scope} detail={detail} c={c} />
         {detail.allowedActions.setApprover && <ApproverForm scope={scope} detail={detail} reload={reload} />}
         {detail.allowedActions.setAudience && <AudienceForm key={`audience:${detail.review.revision}`} scope={scope} detail={detail} reload={reload} />}
@@ -1490,7 +1491,7 @@ function AudienceForm({ scope, detail, reload }: { scope: ReviewScope & { kind: 
     await reload();
   }}>
     <h2 className="text-[13px] font-medium">{c("검토 대상 변경", "Change review audience")}</h2>
-    <p className="text-xs leading-5 text-muted">{c("같은 영상도 대상 변경은 새 회차로 공개됩니다. 이전 코멘트·결정은 과거 기록에 남고 새 승인이 필요합니다. 제외한 사람은 새 주소를 발급받을 수 없습니다.", "Audience changes open a new round even for the same video. Earlier comments and decisions remain in history; a fresh approval is required. Removed viewers cannot obtain new playback URLs.")}</p>
+    <p className="-mt-2 text-xs leading-5 text-muted">{c("바꾸면 새 회차가 열리고 다시 승인받아야 합니다.", "Changing it opens a new round that needs a fresh approval.")}</p>
     <ReviewAudiencePicker scope={scope} value={audience} onChange={setAudience} disabled={mutation.busy} onValidityChange={setReady} />
     <label className="block space-y-2 text-sm"><span>{c("대상 변경 사유(필수)", "Audience-change reason (required)")}</span><input className={inputClass} value={reason} maxLength={1000} disabled={mutation.busy} onChange={(e) => setReason(e.target.value)} /></label>
     {mutation.error && <ReviewError code={mutation.error} />}
@@ -1533,12 +1534,11 @@ function ApproverForm({
       }}
     >
       <h2 className="text-[13px] font-medium">{c("최종 승인자", "Final approver")}</h2>
-      <p className="text-xs leading-5 text-muted">
-        {c(
-          "현재 이 검토를 볼 수 있는 한 명만 지정합니다(외부 참여자·공유 수신자 가능). 교체·해제에는 사유가 필요하고 이전 결정은 승계되지 않습니다.",
-          "Designate one person who can currently see this review (externals and share recipients allowed). Replacing or clearing needs a reason; earlier decisions do not carry over.",
-        )}
-      </p>
+      {replacing && (
+        <p className="-mt-2 text-xs leading-5 text-muted">
+          {c("바꾸면 이전 결정은 이어지지 않습니다.", "Earlier decisions do not carry over to a new approver.")}
+        </p>
+      )}
       {error && <ReviewError code={error} />}
       <select className={inputClass} value={userId} onChange={(e) => setUserId(e.target.value)} aria-label={c("승인자 선택", "Choose approver")}>
         <option value="">{c("선택", "Choose")}</option>
@@ -1603,13 +1603,10 @@ function ReplaceVersion({
   return (
     <section className={`${card} min-w-0 space-y-3 p-4`}>
       <h2 className="text-[13px] font-medium">{c("새 영상 버전으로 교체", "Replace with a new version")}</h2>
-      <p className="text-xs leading-5 text-muted">
-        {c(
-          "새 회차가 열리고 이전 회차의 코멘트·승인은 그 회차에 남습니다. 새 버전의 검토본이 준비된 뒤에만 교체되며, 변환이 실패하면 지금 영상이 유지됩니다.",
-          "Opens a new round; earlier comments and decisions stay with their round. Replacement waits for the new review copy; a failed conversion keeps the current video.",
-        )}
+      <p className="-mt-2 text-xs leading-5 text-muted">
+        {c("새 회차로 열리며, 이전 코멘트와 승인은 이전 회차에 남습니다.", "Opens a new round; earlier comments and decisions stay with their round.")}
       </p>
-      <button type="button" className={secondaryClass} onClick={() => setOpen((v) => !v)}>
+      <button type="button" className={secondaryClass} aria-expanded={open} onClick={() => setOpen((v) => !v)}>
         {c("버전 선택", "Choose version")}
       </button>
       {assetError && <ReviewError code={assetError} />}
@@ -1662,10 +1659,10 @@ function Shares({
   return (
     <section className={`${card} min-w-0 space-y-3 p-4`} aria-label={c("검토 공유", "Review sharing")}>
       <h2 className="text-[13px] font-medium">{c("검토 공유", "Review sharing")}</h2>
-      <p className="text-xs leading-5 text-muted">
+      <p className="-mt-2 text-xs leading-5 text-muted">
         {c(
-          `공유는 현재 회차 V${detail.rounds.find((r) => r.current)?.ordinal} 영상에 고정되며, 로그인한 지정 이메일 계정만 열 수 있습니다. 기본 유효기간은 7일이고 원본 다운로드는 따로 허용해야 합니다. 링크로 폴더의 다른 자료나 업무에 들어갈 수 없습니다.`,
-          `A share is fixed to the current round's version and opens only for the signed-in invited accounts. It lasts 7 days by default and original download must be allowed separately. The link reaches nothing else in the folder.`,
+          `현재 회차 V${detail.rounds.find((r) => r.current)?.ordinal}에 고정되며, 지정한 이메일 계정만 열 수 있습니다.`,
+          "Shares the current round's version with the signed-in invited accounts only.",
         )}
       </p>
       {detail.allowedActions.share ? (
@@ -1697,15 +1694,16 @@ function Shares({
             <span>{c("공유받을 사람 이메일(쉼표·줄바꿈 구분, 최대 20명)", "Recipient emails (comma or newline, up to 20)")}</span>
             <textarea className={`${inputClass} min-h-16`} value={recipients} onChange={(e) => setRecipients(e.target.value)} />
           </label>
-          <label className="block space-y-1 text-sm">
-            <span>{c("만료일(비우면 7일 뒤, 한국 시간)", "Expiry date (empty = 7 days, Korea time)")}</span>
-            <input type="date" className={inputClass} disabled={!data?.customExpiryMaxDays} value={expiry} onChange={(e) => setExpiry(e.target.value)} />
-          </label>
-          <p className="text-xs text-muted">{data?.customExpiryMaxDays ? c(`사용자 지정 만료일은 지금부터 최대 ${data.customExpiryMaxDays}일입니다.`, `Custom expiry may be at most ${data.customExpiryMaxDays} days from now.`) : c("사용자 지정 기간이 설정되지 않아 기본 7일로만 공유할 수 있습니다.", "Custom expiry is not configured; shares use the default 7 days.")}</p>
-          {expiry && <button type="button" className={secondaryClass} onClick={() => setExpiry("")}>{c("기본 7일로 공유", "Use the default 7 days")}</button>}
-          <label className="flex items-center gap-2 text-sm">
+          {/* Without a configured custom period every share lasts the default 7 days. */}
+          {!!data?.customExpiryMaxDays && (
+            <label className="block space-y-1 text-sm">
+              <span>{c(`만료일 (비우면 7일, 최대 ${data.customExpiryMaxDays}일)`, `Expiry (empty = 7 days, at most ${data.customExpiryMaxDays})`)}</span>
+              <input type="date" className={inputClass} value={expiry} onChange={(e) => setExpiry(e.target.value)} />
+            </label>
+          )}
+          <label className="flex min-h-11 items-center gap-2 text-sm sm:min-h-0">
             <input type="checkbox" checked={allowDownload} onChange={(e) => setAllowDownload(e.target.checked)} />
-            {c("원본 다운로드 허용(기본 해제)", "Allow original download (off by default)")}
+            {c("원본 다운로드 허용", "Allow original download")}
           </label>
           {mutation.error && <ReviewError code={mutation.error} />}
           <button type="submit" className={primaryClass} disabled={mutation.busy || !emails.length}>
@@ -1729,7 +1727,7 @@ function CopyLink({ url, c }: { url: string; c: Copy }) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="space-y-2 rounded-md bg-surface-secondary p-3 text-[13px]" aria-live="polite">
-      <p>{c("이 링크를 공유받을 사람에게 직접 전달하세요. 링크는 기록에 남기지 않습니다.", "Send this link to the recipients yourself. It is not stored in any log.")}</p>
+      <p>{c("받는 사람에게 이 링크를 직접 보내 주세요.", "Send this link to the recipients yourself.")}</p>
       <input className={`${inputClass} font-mono text-xs`} readOnly value={url} aria-label={c("공유 링크", "Share link")} onFocus={(e) => e.currentTarget.select()} />
       <button
         type="button"
@@ -1765,16 +1763,10 @@ function ShareRow({
           V{s.ordinal} · {label} · {c("만료", "Expires")} {kst(s.expiresAt)}
           {s.allowDownload && ` · ${c("원본 다운로드 허용", "Original download allowed")}`}
         </span>
-      </div>
-      <p className="break-all text-xs text-muted">
-        {s.recipients.map((r) => `${r.email}${r.ended ? ` (${c("접근 종료", "ended")})` : ""}`).join(", ")}
-      </p>
-      {s.revoked && <p className="text-xs">{c("회수 사유", "Revoked")}: {s.revoked.reason}</p>}
-      {s.state === "active" && (
-        <div className="flex flex-wrap items-end gap-2">
+        {s.state === "active" && (
           <button
             type="button"
-            className={secondaryClass}
+            className={textButton}
             onClick={async () => {
               try {
                 const l = await reviewsService.shareLink(scope, s.id);
@@ -1786,7 +1778,15 @@ function ShareRow({
           >
             {c("링크 다시 보기", "Show link")}
           </button>
-          <input className={`${inputClass} max-w-64`} placeholder={c("회수 사유", "Reason to revoke")} value={reason} maxLength={1000} onChange={(e) => setReason(e.target.value)} aria-label={c("회수 사유", "Reason to revoke")} />
+        )}
+      </div>
+      <p className="break-all text-xs text-muted">
+        {s.recipients.map((r) => `${r.email}${r.ended ? ` (${c("접근 종료", "ended")})` : ""}`).join(", ")}
+      </p>
+      {s.revoked && <p className="text-xs">{c("회수 사유", "Revoked")}: {s.revoked.reason}</p>}
+      {s.state === "active" && (
+        <div className="flex gap-2">
+          <input className={`${inputClass} min-w-0 flex-1`} placeholder={c("회수 사유", "Reason to revoke")} value={reason} maxLength={1000} onChange={(e) => setReason(e.target.value)} aria-label={c("회수 사유", "Reason to revoke")} />
           <button
             type="button"
             className={secondaryClass}
@@ -1802,11 +1802,6 @@ function ShareRow({
             {c("공유 회수", "Revoke")}
           </button>
         </div>
-      )}
-      {s.state === "active" && (
-        <p className="text-xs text-muted">
-          {c("회수 직후 새 재생 주소는 발급되지 않지만, 이미 발급된 주소는 최대 5분 남을 수 있습니다.", "After revocation no new playback URL is issued; an issued one can remain for up to 5 minutes.")}
-        </p>
       )}
       {(error || mutation.error) && <ReviewError code={error || mutation.error} />}
     </li>

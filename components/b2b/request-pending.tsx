@@ -103,6 +103,7 @@ export function RequestPending({ scope }: { scope: RequestScope }) {
       }
     }
   };
+  if (!error && !confirmed && !rows.length) return null;
   return (
     <section
       className="space-y-3"
@@ -110,7 +111,10 @@ export function RequestPending({ scope }: { scope: RequestScope }) {
     >
       {error && <B2bError code={error} retry={() => void refresh()} />}
       {confirmed && (
-        <p role="status" className="text-sm">
+        <p
+          role="status"
+          className="rounded-md bg-surface-secondary px-3 py-2 text-[13px]"
+        >
           {c(
             "원래 요청의 변경 결과를 확인했습니다.",
             "The original request operation was confirmed.",
@@ -126,12 +130,12 @@ export function RequestPending({ scope }: { scope: RequestScope }) {
       {rows.map((r) => (
         <div
           key={r.input.requestKey}
-          className="space-y-3 rounded-lg border border-border p-4 text-sm"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border px-4 py-3 text-[13px]"
         >
           <p>
             {c(
-              "응답을 확인하지 못한 요청 변경이 있습니다. 원래 입력과 요청 키를 보존했습니다.",
-              "A request reply is unconfirmed. Its original input and key are preserved.",
+              "응답을 확인하지 못한 요청 변경이 있습니다. 다시 보내도 두 번 적용되지 않습니다.",
+              "A request reply is unconfirmed. Retrying never applies it twice.",
             )}
           </p>
           <button
@@ -139,7 +143,7 @@ export function RequestPending({ scope }: { scope: RequestScope }) {
             disabled={busy}
             onClick={() => void retry(r)}
           >
-            {c("요청 원요청 확인·재시도", "Check or retry original request")}
+            {c("결과 확인·재시도", "Check or retry")}
           </button>
         </div>
       ))}

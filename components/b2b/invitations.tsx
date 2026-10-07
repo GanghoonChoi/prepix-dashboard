@@ -1,6 +1,8 @@
 "use client";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { UseOverlayStateReturn } from "@heroui/react";
+import { Dialog } from "@/components/dialog";
 import {
   b2bService,
   type Invitation,
@@ -8,6 +10,8 @@ import {
 } from "@/lib/api/services/b2b.service";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
+  Block,
+  ConfirmDialog,
   inputClass,
   primaryClass,
   secondaryClass,
@@ -18,9 +22,13 @@ import { B2bError, freeIntent, errorCode, useCopy } from "./shared";
 export function InvitationPanel({
   projectId,
   editable,
+  dialog,
 }: {
   projectId?: string;
   editable: boolean;
+  /** Team invitations: the form opens in this dialog (the page header owns
+   *  the trigger). Without it the form sits inline, as on a folder's page. */
+  dialog?: UseOverlayStateReturn;
 }) {
   const { data } = useWorkspace()!;
   const c = useCopy();
@@ -39,6 +47,11 @@ export function InvitationPanel({
   const seats = useSeats(id, !projectId && editable);
   const [busy, setBusy] = useState(false);
   const [reason, setReason] = useState("");
+  // The row action being confirmed: a reason is asked for only then.
+  const [asking, setAsking] = useState<{
+    row: Pick<Invitation, "id" | "revision" | "email">;
+    action: "resend" | "revoke";
+  } | null>(null);
   const pending = useRef<{ hash: string; key: string } | null>(null);
   const pendingChange = useRef<{
     invitationId: string;
@@ -74,13 +87,13 @@ export function InvitationPanel({
     row: Pick<Invitation, "id" | "revision">,
     action: "resend" | "revoke",
   ) {
-    if (busy || !reason.trim()) return;
+    if (busy || !reason.trim()) return false;
     if (
       pendingChange.current &&
       (pendingChange.current.invitationId !== row.id ||
         pendingChange.current.action !== action)
     )
-      return;
+      return false;
     pendingChange.current ??= {
       invitationId: row.id,
       action,
@@ -101,323 +114,363 @@ export function InvitationPanel({
       );
       pendingChange.current = null;
       await load();
+      return true;
     } catch (e) {
       setError(errorCode(e));
       if (freeIntent(pendingChange.current, e)) pendingChange.current = null;
+      return false;
     } finally {
       setBusy(false);
     }
   }
-  return (
-    <section className="space-y-5 border-t border-border pt-8">
-      <h2 className="font-medium">
-        {projectId
-          ? c("폴더 초대", "Folder invitations")
-          : c("내부 팀 참여자 초대", "Invite internal team participants")}
-      </h2>
-      <p className="max-w-2xl text-sm leading-6 text-muted">
-        {projectId
-          ? c(
-              "수락한 뒤 참여 권한이 생깁니다. 초대는 편집 이용권이나 AI를 지급하지 않습니다.",
-              "Participation starts after acceptance. Invitations grant no editing licence or AI allowance.",
-            )
-          : c(
-              "수락한 뒤 참여 권한이 생깁니다. 좌석 배정을 켜면 수락할 때 이미 구매한 좌석 하나를 배정합니다. 초대로 결제되지는 않습니다.",
-              "Participation starts after acceptance. With a seat on, acceptance takes one seat you already bought. Inviting never charges.",
-            )}
-      </p>
-      {editable && (
-        <form
-          className="max-w-2xl space-y-4"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            if (busy) return;
-            const input = {
-              email: email.trim(),
-              kind,
-              teamRole:
-                !projectId && admin
-                  ? ("admin" as const)
-                  : role === "reviewer"
-                    ? ("reviewer" as const)
-                    : ("editor" as const),
-              projectId,
-              projectRole: projectId ? role : undefined,
-              canDownload: projectId ? download : false,
-              assignSeat: projectId ? undefined : seat,
-            };
-            const hash = JSON.stringify(input);
-            if (pending.current && pending.current.hash !== hash) {
-              setError("B2B_REQUEST_KEY_CONFLICT");
-              return;
+  async function confirmChange(
+    row: Pick<Invitation, "id" | "revision">,
+    action: "resend" | "revoke",
+  ) {
+    if (await change(row, action)) {
+      setAsking(null);
+      setReason("");
+    }
+  }
+  const locked = (row: { id: string }, action: "resend" | "revoke") =>
+    busy ||
+    (!!pendingChange.current &&
+      (pendingChange.current.invitationId !== row.id ||
+        pendingChange.current.action !== action));
+  const actionLabel = (action: "resend" | "revoke") =>
+    action === "resend"
+      ? c("재전송", "Resend")
+      : c("초대 취소", "Cancel invitation");
+  const errorView = error && (
+    <B2bError
+      code={error}
+      retry={
+        pendingChange.current
+          ? () => {
+              const intent = pendingChange.current;
+              if (intent)
+                void confirmChange(
+                  {
+                    id: intent.invitationId,
+                    revision: intent.input.revision,
+                  },
+                  intent.action,
+                );
             }
-            pending.current ??= { hash, key: crypto.randomUUID() };
-            setBusy(true);
-            setError("");
-            try {
-              await b2bService.issueInvitation(id, {
-                ...input,
-                requestKey: pending.current.key,
-              });
-              pending.current = null;
-              setEmail("");
-              await load();
-            } catch (e) {
-              setError(errorCode(e));
-              if (freeIntent(pending.current, e)) pending.current = null;
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          <SpaceBadge workspace={data.workspace} />
-          <label className="block space-y-2 text-sm">
-            <span>{c("초대 이메일", "Invitation email")}</span>
-            <input
-              className={inputClass}
-              type="email"
-              required
-              maxLength={254}
-              disabled={busy || !!pending.current || !!pendingChange.current}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </label>
-          {projectId && (
-            <>
-              <label className="block space-y-2 text-sm">
-                <span>{c("참여 구분", "Affiliation")}</span>
-                <select
-                  aria-label={c("참여 구분", "Affiliation")}
-                  className={inputClass}
-                  disabled={
-                    busy || !!pending.current || !!pendingChange.current
-                  }
-                  value={kind}
-                  onChange={(e) => setKind(e.target.value as ParticipationKind)}
-                >
-                  <option value="external">
-                    {c("외부 참여자", "External collaborator")}
-                  </option>
-                  <option value="internal">
-                    {c("내부 참여자", "Internal participant")}
-                  </option>
-                </select>
-              </label>
-              <label className="block space-y-2 text-sm">
-                <span>{c("초대 역할", "Invitation role")}</span>
-                <select
-                  aria-label={c("초대 역할", "Invitation role")}
-                  className={inputClass}
-                  disabled={
-                    busy || !!pending.current || !!pendingChange.current
-                  }
-                  value={role}
-                  onChange={(e) =>
-                    setRole(e.target.value as "producer" | "reviewer")
-                  }
-                >
-                  <option value="producer">{c("제작자", "Producer")}</option>
-                  <option value="reviewer">{c("검토자", "Reviewer")}</option>
-                </select>
-              </label>
-              <label className="flex min-h-11 items-center gap-3 text-sm">
-                <input
-                  type="checkbox"
-                  checked={download}
-                  disabled={
-                    busy || !!pending.current || !!pendingChange.current
-                  }
-                  onChange={(e) => setDownload(e.target.checked)}
-                />
-                {c(
-                  "초대받은 사람의 다운로드 허용",
-                  "Allow downloads for this invitee",
-                )}
-              </label>
-            </>
-          )}
-          {!projectId && data.role === "owner" && (
-            <label className="flex min-h-11 items-center gap-3 text-sm">
-              <input
-                type="checkbox"
-                checked={admin}
-                disabled={busy || !!pending.current || !!pendingChange.current}
-                onChange={(e) => setAdmin(e.target.checked)}
-              />
-              {c("팀 관리자로 초대", "Invite as team administrator")}
-            </label>
-          )}
-          {!projectId && (
-            <div className="space-y-1">
-              <label className="flex min-h-11 items-center gap-3 text-sm">
-                <input
-                  type="checkbox"
-                  checked={seat}
-                  disabled={busy || !!pending.current || !!pendingChange.current}
-                  onChange={(e) => setSeat(e.target.checked)}
-                />
-                {c("수락하면 편집 좌석 배정", "Assign an editing seat on acceptance")}
-              </label>
-              {seat && seats && (
-                <p className="text-xs leading-5 text-muted" data-testid="invite-seat-info">
-                  {seats.free > 0
-                    ? c(
-                        `남은 좌석 ${seats.free}/${seats.capacity}석 · 수락하면 하나를 배정합니다.`,
-                        `${seats.free} of ${seats.capacity} seats free · one is assigned on acceptance.`,
-                      )
-                    : c(
-                        "남은 좌석이 없습니다. 수락하면 좌석 대기로 들어가고, 좌석을 추가하면 이용권 화면에서 배정합니다.",
-                        "No seat is free. They join waiting for a seat; add one, then assign it on the licences page.",
-                      )}
-                  {seats.extraKrw !== null &&
-                    c(
-                      ` 추가 좌석은 월 ${seats.extraKrw.toLocaleString("ko-KR")}원(부가세 별도), 남은 기간은 일할 계산됩니다.`,
-                      ` An extra seat is ₩${seats.extraKrw.toLocaleString("en-US")}/month before VAT, prorated for the rest of the period.`,
-                    )}{" "}
-                  {seats.free === 0 && (
-                    <Link
-                      className="underline"
-                      href={`/dashboard/workspaces/${id}/plan`}
-                    >
-                      {c("좌석 추가", "Add a seat")}
-                    </Link>
-                  )}
-                </p>
-              )}
-            </div>
-          )}
-          <button
-            className={primaryClass}
-            disabled={busy || !!pendingChange.current || !email.trim()}
-          >
-            {busy
-              ? c("기록 중…", "Saving…")
-              : c("초대 보내기", "Send invitation")}
-          </button>
-        </form>
-      )}
-      {error && (
-        <B2bError
-          code={error}
-          retry={
-            pendingChange.current
-              ? () => {
-                  const intent = pendingChange.current;
-                  if (intent)
-                    void change(
-                      {
-                        id: intent.invitationId,
-                        revision: intent.input.revision,
-                      },
-                      intent.action,
-                    );
-                }
-              : undefined
-          }
+          : undefined
+      }
+    />
+  );
+  const form = editable && (
+    <form
+      className="max-w-xl space-y-4"
+      onSubmit={async (event) => {
+        event.preventDefault();
+        if (busy) return;
+        const input = {
+          email: email.trim(),
+          kind,
+          teamRole:
+            !projectId && admin
+              ? ("admin" as const)
+              : role === "reviewer"
+                ? ("reviewer" as const)
+                : ("editor" as const),
+          projectId,
+          projectRole: projectId ? role : undefined,
+          canDownload: projectId ? download : false,
+          assignSeat: projectId ? undefined : seat,
+        };
+        const hash = JSON.stringify(input);
+        if (pending.current && pending.current.hash !== hash) {
+          setError("B2B_REQUEST_KEY_CONFLICT");
+          return;
+        }
+        pending.current ??= { hash, key: crypto.randomUUID() };
+        setBusy(true);
+        setError("");
+        try {
+          await b2bService.issueInvitation(id, {
+            ...input,
+            requestKey: pending.current.key,
+          });
+          pending.current = null;
+          setEmail("");
+          await load();
+        } catch (e) {
+          setError(errorCode(e));
+          if (freeIntent(pending.current, e)) pending.current = null;
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      <SpaceBadge workspace={data.workspace} />
+      <label className="block space-y-1.5 text-[13px]">
+        <span>{c("초대 이메일", "Invitation email")}</span>
+        <input
+          className={inputClass}
+          type="email"
+          required
+          maxLength={254}
+          disabled={busy || !!pending.current || !!pendingChange.current}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
         />
-      )}
-      {live.length > 0 && (
+      </label>
+      {projectId && (
         <>
-          <label className="block max-w-2xl space-y-2 text-sm">
-            <span>
-              {c("초대 재전송·취소 사유", "Reason for resending or cancelling")}
-            </span>
-            <textarea
-              aria-label={c(
-                "초대 재전송·취소 사유",
-                "Reason for resending or cancelling",
-              )}
+          <label className="block space-y-1.5 text-[13px]">
+            <span>{c("참여 구분", "Affiliation")}</span>
+            <select
+              aria-label={c("참여 구분", "Affiliation")}
               className={inputClass}
-              disabled={busy || !!pendingChange.current}
-              value={reason}
-              maxLength={1000}
-              onChange={(e) => setReason(e.target.value)}
-            />
+              disabled={
+                busy || !!pending.current || !!pendingChange.current
+              }
+              value={kind}
+              onChange={(e) => setKind(e.target.value as ParticipationKind)}
+            >
+              <option value="external">
+                {c("외부 참여자", "External collaborator")}
+              </option>
+              <option value="internal">
+                {c("내부 참여자", "Internal participant")}
+              </option>
+            </select>
           </label>
-          <ul className="divide-y divide-border">
-            {live.map((row) => (
-              <li
-                key={row.id}
-                className="flex flex-wrap items-center justify-between gap-3 py-4"
-              >
-                <div className="min-w-0">
-                  <p className="break-all text-sm">{row.email}</p>
-                  <p className="mt-1 text-xs text-muted">
-                    {new Date(row.expiresAt).getTime() <= Date.now()
-                      ? c("초대 만료", "Expired")
-                      : row.deliveryState === "sent"
-                        ? c(
-                            "메일 발송 완료 · 수락 대기",
-                            "Email sent · Awaiting acceptance",
-                          )
-                        : row.deliveryState === "failed"
-                          ? c(
-                              "메일 발송 실패 · 재전송 가능",
-                              "Email failed · Can resend",
-                            )
-                          : c("메일 발송 대기", "Email queued")}
-                    {row.assignSeat &&
-                      c(" · 수락하면 좌석 배정", " · Seat on acceptance")}
-                  </p>
-                </div>
-                {editable && (
-                  <div className="flex gap-2">
-                    <button
-                      className={secondaryClass}
-                      disabled={
-                        busy ||
-                        !reason.trim() ||
-                        (!!pendingChange.current &&
-                          (pendingChange.current.invitationId !== row.id ||
-                            pendingChange.current.action !== "resend"))
-                      }
-                      onClick={() => void change(row, "resend")}
-                    >
-                      {c("재전송", "Resend")}
-                    </button>
-                    <button
-                      className={secondaryClass}
-                      disabled={
-                        busy ||
-                        !reason.trim() ||
-                        (!!pendingChange.current &&
-                          (pendingChange.current.invitationId !== row.id ||
-                            pendingChange.current.action !== "revoke"))
-                      }
-                      onClick={() => void change(row, "revoke")}
-                    >
-                      {c("초대 취소", "Cancel invitation")}
-                    </button>
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
+          <label className="block space-y-1.5 text-[13px]">
+            <span>{c("초대 역할", "Invitation role")}</span>
+            <select
+              aria-label={c("초대 역할", "Invitation role")}
+              className={inputClass}
+              disabled={
+                busy || !!pending.current || !!pendingChange.current
+              }
+              value={role}
+              onChange={(e) =>
+                setRole(e.target.value as "producer" | "reviewer")
+              }
+            >
+              <option value="producer">{c("제작자", "Producer")}</option>
+              <option value="reviewer">{c("검토자", "Reviewer")}</option>
+            </select>
+          </label>
+          <label className="flex min-h-11 items-center gap-3 text-[13px] sm:min-h-9">
+            <input
+              type="checkbox"
+              checked={download}
+              disabled={
+                busy || !!pending.current || !!pendingChange.current
+              }
+              onChange={(e) => setDownload(e.target.checked)}
+            />
+            {c(
+              "초대받은 사람의 다운로드 허용",
+              "Allow downloads for this invitee",
+            )}
+          </label>
         </>
       )}
-      {waiting.length > 0 && (
-        <div className="space-y-2" data-testid="invite-seat-waiting">
-          <h3 className="text-sm font-medium">{c("좌석 대기", "Waiting for a seat")}</h3>
-          <p className="text-xs text-muted">
-            {c(
-              "수락했지만 남은 좌석이 없어 배정되지 않았습니다. 좌석을 추가한 뒤 이용권 화면에서 배정하세요.",
-              "Accepted, but no seat was free. Add a seat, then assign it on the licences page.",
-            )}{" "}
-            <Link className="underline" href={`/dashboard/workspaces/${id}/licences`}>
-              {c("이용권 화면", "Licences")}
-            </Link>
-          </p>
-          <ul className="divide-y divide-border">
-            {waiting.map((row) => (
-              <li key={row.id} className="break-all py-3 text-sm">
-                {row.email}
-              </li>
-            ))}
-          </ul>
+      {!projectId && data.role === "owner" && (
+        <label className="flex min-h-11 items-center gap-3 text-[13px] sm:min-h-9">
+          <input
+            type="checkbox"
+            checked={admin}
+            disabled={busy || !!pending.current || !!pendingChange.current}
+            onChange={(e) => setAdmin(e.target.checked)}
+          />
+          {c("팀 관리자로 초대", "Invite as team administrator")}
+        </label>
+      )}
+      {!projectId && (
+        <div className="space-y-1">
+          <label className="flex min-h-11 items-center gap-3 text-[13px] sm:min-h-9">
+            <input
+              type="checkbox"
+              checked={seat}
+              disabled={busy || !!pending.current || !!pendingChange.current}
+              onChange={(e) => setSeat(e.target.checked)}
+            />
+            {c("수락하면 편집 좌석 배정", "Assign an editing seat on acceptance")}
+          </label>
+          {seat && seats && (
+            <p className="text-xs leading-5 text-muted" data-testid="invite-seat-info">
+              {seats.free > 0
+                ? c(
+                    `남은 좌석 ${seats.free}/${seats.capacity}석`,
+                    `${seats.free} of ${seats.capacity} seats free`,
+                  )
+                : c(
+                    "남은 좌석이 없습니다. 수락하면 좌석 대기로 들어갑니다.",
+                    "No seat is free. They join waiting for a seat.",
+                  )}
+              {seats.free === 0 && seats.extraKrw !== null &&
+                c(
+                  ` 추가 좌석은 월 ${seats.extraKrw.toLocaleString("ko-KR")}원(부가세 별도)입니다.`,
+                  ` An extra seat is ₩${seats.extraKrw.toLocaleString("en-US")}/month before VAT.`,
+                )}{" "}
+              {seats.free === 0 && (
+                <Link
+                  className="underline"
+                  href={`/dashboard/workspaces/${id}/plan`}
+                >
+                  {c("좌석 추가", "Add a seat")}
+                </Link>
+              )}
+            </p>
+          )}
         </div>
       )}
-    </section>
+      {dialog && errorView}
+      <button
+        className={primaryClass}
+        disabled={busy || !!pendingChange.current || !email.trim()}
+      >
+        {busy
+          ? c("기록 중…", "Saving…")
+          : c("초대 보내기", "Send invitation")}
+      </button>
+    </form>
+  );
+  // A team with nothing pending shows no section, only the dialog.
+  const empty = !live.length && !waiting.length && !(error && !dialog?.isOpen);
+  return (
+    <>
+      {dialog && (
+        <Dialog state={dialog} title={c("참여자 초대", "Invite participants")}>
+          {form}
+        </Dialog>
+      )}
+      {!(dialog && empty) && (
+        <Block
+          title={
+            projectId
+              ? c("폴더 초대", "Folder invitations")
+              : c("대기 중인 초대", "Pending invitations")
+          }
+        >
+          {!dialog && form}
+          {!dialog?.isOpen && errorView}
+          {live.length > 0 && (
+            <ul className="divide-y divide-border">
+              {live.map((row) => (
+                <li
+                  key={row.id}
+                  className="flex flex-wrap items-center justify-between gap-3 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="break-all text-sm font-medium">{row.email}</p>
+                    <p className="mt-0.5 text-xs text-muted">
+                      {new Date(row.expiresAt).getTime() <= Date.now()
+                        ? c("초대 만료", "Expired")
+                        : row.deliveryState === "sent"
+                          ? c(
+                              "메일 발송 완료 · 수락 대기",
+                              "Email sent · Awaiting acceptance",
+                            )
+                          : row.deliveryState === "failed"
+                            ? c(
+                                "메일 발송 실패 · 재전송 가능",
+                                "Email failed · Can resend",
+                              )
+                            : c("메일 발송 대기", "Email queued")}
+                      {row.assignSeat &&
+                        c(" · 수락하면 좌석 배정", " · Seat on acceptance")}
+                    </p>
+                  </div>
+                  {editable && (
+                    <div className="flex gap-2">
+                      {(["resend", "revoke"] as const).map((action) => (
+                        <button
+                          key={action}
+                          className={secondaryClass}
+                          disabled={locked(row, action)}
+                          onClick={() => setAsking({ row, action })}
+                        >
+                          {actionLabel(action)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {asking && (
+            <ConfirmDialog
+              label={actionLabel(asking.action)}
+              onClose={() => {
+                if (!busy) setAsking(null);
+              }}
+            >
+              <p className="break-all text-sm font-medium">
+                {asking.row.email}
+              </p>
+              <label className="block space-y-1.5 text-[13px]">
+                <span>
+                  {c("초대 재전송·취소 사유", "Reason for resending or cancelling")}
+                </span>
+                <textarea
+                  aria-label={c(
+                    "초대 재전송·취소 사유",
+                    "Reason for resending or cancelling",
+                  )}
+                  className={inputClass}
+                  disabled={busy || !!pendingChange.current}
+                  value={reason}
+                  maxLength={1000}
+                  onChange={(e) => setReason(e.target.value)}
+                />
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className={primaryClass}
+                  disabled={
+                    !reason.trim() || locked(asking.row, asking.action)
+                  }
+                  onClick={() => void confirmChange(asking.row, asking.action)}
+                >
+                  {actionLabel(asking.action)}
+                </button>
+                <button
+                  type="button"
+                  className={secondaryClass}
+                  disabled={busy}
+                  onClick={() => setAsking(null)}
+                >
+                  {c("닫기", "Close")}
+                </button>
+              </div>
+            </ConfirmDialog>
+          )}
+          {waiting.length > 0 && (
+            <div className="space-y-2" data-testid="invite-seat-waiting">
+              <h3 className="text-[13px] font-medium">
+                {c("좌석 대기", "Waiting for a seat")}
+              </h3>
+              <p className="text-xs text-muted">
+                {c("좌석을 추가한 뒤 ", "Add a seat, then assign it on ")}
+                <Link
+                  className="underline"
+                  href={`/dashboard/workspaces/${id}/licences`}
+                >
+                  {c("이용권 화면", "the licences page")}
+                </Link>
+                {c("에서 배정하세요.", ".")}
+              </p>
+              <ul className="divide-y divide-border">
+                {waiting.map((row) => (
+                  <li key={row.id} className="break-all py-2.5 text-sm">
+                    {row.email}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </Block>
+      )}
+    </>
   );
 }
 

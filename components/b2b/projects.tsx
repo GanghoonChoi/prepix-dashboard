@@ -27,9 +27,9 @@ import {
   B2bError,
   errorCode,
   StateBadge,
-  VisibilityBadge,
   roleLabels,
   stateLabels,
+  visibilityLabels,
   useCopy,
   freeIntent,
 } from "./shared";
@@ -190,38 +190,37 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
   return (
     <TeamShell
       title={c("폴더", "Folders")}
-      description={c(
-        "참여 중인 폴더와 팀 공개 폴더가 표시됩니다.",
-        "Folders you participate in and team-wide folders are shown.",
-      )}
-    >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <SpaceBadge workspace={context.data.workspace} />
-        {status.enrolled && status.allowedActions.createProject && (
+      actions={
+        status.enrolled &&
+        status.allowedActions.createProject && (
           <Link className={primaryClass} href={`${base}/new`}>
             {c("폴더 만들기", "Create folder")}
           </Link>
-        )}
-      </div>
-      <div className="grid gap-3 sm:grid-cols-[1fr_180px]">
-        <label className="space-y-2 text-sm">
-          <span>{c("이름으로 검색", "Search by name")}</span>
+        )
+      }
+    >
+      {/* The harness that races this list stubs workspaces/shared down to a
+          few exports, so this file builds its rows from plain markup. */}
+      <div className="flex gap-2">
+        <label className="min-w-0 flex-1">
+          <span className="sr-only">{c("이름으로 검색", "Search by name")}</span>
           <input
             className={inputClass}
             value={search}
             maxLength={100}
+            placeholder={c("이름으로 검색", "Search by name")}
             onChange={(e) => changeFilter({ search: e.target.value })}
           />
         </label>
-        <label className="space-y-2 text-sm">
-          <span>{c("상태", "State")}</span>
+        <label className="w-36 shrink-0">
+          <span className="sr-only">{c("상태", "State")}</span>
           <select
             aria-label={c("상태", "State")}
             className={inputClass}
             value={state}
             onChange={(e) => changeFilter({ state: e.target.value })}
           >
-            <option value="">{c("전체", "All")}</option>
+            <option value="">{c("모든 상태", "All states")}</option>
             {(
               [
                 "draft",
@@ -246,7 +245,7 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
       {rows === null && !error ? (
         <TeamLoading />
       ) : rows?.length === 0 ? (
-        <p className="py-8 text-sm leading-6 text-muted">
+        <p className="py-8 text-center text-sm text-muted">
           {status.enrolled && status.member.kind === "internal"
             ? c(
                 "참여한 폴더가 없습니다. 새 폴더를 만들 수 있습니다.",
@@ -258,24 +257,22 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
               )}
         </p>
       ) : (
-        <ul className="divide-y divide-border">
+        <ul className="divide-y divide-border border-y border-border">
           {rows?.map((p) => (
             <li key={p.id}>
               <Link
-                className="flex min-h-20 items-center justify-between gap-4 rounded-md py-5 focus-visible:outline-2 focus-visible:outline-offset-2 hover:bg-surface"
+                className="-mx-3 flex min-h-16 items-center justify-between gap-4 rounded-md px-3 py-3 hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2"
                 href={`${base}/${p.id}`}
                 onClick={persist}
               >
                 <div className="min-w-0">
-                  <h2 className="truncate font-medium">{p.name}</h2>
-                  <p className="mt-1 text-xs text-muted">
-                    {c(...roleLabels[p.role])}
+                  <h2 className="truncate text-sm font-medium">{p.name}</h2>
+                  <p className="mt-0.5 text-[13px] text-muted">
+                    {c(...roleLabels[p.role])} ·{" "}
+                    {c(...visibilityLabels[p.visibility])}
                   </p>
                 </div>
-                <div className="flex shrink-0 flex-wrap justify-end gap-2">
-                  <VisibilityBadge visibility={p.visibility} />
-                  <StateBadge state={p.state} />
-                </div>
+                <StateBadge state={p.state} />
               </Link>
             </li>
           ))}
@@ -313,13 +310,12 @@ export function NewProject() {
     <TeamShell
       title={c("폴더 만들기", "Create folder")}
       description={c(
-        "파일 없이 시작할 수 있습니다. 생성자는 폴더 담당자가 됩니다.",
-        "Start without uploading files. You become the folder lead.",
+        "만든 사람이 폴더 담당자가 됩니다.",
+        "You become the folder lead.",
       )}
     >
-      <SpaceBadge workspace={data.workspace} />
       <form
-        className="max-w-2xl space-y-5"
+        className="max-w-xl space-y-6"
         onSubmit={async (event) => {
           event.preventDefault();
           if (busy) return;
@@ -370,44 +366,14 @@ export function NewProject() {
         <label className="block space-y-2 text-sm">
           <span>{c("작업 개요", "Brief")}</span>
           <textarea
-            className={`${inputClass} min-h-36`}
+            className={`${inputClass} min-h-28`}
             maxLength={5000}
             value={brief}
             disabled={busy || !!pending.current}
             onChange={(e) => setBrief(e.target.value)}
           />
         </label>
-        <label className="flex min-h-11 items-start gap-3 text-sm">
-          <input
-            className="mt-1"
-            type="checkbox"
-            checked={workingFiles}
-            disabled={busy || !!pending.current}
-            onChange={(e) => setWorkingFiles(e.target.checked)}
-          />
-          <span>
-            {c(
-              "납품에 편집 가능한 작업 파일과 소스 확인 필요",
-              "Require verified editable working files and sources for delivery",
-            )}
-          </span>
-        </label>
-        <label className="flex min-h-11 items-start gap-3 text-sm">
-          <input
-            className="mt-1"
-            type="checkbox"
-            checked={originals}
-            disabled={busy || !!pending.current}
-            onChange={(e) => setOriginals(e.target.checked)}
-          />
-          <span>
-            {c(
-              "폴더에서 원본 공유 허용",
-              "Allow original sharing in the folder",
-            )}
-          </span>
-        </label>
-        <fieldset className="space-y-2 text-sm">
+        <fieldset className="space-y-1 text-sm">
           <legend className="mb-2">{c("공개 범위", "Visibility")}</legend>
           {(
             [
@@ -415,21 +381,21 @@ export function NewProject() {
                 "team",
                 c("팀 전체 공개", "Team-wide"),
                 c(
-                  "팀의 모든 내부 멤버가 폴더와 발행된 영상을 보고 코멘트하고, 팀 검토자를 제외한 멤버는 자료를 올리고 받고 결과를 발행할 수 있습니다(팀 공용 클라우드).",
-                  "Every internal team member can see the folder and its published videos and comment; members other than team reviewers can also upload, download and publish results (shared team cloud).",
+                  "팀의 모든 내부 멤버가 보고 함께 작업합니다.",
+                  "Every internal team member can see and work in it.",
                 ),
               ],
               [
                 "private",
                 c("비공개(참여자만)", "Private (participants only)"),
                 c(
-                  "초대한 참여자만 볼 수 있습니다. 참여하지 않은 소유자·관리자에게도 보이지 않습니다.",
-                  "Only invited participants can see it, including owners and admins who don't participate.",
+                  "초대한 참여자만 볼 수 있습니다.",
+                  "Only invited participants can see it.",
                 ),
               ],
             ] as const
           ).map(([value, label, hint]) => (
-            <label key={value} className="flex min-h-11 items-start gap-3">
+            <label key={value} className="flex min-h-11 items-start gap-3 py-1">
               <input
                 className="mt-1"
                 type="radio"
@@ -440,17 +406,47 @@ export function NewProject() {
               />
               <span>
                 {label}
-                <span className="mt-1 block text-xs text-muted">{hint}</span>
+                <span className="block text-[13px] text-muted">{hint}</span>
               </span>
             </label>
           ))}
         </fieldset>
+        <fieldset className="space-y-1 text-sm">
+          <legend className="mb-2">{c("납품", "Delivery")}</legend>
+          <label className="flex min-h-11 items-center gap-3">
+            <input
+              type="checkbox"
+              checked={workingFiles}
+              disabled={busy || !!pending.current}
+              onChange={(e) => setWorkingFiles(e.target.checked)}
+            />
+            {c(
+              "납품에 편집 가능한 작업 파일과 소스 확인 필요",
+              "Require verified editable working files and sources for delivery",
+            )}
+          </label>
+          <label className="flex min-h-11 items-center gap-3">
+            <input
+              type="checkbox"
+              checked={originals}
+              disabled={busy || !!pending.current}
+              onChange={(e) => setOriginals(e.target.checked)}
+            />
+            {c(
+              "폴더에서 원본 공유 허용",
+              "Allow original sharing in the folder",
+            )}
+          </label>
+        </fieldset>
         {error && <B2bError code={error} />}
-        <button className={primaryClass} disabled={busy || !name.trim()}>
-          {busy
-            ? c("만드는 중…", "Creating…")
-            : c("폴더 만들기", "Create folder")}
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <button className={primaryClass} disabled={busy || !name.trim()}>
+            {busy
+              ? c("만드는 중…", "Creating…")
+              : c("폴더 만들기", "Create folder")}
+          </button>
+          <SpaceBadge workspace={data.workspace} />
+        </div>
       </form>
     </TeamShell>
   );

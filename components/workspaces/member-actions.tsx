@@ -137,22 +137,20 @@ export function MemberActions({
               {member.name ? `${member.name} · ${member.email}` : member.email}
             </p>
             {error && <CloudError code={error} />}
-            <p className="text-sm leading-6 text-muted">
-              {offboard
-                ? c(
-                    "팀 자료는 남습니다. 진행 중인 업로드는 취소되고 좌석은 반환됩니다.",
-                    "Team files remain. Pending uploads are cancelled and the seat is released.",
-                  )
-                : action === "reactivate"
+            {/* A role change shows the grid instead of a sentence about it. */}
+            {(offboard || action === "reactivate") && (
+              <p className="text-sm leading-6 text-muted">
+                {offboard
                   ? c(
-                      "빈 좌석이 있어야 참여를 다시 활성화할 수 있습니다.",
-                      "Reactivating needs a free seat.",
+                      "팀 자료는 남습니다. 진행 중인 업로드는 취소되고 좌석은 반환됩니다.",
+                      "Team files remain. Pending uploads are cancelled and the seat is released.",
                     )
                   : c(
-                      "이 사람이 할 수 있는 일이 바뀝니다.",
-                      "This changes what they can do.",
+                      "빈 좌석이 있어야 참여를 다시 활성화할 수 있습니다.",
+                      "Reactivating needs a free seat.",
                     )}
-            </p>
+              </p>
+            )}
             {!offboard && action !== "reactivate" && <RoleTable />}
             {offboard && impact && impact.pendingUploads > 0 && (
               <p className="text-sm tabular-nums">

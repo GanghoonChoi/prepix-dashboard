@@ -2,11 +2,22 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { PublicationList, TeamPublication } from "@/lib/api/generated/b2b";
+import { bytes } from "@/lib/workspaces/upload";
 import { publicationsService, publicationOrigin } from "@/lib/api/services/b2b-publications.service";
 import type { PublicationOperation, PublicationScope } from "@/lib/b2b-publications/operations";
 import { publicationScopeKey } from "@/lib/b2b-publications/operations";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
-import { primaryClass, secondaryClass, TeamLoading, TeamShell } from "@/components/workspaces/shared";
+import {
+  BackLink,
+  Details,
+  EmptyState,
+  KeyValues,
+  Notice,
+  primaryClass,
+  secondaryClass,
+  TeamLoading,
+  TeamShell,
+} from "@/components/workspaces/shared";
 import { B2bError, errorCode, useCopy } from "./shared";
 import { kst, timecode, useLoader } from "./reviews";
 
@@ -23,7 +34,7 @@ const errors: Record<string, [string, string]> = {
 function PublicationError({ error, retry }: { error: string; retry?: () => void }) {
   const c = useCopy(), message = errors[error];
   if (!message) return <B2bError code={error} retry={retry} />;
-  return <div role="alert" className="rounded-lg border border-border p-4 text-sm"><p>{c(...message)}</p>{retry && <button type="button" className={`${secondaryClass} mt-3`} onClick={retry}>{c("다시 확인", "Check again")}</button>}</div>;
+  return <div role="alert" className="rounded-lg border border-border bg-surface p-4 text-sm leading-6"><p>{c(...message)}</p>{retry && <button type="button" className={`${secondaryClass} mt-3`} onClick={retry}>{c("다시 확인", "Check again")}</button>}</div>;
 }
 type PageData = PublicationList & { pending: PublicationOperation[]; recoveryError: string };
 export function ProjectPublications({ projectId, publicationId }: { projectId: string; publicationId?: string }) {
@@ -66,36 +77,157 @@ function ScopedPublications({ scope: initial, requestedId }: { scope: Publicatio
     finally { applying.current = false; setBusy(false); await load(); }
   };
   if (!data && !error) return <TeamLoading />;
-  return <TeamShell title={c("등록된 결과", "Registered results")} description={c("앱에서 발행한 결과입니다. 검토본이 준비되면 이 폴더를 볼 수 있는 내부 구성원에게 검토로 자동 공개됩니다. 외부 참여자가 발행한 결과는 그 사람에게도 열리고, 다른 외부 참여자는 담당자가 회차에 추가하거나 공유 링크를 보낼 때만 봅니다.", "Results published from the app. Each opens for review to the internal members who can see this folder once its review copy is ready. A result an external participant published also opens to them; other external participants see it only when the lead adds them to the round or sends a share link.")}>
-    <Link href={base} className={secondaryClass}>{c("폴더로", "Folder")}</Link>
-    {error && <PublicationError error={error} retry={() => void load()} />}
-    {stale && <p role="status" className="text-sm text-muted">{c("마지막으로 확인한 기록입니다. 최신 상태를 확인하기 전에는 공개할 수 없습니다.", "Showing the last confirmed records. Refresh before publishing.")}</p>}
-    {actionError && <PublicationError error={actionError} />}
-    {data?.recoveryError && !data.pending.length && <PublicationError error={data.recoveryError} />}
-    {data && <>
-      <dl className="grid gap-5 border-b border-border pb-6 sm:grid-cols-3">
-        {([[c("최신 등록 버전", "Latest registered version"), data.latestRegisteredVersionId], [c("현재 검토 버전", "Current review version"), data.currentReviewVersionId], [c("최종 승인 버전", "Final approved version"), data.finalApprovedVersionId]] as const).map(([label, id]) => <div key={label}><dt className="text-sm text-muted">{label}</dt><dd data-testid={label === c("최신 등록 버전", "Latest registered version") ? "latest-result" : label === c("현재 검토 버전", "Current review version") ? "current-review" : "final-approved"} className="mt-2 break-all font-mono text-[11px]">{id ?? c("없음", "None")}</dd></div>)}
-      </dl>
-      {!!data.pending.length && <section aria-label={c("공개 결과 복구", "Recover publication")} className="space-y-3 rounded-lg border border-border p-4">
-        <h2 className="font-medium">{c("결과 확인이 필요한 공개 요청", "Publication requests awaiting confirmation")}</h2>
-        <p className="text-sm text-muted">{c("원래 계정·폴더·요청 키로 결과를 조회합니다. 미처리로 확인된 경우 같은 요청만 다시 보냅니다.", "The original account, folder and key are checked. Only that same request is resent if proven not received.")}</p>
-        {data.recoveryError && <PublicationError error={data.recoveryError} />}
-        {data.pending.map((r) => <div key={r.input.requestKey} className="flex flex-wrap items-center gap-3"><span className="break-all font-mono text-xs">{r.input.requestKey}</span><button type="button" className={secondaryClass} disabled={busy} onClick={() => void retry(r)}>{c("원래 공개 요청 다시 확인", "Check original publication")}</button></div>)}
-      </section>}
-      <section className="space-y-3" aria-label={c("결과 목록", "Result list")}>
-        {!data.publications.length && <p className="text-sm text-muted">{c("현재 볼 수 있는 등록 결과가 없습니다. 앱에서 폴더 결과를 등록해 주세요.", "No accessible results have been registered. Register a folder result from the app.")}</p>}
-        {data.publications.map((p) => <article key={p.id} data-testid={`publication-${p.id}`} className="space-y-3 border-b border-border py-5">
-          <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-medium">{p.title}</h2><p className="mt-1 text-sm text-muted">{c("생성", "Generated")} {kst(p.generatedAt)} · {p.metadata.durationMs === null ? c("길이 정보 없음", "Duration unavailable") : timecode(p.metadata.durationMs)} · {p.size.toLocaleString()} B</p></div><span className="text-sm">{p.state === "published" ? c("검토 공개됨", "Published to review") : c("자료 등록됨", "Result registered")} · {p.previewState === "ready" ? c("재생 준비됨", "Playback ready") : p.previewState === "failed" ? c("재생 준비 실패", "Playback preparation failed") : p.previewState === "not_requested" ? c("재생 준비 전", "Playback not requested") : c("재생 준비 중", "Preparing playback")}</span></div>
-          <dl className="grid gap-2 text-xs sm:grid-cols-2"><div><dt className="text-muted">{c("결과 버전", "Result version")}</dt><dd className="break-all font-mono">{p.versionId}</dd></div><div><dt className="text-muted">{c("원본 작업 / 결과", "Original work / result")}</dt><dd className="break-all font-mono">{p.originWorkId} / {p.originResultId}</dd></div></dl>
-          {p.reviewId ? <Link className={secondaryClass} href={`${base}/reviews/${p.reviewId}`}>{c("공개한 검토 보기", "Open published review")}</Link>
-            : p.previewState === "failed" ? <p role="status" className="text-sm text-muted">{c("검토본을 만들지 못해 공개되지 않았습니다. 앱에서 결과를 다시 발행해 주세요.", "The review copy could not be made, so this result is not published. Publish it again from the app.")}</p>
-            : <div className="flex flex-wrap items-center gap-3"><p role="status" className="text-sm text-muted">{p.automaticSkip === "superseded" ? c("더 새 버전이 이미 검토 중이라 자동으로 공개하지 않았습니다", "A newer version is already under review, so this was not opened automatically")
-              : p.automaticSkip === "legacy" ? c("자동 공개 이전에 등록된 결과라 자동으로 공개하지 않습니다", "Registered before automatic publication, so it is not opened automatically")
-              : c("검토본 준비 중 — 준비되면 팀 내부에 자동으로 공개됩니다", "Preparing the review copy — it opens to the team's internal members automatically when ready")}</p>
-              {p.allowedActions.publish && <button type="button" className={primaryClass} disabled={stale || !!error || busy || data.pending.some((r) => r.target === p.id)} onClick={() => void publishNow(p)}>{c("지금 공개", "Publish now")}</button>}</div>}
-        </article>)}
-        <div className="flex gap-3">{cursor && <button type="button" className={secondaryClass} onClick={() => setCursor(undefined)}>{c("최신 결과", "Latest results")}</button>}{data.nextCursor && <button type="button" className={secondaryClass} onClick={() => setCursor(data.nextCursor!)}>{c("이전 결과", "Older results")}</button>}</div>
-      </section>
-    </>}
-  </TeamShell>;
+  // The summary names each version by the result it came from; the id stays
+  // beside it, small, for matching against the app.
+  const versionLabel = (id: string | null, testId: string) => {
+    const title = id && data?.publications.find((p) => p.versionId === id)?.title;
+    return (
+      <>
+        {title && <span className="block font-medium">{title}</span>}
+        <span data-testid={testId} className={id ? "break-all font-mono text-[11px] text-muted" : undefined}>
+          {id ?? c("없음", "None")}
+        </span>
+      </>
+    );
+  };
+  return (
+    <TeamShell
+      title={c("등록된 결과", "Registered results")}
+      description={c(
+        "앱에서 발행한 결과입니다. 검토본이 준비되면 팀 내부에 자동으로 공개됩니다.",
+        "Results published from the app. Each opens to the team's internal members once its review copy is ready.",
+      )}
+    >
+      <BackLink href={base}>{c("폴더 개요", "Folder overview")}</BackLink>
+      {error && <PublicationError error={error} retry={() => void load()} />}
+      {stale && (
+        <Notice role="status">
+          {c(
+            "마지막으로 확인한 기록입니다. 최신 상태를 확인하기 전에는 공개할 수 없습니다.",
+            "Showing the last confirmed records. Refresh before publishing.",
+          )}
+        </Notice>
+      )}
+      {actionError && <PublicationError error={actionError} />}
+      {data?.recoveryError && !data.pending.length && <PublicationError error={data.recoveryError} />}
+      {data && (
+        <>
+          <section className="space-y-3 border-b border-border pb-8">
+            <KeyValues
+              items={[
+                [c("최신 등록 버전", "Latest registered version"), versionLabel(data.latestRegisteredVersionId, "latest-result")],
+                [c("현재 검토 버전", "Current review version"), versionLabel(data.currentReviewVersionId, "current-review")],
+                [c("최종 승인 버전", "Final approved version"), versionLabel(data.finalApprovedVersionId, "final-approved")],
+              ]}
+            />
+            <Details>
+              {c(
+                "외부 참여자가 발행한 결과는 그 사람에게도 열립니다. 다른 외부 참여자는 담당자가 회차에 추가하거나 공유 링크를 보낼 때만 봅니다.",
+                "A result an external participant published also opens to them; other external participants see it only when the lead adds them to the round or sends a share link.",
+              )}
+            </Details>
+          </section>
+          {!!data.pending.length && (
+            <section aria-label={c("공개 결과 복구", "Recover publication")} className="space-y-2">
+              {data.recoveryError && <PublicationError error={data.recoveryError} />}
+              {data.pending.map((r) => (
+                <Notice key={r.input.requestKey}>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <span className="mr-auto">
+                      {data.publications.find((p) => p.id === r.target)?.title ?? c("공개 요청", "Publication request")}
+                      {" · "}
+                      {c("처리 결과 확인 필요", "Result unconfirmed")}
+                    </span>
+                    <button type="button" className={secondaryClass} disabled={busy} onClick={() => void retry(r)}>
+                      {c("원래 공개 요청 다시 확인", "Check original publication")}
+                    </button>
+                  </div>
+                </Notice>
+              ))}
+            </section>
+          )}
+          <section className="space-y-4" aria-label={c("결과 목록", "Result list")}>
+            {!data.publications.length ? (
+              <EmptyState
+                title={c("등록된 결과가 없습니다.", "No registered results.")}
+                description={c("앱에서 결과를 발행하면 여기에 표시됩니다.", "Results you publish from the app appear here.")}
+              />
+            ) : (
+              <ul className="divide-y divide-border border-y border-border">
+                {data.publications.map((p) => (
+                  <li key={p.id}>
+                    <article data-testid={`publication-${p.id}`} className="space-y-2 py-4">
+                      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+                        <div className="min-w-0 flex-1">
+                          <h2 className="break-words text-sm font-medium">{p.title}</h2>
+                          <p className="text-[13px] text-muted tabular-nums">
+                            {kst(p.generatedAt)} · {p.metadata.durationMs === null ? c("길이 정보 없음", "Duration unavailable") : timecode(p.metadata.durationMs)} · {bytes(p.size)}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 flex-wrap items-center gap-2">
+                          <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs">
+                            {p.state === "published" ? c("검토 공개됨", "Published to review") : c("자료 등록됨", "Result registered")}
+                          </span>
+                          {p.reviewId && (
+                            <Link className={secondaryClass} href={`${base}/reviews/${p.reviewId}`}>
+                              {c("공개한 검토 보기", "Open published review")}
+                            </Link>
+                          )}
+                          {!p.reviewId && p.previewState !== "failed" && p.allowedActions.publish && (
+                            <button
+                              type="button"
+                              className={primaryClass}
+                              disabled={stale || !!error || busy || data.pending.some((r) => r.target === p.id)}
+                              onClick={() => void publishNow(p)}
+                            >
+                              {c("지금 공개", "Publish now")}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {!p.reviewId && (
+                        <p role="status" className="text-[13px] text-muted">
+                          {p.previewState === "failed"
+                            ? c("검토본을 만들지 못해 공개되지 않았습니다. 앱에서 결과를 다시 발행해 주세요.", "The review copy could not be made, so this result is not published. Publish it again from the app.")
+                            : p.automaticSkip === "superseded"
+                              ? c("더 새 버전이 이미 검토 중이라 자동으로 공개하지 않았습니다", "A newer version is already under review, so this was not opened automatically")
+                              : p.automaticSkip === "legacy"
+                                ? c("자동 공개 이전에 등록된 결과라 자동으로 공개하지 않습니다", "Registered before automatic publication, so it is not opened automatically")
+                                : c("검토본 준비 중 — 준비되면 팀 내부에 자동으로 공개됩니다", "Preparing the review copy — it opens to the team's internal members automatically when ready")}
+                        </p>
+                      )}
+                      <Details>
+                        <KeyValues
+                          items={[
+                            [c("결과 버전", "Result version"), <span key="v" className="break-all font-mono text-xs">{p.versionId}</span>],
+                            [c("원본 작업 / 결과", "Original work / result"), <span key="o" className="break-all font-mono text-xs">{p.originWorkId} / {p.originResultId}</span>],
+                            [
+                              c("재생", "Playback"),
+                              p.previewState === "ready"
+                                ? c("재생 준비됨", "Playback ready")
+                                : p.previewState === "failed"
+                                  ? c("재생 준비 실패", "Playback preparation failed")
+                                  : p.previewState === "not_requested"
+                                    ? c("재생 준비 전", "Playback not requested")
+                                    : c("재생 준비 중", "Preparing playback"),
+                            ],
+                          ]}
+                        />
+                      </Details>
+                    </article>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {(cursor || data.nextCursor) && (
+              <div className="flex gap-3">
+                {cursor && <button type="button" className={secondaryClass} onClick={() => setCursor(undefined)}>{c("최신 결과", "Latest results")}</button>}
+                {data.nextCursor && <button type="button" className={secondaryClass} onClick={() => setCursor(data.nextCursor!)}>{c("이전 결과", "Older results")}</button>}
+              </div>
+            )}
+          </section>
+        </>
+      )}
+    </TeamShell>
+  );
 }

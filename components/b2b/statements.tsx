@@ -1,5 +1,6 @@
 "use client";
 import { billingTabs } from "./billing-shared";
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { apiClient } from "@/lib/api/client";
@@ -10,11 +11,12 @@ import type {
 } from "@/lib/api/services/b2b.service";
 import { statementLabels } from "@/lib/api/generated/b2b";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
+// Only what e2e/b2b-statements-races.spec.ts stubs for this module may be
+// imported here (no BackLink/Details/KeyValues until that stub grows them).
 import {
   Block,
   primaryClass,
   secondaryClass,
-  SpaceBadge,
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
@@ -192,15 +194,10 @@ function stateText(
   if (state === "blocked") return c("발행 설정 누락", "Issue setting missing");
   return c("집계 중", "Collecting");
 }
-const notTaxInvoice: [string, string] = [
-  "월 이용명세서는 세금계산서가 아닙니다. 법정 세금계산서 발행은 승인된 별도 설정 전까지 제공하지 않습니다.",
-  "A monthly statement is not a tax invoice; legal tax invoices are not issued until a separate approved setting exists.",
-];
-
 export function TeamStatements() {
   const c = useCopy();
   const { lang } = useI18n();
-  const { data, b2b, scope, key, allowed } = useScope();
+  const { b2b, scope, key, allowed } = useScope();
   const api = useStatementApi(scope, key, allowed);
   const fetcher = useCallback(() => api.list(), [api]);
   const { view, error, busy, load } = usePinned(key, allowed, fetcher);
@@ -208,14 +205,14 @@ export function TeamStatements() {
   if (!allowed) return <B2bError code="B2B_BILLING_PERMISSION_REQUIRED" />;
   return (
     <TeamShell title={c("플랜과 결제", "Plan and billing")} tabs={billingTabs(scope.workspaceId, c)}>
-      <p className="text-[13px] text-muted">
-        {c(
-        "한국 시간 달력 월마다 구매 금액을 정리합니다. 확정본과 정정본은 바뀌지 않으며 PDF로 받을 수 있습니다.",
-        "Purchases per Korean calendar month. Issued and corrected versions never change and can be downloaded as PDF.",
-      )}
-      </p>
+      {/* Said once, here: the month pages no longer repeat it. */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <SpaceBadge workspace={data.workspace} />
+        <p className="text-[13px] text-muted">
+          {c(
+            "월별 구매 명세입니다. 세금계산서가 아닙니다.",
+            "Purchases by month. A statement is not a tax invoice.",
+          )}
+        </p>
         <button className={secondaryClass} disabled={busy} onClick={() => void load()}>
           {c("최신 상태 확인", "Refresh")}
         </button>
@@ -228,12 +225,11 @@ export function TeamStatements() {
           {!view.calendar.configured && (
             <StatementError code="B2B_STATEMENT_CALENDAR_MISSING" />
           )}
-          <p className="max-w-2xl text-sm leading-6 text-muted">{c(...notTaxInvoice)}</p>
           {view.months.length === 0 ? (
-            <p className="text-sm text-muted">
+            <p className="text-[13px] text-muted">
               {c(
-                "아직 명세 대상 기록이 없습니다. 수납 기록이 생긴 달부터 표시합니다.",
-                "No statement records yet. Months appear once a payment exists.",
+                "아직 명세가 없습니다. 결제한 달부터 표시합니다.",
+                "No statements yet. Months appear once a payment exists.",
               )}
             </p>
           ) : (
@@ -248,15 +244,9 @@ export function TeamStatements() {
                     <span className="text-sm text-muted sm:order-none">
                       {stateText(c, m.state, m.issueOn, m.revisions)}
                     </span>
-                    <span className="col-span-2 text-sm tabular-nums text-muted sm:col-span-1 sm:text-right">
-                      {m.latest
-                        ? c(
-                            `revision ${m.latest.revision} · ${kst(m.latest.issuedAt)} 발행`,
-                            `revision ${m.latest.revision} · issued ${kst(m.latest.issuedAt)}`,
-                          )
-                        : m.issueOn
-                          ? c(`발행 기준일 ${m.issueOn}`, `Issue day ${m.issueOn}`)
-                          : "-"}
+                    {/* The state already names the issue day; only the issue time is new. */}
+                    <span className="col-span-2 text-[13px] tabular-nums text-muted sm:col-span-1 sm:text-right">
+                      {m.latest && c(`${kst(m.latest.issuedAt)} 발행`, `Issued ${kst(m.latest.issuedAt)}`)}
                     </span>
                   </Link>
                 </li>
@@ -290,8 +280,8 @@ function Snapshot({ revision }: { revision: TeamStatementRevision }) {
       <Block
         title={c("결제 금액 요약", "Payment summary")}
         description={c(
-          "이 달에 수납이 승인된 원주문의 금액입니다. 환불 완료는 이 달에 결제사 취소가 확인된 금액만 세며 이전 달 주문의 환불일 수 있습니다. 이 달 순수납은 이 달 수납 확인에서 이 달 환불 완료를 뺀 값으로, 특정 주문의 최종 순액이 아닙니다.",
-          "Original orders paid this month. Refunded counts only provider-confirmed cancellations this month and may relate to earlier months. Net received this month is received minus refunded this month, not the final net of any one order.",
+          "이 달에 확인된 수납과 환불입니다. 환불은 이전 달 주문의 것일 수 있습니다.",
+          "Payments and refunds confirmed this month. A refund may belong to an earlier month's order.",
         )}
       >
         <Figures
@@ -322,27 +312,23 @@ function Snapshot({ revision }: { revision: TeamStatementRevision }) {
       {(s.recipients.length > 0 || s.recipient) && (
         <Block
           title={c("수신 사업자 정보", "Recipient")}
-          description={c(
+          description={
             s.recipients.length > 1
-              ? "이 달에 결제 시 제출된 사업자 정보 사본이 둘 이상입니다. 사본마다 나누어 표시합니다."
-              : "결제 시 제출된 원주문의 사업자 정보 사본입니다.",
-            s.recipients.length > 1
-              ? "More than one business copy was submitted this month; each is shown separately."
-              : "The business copy submitted with the original order.",
-          )}
+              ? c("이 달에 제출된 사업자 정보가 둘 이상입니다.", "More than one business copy was submitted this month.")
+              : undefined
+          }
         >
           {(s.recipients.length > 0
             ? s.recipients
             : [{ buyer: s.recipient!, sourceOrderIds: [s.recipient!.sourceOrderId] }]
           ).map((r) => (
-            <div key={r.sourceOrderIds.join()} className="space-y-1 text-sm">
+            <div key={r.sourceOrderIds.join()} className="space-y-0.5 text-sm">
               <p className="font-medium">{r.buyer.businessName}</p>
-              <p className="text-muted tabular-nums">
+              <p className="text-[13px] text-muted tabular-nums">
                 {r.buyer.businessRegistrationNumber} · {r.buyer.representative} · {r.buyer.receiptEmail}
               </p>
-              <p className="text-muted">{r.buyer.address}</p>
-              <p className="text-muted">
-                {c("주문", "Orders")} {r.sourceOrderIds.map((id) => id.slice(0, 8)).join(", ")}
+              <p className="text-[13px] text-muted">
+                {r.buyer.address} · {c("주문", "Orders")} {r.sourceOrderIds.map((id) => id.slice(0, 8)).join(", ")}
               </p>
             </div>
           ))}
@@ -354,17 +340,17 @@ function Snapshot({ revision }: { revision: TeamStatementRevision }) {
         ) : (
           <ul className="divide-y divide-border">
             {s.purchases.map((p) => (
-              <li key={p.orderId} className="space-y-1 py-3 text-sm">
+              <li key={p.orderId} className="space-y-0.5 py-3 text-sm">
                 <p className="flex flex-wrap justify-between gap-2">
                   <span className="font-medium">
                     {pick(L.targets[p.target])} · {pick(L.purchaseStates[p.status])}
                   </span>
                   <span className="tabular-nums">{won(p.amounts.totalKrw)}</span>
                 </p>
-                <p className="text-muted tabular-nums">
+                <p className="text-[13px] text-muted tabular-nums">
                   {kst(p.paidAt)} {c("결제", "paid")} · {c("공급가액", "supply")} {won(p.amounts.supplyKrw)} · {c("부가세", "VAT")} {won(p.amounts.vatKrw)}
                 </p>
-                <p className="text-muted">
+                <p className="text-[13px] text-muted">
                   {p.lines.map((l) => `${pick(L.kinds[l.kind])} × ${l.quantity}`).join(", ")}
                 </p>
               </li>
@@ -372,16 +358,14 @@ function Snapshot({ revision }: { revision: TeamStatementRevision }) {
           </ul>
         )}
       </Block>
-      <Block
-        title={c("정산과 환불", "Settlement and refunds")}
-        description={c(
-          "확인 중인 환불은 금액에 넣지 않습니다. 다른 달에 확인된 환불은 확인된 달의 명세에 표시합니다.",
-          "Refunds being confirmed are not counted. A refund appears as money in the month its cancellation is confirmed.",
-        )}
-      >
-        {s.adjustments.length === 0 && s.refunds.length === 0 ? (
-          <p className="text-sm text-muted">{c("기록이 없습니다.", "No records.")}</p>
-        ) : (
+      {(s.adjustments.length > 0 || s.refunds.length > 0) && (
+        <Block
+          title={c("정산과 환불", "Settlement and refunds")}
+          description={c(
+            "확인 중인 환불은 금액에 넣지 않습니다.",
+            "Refunds being confirmed are not counted.",
+          )}
+        >
           <ul className="divide-y divide-border text-sm tabular-nums">
             {s.adjustments.map((a) => (
               <li key={`a-${a.orderId}`} className="flex flex-wrap justify-between gap-2 py-3">
@@ -399,14 +383,14 @@ function Snapshot({ revision }: { revision: TeamStatementRevision }) {
                     {c("요청", "Requested")} {won(r.amounts.totalKrw)} · {c("이 달 환불 완료", "Refunded this month")} {won(r.returnedInMonthKrw)}
                   </span>
                 </p>
-                <p className="text-muted">
+                <p className="text-[13px] text-muted">
                   {c("회수한 제공량", "Allowances reclaimed")}: {c("편집 이용권", "editing licences")} {r.allowances.seats} · {c("저장", "storage")} {bytesText(r.allowances.storageBytes)}
                 </p>
               </li>
             ))}
           </ul>
-        )}
-      </Block>
+        </Block>
+      )}
     </>
   );
 }
@@ -496,15 +480,22 @@ export function TeamStatementMonth({ month }: { month: string }) {
   const shownNotice = notice?.key === viewKey ? notice : null;
   const latest = view?.revisions[0];
   return (
-    <TeamShell title={c(`${monthLabel(month)} 이용명세서`, `${monthLabel(month, "en")} statement`)}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link href={`/dashboard/workspaces/${scope.workspaceId}/statements`} className={secondaryClass}>
-          {c("명세 목록", "All statements")}
-        </Link>
+    <TeamShell
+      title={c(`${monthLabel(month)} 이용명세서`, `${monthLabel(month, "en")} statement`)}
+      actions={
         <button className={secondaryClass} disabled={busy} onClick={() => void load()}>
           {c("최신 상태 확인", "Refresh")}
         </button>
-      </div>
+      }
+    >
+      {/* BackLink's markup: the races spec's stub of the shared module lacks it. */}
+      <Link
+        href={`/dashboard/workspaces/${scope.workspaceId}/statements`}
+        className="inline-flex items-center gap-1 text-[13px] text-muted transition-colors hover:text-foreground"
+      >
+        <ArrowLeft size={14} strokeWidth={1.75} aria-hidden="true" />
+        {c("명세 목록", "All statements")}
+      </Link>
       {error && <StatementError code={error} retry={() => void load()} />}
       {shownNotice && (
         <div className="space-y-3">
@@ -524,20 +515,21 @@ export function TeamStatementMonth({ month }: { month: string }) {
         !error && <TeamLoading />
       ) : (
         <>
-          <p className="text-sm leading-6 text-muted">
-            {stateText(c, view.state, view.issueOn, view.revisions.length)}
-            {view.issueOn && ` · ${c("발행 기준일", "issue day")} ${view.issueOn}`}
-          </p>
-          <p className="max-w-2xl text-sm leading-6 text-muted">{c(...notTaxInvoice)}</p>
-          {(view.state === "due" || (view.state === "issued" && view.issueOn)) && (
-            <button className={view.state === "due" ? primaryClass : secondaryClass} disabled={issuing} onClick={requestIssue}>
-              {view.state === "due"
-                ? c("명세 발행 요청", "Request issue")
-                : c("정정 필요 여부 확인", "Check for corrections")}
-            </button>
-          )}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-[13px] text-muted">
+              {stateText(c, view.state, view.issueOn, view.revisions.length)}
+              {view.state !== "scheduled" && view.issueOn && ` · ${c("발행 기준일", "issue day")} ${view.issueOn}`}
+            </p>
+            {(view.state === "due" || (view.state === "issued" && view.issueOn)) && (
+              <button className={view.state === "due" ? primaryClass : secondaryClass} disabled={issuing} onClick={requestIssue}>
+                {view.state === "due"
+                  ? c("명세 발행 요청", "Request issue")
+                  : c("정정 필요 여부 확인", "Check for corrections")}
+              </button>
+            )}
+          </div>
           {issuing && (
-            <p role="status" className="text-sm text-muted">
+            <p role="status" className="text-[13px] text-muted">
               {c("발행 요청을 처리하고 있습니다.", "Processing the issue request.")}
             </p>
           )}
@@ -545,16 +537,16 @@ export function TeamStatementMonth({ month }: { month: string }) {
             <Block
               title={c("확정본과 정정본", "Issued versions")}
               description={c(
-                "발행된 PDF는 바뀌지 않습니다. 받은 파일의 크기와 SHA-256을 발행본과 대조한 뒤에만 저장합니다.",
-                "Issued PDFs never change. A download is saved only after its size and SHA-256 match the issued version.",
+                "발행된 PDF는 바뀌지 않으며, 받은 파일은 발행본과 대조한 뒤 저장합니다.",
+                "Issued PDFs never change; a download is saved only after it matches the issued file.",
               )}
             >
               <ul className="divide-y divide-border">
                 {view.revisions.map((r) => {
                   const state = downloads.find((d) => d.id === r.id && d.key === viewKey)?.state;
                   return (
-                    <li key={r.id} className="space-y-2 py-4 text-sm">
-                      <p className="flex flex-wrap items-center justify-between gap-2">
+                    <li key={r.id} className="space-y-1 py-4 text-sm">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="font-medium">
                           revision {r.revision}
                           {r.revision > 1 && ` · ${c("정정본", "correction")}`} · {kst(r.issuedAt)} {c("발행", "issued")}
@@ -562,18 +554,18 @@ export function TeamStatementMonth({ month }: { month: string }) {
                         <button className={secondaryClass} disabled={state === "busy"} onClick={() => void download(r)}>
                           {c("PDF 받기", "Download PDF")}
                         </button>
-                      </p>
-                      <p className="text-muted">
+                      </div>
+                      <p className="text-[13px] text-muted">
                         {r.reasons.map((reason) => c(L.reasons[reason].ko, L.reasons[reason].en)).join(", ")}
                       </p>
                       <p className="break-all font-mono text-xs text-muted">
                         SHA-256 {r.pdf.sha256} · {new Intl.NumberFormat(lang === "ko" ? "ko-KR" : "en-US").format(r.pdf.bytes)} bytes
                       </p>
                       {state === "busy" && (
-                        <p role="status" className="text-muted">{c("받는 중 · 해시 확인 전", "Receiving · not yet verified")}</p>
+                        <p role="status" className="text-[13px] text-muted">{c("받는 중 · 해시 확인 전", "Receiving · not yet verified")}</p>
                       )}
                       {state === "verified" && (
-                        <p role="status">{c("SHA-256 일치 확인 · 저장을 시작했습니다", "SHA-256 verified · saving started")}</p>
+                        <p role="status" className="text-[13px]">{c("SHA-256 일치 확인 · 저장을 시작했습니다", "SHA-256 verified · saving started")}</p>
                       )}
                       {state && state !== "busy" && state !== "verified" && <StatementError code={state} />}
                     </li>
@@ -584,7 +576,7 @@ export function TeamStatementMonth({ month }: { month: string }) {
           )}
           {latest && <Snapshot revision={latest} />}
           {!latest && view.state !== "due" && (
-            <p className="text-sm text-muted">
+            <p className="text-[13px] text-muted">
               {c("아직 확정된 명세가 없습니다.", "No statement has been issued yet.")}
             </p>
           )}

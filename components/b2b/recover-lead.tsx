@@ -8,6 +8,8 @@ import {
 } from "@/lib/api/services/b2b.service";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
+  Block,
+  Details,
   inputClass,
   primaryClass,
   secondaryClass,
@@ -28,18 +30,15 @@ export function RecoverLead({ people }: { people: TeamPerson[] }) {
     input: RecoverProjectLead;
   } | null>(null);
   return (
-    <section className="space-y-4 border-t border-border pt-8">
-      <h2 className="font-medium">
-        {c("담당자 지정 복구", "Restore folder leadership")}
-      </h2>
-      <p className="max-w-2xl text-sm leading-6 text-muted">
-        {c(
-          "담당자 참여가 종료되었거나 계정이 정지된 폴더에만 후임을 지정할 수 있습니다. 참여자로부터 전달받은 폴더 주소를 입력하세요. 이미 참여를 수락한 내부 참여자 중에서 지정하며, 이 작업은 소유자에게 폴더 자료 접근을 추가하지 않습니다.",
-          "A successor can be assigned only when a lead's participation has ended or the account is suspended. Enter a folder address supplied by a participant. Choose an internal participant who already accepted participation. This action adds no content access for the owner.",
-        )}
-      </p>
+    <Block
+      title={c("담당자 지정 복구", "Restore folder leadership")}
+      description={c(
+        "담당자가 없는 폴더의 주소를 입력해 후임을 지정합니다.",
+        "Enter the address of a folder without a lead to assign a successor.",
+      )}
+    >
       <form
-        className="max-w-2xl space-y-4"
+        className="max-w-xl space-y-4"
         onSubmit={async (event) => {
           event.preventDefault();
           if (busy) return;
@@ -94,7 +93,7 @@ export function RecoverLead({ people }: { people: TeamPerson[] }) {
           }
         }}
       >
-        <label className="block space-y-2 text-sm">
+        <label className="block space-y-1.5 text-[13px]">
           <span>
             {c("복구할 폴더 주소", "Folder address for recovery")}
           </span>
@@ -109,7 +108,7 @@ export function RecoverLead({ people }: { people: TeamPerson[] }) {
         </label>
         {lookup && (
           <>
-            <label className="block space-y-2 text-sm">
+            <label className="block space-y-1.5 text-[13px]">
               <span>
                 {c("수락한 내부 후임", "Accepted internal successor")}
               </span>
@@ -141,7 +140,7 @@ export function RecoverLead({ people }: { people: TeamPerson[] }) {
                   ))}
               </select>
             </label>
-            <label className="block space-y-2 text-sm">
+            <label className="block space-y-1.5 text-[13px]">
               <span>
                 {c("담당자 복구 사유", "Reason for leadership recovery")}
               </span>
@@ -194,6 +193,14 @@ export function RecoverLead({ people }: { people: TeamPerson[] }) {
           )}
         </div>
       </form>
-    </section>
+      <Details>
+        <p>
+          {c(
+            "담당자 참여가 종료되었거나 계정이 정지된 폴더에만 지정할 수 있습니다. 이미 참여를 수락한 내부 참여자만 후임이 될 수 있고, 소유자에게 폴더 자료 접근이 추가되지 않습니다.",
+            "Only for folders whose lead has left or is suspended. The successor must be an internal participant who already accepted. The owner gains no content access.",
+          )}
+        </p>
+      </Details>
+    </Block>
   );
 }

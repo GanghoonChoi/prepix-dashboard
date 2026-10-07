@@ -18,7 +18,9 @@ import { FileDownloads } from "./file-downloads";
 
 export function ReferenceList({
   files,
-}: { files: ProjectRequestReferenceFile[] }) {
+}: {
+  files: ProjectRequestReferenceFile[];
+}) {
   const c = useCopy();
   return (
     <ul className="space-y-2 text-sm">
@@ -93,15 +95,20 @@ export function RequestReferencePicker({
       className="space-y-3"
       aria-label={c("요청 참고 자료", "Request reference files")}
     >
-      <h3 className="text-sm font-medium">
-        {c("참고 자료와 영상 버전", "Reference files and video versions")}
-      </h3>
-      <p className="text-sm text-muted">
-        {c(
-          "첨부는 참고용이며 제출이나 전달 확인을 대신하지 않습니다. 요청 공개가 자료 접근 권한을 늘리지 않습니다.",
-          "References do not replace a submission or delivery confirmation. Sharing a request does not grant file access.",
-        )}
-      </p>
+      <div>
+        <h3 className="text-sm font-medium">
+          {c("참고 자료", "Reference files")}{" "}
+          <span className="font-normal text-muted">
+            {c("(선택)", "(optional)")}
+          </span>
+        </h3>
+        <p className="mt-0.5 text-[13px] text-muted">
+          {c(
+            "비교용 첨부이며 제출을 대신하지 않습니다.",
+            "For comparison only; it does not replace a submission.",
+          )}
+        </p>
+      </div>
       {value === undefined ? (
         <>
           <ReferenceList files={existing} />
@@ -122,64 +129,76 @@ export function RequestReferencePicker({
         </>
       ) : (
         <>
-          <p className="text-sm text-muted">
-            {c(
-              "선택한 목록으로 첨부를 대체합니다. 접근 제한된 자료는 자동으로 추가하지 않습니다.",
-              "The selection replaces the references. Restricted files are not added automatically.",
-            )}
-          </p>
-          <label className="block space-y-2 text-sm">
-            <span>{c("참고 자료 검색", "Search reference files")}</span>
-            <input
-              className={inputClass}
-              value={search}
-              maxLength={100}
-              disabled={disabled}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setCursor(undefined);
-              }}
-            />
-          </label>
+          {existing.some((f) => f.access !== "available") && (
+            <p className="text-[13px] text-muted">
+              {c(
+                "접근 제한된 기존 첨부는 다시 추가되지 않습니다.",
+                "Restricted existing references are not added back.",
+              )}
+            </p>
+          )}
+          <input
+            className={`${inputClass} sm:max-w-xs`}
+            aria-label={c("참고 자료 검색", "Search reference files")}
+            placeholder={c("자료 검색", "Search files")}
+            value={search}
+            maxLength={100}
+            disabled={disabled}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setCursor(undefined);
+            }}
+          />
           {error && <B2bError code={error} retry={() => void load()} />}
-          <fieldset className="space-y-2 text-sm">
-            <legend>{c("참고할 자료 버전", "Reference versions")}</legend>
+          <fieldset className="text-sm">
+            <legend className="sr-only">
+              {c("참고할 자료 버전", "Reference versions")}
+            </legend>
             {versions === null ? (
               <TeamLoading />
             ) : !versions.length ? (
-              <p className="text-muted">
+              <p className="text-[13px] text-muted">
                 {c(
                   "이 폴더에서 열 수 있는 자료가 없습니다.",
                   "No files you can open in this folder.",
                 )}
               </p>
             ) : (
-              versions.map((v) => (
-                <label key={v.id} className="flex min-h-11 items-center gap-3">
-                  <input
-                    type="checkbox"
-                    disabled={
-                      disabled || (value.length >= 20 && !value.includes(v.id))
-                    }
-                    checked={value.includes(v.id)}
-                    onChange={(e) =>
-                      onChange(
-                        e.target.checked
-                          ? [...value, v.id]
-                          : value.filter((id) => id !== v.id),
-                      )
-                    }
-                  />
-                  <span className="break-all">
-                    {c("참고 첨부", "Reference")} {v.name} ·{" "}
-                    {c("버전", "Version")} {v.ordinal} · {bytes(v.size)}
-                  </span>
-                </label>
-              ))
+              <div className="max-h-72 divide-y divide-border overflow-y-auto rounded-md border border-border px-3">
+                {versions.map((v) => (
+                  <label
+                    key={v.id}
+                    className="flex min-h-11 items-center gap-3"
+                  >
+                    <input
+                      type="checkbox"
+                      disabled={
+                        disabled ||
+                        (value.length >= 20 && !value.includes(v.id))
+                      }
+                      checked={value.includes(v.id)}
+                      onChange={(e) =>
+                        onChange(
+                          e.target.checked
+                            ? [...value, v.id]
+                            : value.filter((id) => id !== v.id),
+                        )
+                      }
+                    />
+                    <span className="break-all">
+                      <span className="sr-only">
+                        {c("참고 첨부", "Reference")}{" "}
+                      </span>
+                      {v.name} · {c("버전", "Version")} {v.ordinal} ·{" "}
+                      {bytes(v.size)}
+                    </span>
+                  </label>
+                ))}
+              </div>
             )}
           </fieldset>
-          <div className="flex flex-wrap items-center gap-3 text-sm">
-            <span>
+          <div className="flex flex-wrap items-center gap-2 text-[13px] text-muted tabular-nums">
+            <span className="mr-auto">
               {c(
                 `참고 버전 ${value.length}개 선택`,
                 `${value.length} reference versions selected`,
@@ -270,21 +289,18 @@ export function RequestReferenceFiles({
     }
   };
   return (
-    <section
-      className="space-y-3"
-      aria-label={c("현재 요청 참고 자료", "Current request references")}
-    >
-      <h2 className="font-medium">
-        {c("참고 자료와 영상 버전", "Reference files and video versions")}
-      </h2>
+    <div className="space-y-2">
       {!files.length ? (
-        <p className="text-sm text-muted">
+        <p className="text-muted">
           {c("참고 첨부가 없습니다.", "No reference files.")}
         </p>
       ) : (
-        <ul className="space-y-3 text-sm">
+        <ul className="space-y-2">
           {files.map((f) => (
-            <li key={f.position} className="flex flex-wrap items-center gap-3">
+            <li
+              key={f.position}
+              className="flex flex-wrap items-center gap-x-3 gap-y-1"
+            >
               <span className="break-all">
                 {f.access === "available"
                   ? `${f.name} · ${c("버전", "Version")} ${f.ordinal} · ${bytes(f.size)}`
@@ -306,6 +322,6 @@ export function RequestReferenceFiles({
       )}
       {error && <B2bError code={error} />}
       <FileDownloads downloads={downloads} />
-    </section>
+    </div>
   );
 }

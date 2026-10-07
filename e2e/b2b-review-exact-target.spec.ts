@@ -30,7 +30,7 @@ test.beforeAll(async () => {
   const root = process.cwd();
   const stubs: Record<string, string> = {
     "next/navigation":
-      'import {useMemo} from "react";export function useSearchParams(){return useMemo(()=>new URLSearchParams(location.search),[location.search])}export function useRouter(){return {push:url=>history.pushState(null,"",url),refresh(){}}}',
+      'import {useMemo} from "react";export function useSearchParams(){return useMemo(()=>new URLSearchParams(location.search),[location.search])}export function useRouter(){return {push:url=>history.pushState(null,"",url),refresh(){}}}export function usePathname(){return location.pathname}',
     "next/link":
       'import React from "react"; export default function Link({href,children,...props}){return <a href={href} {...props}>{children}</a>}',
     "@/components/workspaces/workspace-context":
@@ -107,8 +107,11 @@ for (const kind of ["old-round", "invalid-link", "wrong-response", "late-query-c
       await expect(page.getByText(/이전 검토\(읽기 전용\)/)).toBeVisible();
       await expect(page.getByRole("button",{name:"V2 · 현재 검토",exact:true})).toBeDisabled();
       await page.evaluate(()=>window.dispatchEvent(new Event("focus")));
-      await expect.poll(()=>page.evaluate(()=>(window as unknown as {calls:{url:string}[]}).calls.length)).toBeGreaterThan(1);
-      expect(await page.evaluate(()=>(window as unknown as {calls:{url:string}[]}).calls.every(c=>c.url.endsWith("?round=1")))).toBe(true);
+      // Every re-read of the REVIEW stays pinned to the app's round. Other reads
+      // on the page (the version's download permission) are not review reads.
+      const reviewReads=()=>page.evaluate(()=>(window as unknown as {calls:{url:string}[]}).calls.filter(c=>c.url.includes("/reviews/")));
+      await expect.poll(async()=>(await reviewReads()).length).toBeGreaterThan(1);
+      expect((await reviewReads()).every(c=>c.url.endsWith("?round=1"))).toBe(true);
     } else {
       if(kind === "late-query-change") {
         await expect.poll(()=>page.evaluate(()=>typeof (window as unknown as {releaseReview?:unknown}).releaseReview)).toBe("function");

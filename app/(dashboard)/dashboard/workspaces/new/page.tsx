@@ -46,7 +46,7 @@ export default function NewWorkspacePage() {
       ) : !capabilities.canCreate && !pending ? (
         <TeamError code="WORKSPACE_CREATION_UNAVAILABLE" />
       ) : (
-        <form onSubmit={create} className="max-w-xl space-y-6">
+        <form onSubmit={create} className="max-w-xl space-y-5">
           <div className="space-y-2">
             <label
               htmlFor="workspace-name"
@@ -63,12 +63,8 @@ export default function NewWorkspacePage() {
               maxLength={b2b ? 100 : 80}
               autoComplete="organization"
               placeholder={t("team.placeholder")}
-              aria-describedby="workspace-name-hint"
               disabled={busy || pending}
             />
-            <p id="workspace-name-hint" className="text-xs text-muted">
-              {t(b2b ? "team.b2bNameHint" : "team.nameHint")}
-            </p>
           </div>
           <p className="text-xs leading-5 text-muted">
             {b2b

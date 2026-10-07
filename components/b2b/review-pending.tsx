@@ -112,26 +112,25 @@ export function ReviewPending({
   if (!rows.length && !error) return null;
   return (
     <section
-      className="space-y-3 rounded-lg border border-border p-4 text-sm"
+      className="space-y-3 rounded-lg border border-border px-4 py-3 text-sm"
       aria-label={c("결과 확인이 필요한 변경", "Changes awaiting confirmation")}
       aria-live="polite"
     >
-      <h2 className="font-medium">{c("결과 확인이 필요한 변경", "Changes awaiting confirmation")}</h2>
-      <p className="text-muted">
-        {c(
-          "응답을 받지 못한 변경입니다. 같은 요청으로만 확인·재시도하므로 두 번 적용되지 않습니다.",
-          "No response arrived for these changes. They are checked and retried with the same request, so they never apply twice.",
-        )}
-      </p>
+      <div>
+        <h2 className="font-medium">{c("결과 확인이 필요한 변경", "Changes awaiting confirmation")}</h2>
+        <p className="mt-0.5 text-[13px] text-muted">
+          {c("응답을 받지 못했습니다. 다시 보내도 두 번 적용되지 않습니다.", "No response arrived. Retrying never applies a change twice.")}
+        </p>
+      </div>
       {error && <ReviewError code={error} />}
-      <ul className="space-y-2">
+      <ul className="divide-y divide-border">
         {rows.map((r) => (
-          <li key={`${r.action}:${r.target ?? ""}`} className="flex flex-wrap items-center justify-between gap-3">
+          <li key={`${r.action}:${r.target ?? ""}`} className="flex flex-wrap items-center justify-between gap-3 py-2 first:pt-0 last:pb-0">
             <span>
               {c(...actionCopy[r.action])}
               {typeof r.input.body === "string" && ` · ${r.input.body.slice(0, 60)}`}
             </span>
-            <span className="flex gap-2">
+            <span className="flex flex-wrap gap-2">
               <button type="button" className={secondaryClass} disabled={busy} onClick={() => void refresh()}>
                 {c("결과 확인", "Check result")}
               </button>

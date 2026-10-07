@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@heroui/react";
 import { Skeleton } from "@heroui/react";
 import { useOverlayState } from "@heroui/react";
 import { Dialog } from "@/components/dialog";
-import { Block } from "@/components/workspaces/shared";
+import { Block, inputClass, secondaryClass } from "@/components/workspaces/shared";
 import { useToast } from "@/components/toast";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { userService, type Profile } from "@/lib/api/services/user.service";
@@ -82,7 +82,12 @@ export default function SettingsPage() {
     setSaving(false);
   };
 
-  const inputClass = "w-full rounded-md border border-border bg-field-background px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-foreground/30";
+  const field = (label: string, input: ReactNode) => (
+    <label className="block space-y-1.5">
+      <span className="text-xs text-muted">{label}</span>
+      {input}
+    </label>
+  );
 
   return (
     // No width of its own: the layout owns the content column, and this page
@@ -91,38 +96,47 @@ export default function SettingsPage() {
     <div className="space-y-8">
       <PageHeader title={t("settings.title")} />
 
-      {/* Account */}
       <Block title={t("settings.account")}>
         {loading ? (
           <Skeleton className="h-36 w-full rounded-lg" />
         ) : (
-          <div className="divide-y divide-border rounded-lg border border-border">
+          <div className="divide-y divide-border">
             <SettingRow
               label={t("settings.name")}
               value={profile?.firstName && profile?.lastName ? `${profile.firstName} ${profile.lastName}` : t("common.notSet")}
-              action={t("common.edit")}
-              onAction={() => { setFirstName(profile?.firstName || ""); setLastName(profile?.lastName || ""); nameModal.open(); }}
-            />
+            >
+              <button
+                className={secondaryClass}
+                onClick={() => { setFirstName(profile?.firstName || ""); setLastName(profile?.lastName || ""); nameModal.open(); }}
+              >
+                {t("common.edit")}
+              </button>
+            </SettingRow>
             <SettingRow label={t("settings.email")} value={profile?.email || t("common.notSet")} />
-            <SettingRow
-              label={t("settings.password")} value="••••••••" action={t("common.change")}
-              onAction={() => { setCurrentPassword(""); setNewPassword(""); setConfirmPassword(""); passwordModal.open(); }}
-            />
+            <SettingRow label={t("settings.password")} value="••••••••">
+              <button
+                className={secondaryClass}
+                onClick={() => { setCurrentPassword(""); setNewPassword(""); setConfirmPassword(""); passwordModal.open(); }}
+              >
+                {t("common.change")}
+              </button>
+            </SettingRow>
           </div>
         )}
       </Block>
 
-      <Block
-        title={t("settings.language")}
-        description={t("settings.languageHint")}
-        actions={<LanguageSwitcher />}
-      />
-
-      <Block
-        title={t("settings.theme")}
-        description={t("settings.themeHint")}
-        actions={<ThemeSwitcher />}
-      />
+      {/* Two switches with one-word answers; a sentence under each restated
+          what the segmented control already shows. */}
+      <Block title={t("settings.preferences")}>
+        <div className="divide-y divide-border">
+          <SettingRow label={t("settings.language")}>
+            <LanguageSwitcher />
+          </SettingRow>
+          <SettingRow label={t("settings.theme")}>
+            <ThemeSwitcher />
+          </SettingRow>
+        </div>
+      </Block>
 
       <Block
         title={t("settings.deleteAccount")}
@@ -132,11 +146,10 @@ export default function SettingsPage() {
         }
       />
 
-      {/* Modals */}
       <Dialog state={nameModal} title={t("settings.editName")}>
         <div className="space-y-3">
-          <div><label className="mb-1 block text-xs font-medium text-muted">{t("settings.firstName")}</label><input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} className={inputClass} /></div>
-          <div><label className="mb-1 block text-xs font-medium text-muted">{t("settings.lastName")}</label><input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} className={inputClass} /></div>
+          {field(t("settings.firstName"), <input type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} className={inputClass} />)}
+          {field(t("settings.lastName"), <input type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} className={inputClass} />)}
         </div>
         <div className="mt-6 flex justify-end gap-3">
           <Button variant="outline" size="sm" onPress={() => nameModal.close()} isDisabled={saving}>{t("common.cancel")}</Button>
@@ -147,9 +160,9 @@ export default function SettingsPage() {
       <Dialog state={passwordModal} title={t("settings.changePassword")}>
         <p className="mb-4 text-xs text-muted">{t("settings.logoutAfterPassword")}</p>
         <div className="space-y-3">
-          <div><label className="mb-1 block text-xs font-medium text-muted">{t("settings.currentPassword")}</label><input type="password" autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className={inputClass} /></div>
-          <div><label className="mb-1 block text-xs font-medium text-muted">{t("settings.newPassword")}</label><input type="password" autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={inputClass} /></div>
-          <div><label className="mb-1 block text-xs font-medium text-muted">{t("settings.confirmPassword")}</label><input type="password" autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={inputClass} /></div>
+          {field(t("settings.currentPassword"), <input type="password" autoComplete="current-password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className={inputClass} />)}
+          {field(t("settings.newPassword"), <input type="password" autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={inputClass} />)}
+          {field(t("settings.confirmPassword"), <input type="password" autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={inputClass} />)}
         </div>
         <div className="mt-6 flex justify-end gap-3">
           <Button variant="outline" size="sm" onPress={() => passwordModal.close()} isDisabled={saving}>{t("common.cancel")}</Button>
@@ -179,20 +192,17 @@ export default function SettingsPage() {
   );
 }
 
-function SettingRow({ label, value, action, onAction }: {
-  label: string; value: string; action?: string; onAction?: () => void;
+/** Label (and its current value) on the left, the control for it on the right. */
+function SettingRow({ label, value, children }: {
+  label: string; value?: string; children?: ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between px-5 py-4">
+    <div className="flex min-h-14 items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-foreground">{label}</p>
-        <p className="truncate text-xs text-muted">{value}</p>
+        <p className="text-sm">{label}</p>
+        {value && <p className="truncate text-[13px] text-muted">{value}</p>}
       </div>
-      {action && onAction && (
-        <button onClick={onAction} className="text-xs font-medium text-muted hover:text-foreground transition-colors">
-          {action}
-        </button>
-      )}
+      {children}
     </div>
   );
 }

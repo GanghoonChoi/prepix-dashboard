@@ -14,6 +14,7 @@ import { invitationStatus, workspaceError } from "@/lib/workspaces/onboarding";
 import { seatFigures } from "@/lib/workspaces/kind";
 import { InviteForm } from "@/components/workspaces/invite-form";
 import {
+  ConfirmDialog,
   TeamShell,
   TeamError,
   TeamLoading,
@@ -105,6 +106,33 @@ export function MembersContent({ id }: { id: string }) {
       /* Only first-run setup needs a line of orientation. Once the table is
          on screen it says what this page is better than a sentence can. */
       description={setup ? t("team.inviteDesc") : undefined}
+      /* First-run setup only: finishing is the page's action, and the way
+         out of the wizard sits beside it. Afterwards the switcher is how
+         you leave. */
+      actions={
+        setup && (
+          <>
+            <Link href="/dashboard" className={secondaryClass}>
+              {t("team.personal")}
+            </Link>
+            <button
+              className={primaryClass}
+              disabled={!!busy}
+              onClick={() =>
+                action("complete", () => workspaceService.complete(id))
+              }
+            >
+              {t(
+                busy === "complete"
+                  ? "team.finishing"
+                  : data.invitations.length
+                    ? "team.finish"
+                    : "team.skip",
+              )}
+            </button>
+          </>
+        )
+      }
     >
       {error && <TeamError code={error} retry={load} />}
       {!data && !error && <TeamLoading />}
@@ -152,23 +180,6 @@ export function MembersContent({ id }: { id: string }) {
                 onChange={load}
               />
             </Dialog>
-          )}
-          {setup && (
-            <button
-              className={primaryClass}
-              disabled={!!busy}
-              onClick={() =>
-                action("complete", () => workspaceService.complete(id))
-              }
-            >
-              {t(
-                busy === "complete"
-                  ? "team.finishing"
-                  : data.invitations.length
-                    ? "team.finish"
-                    : "team.skip",
-              )}
-            </button>
           )}
           {/*
             One table, not two lists. A pending invitation is a person holding
@@ -243,15 +254,16 @@ export function MembersContent({ id }: { id: string }) {
                   email: invite.email,
                   role: invite.role,
                   roleLabel: t(`team.role.${invite.role}`),
-                  detail: `${t(`team.status.${status}`)}${
-                    status === "pending"
-                      ? ` · ${t("team.expires", {
+                  // The badge already says the status; this line says when a
+                  // live invitation runs out.
+                  detail:
+                    status === "expired" || status === "revoked"
+                      ? undefined
+                      : t("team.expires", {
                           date: new Date(invite.expiresAt).toLocaleDateString(
                             lang,
                           ),
-                        })}`
-                      : ""
-                  }`,
+                        }),
                   locked: true,
                   menu:
                     canManage && data.canManage ? (
@@ -297,31 +309,32 @@ export function MembersContent({ id }: { id: string }) {
             ]}
           />
           {revokeId && (
-            <div
-              role="alertdialog"
-              aria-label={t("team.revoke")}
-              className="flex flex-wrap items-center gap-3 rounded-lg bg-surface p-3"
+            <ConfirmDialog
+              label={t("team.revoke")}
+              onClose={() => setRevokeId("")}
             >
               <p className="text-sm">{t("team.revokeConfirm")}</p>
-              <button
-                className={primaryClass}
-                disabled={!!busy}
-                onClick={() =>
-                  void action(revokeId, async () => {
-                    await workspaceService.revoke(id, revokeId);
-                    setRevokeId("");
-                  })
-                }
-              >
-                {t("team.revoke")}
-              </button>
-              <button
-                className={secondaryClass}
-                onClick={() => setRevokeId("")}
-              >
-                {t("team.cancel")}
-              </button>
-            </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className={primaryClass}
+                  disabled={!!busy}
+                  onClick={() =>
+                    void action(revokeId, async () => {
+                      await workspaceService.revoke(id, revokeId);
+                      setRevokeId("");
+                    })
+                  }
+                >
+                  {t("team.revoke")}
+                </button>
+                <button
+                  className={secondaryClass}
+                  onClick={() => setRevokeId("")}
+                >
+                  {t("team.cancel")}
+                </button>
+              </div>
+            </ConfirmDialog>
           )}
           {notice && (
             <p role="status" className="text-sm">
@@ -329,13 +342,6 @@ export function MembersContent({ id }: { id: string }) {
             </p>
           )}
         </>
-      )}
-      {/* An escape hatch for the first run, when this screen is a step in
-          creating a team. Afterwards the switcher is how you leave. */}
-      {setup && (
-        <Link href="/dashboard" className={secondaryClass}>
-          {t("team.personal")}
-        </Link>
       )}
     </TeamShell>
   );

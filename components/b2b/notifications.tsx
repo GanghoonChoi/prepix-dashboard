@@ -22,6 +22,7 @@ import {
   type NotificationScope,
 } from "@/lib/b2b-notifications/notifications";
 import {
+  EmptyState,
   secondaryClass,
   TeamLoading,
   TeamShell,
@@ -284,38 +285,25 @@ function NotificationsView({
     }
   };
 
+  const alertClass =
+    "rounded-md bg-surface-secondary px-3 py-2 text-[13px] leading-5";
   return (
-    <TeamShell
-      title={c("알림", "Notifications")}
-      description={c(
-        "알림은 일어난 일을 알려 줄 뿐 작업이 끝났다는 뜻은 아니에요. 열 때마다 현재 상태와 권한을 다시 확인해요.",
-        "A notification records what happened, not that the work is done. Opening one rechecks current state and access.",
-      )}
-    >
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="min-w-0 flex-1 text-sm sm:max-w-xs">
-          <span className="mb-1 block text-muted">{c("공간", "Space")}</span>
-          <select
-            className={inputClass}
-            value={scope.workspaceId ?? ""}
-            onChange={(e) =>
-              setScope({ ...scope, workspaceId: e.target.value || null })
-            }
-          >
-            <option value="">{c("모든 팀", "All teams")}</option>
-            {teams.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div role="group" aria-label={c("보기", "View")} className="flex gap-2">
+    <TeamShell title={c("알림", "Notifications")}>
+      <div className="flex flex-wrap items-center gap-2">
+        <div
+          role="group"
+          aria-label={c("보기", "View")}
+          className="inline-flex rounded-md border border-border p-0.5"
+        >
           {(["all", "unread"] as const).map((f) => (
             <button
               key={f}
               aria-pressed={scope.filter === f}
-              className={`${secondaryClass} ${scope.filter === f ? "bg-surface font-medium" : ""}`}
+              className={`min-h-9 rounded px-3 text-[13px] transition-colors sm:min-h-8 ${
+                scope.filter === f
+                  ? "bg-surface-secondary font-medium text-foreground"
+                  : "text-muted hover:text-foreground"
+              }`}
               onClick={() => setScope({ ...scope, filter: f })}
             >
               {f === "all" ? c("전체", "All") : c("읽지 않음", "Unread")}
@@ -323,22 +311,37 @@ function NotificationsView({
             </button>
           ))}
         </div>
+        {/* One option ("모든 팀") is not a choice; the filter appears once
+            there is a team to narrow to. */}
+        {(teams.length > 0 || scope.workspaceId) && (
+          <label className="min-w-0 sm:w-56">
+            <span className="sr-only">{c("공간", "Space")}</span>
+            <select
+              className={inputClass}
+              value={scope.workspaceId ?? ""}
+              onChange={(e) =>
+                setScope({ ...scope, workspaceId: e.target.value || null })
+              }
+            >
+              <option value="">{c("모든 팀", "All teams")}</option>
+              {teams.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
       {notice && (
-        <p
-          role="alert"
-          className="rounded-lg border border-border bg-surface p-4 text-sm leading-6"
-        >
+        <p role="alert" className={alertClass}>
           {notice}
         </p>
       )}
       {status === "loading" ? (
         <TeamLoading />
       ) : status === "error" ? (
-        <div
-          role="alert"
-          className="rounded-lg border border-border bg-surface p-4 text-sm leading-6"
-        >
+        <div role="alert" className={`${alertClass} space-y-2`}>
           <p>
             {failure === "B2B_DISABLED"
               ? c(
@@ -351,18 +354,20 @@ function NotificationsView({
                 )}
           </p>
           <button
-            className={`${secondaryClass} mt-3`}
+            className={secondaryClass}
             onClick={() => void reload(live.current)}
           >
             {c("다시 시도", "Retry")}
           </button>
         </div>
       ) : items.length === 0 ? (
-        <p className="text-sm text-muted">
-          {scope.filter === "unread"
-            ? c("읽지 않은 알림이 없어요.", "No unread notifications.")
-            : c("알림이 없어요.", "No notifications.")}
-        </p>
+        <EmptyState
+          title={
+            scope.filter === "unread"
+              ? c("읽지 않은 알림이 없어요.", "No unread notifications.")
+              : c("알림이 없어요.", "No notifications.")
+          }
+        />
       ) : (
         <ul className="divide-y divide-border border-y border-border">
           {items.map((n) => (
@@ -375,10 +380,10 @@ function NotificationsView({
                 disabled={busy === n.id}
                 onClick={() => void open(n)}
               >
-                <span className="flex items-start gap-2">
+                <span className="flex items-start gap-2.5">
                   <span
                     aria-hidden
-                    className={`mt-2 h-2 w-2 shrink-0 rounded-full ${n.readAt || n.access === "lost" ? "bg-transparent" : "bg-accent"}`}
+                    className={`mt-2 h-1.5 w-1.5 shrink-0 rounded-full ${n.readAt || n.access === "lost" ? "bg-transparent" : "bg-accent"}`}
                   />
                   <span className="min-w-0">
                     <span
@@ -390,16 +395,20 @@ function NotificationsView({
                       {[n.team?.name, n.project?.name, when(n.createdAt, ko)]
                         .filter(Boolean)
                         .join(" · ")}
-                      {n.readAt || n.access === "lost"
-                        ? ""
-                        : c(" · 읽지 않음", " · Unread")}
+                      {/* The dot says it to the eye; this says it to a
+                          screen reader. */}
+                      {n.readAt || n.access === "lost" ? null : (
+                        <span className="sr-only">
+                          {c(" · 읽지 않음", " · Unread")}
+                        </span>
+                      )}
                     </span>
                   </span>
                 </span>
               </button>
               {n.access === "current" && (
                 <button
-                  className={`${secondaryClass} self-start sm:self-auto`}
+                  className="min-h-9 self-start rounded-md px-2 text-[13px] text-muted transition-colors hover:bg-surface-secondary hover:text-foreground disabled:opacity-50 sm:self-auto"
                   disabled={busy === n.id}
                   onClick={() => void toggle(n)}
                 >

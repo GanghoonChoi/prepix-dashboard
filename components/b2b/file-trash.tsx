@@ -15,18 +15,24 @@ import type { TrashScope } from "@/lib/b2b-files/trash";
 import { useTrashOperations } from "@/lib/b2b-files/use-trash";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
+  Block,
   ConfirmDialog,
+  Details,
   inputClass,
+  Notice,
   primaryClass,
   secondaryClass,
   TeamLoading,
 } from "@/components/workspaces/shared";
 import { B2bError, useCopy } from "./shared";
+import { textAction } from "./file-management";
 type Operations = ReturnType<typeof useTrashOperations>;
 function PendingTrash({ operations }: { operations: Operations }) {
   const c = useCopy();
+  if (!operations.error && !operations.confirmed && !operations.pending.length)
+    return null;
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {operations.error && (
         <B2bError
           code={operations.error}
@@ -34,32 +40,31 @@ function PendingTrash({ operations }: { operations: Operations }) {
         />
       )}
       {operations.confirmed && (
-        <p role="status" className="text-sm">
+        <Notice role="status">
           {c(
             "휴지통 변경 결과를 확인했습니다.",
             "The trash operation was confirmed.",
           )}
-        </p>
+        </Notice>
       )}
       {operations.pending.map((r) => (
-        <div
-          key={r.input.requestKey}
-          className="space-y-2 rounded-lg border border-border p-4"
-        >
-          <p className="text-sm text-muted">
-            {c(
-              "응답을 확인하지 못한 휴지통 변경이 있습니다. 원래 요청의 결과를 확인하거나 같은 요청을 재시도하세요.",
-              "A trash reply is unconfirmed. Check or retry the original request.",
-            )}
-          </p>
-          <button
-            className={secondaryClass}
-            disabled={operations.busy}
-            onClick={() => void operations.run(r)}
-          >
-            {c("휴지통 원요청 확인·재시도", "Check or retry trash request")}
-          </button>
-        </div>
+        <Notice key={r.input.requestKey}>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span className="mr-auto">
+              {c(
+                "응답을 확인하지 못한 휴지통 변경이 있습니다.",
+                "A trash reply is unconfirmed.",
+              )}
+            </span>
+            <button
+              className={secondaryClass}
+              disabled={operations.busy}
+              onClick={() => void operations.run(r)}
+            >
+              {c("휴지통 원요청 확인·재시도", "Check or retry trash request")}
+            </button>
+          </div>
+        </Notice>
       ))}
     </div>
   );
@@ -67,7 +72,10 @@ function PendingTrash({ operations }: { operations: Operations }) {
 function Reason({
   value,
   setValue,
-}: { value: string; setValue: (value: string) => void }) {
+}: {
+  value: string;
+  setValue: (value: string) => void;
+}) {
   const c = useCopy();
   return (
     <label className="block space-y-2 text-sm">
@@ -86,21 +94,28 @@ export function TrashVersion({
   scope,
   version,
   changed,
-}: { scope: FileScope; version: TeamFileVersion; changed: () => void }) {
+}: {
+  scope: FileScope;
+  version: TeamFileVersion;
+  changed: () => void;
+}) {
   const c = useCopy(),
     [open, setOpen] = useState(false);
   return (
     <>
-      <button className={secondaryClass} onClick={() => setOpen(true)}>
+      <button className={textAction} onClick={() => setOpen(true)}>
         {c("휴지통으로 이동", "Move to trash")}
       </button>
+      {/* Opens inside a row's action line: its own full-width line. */}
       {open && (
-        <TrashForm
-          scope={scope}
-          version={version}
-          changed={changed}
-          close={() => setOpen(false)}
-        />
+        <div className="basis-full py-2 text-foreground">
+          <TrashForm
+            scope={scope}
+            version={version}
+            changed={changed}
+            close={() => setOpen(false)}
+          />
+        </div>
       )}
     </>
   );
@@ -129,8 +144,8 @@ function TrashForm({
       </p>
       <p className="text-sm text-muted">
         {c(
-          "선택한 버전만 휴지통으로 이동합니다. 다른 폴더에서 사용 중이거나 보존 근거가 있으면 이동할 수 없습니다. 휴지통에서도 팀 저장 용량에 포함되며, 복원 기한은 30일과 팀 삭제 예정일 중 빠른 날짜입니다.",
-          "Only this version moves to trash. Current folder references or retention evidence block the move. Trash counts toward team storage; restoration ends at the earlier of 30 days or team deletion.",
+          "이 버전만 휴지통으로 옮깁니다. 30일(팀 삭제 예정일이 더 빠르면 그날)까지 복원할 수 있고, 그동안 팀 저장 용량에 포함됩니다.",
+          "Only this version moves to trash. It can be restored for 30 days (or until team deletion, if sooner) and counts toward team storage meanwhile.",
         )}
       </p>
       <PendingTrash operations={operations} />
@@ -181,7 +196,10 @@ function TrashForm({
 export function TrashPanel({
   scope,
   changed,
-}: { scope: TrashScope; changed: () => void }) {
+}: {
+  scope: TrashScope;
+  changed: () => void;
+}) {
   const c = useCopy(),
     context = useWorkspace()!,
     operations = useTrashOperations(scope, changed);
@@ -239,17 +257,21 @@ export function TrashPanel({
     changed();
   };
   return (
-    <section
-      className="space-y-4 rounded-lg border border-border p-4"
-      aria-label={c("휴지통", "Trash")}
+    <Block
+      title={c("휴지통", "Trash")}
+      description={
+        data && !data.entries.length
+          ? c("휴지통이 비어 있습니다.", "Trash is empty.")
+          : undefined
+      }
+      actions={
+        !!data?.entries.length && (
+          <button className={secondaryClass} onClick={() => void reload()}>
+            {c("휴지통 새로고침", "Refresh trash")}
+          </button>
+        )
+      }
     >
-      <h2 className="font-medium">{c("휴지통", "Trash")}</h2>
-      <p className="text-sm text-muted">
-        {c(
-          "현재 접근이 허용된 버전만 표시합니다. 복원해도 해제된 폴더 연결이나 회수된 권한은 되살리지 않습니다. 영구 삭제 요청 후에는 복원할 수 없습니다.",
-          "Only currently accessible versions are listed. Restoring does not revive removed folder links or permissions. Permanent deletion requests cannot be undone.",
-        )}
-      </p>
       <PendingTrash operations={operations} />
       {error ? (
         <B2bError code={error} retry={() => void reload()} />
@@ -257,74 +279,80 @@ export function TrashPanel({
         <TeamLoading />
       ) : (
         <>
-          {!data.entries.length && (
-            <p className="text-sm text-muted">
-              {c(
-                "현재 접근할 수 있는 휴지통 버전이 없습니다.",
-                "No trash versions are currently accessible.",
-              )}
-            </p>
+          {!!data.entries.length && (
+            <ul className="divide-y divide-border border-y border-border">
+              {data.entries.map((row) => (
+                <li
+                  key={row.id}
+                  data-testid={`trash-file-${row.version.id}`}
+                  className="flex flex-wrap items-center justify-between gap-3 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="break-all text-sm font-medium">
+                      {row.version.name} · {c("버전", "Version")}{" "}
+                      {row.version.ordinal}
+                    </p>
+                    <p className="text-[13px] text-muted tabular-nums">
+                      {c("복원 기한", "Restore until")}:{" "}
+                      {new Date(row.restoreUntil).toLocaleString(
+                        c("ko-KR", "en-US"),
+                        { timeZone: "Asia/Seoul" },
+                      )}{" "}
+                      ·{" "}
+                      {row.state === "recoverable"
+                        ? c("복원 가능", "Recoverable")
+                        : row.state === "expired"
+                          ? c("복원 기한 만료", "Restoration expired")
+                          : c(
+                              "영구 삭제 요청됨",
+                              "Permanent deletion requested",
+                            )}
+                    </p>
+                  </div>
+                  {row.allowedActions.restore && (
+                    <button
+                      className={secondaryClass}
+                      disabled={operations.busy}
+                      onClick={() => {
+                        setReason("");
+                        setSelected(row);
+                      }}
+                    >
+                      {c("버전 복원", "Restore version")}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
           )}
-          <ul className="divide-y divide-border">
-            {data.entries.map((row) => (
-              <li
-                key={row.id}
-                data-testid={`trash-file-${row.version.id}`}
-                className="space-y-2 py-4"
-              >
-                <p className="break-all font-medium">
-                  {row.version.name} · {c("버전", "Version")}{" "}
-                  {row.version.ordinal}
-                </p>
-                <p className="text-sm text-muted">
-                  {c("복원 기한", "Restore until")}:{" "}
-                  {new Date(row.restoreUntil).toLocaleString(
-                    c("ko-KR", "en-US"),
-                    { timeZone: "Asia/Seoul" },
-                  )}{" "}
-                  ·{" "}
-                  {row.state === "recoverable"
-                    ? c("복원 가능", "Recoverable")
-                    : row.state === "expired"
-                      ? c("복원 기한 만료", "Restoration expired")
-                      : c("영구 삭제 요청됨", "Permanent deletion requested")}
-                </p>
-                {row.allowedActions.restore && (
-                  <button
-                    className={secondaryClass}
-                    disabled={operations.busy}
-                    onClick={() => {
-                      setReason("");
-                      setSelected(row);
-                    }}
-                  >
-                    {c("버전 복원", "Restore version")}
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-          <div className="flex flex-wrap gap-3">
-            {cursor && (
-              <button
-                className={secondaryClass}
-                onClick={() => setCursor(undefined)}
-              >
-                {c("휴지통 처음으로", "First trash page")}
-              </button>
-            )}
-            {data.nextCursor && (
-              <button
-                className={secondaryClass}
-                onClick={() => setCursor(data.nextCursor!)}
-              >
-                {c("다음 휴지통 버전", "More trash versions")}
-              </button>
-            )}
-            <button className={secondaryClass} onClick={() => void reload()}>
-              {c("휴지통 새로고침", "Refresh trash")}
-            </button>
-          </div>
+          {(cursor || data.nextCursor) && (
+            <div className="flex flex-wrap gap-3">
+              {cursor && (
+                <button
+                  className={secondaryClass}
+                  onClick={() => setCursor(undefined)}
+                >
+                  {c("휴지통 처음으로", "First trash page")}
+                </button>
+              )}
+              {data.nextCursor && (
+                <button
+                  className={secondaryClass}
+                  onClick={() => setCursor(data.nextCursor!)}
+                >
+                  {c("다음 휴지통 버전", "More trash versions")}
+                </button>
+              )}
+            </div>
+          )}
+          {!!data.entries.length && (
+            <Details>
+              {c(
+                "현재 접근이 허용된 버전만 표시합니다. 복원해도 해제된 폴더 연결이나 회수된 권한은 되살리지 않습니다.",
+                "Only currently accessible versions are listed. Restoring does not revive removed folder links or permissions.",
+              )}
+            </Details>
+          )}
         </>
       )}
       {selected && (
@@ -381,13 +409,16 @@ export function TrashPanel({
         context.b2b.team.currentState === "active" && (
           <OwnerPurge operations={operations} changed={update} />
         )}
-    </section>
+    </Block>
   );
 }
 function OwnerPurge({
   operations,
   changed,
-}: { operations: Operations; changed: () => void }) {
+}: {
+  operations: Operations;
+  changed: () => void;
+}) {
   const c = useCopy(),
     [address, setAddress] = useState(""),
     [impact, setImpact] = useState<TeamFileTrashImpact | null>(null),
@@ -430,24 +461,26 @@ function OwnerPurge({
     }
   };
   return (
-    <div className="space-y-3 border-t border-border pt-4">
-      <h3 className="font-medium">
-        {c("소유자 영구 삭제", "Owner permanent deletion")}
-      </h3>
-      <p className="text-sm text-muted">
-        {c(
-          "참여자가 전달한 버전 주소로 삭제 영향을 확인합니다. 이 조회는 파일 내용이나 다른 사용 위치를 공개하지 않습니다. 다른 버전에서 공유하는 실제 파일은 사용 근거가 남아 있는 동안 유지됩니다.",
-          "Check deletion impact using a version address supplied by a participant. This lookup reveals no file content or private locations. Physical files shared by other versions remain while still in use.",
-        )}
-      </p>
+    <div className="space-y-3 pt-2">
+      <div>
+        <h3 className="text-sm font-medium">
+          {c("소유자 영구 삭제", "Owner permanent deletion")}
+        </h3>
+        <p className="mt-1 text-[13px] text-muted">
+          {c(
+            "참여자가 전달한 버전 주소로 삭제 영향을 확인합니다.",
+            "Check deletion impact using a version address supplied by a participant.",
+          )}
+        </p>
+      </div>
       <form
-        className="flex flex-wrap gap-3"
+        className="flex gap-2"
         onSubmit={(e) => {
           e.preventDefault();
           void query();
         }}
       >
-        <label className="flex-1">
+        <label className="min-w-0 flex-1">
           <span className="sr-only">
             {c(
               "영구 삭제할 버전 주소",
@@ -466,6 +499,7 @@ function OwnerPurge({
             }}
             required
             maxLength={2000}
+            placeholder={c("자료 버전 주소", "Version address")}
           />
         </label>
         <button className={secondaryClass} disabled={busy || operations.busy}>
@@ -473,6 +507,12 @@ function OwnerPurge({
         </button>
       </form>
       {error && <B2bError code={error} />}
+      <Details>
+        {c(
+          "이 조회는 파일 내용이나 다른 사용 위치를 공개하지 않습니다. 다른 버전에서 공유하는 실제 파일은 사용 근거가 남아 있는 동안 유지됩니다.",
+          "This lookup reveals no file content or private locations. Physical files shared by other versions remain while still in use.",
+        )}
+      </Details>
       {impact && (
         <ConfirmDialog
           label={c("영구 삭제 확인", "Confirm permanent deletion")}

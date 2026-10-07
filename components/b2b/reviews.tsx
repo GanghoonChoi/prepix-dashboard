@@ -20,6 +20,7 @@ import { itemMeta } from "@/lib/b2b-reviews/items";
 import { fileApi } from "@/lib/b2b-files/api";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
+  EmptyState,
   inputClass,
   primaryClass,
   secondaryClass,
@@ -322,7 +323,7 @@ export function ReviewAudiencePicker({ scope, value, onChange, disabled, onValid
   const listed = data?.candidates.filter((person) => selected || person.external) ?? [];
   return (
     <fieldset disabled={disabled} className="space-y-3">
-      <legend className="mb-2 font-medium">{c("검토 대상과 승인자", "Review audience and approver")}</legend>
+      <legend className="mb-1 text-sm font-medium">{c("검토 대상과 승인자", "Review audience and approver")}</legend>
       <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
         {([["project", c("폴더 내부 전체 공개", "Everyone internal on the folder")], ["selected", c("선택한 사람만", "Selected people only")]] as const).map(([scopeValue, label]) => (
           <label key={scopeValue} className="flex min-h-11 items-center gap-3">
@@ -331,20 +332,19 @@ export function ReviewAudiencePicker({ scope, value, onChange, disabled, onValid
           </label>
         ))}
       </div>
-      <p className="text-sm text-muted">{selected
-        ? c("현재 폴더 참여자 중 검토를 볼 사람을 직접 선택합니다. 원본 다운로드·AI 권한은 별도로 유지됩니다. 승인자는 선택한 대상 중 한 명입니다.", "Choose the current folder participants who can view this review. Original-download and AI permissions remain separate. Choose one audience member as approver.")
-        : c("이 폴더를 볼 수 있는 내부 구성원 모두가 재생하고 코멘트합니다. 원본 다운로드·AI 권한은 별도로 유지됩니다. 승인이 필요할 때만 승인자 한 명을 지정하세요.", "Every internal member who can see this folder can play and comment. Original-download and AI permissions remain separate. Designate one approver only when approval is needed.")}</p>
+      <p className="text-[13px] text-muted">{selected
+        ? c("고른 참여자만 보고, 승인자는 그중 한 명입니다.", "Only the people you pick can view it; the approver is one of them.")
+        : c("폴더를 볼 수 있는 내부 구성원 모두가 보고 코멘트합니다.", "Every internal member who can see the folder can view and comment.")}</p>
       {error && <ReviewError code={error} retry={() => void load()} />}
       {!data && !error && <TeamLoading />}
       {!selected && !!listed.length && <p className="text-sm">{c("외부 참여자에게도 이 회차 공개 (선택)", "Also open this round to external participants (optional)")}</p>}
-      {!!listed.length && <div className="max-h-64 space-y-1 overflow-y-auto">
-        {listed.map((person) => <label key={person.userId} className="flex min-h-11 items-center gap-3 rounded-md border border-border px-3 py-2 text-sm">
+      {!!listed.length && <div className="max-h-64 divide-y divide-border overflow-y-auto rounded-md border border-border px-3">
+        {listed.map((person) => <label key={person.userId} className="flex min-h-11 items-center gap-3 text-sm">
           <input type="checkbox" checked={value.audienceUserIds.includes(person.userId)} onChange={(e) =>
             choose(value.audienceScope, e.target.checked ? [...value.audienceUserIds, person.userId] : value.audienceUserIds.filter((id) => id !== person.userId))} />
           <span className="min-w-0 break-words">{person.label} · {roles[person.role]}</span>
         </label>)}
       </div>}
-      {!selected && !!listed.length && <p className="text-sm text-muted">{c("외부 참여자는 여기서 고르거나 공유 링크를 받을 때만 이 회차를 봅니다.", "External participants see this round only when chosen here or sent a share link.")}</p>}
       <label className="block space-y-2 text-sm">
         <span>{c("승인자 선택", "Choose approver")}</span>
         <select className={inputClass} value={value.approverUserId} disabled={!data || !!error} onChange={(e) => onChange({ ...value, approverUserId: e.target.value })}>
@@ -433,28 +433,27 @@ export function VideoVersionPicker({
   }, [selected, preview?.state, status]);
   return (
     <div className="space-y-3">
-      <label className="block space-y-2 text-sm">
-        <span>{c("영상 버전 검색", "Search video versions")}</span>
-        <input
-          className={inputClass}
-          value={search}
-          maxLength={100}
-          disabled={disabled}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </label>
+      <input
+        className={`${inputClass} sm:max-w-xs`}
+        aria-label={c("영상 버전 검색", "Search video versions")}
+        placeholder={c("영상 버전 검색", "Search video versions")}
+        value={search}
+        maxLength={100}
+        disabled={disabled}
+        onChange={(e) => setSearch(e.target.value)}
+      />
       {error && <ReviewError code={error} retry={() => void load()} />}
       {versions === null && !error ? (
         <TeamLoading />
       ) : versions && !versions.length ? (
-        <p className="text-sm text-muted">
+        <p className="text-[13px] text-muted">
           {c("선택할 수 있는 영상 버전이 없습니다.", "No selectable video versions.")}
         </p>
       ) : (
-        <ul className="max-h-64 space-y-2 overflow-y-auto">
+        <ul className="max-h-64 divide-y divide-border overflow-y-auto rounded-md border border-border px-3">
           {versions?.map((v) => (
             <li key={v.id}>
-              <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md border border-border px-3 py-2 text-sm">
+              <label className="flex min-h-11 cursor-pointer items-center gap-3 text-sm">
                 <input
                   type="radio"
                   name={`video-${action}`}
@@ -479,7 +478,7 @@ export function VideoVersionPicker({
         </ul>
       )}
       {selected && preview && (
-        <div className="space-y-3 rounded-md border border-border p-3 text-sm" aria-live="polite">
+        <div className="space-y-3 rounded-md bg-surface-secondary p-3 text-sm" aria-live="polite">
           <p>{previewCopy(preview, c)}</p>
           {preview.state === "ready" && <>
             <button type="button" className={secondaryClass} disabled={disabled || busy} onClick={async () => {
@@ -571,100 +570,102 @@ function ProjectReviewsInner({ projectId }: { projectId: string }) {
   const { project, list } = data;
   const base = `/dashboard/workspaces/${team}/projects/${projectId}`;
   return (
-    <TeamShell title={c("영상 검토", "Video reviews")} description={project.name} tabs={folderTabs(team, project, c)}>
+    <TeamShell
+      title={c("영상 검토", "Video reviews")}
+      description={project.name}
+      tabs={folderTabs(team, project, c)}
+      actions={list.allowedActions.create && (
+        <button type="button" className={primaryClass} onClick={() => setCreating((v) => !v)}>
+          {c("새 검토", "New review")}
+        </button>
+      )}
+    >
       <ReviewPending scope={scope} />
       {stale && <ReviewError code={error} retry={() => void load()} />}
-      <div className="flex flex-wrap gap-3 empty:hidden">
-        {list.allowedActions.create && (
-          <button type="button" className={primaryClass} onClick={() => setCreating((v) => !v)}>
-            {c("새 검토", "New review")}
-          </button>
-        )}
-      </div>
       {creating && list.allowedActions.create && (
-        <section className="space-y-4 rounded-lg border border-border p-4" aria-label={c("새 검토", "New review")}>
-          <p className="text-sm text-muted">
-            {c(
-              "정확한 영상 버전의 검토본을 재생해 확인한 뒤 공개합니다. 기본은 폴더를 볼 수 있는 내부 구성원 모두에게 공개되고, 외부 참여자는 고른 사람만 봅니다. 승인자는 필요할 때 지정합니다. 앱에서 발행한 결과는 검토본이 준비되면 팀 내부에 자동으로 공개됩니다.",
-              "Play and check the exact review copy before publishing. By default every internal member who can see the folder gets it, and only the external participants you choose. Designate an approver when needed. Results published from the app open to the team's internal members automatically once their review copy is ready.",
-            )}
-          </p>
+        <section className="max-w-3xl space-y-4 rounded-lg border border-border p-5" aria-label={c("새 검토", "New review")}>
+          <h2 className="text-[15px] font-medium">{c("새 검토", "New review")}</h2>
           <label className="block space-y-2 text-sm">
             <span>{c("검토 제목", "Review title")}</span>
             <input className={inputClass} value={title} maxLength={100} disabled={mutation.busy} onChange={(e) => setTitle(e.target.value)} />
           </label>
-          <VideoVersionPicker
-            scope={scope}
-            canPrepare
-            disabled={mutation.busy}
-            actionDisabled={!title.trim() || !audienceReady}
-            action={c("이 버전으로 검토 시작", "Start review with this version")}
-            onPick={async (version) => {
-              const input = { title: title.trim(), versionId: version.id, ...audienceInput(audience) };
-              const made = await mutation.run(input, (requestKey) =>
-                reviewsService.mutate(scope, "create", { requestKey, ...input }),
-              );
-              if (made) router.push(`${base}/reviews/${made.review.id}`);
-            }}
-          >
-            <ReviewAudiencePicker scope={scope} value={audience} onChange={setAudience} disabled={mutation.busy} onValidityChange={setAudienceReady} />
-          </VideoVersionPicker>
+          <div className="space-y-2">
+            <p className="text-sm">{c("영상 버전", "Video version")}</p>
+            <VideoVersionPicker
+              scope={scope}
+              canPrepare
+              disabled={mutation.busy}
+              actionDisabled={!title.trim() || !audienceReady}
+              action={c("이 버전으로 검토 시작", "Start review with this version")}
+              onPick={async (version) => {
+                const input = { title: title.trim(), versionId: version.id, ...audienceInput(audience) };
+                const made = await mutation.run(input, (requestKey) =>
+                  reviewsService.mutate(scope, "create", { requestKey, ...input }),
+                );
+                if (made) router.push(`${base}/reviews/${made.review.id}`);
+              }}
+            >
+              <ReviewAudiencePicker scope={scope} value={audience} onChange={setAudience} disabled={mutation.busy} onValidityChange={setAudienceReady} />
+            </VideoVersionPicker>
+          </div>
           {mutation.error && <ReviewError code={mutation.error} />}
         </section>
       )}
-      <form
-        className="flex w-full min-w-0 gap-2 sm:w-auto"
-        onSubmit={(e) => {
-          e.preventDefault();
-          setCursor(undefined);
-          setQuery(search.trim());
-        }}
-      >
-        <input
-          className={`${inputClass} min-w-0 max-w-64`}
-          aria-label={c("검토 검색", "Search reviews")}
-          placeholder={c("검토 제목 검색", "Search review titles")}
-          maxLength={100}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <button type="submit" className={`${secondaryClass} shrink-0`}>
-          {c("검색", "Search")}
-        </button>
-      </form>
-      {list.reviews.length === 0 ? (
-        <p className="text-sm text-muted">
-          {query ? c("검색 결과가 없습니다.", "No matching reviews.") : c("아직 검토가 없습니다.", "No reviews yet.")}
-        </p>
-      ) : (
-        <ul className="divide-y divide-border border-y border-border">
-          {list.reviews.map((r) => (
-            <li key={r.id}>
-              <Link href={`${base}/reviews/${r.id}`} className="flex flex-wrap items-center justify-between gap-3 py-4 hover:bg-surface">
-                <span className="min-w-0">
-                  <span className="block font-medium break-words">{r.title}</span>
-                  <span className="mt-1 block text-sm text-muted">
-                    {c("현재", "Current")} V{r.ordinal} · {c("회차", "Round")} {r.round}
-                    {r.previousRounds > 0 && ` · ${c("이전 검토", "Previous rounds")} ${r.previousRounds}`}
-                    {r.approver && ` · ${c("승인자", "Approver")} ${r.approver.name ?? c("이름 없음", "Unnamed")}`}
+      <div className="space-y-3">
+        <form
+          className="flex w-full min-w-0 gap-2 sm:max-w-sm"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setCursor(undefined);
+            setQuery(search.trim());
+          }}
+        >
+          <input
+            className={`${inputClass} min-w-0`}
+            aria-label={c("검토 검색", "Search reviews")}
+            placeholder={c("검토 제목 검색", "Search review titles")}
+            maxLength={100}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <button type="submit" className={`${secondaryClass} shrink-0`}>
+            {c("검색", "Search")}
+          </button>
+        </form>
+        {list.reviews.length === 0 ? (
+          <EmptyState title={query ? c("검색 결과가 없습니다.", "No matching reviews.") : c("아직 검토가 없습니다.", "No reviews yet.")} />
+        ) : (
+          <ul className="divide-y divide-border border-y border-border">
+            {list.reviews.map((r) => (
+              <li key={r.id}>
+                <Link href={`${base}/reviews/${r.id}`} className="flex items-center justify-between gap-3 py-3 hover:bg-surface">
+                  <span className="min-w-0">
+                    <span className="block break-words text-sm font-medium">{r.title}</span>
+                    <span className="mt-0.5 block text-xs text-muted">
+                      {c("현재", "Current")} V{r.ordinal} · {c("회차", "Round")} {r.round}
+                      {r.previousRounds > 0 && ` · ${c("이전 검토", "Previous rounds")} ${r.previousRounds}`}
+                      {r.approver && ` · ${c("승인자", "Approver")} ${r.approver.name ?? c("이름 없음", "Unnamed")}`}
+                    </span>
                   </span>
-                </span>
-                <Badge>{c(...approvalCopy[r.approval])}</Badge>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className="flex gap-3">
-        {cursor && (
-          <button type="button" className={secondaryClass} onClick={() => setCursor(undefined)}>
-            {c("처음으로", "First page")}
-          </button>
+                  <Badge>{c(...approvalCopy[r.approval])}</Badge>
+                </Link>
+              </li>
+            ))}
+          </ul>
         )}
-        {list.nextCursor && (
-          <button type="button" className={secondaryClass} onClick={() => setCursor(list.nextCursor!)}>
-            {c("다음", "Next")}
-          </button>
+        {(cursor || list.nextCursor) && (
+          <div className="flex gap-2">
+            {cursor && (
+              <button type="button" className={secondaryClass} onClick={() => setCursor(undefined)}>
+                {c("처음으로", "First page")}
+              </button>
+            )}
+            {list.nextCursor && (
+              <button type="button" className={secondaryClass} onClick={() => setCursor(list.nextCursor!)}>
+                {c("다음", "Next")}
+              </button>
+            )}
+          </div>
         )}
       </div>
     </TeamShell>
@@ -686,34 +687,32 @@ export function PublishedItems({ projectId }: { projectId: string }) {
   const { data, error, load } = useLoader(read);
   const base = `/dashboard/workspaces/${team}/projects/${projectId}`;
   return (
-    <section className="space-y-4 border-b border-border pb-8" aria-label={c("발행된 항목", "Published items")}>
+    <section className="space-y-4 border-b border-border pb-8 last:border-b-0 last:pb-0" aria-label={c("발행된 항목", "Published items")}>
       <div className="flex items-center justify-between gap-3">
-        <h2 className="font-medium">{c("발행된 항목", "Published items")}</h2>
-        <Link href={`${base}/reviews`} className="text-sm underline underline-offset-4">
+        <h2 className="text-[15px] font-medium">{c("발행된 항목", "Published items")}</h2>
+        <Link href={`${base}/reviews`} className="text-[13px] text-muted underline-offset-4 hover:text-foreground hover:underline">
           {c("전체 보기", "View all")}
         </Link>
       </div>
       {error && <ReviewError code={error} retry={() => void load()} />}
       {!data ? (
         !error && (
-          <p role="status" className="text-sm text-muted">
+          <p role="status" className="text-[13px] text-muted">
             {c("발행된 항목을 불러오는 중입니다.", "Loading published items.")}
           </p>
         )
       ) : data.reviews.length === 0 ? (
-        <p className="text-sm text-muted">
-          {c(
-            "아직 발행된 항목이 없습니다 — 앱에서 작업한 영상을 발행하면 여기에 모입니다",
-            "nothing published yet — videos you publish from the app gather here",
-          )}
-        </p>
+        <EmptyState
+          title={c("아직 발행된 항목이 없습니다.", "Nothing published yet.")}
+          description={c("앱에서 발행한 영상이 여기에 모입니다.", "Videos you publish from the app gather here.")}
+        />
       ) : (
-        <ul className="divide-y divide-border rounded-lg border border-border">
+        <ul className="divide-y divide-border border-y border-border">
           {data.reviews.map((r) => (
             <li key={r.id}>
-              <Link href={`${base}/reviews/${r.id}`} className="block min-h-16 p-4 hover:bg-surface">
-                <span className="block break-words font-medium">{r.title}</span>
-                <span className="mt-1 block break-words text-xs text-muted tabular-nums">{itemMeta(r, c, kst)}</span>
+              <Link href={`${base}/reviews/${r.id}`} className="block py-3 hover:bg-surface">
+                <span className="block break-words text-sm font-medium">{r.title}</span>
+                <span className="mt-0.5 block break-words text-xs text-muted tabular-nums">{itemMeta(r, c, kst)}</span>
               </Link>
             </li>
           ))}

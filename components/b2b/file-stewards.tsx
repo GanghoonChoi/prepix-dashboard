@@ -19,17 +19,22 @@ import { useStewardOperations } from "@/lib/b2b-files/use-stewards";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
   ConfirmDialog,
+  Details,
   inputClass,
+  Notice,
   primaryClass,
   secondaryClass,
   TeamLoading,
 } from "@/components/workspaces/shared";
 import { B2bError, useCopy } from "./shared";
+import { textAction } from "./file-management";
 type Operations = ReturnType<typeof useStewardOperations>;
 export function PendingStewards({ operations }: { operations: Operations }) {
   const c = useCopy();
+  if (!operations.error && !operations.confirmed && !operations.pending.length)
+    return null;
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {operations.error && (
         <B2bError
           code={operations.error}
@@ -37,32 +42,31 @@ export function PendingStewards({ operations }: { operations: Operations }) {
         />
       )}
       {operations.confirmed && (
-        <p role="status" className="text-sm">
+        <Notice role="status">
           {c(
             "자료 인계 변경을 확인했습니다. 현재 자료와 권한을 다시 조회합니다.",
             "The handoff change was confirmed. Refreshing current files and access.",
           )}
-        </p>
+        </Notice>
       )}
       {operations.pending.map((r) => (
-        <div
-          key={r.input.requestKey}
-          className="space-y-2 rounded-lg border border-border p-4"
-        >
-          <p className="text-sm text-muted">
-            {c(
-              "응답을 확인하지 못한 인계 변경이 있습니다. 새 변경 전에 원래 요청의 결과를 확인해 주세요.",
-              "A handoff reply is unconfirmed. Check the original request before making another change.",
-            )}
-          </p>
-          <button
-            className={secondaryClass}
-            disabled={operations.busy}
-            onClick={() => void operations.run(r)}
-          >
-            {c("원요청 확인·재시도", "Check or retry original request")}
-          </button>
-        </div>
+        <Notice key={r.input.requestKey}>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+            <span className="mr-auto">
+              {c(
+                "응답을 확인하지 못한 인계 변경이 있습니다.",
+                "A handoff reply is unconfirmed.",
+              )}
+            </span>
+            <button
+              className={secondaryClass}
+              disabled={operations.busy}
+              onClick={() => void operations.run(r)}
+            >
+              {c("원요청 확인·재시도", "Check or retry original request")}
+            </button>
+          </div>
+        </Notice>
       ))}
     </div>
   );
@@ -110,8 +114,8 @@ function SuccessorFields({
       {!lookup.eligiblePeople.length && (
         <p className="text-sm text-muted">
           {c(
-            "현재 지정할 수 있는 내부 후임이 없습니다. 팀 참여 상태를 먼저 확인해 주세요.",
-            "No eligible internal successor is available. Check team participation first.",
+            "지금 지정할 수 있는 내부 후임이 없습니다.",
+            "No eligible internal successor is available.",
           )}
         </p>
       )}
@@ -148,21 +152,28 @@ export function TransferSteward({
   scope,
   version,
   changed,
-}: { scope: FileScope; version: TeamFileVersion; changed: () => void }) {
+}: {
+  scope: FileScope;
+  version: TeamFileVersion;
+  changed: () => void;
+}) {
   const c = useCopy(),
     [open, setOpen] = useState(false);
   return (
     <>
-      <button className={secondaryClass} onClick={() => setOpen(true)}>
+      <button className={textAction} onClick={() => setOpen(true)}>
         {c("자료 담당자 인계", "Transfer file stewardship")}
       </button>
+      {/* Opens inside a row's action line: its own full-width line. */}
       {open && (
-        <TransferForm
-          scope={scope}
-          version={version}
-          changed={changed}
-          close={() => setOpen(false)}
-        />
+        <div className="basis-full py-2 text-foreground">
+          <TransferForm
+            scope={scope}
+            version={version}
+            changed={changed}
+            close={() => setOpen(false)}
+          />
+        </div>
       )}
     </>
   );
@@ -207,8 +218,8 @@ function TransferForm({
       </h3>
       <p className="text-sm leading-6 text-muted">
         {c(
-          "자료 계열의 관리 책임을 후임에게 넘깁니다. 후임의 새 보관함 열람은 지금 선택한 버전에만 추가되며, 다른 비공개 버전과 폴더 참여는 함께 부여하지 않습니다. 기존 담당자의 열람 허용은 유지됩니다. 진행 중인 이 자료의 새 버전 전송은 중단됩니다.",
-          "Transfer responsibility for this file series. New library access is granted only to the selected version. Other private versions and folder participation remain separately controlled. Existing read access is retained; pending new-version uploads for this series are stopped.",
+          "이 자료의 관리 책임을 후임에게 넘깁니다. 후임에게는 이 버전의 열람만 추가되고, 진행 중인 새 버전 전송은 중단됩니다.",
+          "Hands responsibility for this file to a successor. They gain access to this version only, and pending new-version uploads stop.",
         )}
       </p>
       <PendingStewards operations={operations} />
@@ -274,7 +285,10 @@ function TransferForm({
 export function VersionAddress({
   scope,
   versionId,
-}: { scope: FileScope; versionId: string }) {
+}: {
+  scope: FileScope;
+  versionId: string;
+}) {
   const c = useCopy(),
     [address, setAddress] = useState(""),
     [copied, setCopied] = useState(false);
@@ -307,8 +321,8 @@ export function VersionAddress({
         <label className="block space-y-1 text-sm">
           <span className="text-muted">
             {c(
-              "주소로 접근 권한이 추가되지는 않습니다. 담당자 복구에도 이 주소를 사용할 수 있습니다.",
-              "This address adds no access. It can also identify the version for stewardship recovery.",
+              "이 주소로 접근 권한이 생기지는 않습니다.",
+              "This address grants no access.",
             )}
           </span>
           <input
@@ -357,16 +371,32 @@ function RecoveryForm({ scope }: { scope: StewardScope }) {
   const reader = useRef<AbortController | null>(null);
   useEffect(() => () => reader.current?.abort(), []);
   return (
-    <section className="space-y-4 border-t border-border pt-8">
-      <h2 className="font-medium">
-        {c("자료 담당자 복구", "Recover file stewardship")}
-      </h2>
-      <p className="max-w-2xl text-sm leading-6 text-muted">
-        {c(
-          "기존 담당자의 팀 참여 종료·정지 또는 계정 정지·파기가 확인된 자료에만 복구를 요청할 수 있습니다. 참여자로부터 받은 자료 버전 주소를 입력하고 내부 후임을 지정하세요. 지정된 후임이 7일 안에 수락하면 선택한 버전의 열람과 관리 책임을 넘깁니다. 소유자 본인은 후임으로 지정할 수 없으며, 이 요청으로 소유자의 콘텐츠 접근을 추가하지 않습니다.",
-          "Request recovery only when the previous steward has left, is suspended, or has a suspended or purged account. Enter a version address supplied by a participant and designate an internal successor. Separate acceptance within seven days recovers this version and responsibility. The owner cannot designate themselves or gain content access through this request.",
-        )}
-      </p>
+    <section className="space-y-4 border-b border-border pb-8 last:border-b-0 last:pb-0">
+      <div>
+        <h2 className="text-[15px] font-medium">
+          {c("자료 담당자 복구", "Recover file stewardship")}
+        </h2>
+        <p className="mt-1 max-w-2xl text-[13px] leading-5 text-muted">
+          {c(
+            "담당자가 떠난 자료를 내부 후임에게 넘깁니다.",
+            "Hand a departed steward's file to an internal successor.",
+          )}
+        </p>
+      </div>
+      <Details>
+        <p>
+          {c(
+            "기존 담당자의 팀 참여 종료·정지 또는 계정 정지·파기가 확인된 자료에만 요청할 수 있습니다. 참여자로부터 받은 자료 버전 주소를 입력하고 내부 후임을 지정하세요. 지정된 후임이 7일 안에 수락하면 선택한 버전의 열람과 관리 책임을 넘깁니다.",
+            "Only when the previous steward has left, is suspended, or has a suspended or purged account. Enter a version address supplied by a participant and designate an internal successor. Acceptance within seven days hands over this version and responsibility.",
+          )}
+        </p>
+        <p>
+          {c(
+            "소유자 본인은 후임으로 지정할 수 없으며, 이 요청으로 소유자의 콘텐츠 접근이 늘지 않습니다.",
+            "The owner cannot designate themselves or gain content access through this request.",
+          )}
+        </p>
+      </Details>
       <PendingStewards operations={operations} />
       {error && <B2bError code={error} />}
       <form
@@ -493,7 +523,10 @@ function RecoveryForm({ scope }: { scope: StewardScope }) {
 export function StewardInbox({
   scope,
   changed,
-}: { scope: StewardScope; changed?: () => void }) {
+}: {
+  scope: StewardScope;
+  changed?: () => void;
+}) {
   const c = useCopy(),
     [rows, setRows] = useState<TeamFileStewardRecovery[]>([]),
     [error, setError] = useState(""),
@@ -549,7 +582,7 @@ export function StewardInbox({
   }, [reload, generation]);
   return (
     <section
-      className="space-y-4"
+      className="space-y-4 empty:hidden"
       aria-label={c(
         "자료 복구 수락과 요청",
         "File recovery requests and acceptance",
@@ -559,32 +592,34 @@ export function StewardInbox({
       {error && <B2bError code={error} retry={() => void reload()} />}
       {rows.length > 0 && (
         <>
-          <h3 className="font-medium">
+          <h3 className="text-sm font-medium">
             {c("자료 담당자 복구 요청", "File stewardship recovery requests")}
           </h3>
-          <ul className="divide-y divide-border">
+          <ul className="divide-y divide-border border-y border-border">
             {rows.map((r) => (
               <li
                 key={r.id}
                 data-testid={`steward-recovery-${r.id}`}
-                className="space-y-3 py-4"
+                className="flex flex-wrap items-center justify-between gap-3 py-3"
               >
-                <p className="break-words text-sm">{r.reason}</p>
-                <p className="text-sm text-muted">
-                  {r.state === "pending"
-                    ? c("후임 수락 대기", "Awaiting successor acceptance")
-                    : r.state === "accepted"
-                      ? c("복구 완료", "Recovered")
-                      : r.state === "expired"
-                        ? c("수락 기한 만료", "Acceptance expired")
-                        : c("요청 취소", "Request cancelled")}{" "}
-                  · {c("수락 기한", "Accept before")}{" "}
-                  {new Date(r.expiresAt).toLocaleString(c("ko-KR", "en-US"), {
-                    timeZone: "Asia/Seoul",
-                  })}
-                </p>
+                <div className="min-w-0">
+                  <p className="break-words text-sm">{r.reason}</p>
+                  <p className="text-[13px] text-muted">
+                    {r.state === "pending"
+                      ? c("후임 수락 대기", "Awaiting successor acceptance")
+                      : r.state === "accepted"
+                        ? c("복구 완료", "Recovered")
+                        : r.state === "expired"
+                          ? c("수락 기한 만료", "Acceptance expired")
+                          : c("요청 취소", "Request cancelled")}{" "}
+                    · {c("수락 기한", "Accept before")}{" "}
+                    {new Date(r.expiresAt).toLocaleString(c("ko-KR", "en-US"), {
+                      timeZone: "Asia/Seoul",
+                    })}
+                  </p>
+                </div>
                 {r.state === "pending" && (
-                  <div className="flex flex-wrap gap-3">
+                  <div className="flex flex-wrap gap-2">
                     {r.incoming && (
                       <button
                         className={primaryClass}
