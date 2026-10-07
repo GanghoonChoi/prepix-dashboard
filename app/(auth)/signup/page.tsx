@@ -16,6 +16,7 @@ import { sleep } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useI18n } from "@/lib/i18n/context";
 import { readPrefilledEmail, readReturnTo } from "@/lib/return-to";
+import { CouponWaiting } from "@/components/auth/coupon-waiting";
 import { startHref } from "@/lib/onboarding";
 
 const TOTAL_STEPS = 4;
@@ -239,6 +240,8 @@ export default function SignupPage() {
           <p className="mt-1.5 text-xs text-muted">{t("auth.stepOf", { step, total: TOTAL_STEPS })}</p>
         </div>
       </div>
+
+      <CouponWaiting returnTo={authDestination} />
 
       {/* Error */}
       {error && (

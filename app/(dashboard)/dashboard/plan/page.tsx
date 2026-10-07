@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button, Chip } from "@heroui/react";
 import { Skeleton } from "@heroui/react";
-import { Check } from "lucide-react";
+import { Check, Ticket } from "lucide-react";
 import {
   subscriptionService,
   type CatalogPlan,
@@ -17,6 +17,8 @@ import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useI18n } from "@/lib/i18n/context";
 import { RefundRequestCard } from "@/components/dashboard/refund-request-card";
 import { legalUrl } from "@/lib/i18n/config";
+import { CouponDialog } from "@/components/dashboard/coupon-dialog";
+import { couponService, type CouponBenefits } from "@/lib/api/services/coupon.service";
 
 export default function PlanPage() {
   const { t, lang } = useI18n();
@@ -36,7 +38,13 @@ export default function PlanPage() {
   const refundModal = useOverlayState();
   const reviewModal = useOverlayState();
   const supportModal = useOverlayState();
+  const couponModal = useOverlayState();
   const [reviewNote, setReviewNote] = useState("");
+  // What coupons currently give this account. A page that cannot load them
+  // still works — they are an addition, not the plan.
+  const [benefits, setBenefits] = useState<CouponBenefits | null>(null);
+  // From a `/redeem?code=` link, carried through sign-in.
+  const [linkedCoupon, setLinkedCoupon] = useState<string | null>(null);
 
   const loadData = () => {
     setLoading(true);
@@ -55,6 +63,7 @@ export default function PlanPage() {
       })
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
+    couponService.benefits().then(setBenefits).catch(() => setBenefits(null));
   };
 
   useEffect(() => {
@@ -69,7 +78,18 @@ export default function PlanPage() {
         setJustUpgraded(true);
         window.history.replaceState(null, "", window.location.pathname);
       }
+      const coupon = params.get("coupon");
+      if (coupon) {
+        setLinkedCoupon(coupon);
+        couponModal.open();
+        // Out of the address bar, so a reload does not apply it again.
+        params.delete("coupon");
+        const rest = params.toString();
+        window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : ""));
+      }
     }
+    // Once, on arrival: it reads the address the page was opened with.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Back from a hosted checkout. Toss has already written the plan by the time
@@ -92,6 +112,18 @@ export default function PlanPage() {
     }, 2000);
     return () => clearInterval(id);
   }, [justUpgraded]);
+
+  // After a coupon is applied: the plan, its prices and the benefits list can
+  // all have changed. Not a full reload — the dialog is still showing.
+  const refreshAfterCoupon = () => {
+    Promise.all([subscriptionService.getCurrent(), subscriptionService.getPlans()])
+      .then(([sub, catalog]) => {
+        setCurrentSub(sub);
+        setPlans(catalog);
+      })
+      .catch(() => {});
+    couponService.benefits().then(setBenefits).catch(() => {});
+  };
 
   const handleUpgrade = async (planId: string, country?: string) => {
     setActionLoading(true);
@@ -246,6 +278,18 @@ export default function PlanPage() {
   // A filed request replaces every control: the question this person has is
   // "did it go through", and another button answers the wrong one.
   const refundPending = refundOffer?.action === "pending";
+  // The plan is held by a coupon pass, not by a subscription.
+  const pass = benefits?.pass ?? null;
+  const onPass = !!pass && pass.plan === currentPlan && !currentSub?.manageable;
+  const shortDate = (iso: string) =>
+    new Date(iso).toLocaleDateString(lang === "ko" ? "ko-KR" : "en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  const planName = (id: string) => plans.find((p) => p.id === id)?.displayName ?? PLAN_NAMES[id] ?? id;
+  const hasBenefits =
+    !!benefits && (!!benefits.pass || benefits.credits.remainingSeconds > 0 || benefits.discounts.length > 0);
 
   // The dollar price of a plan for a card issued abroad, or null when there is
   // nothing to offer (not quoted in won, or no such price).
@@ -287,11 +331,35 @@ export default function PlanPage() {
     } else {
       sub = pct ? t("plan.launchMonthly", { pct }) : t("plan.billedMonthly");
     }
+    // A coupon takes money off the first month only, on top of the launch
+    // promo — exactly what checkout charges. The later price is said too, so
+    // the first payment never reads as the monthly price.
+    const coupon = price.interval === "month" ? (price.couponDiscountPercent ?? 0) : 0;
+    if (coupon) {
+      const first = price.currency === "KRW"
+        ? Math.round(net * (1 - coupon / 100))
+        : Math.round(net * (100 - coupon)) / 100;
+      return {
+        big: `${formatPrice(price.currency, first)}${per}`,
+        strike: formatPrice(price.currency, net),
+        sub: t("coupon.priceAfterCoupon", { price: formatPrice(price.currency, net), per }),
+        coupon,
+      };
+    }
     return { big: `${formatPrice(price.currency, net)}${per}`, strike, sub };
   };
 
   const buttonFor = (plan: CatalogPlan) => {
     const isCurrent = currentPlan === plan.id;
+    // On a coupon pass the plan is "current" but nothing pays for it, so the
+    // one useful thing to offer is keeping it.
+    if (isCurrent && onPass && plan.prices.length > 0) {
+      return {
+        label: t("coupon.keepWithSubscription", { plan: plan.displayName }),
+        disabled: false,
+        onPress: () => handleUpgrade(plan.id),
+      };
+    }
     if (isCurrent) return { label: t("plan.currentPlan"), disabled: true, onPress: () => {} };
     if (plan.status === "coming_soon") return { label: t("plan.comingSoon"), disabled: true, onPress: () => {} };
     if (plan.id === "free") {
@@ -309,7 +377,13 @@ export default function PlanPage() {
 
   return (
     <div className="space-y-10">
-      <h1 className="text-2xl font-semibold tracking-tight text-foreground">{t("plan.title")}</h1>
+      <div className="flex items-center justify-between gap-4">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">{t("plan.title")}</h1>
+        <Button variant="outline" size="sm" onPress={() => { setLinkedCoupon(null); couponModal.open(); }}>
+          <Ticket size={15} strokeWidth={1.75} aria-hidden="true" />
+          {t("coupon.open")}
+        </Button>
+      </div>
 
       {justUpgraded && (
         <div className="rounded-md border border-border bg-foreground/[0.03] px-4 py-3 text-sm text-foreground">
@@ -365,7 +439,9 @@ export default function PlanPage() {
               </>
             ) : (
               <p className="mt-1 text-sm text-muted">
-                {currentPlan === "free" ? t("plan.onFree") : t("plan.active")}
+                {onPass
+                  ? t("coupon.planPassActive", { plan: planName(pass!.plan), date: shortDate(pass!.endsAt) })
+                  : currentPlan === "free" ? t("plan.onFree") : t("plan.active")}
               </p>
             )}
           </div>
@@ -420,6 +496,48 @@ export default function PlanPage() {
         />
       )}
 
+      {/* What coupons give this account, each with when it runs out — a
+          benefit with no date is how someone gets surprised by it ending. */}
+      {!loading && hasBenefits && (
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium text-foreground">{t("coupon.benefitsTitle")}</h2>
+          <ul className="divide-y divide-border rounded-lg border border-border">
+            {benefits!.pass && (
+              <li className="flex items-center justify-between gap-4 px-5 py-3.5">
+                <span className="text-sm text-foreground">
+                  {t("coupon.benefitPass", { plan: planName(benefits!.pass.plan) })}
+                </span>
+                <span className="text-xs text-muted">
+                  {t("coupon.benefitPassUntil", { date: shortDate(benefits!.pass.endsAt) })}
+                </span>
+              </li>
+            )}
+            {benefits!.credits.remainingSeconds > 0 && (
+              <li className="flex items-center justify-between gap-4 px-5 py-3.5">
+                <span className="text-sm text-foreground">
+                  {t("coupon.benefitMinutes", {
+                    minutes: String(Math.floor(benefits!.credits.remainingSeconds / 60)),
+                  })}
+                </span>
+                <span className="text-xs text-muted">
+                  {t("coupon.benefitMinutesUntil", { date: shortDate(benefits!.credits.items[0].expiresAt) })}
+                </span>
+              </li>
+            )}
+            {benefits!.discounts.map((d) => (
+              <li key={`${d.plan}-${d.percent}-${d.expiresAt}`} className="flex items-center justify-between gap-4 px-5 py-3.5">
+                <span className="text-sm text-foreground">
+                  {t("coupon.benefitDiscount", { percent: String(d.percent), plan: planName(d.plan) })}
+                </span>
+                <span className="text-xs text-muted">
+                  {t("coupon.benefitDiscountUntil", { date: shortDate(d.expiresAt) })}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* Plan cards */}
       {!loading && !loadError && (
         <section className="space-y-4">
@@ -456,13 +574,24 @@ export default function PlanPage() {
                     </div>
 
                     <div className="mt-3">
-                      <div className="flex items-baseline gap-2">
+                      {/* Wraps as a whole rather than breaking "/월" off the
+                          price when a strike-through sits beside it. */}
+                      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                         {price.strike && (
                           <span className="text-sm text-muted line-through">{price.strike}</span>
                         )}
-                        <span className="text-3xl font-semibold text-foreground">{price.big}</span>
+                        <span className="whitespace-nowrap text-3xl font-semibold text-foreground">{price.big}</span>
                       </div>
-                      {price.sub && <p className="mt-1 text-xs text-muted">{price.sub}</p>}
+                      {"coupon" in price && price.coupon ? (
+                        <p className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted">
+                          <Chip size="sm" color="success" variant="soft">
+                            {t("coupon.chip", { percent: String(price.coupon) })}
+                          </Chip>
+                          {price.sub}
+                        </p>
+                      ) : (
+                        price.sub && <p className="mt-1 text-xs text-muted">{price.sub}</p>
+                      )}
                     </div>
 
                     {copy && <p className="mt-3 text-xs leading-relaxed text-muted">{copy.description}</p>}
@@ -541,6 +670,13 @@ export default function PlanPage() {
       )}
 
       {/* Cancel modal */}
+      <CouponDialog
+        state={couponModal}
+        initialCode={linkedCoupon}
+        onApplied={refreshAfterCoupon}
+        onSubscribe={(planId) => handleUpgrade(planId)}
+      />
+
       <Dialog state={cancelModal} title={t("plan.cancelModalTitle")}>
         <p className="text-sm text-muted">
           {t("plan.cancelModalBody")}
