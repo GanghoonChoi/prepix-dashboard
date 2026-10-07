@@ -8,12 +8,15 @@ import { api, media, account, fixture, invite, open, upload, videoReady, shot, j
 test("V: team-wide project, publish → review on team home, private stays hidden, narrowing ends a viewer's access", async ({ browser, request }) => {
   test.setTimeout(600_000);
   expect(media, "Set B2B_E2E_MEDIA_DIR").toBeTruthy();
-  const [owner, lead, producer, member, client] = await Promise.all(
-    ["tv-owner", "tv-lead", "tv-producer", "tv-member", "tv-client"].map((l) => account(request, l)),
+  const [owner, lead, producer, member, client, maker] = await Promise.all(
+    ["tv-owner", "tv-lead", "tv-producer", "tv-member", "tv-client", "tv-maker"].map((l) => account(request, l)),
   );
   const team = (await json(request.post(`${api}/v2/workspaces`, { headers: owner.headers, data: { name: "팀 공개 인수", requestKey: randomUUID() } }))).workspace.id as string;
   fixture("b2b-paid-test-fixture.cjs", { workspaceId: team, action: "purchase", target: "initial" });
-  for (const user of [lead, producer, member]) fixture("b2b-test-fixture.cjs", { workspaceId: team, action: "join", userId: user.id });
+  for (const user of [lead, producer, maker]) fixture("b2b-test-fixture.cjs", { workspaceId: team, action: "join", userId: user.id });
+  // 2026-10-07: on a team project every internal member is a maker by default
+  // except workspace reviewers, so the read-only viewer is a team reviewer.
+  await invite(request, owner, team, null, member, "internal", "reviewer");
   const home = `/dashboard/workspaces/${team}`;
   const teamName = "팀 공개 브랜드 영상", secretName = "비밀 런칭 영상";
 
@@ -108,6 +111,15 @@ test("V: team-wide project, publish → review on team home, private stays hidde
   await expect(M.page.getByRole("heading", { name: "cut-v1.mp4", exact: true })).toBeVisible();
   await expect(M.page.getByRole("button", { name: "원본 다운로드", exact: true })).toHaveCount(0);
 
+  // Any other internal member is a maker on the team project without joining
+  // it: the shared cloud is everyone's (upload, original download).
+  const made = (await json(request.get(root, { headers: maker.headers }))).project;
+  expect([made.role, made.allowedActions.upload, made.allowedActions.download]).toEqual(["producer", true, true]);
+  const K = await open(browser, maker, `${base}/files`);
+  await expect(K.page.getByRole("heading", { name: "cut-v1.mp4", exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(K.page.getByRole("button", { name: "원본 다운로드", exact: true })).toBeVisible();
+  await shot(K.page, "s10-team-maker-files");
+
   // The owner (not participating) sees the team project, never the private one.
   const O = await open(browser, owner, home);
   await expect(O.page.getByRole("region", { name: "내 프로젝트", exact: true }).getByText(teamName, { exact: true })).toBeVisible({ timeout: 30_000 });
@@ -186,6 +198,6 @@ test("V: team-wide project, publish → review on team home, private stays hidde
   await M.page.goto(home);
   await expect(M.page.getByRole("region", { name: "최근 발행", exact: true }).getByRole("link", { name: /첫 발행 결과/ })).toBeVisible({ timeout: 30_000 });
 
-  for (const view of [L, P, M, O, C]) expect(view.errors).toEqual([]);
-  await Promise.all([L, P, M, O, C].map((v) => v.close()));
+  for (const view of [L, P, M, O, C, K]) expect(view.errors).toEqual([]);
+  await Promise.all([L, P, M, O, C, K].map((v) => v.close()));
 });

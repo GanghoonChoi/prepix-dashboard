@@ -81,7 +81,7 @@ export async function invite(
   request: APIRequestContext,
   lead: Account,
   team: string,
-  projectId: string,
+  projectId: string | null,
   user: Account,
   kind: "internal" | "external",
   role: "producer" | "reviewer",
@@ -98,9 +98,8 @@ export async function invite(
           email: user.email,
           kind,
           teamRole: role === "reviewer" ? "reviewer" : "editor",
-          projectId,
-          projectRole: role,
-          canDownload: false,
+          // null: a team-only invitation (the inviter must be a manager).
+          ...(projectId ? { projectId, projectRole: role, canDownload: false } : {}),
         },
       })
     ).status(),

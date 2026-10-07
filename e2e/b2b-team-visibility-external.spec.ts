@@ -45,7 +45,7 @@ test("V: an external client does not see an automatically published round until 
   const auto = await json(request.get(`${root}/reviews/${reviewId}`, { headers: lead.headers }));
   expect([auto.review.audienceScope, auto.review.round, auto.audience]).toEqual(["project", 1, []]);
 
-  // A team viewer leaves an internal comment on the automatic round.
+  // An internal team member (not a participant) leaves an internal comment on the automatic round.
   const internal = "내부 의견: 고객에게 보내기 전 자막 확인";
   const commented = await request.post(`${root}/reviews/${reviewId}/comments`, { headers: member.headers, data: { requestKey: randomUUID(), round: 1, versionId: version.id, body: internal, startMs: 500, endMs: null } });
   expect(commented.status(), await commented.text()).toBe(201);
