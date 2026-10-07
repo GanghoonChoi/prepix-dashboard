@@ -166,14 +166,6 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
         <Link className={secondaryClass} href={`/dashboard/workspaces/${id}/projects/${projectId}/publications`}>
           {c("등록된 결과", "Registered results")}
         </Link>
-        {project.role !== "reviewer" && (
-          <Link
-            className={secondaryClass}
-            href={`/dashboard/workspaces/${id}/projects/${projectId}/ai`}
-          >
-            {c("AI 작업", "AI job")}
-          </Link>
-        )}
       </div>
       {editing && project.allowedActions.edit ? (
         <ProjectEditor

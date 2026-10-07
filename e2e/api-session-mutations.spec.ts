@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 
 // The server applied a POST, then this browser's session changed before the
 // 2xx arrived, so the client refused it locally (API_SESSION_CHANGED). Real
-// Chrome, real client/stores/API wrappers/AI component; only transport is a
+// Chrome, real client/stores/API wrappers; only transport is a
 // fake that records what the server applied. The original key must survive and
 // a later lookup with that key, as the same account, must settle it once.
 const require = createRequire(resolve(process.cwd(), "package.json"));
@@ -54,8 +54,6 @@ test.beforeAll(async () => {
       resolveDir: root,
       loader: "tsx",
       contents: `
-      import React from "react";import {createRoot} from "react-dom/client";
-      import {ProjectAiRun} from "./components/b2b/ai-run";
       import {apiClient} from "./lib/api/client";
       import {billingApi,BrowserBillingStore,runRecord} from "./lib/b2b-billing/operations";
       import {statementApi} from "./lib/api/services/b2b-statements.service";
@@ -68,7 +66,6 @@ test.beforeAll(async () => {
       const uuid=()=>crypto.randomUUID();
       const ok=(config,data)=>({config,status:200,statusText:"OK",headers:{},data:{data}});
       function reply(url,body){const {month,reviewId}=window.ids;
-        if(url.endsWith("/ai/quotes"))return {quote:window.quote};
         if(url.endsWith("/commerce/orders"))return {orderId:uuid(),providerOrderId:"provider-order",expiresAt:"2027-01-01T00:00:00.000Z",requestId:uuid()};
         if(url.endsWith("/issue"))return {month,revision:{id:uuid(),month},created:true,requestId:uuid()};
         if(url.endsWith("/decisions"))return {requestId:uuid(),review:{id:reviewId,revision:2,round:1},decisionId:uuid()};
@@ -76,12 +73,9 @@ test.beforeAll(async () => {
       apiClient.defaults.adapter=async config=>{const url=config.url,auth=config.headers.Authorization,account=config.headers["X-Prepix-Account-ID"];
         if(config.method==="post"){const body=JSON.parse(config.data);s.posts.push({url,key:body.requestKey,auth,account});const answer=reply(url,body);s.applied[body.requestKey]=answer;if(s.hold)await new Promise(r=>s.release=r);return ok(config,answer)}
         s.gets.push({url,auth,account});const {userId,workspaceId,month}=window.ids;const key=Object.keys(s.applied).find(k=>url.includes(k));const found=key?s.applied[key]:null;
-        if(url.includes("/ai/quote-requests/")){if(found)return ok(config,found);throw {config,response:{status:404,data:{message:"B2B_AI_QUOTE_NOT_FOUND"}}}}
         if(url.includes("/billing/operations/")||url.includes("/review-operations/"))return ok(config,{currentUserId:userId,receipt:found});
         if(url.includes("/issue-operations/")){const u=new URL(url,location.origin);return ok(config,{currentUserId:userId,workspaceId,month,requestKey:decodeURIComponent(u.pathname.split("/").at(-1)),inputHash:u.searchParams.get("inputHash"),receipt:found})}
         return ok(config,{})};
-      const root=createRoot(document.getElementById("root"));
-      window.mountAi=(fixture,projectId)=>{window.fixture=fixture;root.render(<ProjectAiRun projectId={projectId}/>)};
       // One flow per paid/irreversible family: start(key) runs the real runner.
       window.flows={
         billing:()=>{const {userId,workspaceId,quoteId}=window.ids,scope={origin:location.origin,userId,workspaceId},store=new BrowserBillingStore();const record=key=>({schema:1,scope,action:"order",topic:quoteId,attempts:0,input:{requestKey:key,quoteId,buyer:{name:"Local buyer",email:"buyer@example.test"}}});
@@ -224,92 +218,3 @@ for (const flow of ["billing", "statements", "reviews"] as const) {
     });
   }
 }
-
-test("AI: an applied quote behind a local session fence stays pending and is recovered once by its original key", async ({
-  page,
-}) => {
-  const value = ids();
-  const versionIds = [randomUUID(), randomUUID()];
-  const quote = {
-    id: randomUUID(),
-    workspaceId: value.workspaceId,
-    projectId: value.projectId,
-    jobId: null,
-    operation: "transcript",
-    catalogVersion: "original-v1",
-    instructionSha256: "a".repeat(64),
-    maximumUnits: 5,
-    estimatedUnits: 4,
-    inputs: versionIds.map((versionId, ordinal) => ({
-      ordinal,
-      versionId,
-      assetId: randomUUID(),
-      name: `Exact source ${ordinal + 1}.wav`,
-      sha256: String(ordinal + 1).repeat(64),
-      size: 100,
-      durationMs: 4000,
-      units: 2,
-    })),
-    createdAt: "2026-10-06T00:00:00.000Z",
-    expiresAt: "2026-10-06T01:00:00.000Z",
-    availability: { submittable: false },
-  };
-  const path = `/dashboard/workspaces/${value.workspaceId}/projects/${value.projectId}/ai`;
-  await open(page, path, value);
-  const original = randomUUID();
-  const scope = {
-    origin: ORIGIN,
-    userId: value.userId,
-    workspaceId: value.workspaceId,
-    projectId: value.projectId,
-  };
-  const recordKey = `prepix-b2b-ai-run:${JSON.stringify([scope.origin, scope.userId, scope.workspaceId, scope.projectId])}`;
-  await page.evaluate(
-    ({ quote, recordKey, record }) => {
-      (window as unknown as { quote: unknown }).quote = quote;
-      // A quote request whose outcome this browser does not know yet.
-      localStorage.setItem(recordKey, JSON.stringify(record));
-    },
-    {
-      quote,
-      recordKey,
-      record: {
-        schema: 1,
-        scope,
-        quote: {
-          requestKey: original,
-          input: { operation: "transcript", inputVersionIds: versionIds, instruction: "" },
-        },
-      },
-    },
-  );
-  await page.evaluate(
-    ([workspaceId, userId, projectId]) =>
-      (window as unknown as { mountAi(f: unknown, p: string): void }).mountAi(
-        {
-          data: { currentUserId: userId, workspace: { id: workspaceId, name: "Fence" } },
-          b2b: { enrolled: true, team: { currentState: "active" }, allowedActions: { projects: true } },
-        },
-        projectId,
-      ),
-    [value.workspaceId, value.userId, value.projectId],
-  );
-  // Resume: the lookup says not received, so the same key is sent once.
-  await fenceAppliedPost(page);
-  const check = page.getByRole("button", { name: "같은 요청 확인" });
-  await expect(check).toBeVisible();
-  const stored = () =>
-    page.evaluate((k) => JSON.parse(localStorage.getItem(k) ?? "null"), recordKey);
-  expect((await stored())?.quote).toMatchObject({ requestKey: original });
-  expect((await stored())?.quote.id).toBeUndefined();
-  await check.click();
-  await expect(page.getByRole("heading", { name: "견적" })).toBeVisible();
-  expect((await stored())?.quote).toMatchObject({ requestKey: original, id: quote.id });
-  const sent = await posts(page);
-  expect(sent).toHaveLength(1);
-  expect(sent[0]).toMatchObject({ key: original, auth: "Bearer access-1" });
-  const lookups = (await gets(page)).filter((g) => g.url.includes(original));
-  // One before the send (not received), one after the fence (the receipt).
-  expect(lookups.map((g) => g.auth)).toEqual(["Bearer access-1", "Bearer access-2"]);
-  expect(lookups.every((g) => g.account === value.userId)).toBe(true);
-});

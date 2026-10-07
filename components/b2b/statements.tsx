@@ -27,7 +27,6 @@ import {
   kst,
   monthLabel,
   scopeKey,
-  units,
   verifiedPdf,
   won,
   type StatementScope,
@@ -193,8 +192,8 @@ function stateText(
   return c("집계 중", "Collecting");
 }
 const notTaxInvoice: [string, string] = [
-  "월 이용명세서는 세금계산서가 아닙니다. 법정 세금계산서 발행은 승인된 별도 설정 전까지 제공하지 않습니다. 선결제한 AI 사용량은 청구 금액에 다시 더하지 않습니다.",
-  "A monthly statement is not a tax invoice; legal tax invoices are not issued until a separate approved setting exists. Prepaid AI usage is never charged again.",
+  "월 이용명세서는 세금계산서가 아닙니다. 법정 세금계산서 발행은 승인된 별도 설정 전까지 제공하지 않습니다.",
+  "A monthly statement is not a tax invoice; legal tax invoices are not issued until a separate approved setting exists.",
 ];
 
 export function TeamStatements() {
@@ -210,8 +209,8 @@ export function TeamStatements() {
     <TeamShell
       title={c("월 이용명세서", "Monthly statements")}
       description={c(
-        "한국 시간 달력 월마다 구매 금액과 AI 제공량 기록을 정리합니다. 확정본과 정정본은 바뀌지 않으며 PDF로 받을 수 있습니다.",
-        "Purchases and AI records per Korean calendar month. Issued and corrected versions never change and can be downloaded as PDF.",
+        "한국 시간 달력 월마다 구매 금액을 정리합니다. 확정본과 정정본은 바뀌지 않으며 PDF로 받을 수 있습니다.",
+        "Purchases per Korean calendar month. Issued and corrected versions never change and can be downloaded as PDF.",
       )}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -232,8 +231,8 @@ export function TeamStatements() {
           {view.months.length === 0 ? (
             <p className="text-sm text-muted">
               {c(
-                "아직 명세 대상 기록이 없습니다. 수납이나 AI 제공량 기록이 생긴 달부터 표시합니다.",
-                "No statement records yet. Months appear once a payment or AI record exists.",
+                "아직 명세 대상 기록이 없습니다. 수납 기록이 생긴 달부터 표시합니다.",
+                "No statement records yet. Months appear once a payment exists.",
               )}
             </p>
           ) : (
@@ -400,42 +399,11 @@ function Snapshot({ revision }: { revision: TeamStatementRevision }) {
                   </span>
                 </p>
                 <p className="text-muted">
-                  {c("회수한 제공량", "Allowances reclaimed")}: {c("편집 이용권", "editing licences")} {r.allowances.seats} · {c("저장", "storage")} {bytesText(r.allowances.storageBytes)} · AI {units(String(r.allowances.aiUnits))}
+                  {c("회수한 제공량", "Allowances reclaimed")}: {c("편집 이용권", "editing licences")} {r.allowances.seats} · {c("저장", "storage")} {bytesText(r.allowances.storageBytes)}
                 </p>
               </li>
             ))}
           </ul>
-        )}
-      </Block>
-      <Block
-        title={c("AI 제공량 기록", "AI records")}
-        description={c(
-          "선결제한 지급 건 안의 기록이며 금액이 아닙니다. 프로젝트와 작업 내용은 포함하지 않습니다.",
-          "Records within prepaid grants, not charges. Projects and job content are not included.",
-        )}
-      >
-        {s.ai.length === 0 ? (
-          <p className="text-sm text-muted">{c("이 달의 AI 원장 기록이 없습니다.", "No AI records this month.")}</p>
-        ) : (
-          s.ai.map((u) => (
-            <div key={`${u.unitLabel}:${u.unitDescription}`} className="space-y-3">
-              <p className="text-sm text-muted">
-                {c("단위", "Unit")}: {u.unitLabel}
-              </p>
-              <Figures
-                rows={[
-                  [c("지급(기본)", "Granted (base)"), units(u.grantedBasic)],
-                  [c("지급(추가)", "Granted (extra)"), units(u.grantedExtra)],
-                  [c("예약", "Reserved"), units(u.reserved)],
-                  [c("사용 확정", "Confirmed"), units(u.confirmed)],
-                  [c("예약 반환", "Returned"), units(u.returned)],
-                  [c("만료", "Expired"), units(u.expired)],
-                  [c("환불 보류", "Withheld for refund"), units(u.revoked)],
-                  [c("보류 해제", "Withholding released"), units(u.reinstated)],
-                ]}
-              />
-            </div>
-          ))
         )}
       </Block>
     </>

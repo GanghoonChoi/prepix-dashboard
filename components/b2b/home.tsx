@@ -34,8 +34,6 @@ const date = (value: string) =>
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
-const count = (n: number | string) =>
-  new Intl.NumberFormat("ko-KR").format(BigInt(n));
 const periods = {
   current: ["현재 이용기간", "Current period"],
   scheduled: ["다음 기간 예정", "Next period scheduled"],
@@ -49,15 +47,6 @@ const licences = {
   released: ["편집 이용권 회수 완료", "Licence released"],
   expired: ["편집 이용권 종료", "Licence expired"],
 } as const;
-const jobs: Record<string, [string, string]> = {
-  queued: ["접수됨", "Queued"],
-  running: ["처리 중", "Running"],
-  cancel_requested: ["취소 처리 중", "Cancelling"],
-  completed: ["완료", "Completed"],
-  failed: ["실패", "Failed"],
-  cancelled: ["취소 완료", "Cancelled"],
-  timed_out: ["시간 초과", "Timed out"],
-};
 const transfers: Record<string, [string, string]> = {
   preparing: ["전송 준비", "Preparing"],
   uploading: ["전송 중", "Uploading"],
@@ -245,11 +234,11 @@ function ScopedHome({
         <>
           <section
             className="space-y-4 border-b border-border pb-8"
-            aria-label={c("내 이용기간과 AI", "My periods and AI")}
+            aria-label={c("내 이용기간", "My periods")}
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="font-medium">
-                {c("내 이용기간과 AI", "My periods and AI")}
+                {c("내 이용기간", "My periods")}
               </h2>
               <Link
                 href={`${base}/licences`}
@@ -312,51 +301,17 @@ function ScopedHome({
                         </span>
                       )}
                     </p>
-                    <p className="tabular-nums">
-                      {p.aiBudget
-                        ? `${c("내 좌석 AI", "My seat AI")} ${count(p.aiBudget.limitUnits)} ${p.aiUnitLabel} · ${c("확정 사용", "Confirmed")} ${count(p.aiBudget.confirmedUnits)} · ${c("예약 중", "Reserved")} ${count(p.aiBudget.reservedUnits)} · ${c("남은 양", "Left")} ${count(p.aiBudget.remainingUnits)}`
-                        : c(
-                            "이 기간에 쓰는 좌석이 없습니다.",
-                            "No seat is assigned to me for this period.",
-                          )}
-                    </p>
-                    <p className="text-xs leading-5 text-muted">
-                      {p.aiUnitDescription}
-                      {p.state === "withheld"
-                        ? c(
-                            " · 환불 확인 전에는 이 기간을 사용할 수 없습니다.",
-                            " · This period is withheld pending refund confirmation.",
-                          )
-                        : ""}
-                    </p>
+                    {p.state === "withheld" && (
+                      <p className="text-xs leading-5 text-muted">
+                        {c(
+                          "환불 확인 전에는 이 기간을 사용할 수 없습니다.",
+                          "This period is withheld pending refund confirmation.",
+                        )}
+                      </p>
+                    )}
                   </li>
                 ))}
               </ul>
-            )}
-            {readable && (
-              <div className="space-y-1 text-sm">
-                {!data.aiUsage?.reconciled && (
-                  <p className="tabular-nums">
-                    {c(
-                      "AI 사용 기록을 확인하지 못했습니다. AI 사용량에서 다시 확인하세요.",
-                      "AI usage records are unconfirmed. Review AI usage.",
-                    )}
-                  </p>
-                )}
-                <p className="text-xs leading-5 text-muted">
-                  {c(
-                    "AI는 좌석마다 따로 있고 팀이 함께 쓰지 않습니다. 실행 가능 여부와 예상 사용량은 프로젝트에서 다시 확인합니다.",
-                    "AI belongs to each seat and is not shared across the team. The project checks execution eligibility and estimated usage again.",
-                  )}
-                  {data.aiUsage && ` · ${date(data.aiUsage.sampledAt)} KST`}
-                </p>
-                <Link
-                  href={`${base}/ai`}
-                  className="inline-flex min-h-10 items-center underline underline-offset-4"
-                >
-                  {c("AI 사용량과 기록", "AI usage and history")}
-                </Link>
-              </div>
             )}
           </section>
           {readable && (
@@ -423,18 +378,15 @@ function ScopedHome({
               </section>
               <section
                 className="space-y-5 border-b border-border pb-8"
-                aria-label={c(
-                  "전송·AI·납품 업무",
-                  "Transfer, AI and delivery work",
-                )}
+                aria-label={c("전송·납품 업무", "Transfer and delivery work")}
               >
                 <h2 className="font-medium">
-                  {c("전송·AI·납품 업무", "Transfer, AI and delivery work")}
+                  {c("전송·납품 업무", "Transfer and delivery work")}
                 </h2>
                 <p className="text-xs leading-5 text-muted">
                   {c(
-                    "내 전송과 AI 실행, 현재 권한으로 열 수 있는 납품 업무만 표시합니다. 각 목록은 최근 항목 일부입니다.",
-                    "Only your transfers, AI runs and currently accessible deliveries appear. Each list shows recent items.",
+                    "내 전송과 현재 권한으로 열 수 있는 납품 업무만 표시합니다. 각 목록은 최근 항목 일부입니다.",
+                    "Only your transfers and currently accessible deliveries appear. Each list shows recent items.",
                   )}
                 </p>
                 <WorkList
@@ -470,39 +422,6 @@ function ScopedHome({
                     "Resume transfers on the device holding the source. Registration requires completed server verification.",
                   )}
                 </p>
-                <WorkList
-                  title={c("내 AI 실행", "My AI runs")}
-                  empty={c(
-                    "현재 열 수 있는 내 AI 실행이 없습니다.",
-                    "No accessible AI run belongs to you.",
-                  )}
-                  more={data.aiJobs.hasMore}
-                >
-                  {data.aiJobs.items.map((j) => (
-                    <li key={j.id}>
-                      <Link
-                        href={projectLink(
-                          j.projectId,
-                          `/ai?jobId=${encodeURIComponent(j.id)}`,
-                        )}
-                        className="block min-h-16 p-4 hover:bg-card"
-                      >
-                        <p className="break-words text-sm font-medium">
-                          {j.projectName} ·{" "}
-                          {j.operation === "transcript"
-                            ? c("음성 전사", "Transcription")
-                            : j.operation === "vision"
-                              ? c("영상 분석", "Video analysis")
-                              : c("에이전트 작업", "Agent task")}
-                        </p>
-                        <p className="mt-1 text-xs text-muted">
-                          {jobs[j.state] ? c(...jobs[j.state]) : j.state} ·{" "}
-                          {date(j.acceptedAt)} KST
-                        </p>
-                      </Link>
-                    </li>
-                  ))}
-                </WorkList>
                 <WorkList
                   title={c("납품 업무", "Delivery work")}
                   empty={c(

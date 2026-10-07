@@ -122,8 +122,8 @@ export function B2bPlan({
         <PurchaseQuotes workspaceId={workspace.id} status={status} billing={billing} />
         <p className="text-sm leading-6 text-muted">
           {c(
-            "팀 참여와 웹 검토에는 편집 이용권을 배정하지 않습니다. 편집 이용권은 팀 앱 편집과 팀 AI에 사용합니다.",
-            "Team participation and web review do not allocate editing licences. Team desktop editing and team AI require them.",
+            "팀 참여와 웹 검토에는 편집 이용권을 배정하지 않습니다. 편집 이용권은 팀 앱 편집에 쓰며, 개인 요금제와 같은 앱 편집·AI 한도를 포함합니다.",
+            "Team participation and web review do not allocate editing licences. A licence is for team desktop editing and includes app editing and AI limits like a personal plan.",
           )}
         </p>
       </section>

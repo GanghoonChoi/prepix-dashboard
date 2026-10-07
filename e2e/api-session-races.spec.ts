@@ -97,7 +97,7 @@ async function setup(page: import("@playwright/test").Page, login = true) {
     }),
   );
   await page.goto(
-    "http://localhost:3503/dashboard/workspaces/team/projects/project/ai",
+    "http://localhost:3503/dashboard/workspaces/team/projects/project/files",
   );
   await page.addScriptTag({ content: bundle });
   if (login)
@@ -152,7 +152,7 @@ for (const change of [
     expect(await state(page)).toEqual(current);
     expect(await page.evaluate("window.refreshes.length")).toBe(0);
     expect(await page.evaluate("window.retries.length")).toBe(0);
-    expect(page.url()).toContain("/projects/project/ai");
+    expect(page.url()).toContain("/projects/project/files");
   });
 }
 for (const change of [
@@ -191,7 +191,7 @@ for (const change of [
       .not.toBe("pending");
     expect(await state(page)).toEqual(current);
     expect(await page.evaluate("window.retries.length")).toBe(0);
-    expect(page.url()).toContain("/projects/project/ai");
+    expect(page.url()).toContain("/projects/project/files");
   });
 }
 test("concurrent 401 and a later old-token 401 share one rotation and retry only as the original actor", async ({
@@ -287,7 +287,7 @@ test("fresh same-session invalid credentials clear only that session and preserv
   );
   await page.waitForURL(/\/login\?/);
   expect(new URL(page.url()).searchParams.get("returnTo")).toBe(
-    "/dashboard/workspaces/team/projects/project/ai",
+    "/dashboard/workspaces/team/projects/project/files",
   );
   expect(await state(page)).toEqual({
     actor: null,
@@ -314,7 +314,7 @@ test("an unrelated retry server failure preserves successfully refreshed credent
     refresh: "rotated-refresh-0",
     hint: true,
   });
-  expect(page.url()).toContain("/projects/project/ai");
+  expect(page.url()).toContain("/projects/project/files");
 });
 for (const change of [
   "account",
