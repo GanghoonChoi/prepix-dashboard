@@ -30,12 +30,12 @@ export function RecoverLead({ people }: { people: TeamPerson[] }) {
   return (
     <section className="space-y-4 border-t border-border pt-8">
       <h2 className="font-medium">
-        {c("담당자 지정 복구", "Restore project leadership")}
+        {c("담당자 지정 복구", "Restore folder leadership")}
       </h2>
       <p className="max-w-2xl text-sm leading-6 text-muted">
         {c(
-          "담당자 참여가 종료되었거나 계정이 정지된 프로젝트에만 후임을 지정할 수 있습니다. 참여자로부터 전달받은 프로젝트 주소를 입력하세요. 이미 참여를 수락한 내부 참여자 중에서 지정하며, 이 작업은 소유자에게 프로젝트 자료 접근을 추가하지 않습니다.",
-          "A successor can be assigned only when a lead's participation has ended or the account is suspended. Enter a project address supplied by a participant. Choose an internal participant who already accepted participation. This action adds no content access for the owner.",
+          "담당자 참여가 종료되었거나 계정이 정지된 폴더에만 후임을 지정할 수 있습니다. 참여자로부터 전달받은 폴더 주소를 입력하세요. 이미 참여를 수락한 내부 참여자 중에서 지정하며, 이 작업은 소유자에게 폴더 자료 접근을 추가하지 않습니다.",
+          "A successor can be assigned only when a lead's participation has ended or the account is suspended. Enter a folder address supplied by a participant. Choose an internal participant who already accepted participation. This action adds no content access for the owner.",
         )}
       </p>
       <form
@@ -96,7 +96,7 @@ export function RecoverLead({ people }: { people: TeamPerson[] }) {
       >
         <label className="block space-y-2 text-sm">
           <span>
-            {c("복구할 프로젝트 주소", "Project address for recovery")}
+            {c("복구할 폴더 주소", "Folder address for recovery")}
           </span>
           <input
             type="url"
@@ -164,8 +164,8 @@ export function RecoverLead({ people }: { people: TeamPerson[] }) {
         {notice && (
           <p role="status" className="text-sm">
             {c(
-              "후임을 지정했습니다. 프로젝트 접근은 기존 참여 권한을 따릅니다.",
-              "The successor is assigned. Project access follows existing participation rights.",
+              "후임을 지정했습니다. 폴더 접근은 기존 참여 권한을 따릅니다.",
+              "The successor is assigned. Folder access follows existing participation rights.",
             )}
           </p>
         )}

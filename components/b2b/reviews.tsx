@@ -16,6 +16,7 @@ import {
   reviewsService,
 } from "@/lib/api/services/b2b-reviews.service";
 import { audienceInput, type AudienceSelection, type ReviewScope } from "@/lib/b2b-reviews/operations";
+import { itemMeta } from "@/lib/b2b-reviews/items";
 import { fileApi } from "@/lib/b2b-files/api";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
@@ -124,11 +125,11 @@ const reviewErrors: Record<string, Copy> = {
     "Custom share expiry is not configured. Leave the date empty to share for the default 7 days.",
   ],
   B2B_REVIEW_AUDIENCE_REQUIRED: ["검토 대상과 승인자 한 명을 선택해 주세요.", "Choose the review audience and one approver."],
-  B2B_REVIEW_AUDIENCE_INVALID: ["선택한 사람의 현재 프로젝트 참여 상태가 바뀌었습니다. 대상을 다시 확인해 주세요.", "A selected person's project participation changed. Check the audience again."],
+  B2B_REVIEW_AUDIENCE_INVALID: ["선택한 사람의 현재 폴더 참여 상태가 바뀌었습니다. 대상을 다시 확인해 주세요.", "A selected person's folder participation changed. Check the audience again."],
   B2B_REVIEW_AUDIENCE_CONFIRMATION_REQUIRED: ["담당자가 검토 대상과 승인자를 확정해야 합니다.", "The lead must confirm the audience and approver."],
   B2B_REVIEW_SHARE_DOWNLOAD_NOT_ALLOWED: [
-    "원본 공유가 허용된 프로젝트에서, 원본을 받을 수 있는 담당자만 원본 다운로드를 허용할 수 있습니다.",
-    "Original downloads need a project that allows sharing originals and your own download access.",
+    "원본 공유가 허용된 폴더에서, 원본을 받을 수 있는 담당자만 원본 다운로드를 허용할 수 있습니다.",
+    "Original downloads need a folder that allows sharing originals and your own download access.",
   ],
   B2B_REVIEW_SHARE_CONFIGURATION_REQUIRED: [
     "공유 링크 설정이 준비되지 않아 공유를 만들 수 없습니다.",
@@ -323,7 +324,7 @@ export function ReviewAudiencePicker({ scope, value, onChange, disabled, onValid
     <fieldset disabled={disabled} className="space-y-3">
       <legend className="mb-2 font-medium">{c("검토 대상과 승인자", "Review audience and approver")}</legend>
       <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-        {([["project", c("프로젝트 내부 전체 공개", "Everyone internal on the project")], ["selected", c("선택한 사람만", "Selected people only")]] as const).map(([scopeValue, label]) => (
+        {([["project", c("폴더 내부 전체 공개", "Everyone internal on the folder")], ["selected", c("선택한 사람만", "Selected people only")]] as const).map(([scopeValue, label]) => (
           <label key={scopeValue} className="flex min-h-11 items-center gap-3">
             <input type="radio" name={group} checked={value.audienceScope === scopeValue} onChange={() => choose(scopeValue, scopeValue === "project" ? value.audienceUserIds.filter(external) : value.audienceUserIds)} />
             {label}
@@ -331,8 +332,8 @@ export function ReviewAudiencePicker({ scope, value, onChange, disabled, onValid
         ))}
       </div>
       <p className="text-sm text-muted">{selected
-        ? c("현재 프로젝트 참여자 중 검토를 볼 사람을 직접 선택합니다. 원본 다운로드·AI 권한은 별도로 유지됩니다. 승인자는 선택한 대상 중 한 명입니다.", "Choose the current project participants who can view this review. Original-download and AI permissions remain separate. Choose one audience member as approver.")
-        : c("이 프로젝트를 볼 수 있는 내부 구성원 모두가 재생하고 코멘트합니다. 원본 다운로드·AI 권한은 별도로 유지됩니다. 승인이 필요할 때만 승인자 한 명을 지정하세요.", "Every internal member who can see this project can play and comment. Original-download and AI permissions remain separate. Designate one approver only when approval is needed.")}</p>
+        ? c("현재 폴더 참여자 중 검토를 볼 사람을 직접 선택합니다. 원본 다운로드·AI 권한은 별도로 유지됩니다. 승인자는 선택한 대상 중 한 명입니다.", "Choose the current folder participants who can view this review. Original-download and AI permissions remain separate. Choose one audience member as approver.")
+        : c("이 폴더를 볼 수 있는 내부 구성원 모두가 재생하고 코멘트합니다. 원본 다운로드·AI 권한은 별도로 유지됩니다. 승인이 필요할 때만 승인자 한 명을 지정하세요.", "Every internal member who can see this folder can play and comment. Original-download and AI permissions remain separate. Designate one approver only when approval is needed.")}</p>
       {error && <ReviewError code={error} retry={() => void load()} />}
       {!data && !error && <TeamLoading />}
       {!selected && !!listed.length && <p className="text-sm">{c("외부 참여자에게도 이 회차 공개 (선택)", "Also open this round to external participants (optional)")}</p>}
@@ -575,7 +576,7 @@ function ProjectReviewsInner({ projectId }: { projectId: string }) {
       {stale && <ReviewError code={error} retry={() => void load()} />}
       <div className="flex flex-wrap gap-3">
         <Link className={secondaryClass} href={base}>
-          {c("프로젝트 개요", "Project overview")}
+          {c("폴더 개요", "Folder overview")}
         </Link>
         {list.allowedActions.create && (
           <button type="button" className={primaryClass} onClick={() => setCreating((v) => !v)}>
@@ -587,8 +588,8 @@ function ProjectReviewsInner({ projectId }: { projectId: string }) {
         <section className="space-y-4 rounded-lg border border-border p-4" aria-label={c("새 검토", "New review")}>
           <p className="text-sm text-muted">
             {c(
-              "정확한 영상 버전의 검토본을 재생해 확인한 뒤 공개합니다. 기본은 프로젝트를 볼 수 있는 내부 구성원 모두에게 공개되고, 외부 참여자는 고른 사람만 봅니다. 승인자는 필요할 때 지정합니다. 앱에서 발행한 결과는 검토본이 준비되면 팀 내부에 자동으로 공개됩니다.",
-              "Play and check the exact review copy before publishing. By default every internal member who can see the project gets it, and only the external participants you choose. Designate an approver when needed. Results published from the app open to the team's internal members automatically once their review copy is ready.",
+              "정확한 영상 버전의 검토본을 재생해 확인한 뒤 공개합니다. 기본은 폴더를 볼 수 있는 내부 구성원 모두에게 공개되고, 외부 참여자는 고른 사람만 봅니다. 승인자는 필요할 때 지정합니다. 앱에서 발행한 결과는 검토본이 준비되면 팀 내부에 자동으로 공개됩니다.",
+              "Play and check the exact review copy before publishing. By default every internal member who can see the folder gets it, and only the external participants you choose. Designate an approver when needed. Results published from the app open to the team's internal members automatically once their review copy is ready.",
             )}
           </p>
           <label className="block space-y-2 text-sm">
@@ -670,5 +671,57 @@ function ProjectReviewsInner({ projectId }: { projectId: string }) {
         )}
       </div>
     </TeamShell>
+  );
+}
+
+/** P (2026-10-07): a folder leads with what teammates published into it from
+ * the app — one row per review series (republishing adds a version), each
+ * opening its review page for playback, comments and download. Search, paging
+ * and starting a review by hand stay on the reviews page ("전체 보기"). */
+export function PublishedItems({ projectId }: { projectId: string }) {
+  const c = useCopy();
+  const { team, me } = useTeamScope();
+  const scope = useMemo<ReviewScope & { kind: "project" }>(
+    () => ({ origin: origin(), userId: me, kind: "project", workspaceId: team, projectId, reviewId: NO_REVIEW }),
+    [team, projectId, me],
+  );
+  const read = useCallback(() => reviewsService.list(scope, {}), [scope]);
+  const { data, error, load } = useLoader(read);
+  const base = `/dashboard/workspaces/${team}/projects/${projectId}`;
+  return (
+    <section className="space-y-4 border-b border-border pb-8" aria-label={c("발행된 항목", "Published items")}>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="font-medium">{c("발행된 항목", "Published items")}</h2>
+        <Link href={`${base}/reviews`} className="text-sm underline underline-offset-4">
+          {c("전체 보기", "View all")}
+        </Link>
+      </div>
+      {error && <ReviewError code={error} retry={() => void load()} />}
+      {!data ? (
+        !error && (
+          <p role="status" className="text-sm text-muted">
+            {c("발행된 항목을 불러오는 중입니다.", "Loading published items.")}
+          </p>
+        )
+      ) : data.reviews.length === 0 ? (
+        <p className="text-sm text-muted">
+          {c(
+            "아직 발행된 항목이 없습니다 — 앱에서 작업한 영상을 발행하면 여기에 모입니다",
+            "nothing published yet — videos you publish from the app gather here",
+          )}
+        </p>
+      ) : (
+        <ul className="divide-y divide-border rounded-lg border border-border">
+          {data.reviews.map((r) => (
+            <li key={r.id}>
+              <Link href={`${base}/reviews/${r.id}`} className="block min-h-16 p-4 hover:bg-surface">
+                <span className="block break-words font-medium">{r.title}</span>
+                <span className="mt-1 block break-words text-xs text-muted tabular-nums">{itemMeta(r, c, kst)}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

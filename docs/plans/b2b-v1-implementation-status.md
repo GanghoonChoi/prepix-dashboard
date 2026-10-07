@@ -13,6 +13,10 @@
 - 게이트: 서버 전체 1048/1052(실패 4 = 날짜 고정 toss-renewal 기준선), 웹 단위 248·tsc·eslint 0·production 빌드·Chrome 60/60, 앱 lint 0·typecheck 17/17·vitest 16148 통과(실패 1 = 기존 atomic-rename 계약)·빌드 Electron 10/10, 콘솔 기본 4+통합 3/3.
 - 남은 것: P17 좌석당 값, 앱 밖 하네스(기본 차단) 허용 여부, 퇴역 팀 AI 코드(`ponytail:`) 삭제, 홈·이용권 응답에 남은 옛 `aiJobs`/`aiUsage`/`budgets` 필드, 목록을 열기만 해도 참여 행이 생기는 지연 참여. 자세한 것은 `prepix-parallel/final/HANDOFF.md`의 "최종 통합"에 있다.
 
+## 결정 변경: 2026-10-07 로컬 작업 → 팀 폴더에 발행 (P)
+
+- 유저 결정으로 팀이 공유받는 것은 "팀 프로젝트"가 아니라 팀 맥락에서 로컬로 작업한 영상을 **발행한 결과**다. 폴더 = 팀 프로젝트, "기본" 폴더는 필요할 때 생성, 같은 작업 재발행은 같은 항목의 다음 회차, 팀원은 웹에서 보고·코멘트·받기, 발행자는 자기 항목을 외부 공유. 결정·대응·숨김/유지는 `b2b-v1-decision-publish-from-local-2026-10-07.md`, 서버 SOT는 백엔드 `backend/docs/b2b-publish-from-local.md`.
+
 ## 결정 변경: 2026-10-06 팀 공개 범위·발행 즉시 검토 (V)
 
 - 유저 결정으로 프로젝트 공개 범위를 "팀 전체 + 선택적 비공개"로, 결과 발행을 "검토본 준비 즉시 팀 검토"로 바꿨다(기존 행은 비공개로 이행). 결정·기본값·원 항목(P01/P02·P03·F03·F04·F09·F12·F14·F15·S34·F19) 변경은 `b2b-v1-decision-team-visibility-2026-10-06.md`, 서버 SOT는 백엔드 `backend/docs/b2b-team-visibility.md`.

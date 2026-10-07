@@ -57,8 +57,8 @@ export function PendingFileOperations({
                   {r.kind === "permission"
                     ? c("자료 권한 변경", "File permission change")
                     : r.kind === "link"
-                      ? c("프로젝트에 버전 연결", "Link version to project")
-                      : c("프로젝트 연결 제외", "Unlink version from project")}
+                      ? c("폴더에 버전 연결", "Link version to folder")
+                      : c("폴더 연결 제외", "Unlink version from folder")}
                 </span>
                 <button
                   className={secondaryClass}
@@ -190,8 +190,8 @@ export function FileManager({
     mode === "permission"
       ? c("자료 권한 관리", "Manage file permissions")
       : mode === "link"
-        ? c("다른 프로젝트에 연결", "Link to another project")
-        : c("프로젝트 연결 제외", "Unlink from project");
+        ? c("다른 폴더에 연결", "Link to another folder")
+        : c("폴더 연결 제외", "Unlink from folder");
   return (
     <ConfirmDialog label={title} onClose={close}>
       <h2 className="font-medium">{title}</h2>
@@ -270,8 +270,8 @@ export function FileManager({
             <>
               <p className="text-sm text-muted">
                 {c(
-                  "이 프로젝트에 연결된 자료 시리즈 전체에 적용합니다. 다운로드에는 프로젝트의 다운로드 허용도 필요합니다.",
-                  "Applies to this asset series in this project. Download also requires project download permission.",
+                  "이 폴더에 연결된 자료 시리즈 전체에 적용합니다. 다운로드에는 폴더의 다운로드 허용도 필요합니다.",
+                  "Applies to this asset series in this folder. Download also requires folder download permission.",
                 )}
               </p>
               <label className="block space-y-2">
@@ -364,12 +364,12 @@ export function FileManager({
             <>
               <p className="text-sm text-muted">
                 {c(
-                  "이 버전만 연결하며 파일을 복제하지 않습니다. 연결한 프로젝트의 다른 참여자 권한은 별도로 허용해야 합니다.",
-                  "Links this exact version without copying bytes. Grant other participants access separately in the target project.",
+                  "이 버전만 연결하며 파일을 복제하지 않습니다. 연결한 폴더의 다른 참여자 권한은 별도로 허용해야 합니다.",
+                  "Links this exact version without copying bytes. Grant other participants access separately in the target folder.",
                 )}
               </p>
               <label className="block space-y-2">
-                <span>{c("연결할 프로젝트", "Target project")}</span>
+                <span>{c("연결할 폴더", "Target folder")}</span>
                 <select
                   className={inputClass}
                   value={
@@ -379,7 +379,7 @@ export function FileManager({
                   onChange={(e) => setTarget(e.target.value)}
                 >
                   <option value="">
-                    {c("프로젝트 선택", "Select project")}
+                    {c("폴더 선택", "Select folder")}
                   </option>
                   {data.projects?.map((p) => (
                     <option key={p.id} value={p.id}>
@@ -428,7 +428,7 @@ export function FileManager({
                     }
                   }}
                 >
-                  {c("다음 프로젝트 보기", "Load more projects")}
+                  {c("다음 폴더 보기", "Load more folders")}
                 </button>
               )}
             </>
@@ -436,8 +436,8 @@ export function FileManager({
           {mode === "unlink" && (
             <p className="text-sm text-muted">
               {c(
-                "이 프로젝트에서 이 버전의 연결을 제외합니다. 보관된 파일과 팀 저장 사용량은 유지됩니다.",
-                "Removes this version's reference from this project. Stored bytes and team storage usage remain.",
+                "이 폴더에서 이 버전의 연결을 제외합니다. 보관된 파일과 팀 저장 사용량은 유지됩니다.",
+                "Removes this version's reference from this folder. Stored bytes and team storage usage remain.",
               )}
             </p>
           )}

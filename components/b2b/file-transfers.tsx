@@ -460,7 +460,7 @@ export function FileTransfers({
           {c(
             isDirectLibrary(scope)
               ? "현재 보관함에서 새 자료 등록을 사용할 수 없습니다. 내부 참여 권한, 이용 상태와 업로드 설정을 확인해 주세요."
-              : "현재 프로젝트에서 새 자료 등록을 사용할 수 없습니다. 참여 권한, 이용 상태와 업로드 설정을 확인해 주세요.",
+              : "현재 폴더에서 새 자료 등록을 사용할 수 없습니다. 참여 권한, 이용 상태와 업로드 설정을 확인해 주세요.",
             "New uploads are unavailable. Check participation, team status and upload configuration.",
           )}
         </p>

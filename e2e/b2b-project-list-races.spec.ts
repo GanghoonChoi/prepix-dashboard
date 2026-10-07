@@ -122,5 +122,5 @@ test("actual Chrome back access refusal clears old titles and presents retry, ne
   await expect(page.getByRole("alert")).toBeVisible();
   await expect(page.getByRole("button",{name:"다시 확인"})).toBeVisible();
   await expect(page.getByRole("heading",{name:/Private/})).toHaveCount(0);
-  await expect(page.getByText("참여한 프로젝트가 없습니다.",{exact:false})).toHaveCount(0);
+  await expect(page.getByText("참여한 폴더가 없습니다.",{exact:false})).toHaveCount(0);
 });

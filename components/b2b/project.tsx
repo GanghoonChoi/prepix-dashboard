@@ -22,7 +22,7 @@ import {
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
-import { useRun } from "./reviews";
+import { PublishedItems, useRun } from "./reviews";
 import {
   B2bError,
   errorCode,
@@ -32,6 +32,11 @@ import {
   accessEnded,
   freeIntent,
 } from "./shared";
+
+// ponytail: folder model (2026-10-07) — teammates don't open someone's work in the app; delete after merge
+const APP_ENTRY = false;
+// Secondary links under the published items: present, not competing.
+const moreLink = "text-muted underline underline-offset-4 hover:text-foreground";
 
 function useProject(projectId: string) {
   const context = useWorkspace()!;
@@ -121,13 +126,13 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
       {project.role === "viewer" && (
         <p role="note" className="text-sm text-muted">
           {c(
-            "팀 공개 프로젝트를 열람 중입니다. 작업하려면 담당자에게 참여를 요청하세요.",
-            "You are viewing a team-wide project. Ask the lead to add you to work on it.",
+            "팀 공개 폴더를 열람 중입니다. 작업하려면 담당자에게 참여를 요청하세요.",
+            "You are viewing a team-wide folder. Ask the lead to add you to work on it.",
           )}
         </p>
       )}
       <div className="flex flex-wrap gap-3">
-        {appUrl && surfaces.app && (
+        {APP_ENTRY && appUrl && surfaces.app && (
           <a className={secondaryClass} href={appUrl}>
             {c("앱에서 작업하기", "Work in app")}
           </a>
@@ -136,7 +141,7 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
           className={secondaryClass}
           href={`/dashboard/workspaces/${id}/projects`}
         >
-          {c("프로젝트 목록", "Projects")}
+          {c("폴더 목록", "Folders")}
         </Link>
         <Link
           className={secondaryClass}
@@ -162,30 +167,6 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
               : c("개요 수정", "Edit overview")}
           </button>
         )}
-        {surfaces.requests && (
-          <Link
-            className={secondaryClass}
-            href={`/dashboard/workspaces/${id}/projects/${projectId}/requests`}
-          >
-            {c("요청사항", "Requests")}
-          </Link>
-        )}
-        <Link
-          className={secondaryClass}
-          href={`/dashboard/workspaces/${id}/projects/${projectId}/reviews`}
-        >
-          {c("영상 검토", "Video reviews")}
-        </Link>
-        {surfaces.delivery && (
-          <Link className={secondaryClass} href={`/dashboard/workspaces/${id}/projects/${projectId}/delivery`}>
-            {c("납품·프로젝트 완료", "Delivery and completion")}
-          </Link>
-        )}
-        {surfaces.publications && (
-          <Link className={secondaryClass} href={`/dashboard/workspaces/${id}/projects/${projectId}/publications`}>
-            {c("등록된 결과", "Registered results")}
-          </Link>
-        )}
       </div>
       {editing && project.allowedActions.edit ? (
         <ProjectEditor
@@ -199,40 +180,75 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
         />
       ) : (
         <>
-          {surfaces.requestWork && (
-            <RequestWorkPanel projectId={projectId} onDenied={deny} />
-          )}
-          <ReviewWorkPanel projectId={projectId} onDenied={deny} />
-          <VisibilitySection project={project} onChanged={reload} />
+          <PublishedItems projectId={projectId} />
           <section className="space-y-3 border-b border-border pb-8">
             <h2 className="font-medium">{c("작업 개요", "Brief")}</h2>
             <p className="max-w-3xl whitespace-pre-wrap break-words text-sm leading-6 text-muted">
               {project.brief || c("등록된 개요가 없습니다.", "No brief yet.")}
             </p>
           </section>
-          <section className="space-y-3">
-            <h2 className="font-medium">
-              {c("완료 조건", "Completion requirements")}
+          <VisibilitySection project={project} onChanged={reload} />
+          {/* P (2026-10-07): requests, delivery and completion stay reachable
+              but sit below the published items, their panels folded away. */}
+          <section
+            className="space-y-4"
+            aria-label={c("요청·납품·완료", "Requests, delivery and completion")}
+          >
+            <h2 className="text-sm text-muted">
+              {c("요청·납품·완료", "Requests, delivery and completion")}
             </h2>
-            <p className="text-sm leading-6 text-muted">
-              {project.requiresWorkingFiles
-                ? c(
-                    "최종 영상 승인, 필수 요청 확인과 작업 파일 열기 확인이 필요합니다.",
-                    "Delivery requires final video approval, required request confirmation and verified working files.",
-                  )
-                : c(
-                    "최종 영상 승인과 필수 요청 확인이 필요합니다.",
-                    "Delivery requires final video approval and required request confirmation.",
-                  )}
-            </p>
-            <p className="text-sm text-muted">
-              {project.shareOriginals
-                ? c(
-                    "원본 공유 허용. 다운로드는 참여자별 권한을 따릅니다.",
-                    "Original sharing is enabled. Download access is granted separately per participant.",
-                  )
-                : c("원본 공유 비허용", "Original sharing is disabled")}
-            </p>
+            <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+              {surfaces.requests && (
+                <Link className={moreLink} href={`/dashboard/workspaces/${id}/projects/${projectId}/requests`}>
+                  {c("요청사항", "Requests")}
+                </Link>
+              )}
+              {surfaces.delivery && (
+                <Link className={moreLink} href={`/dashboard/workspaces/${id}/projects/${projectId}/delivery`}>
+                  {c("납품·폴더 완료", "Delivery and completion")}
+                </Link>
+              )}
+              {surfaces.publications && (
+                <Link className={moreLink} href={`/dashboard/workspaces/${id}/projects/${projectId}/publications`}>
+                  {c("등록된 결과", "Registered results")}
+                </Link>
+              )}
+            </div>
+            <details>
+              <summary className="min-h-11 cursor-pointer text-sm text-muted">
+                {c("더 보기", "More")}
+              </summary>
+              <div className="mt-4 space-y-8">
+                {surfaces.requestWork && (
+                  <RequestWorkPanel projectId={projectId} onDenied={deny} />
+                )}
+                <ReviewWorkPanel projectId={projectId} onDenied={deny} />
+                <section className="space-y-3">
+                  <h2 className="font-medium">
+                    {c("완료 조건", "Completion requirements")}
+                  </h2>
+                  <p className="text-sm leading-6 text-muted">
+                    {project.requiresWorkingFiles
+                      ? c(
+                          "최종 영상 승인, 필수 요청 확인과 작업 파일 열기 확인이 필요합니다.",
+                          "Delivery requires final video approval, required request confirmation and verified working files.",
+                        )
+                      : c(
+                          "최종 영상 승인과 필수 요청 확인이 필요합니다.",
+                          "Delivery requires final video approval and required request confirmation.",
+                        )}
+                  </p>
+                  <p className="text-sm text-muted">
+                    {project.shareOriginals
+                      ? c(
+                          "원본 공유 허용. 다운로드는 참여자별 권한을 따릅니다.",
+                          "Original sharing is enabled. Download access is granted separately per participant.",
+                        )
+                      : c("원본 공유 비허용", "Original sharing is disabled")}
+                  </p>
+                </section>
+              </div>
+            </details>
           </section>
         </>
       )}
@@ -285,12 +301,12 @@ function VisibilitySection({
       <p className="max-w-3xl text-sm leading-6 text-muted">
         {project.visibility === "team"
           ? c(
-              "팀 전체 공개: 팀의 모든 내부 멤버가 이 프로젝트와 발행된 영상을 보고 코멘트할 수 있고, 팀 검토자를 제외한 멤버는 팀 공용 클라우드처럼 자료를 올리고 받고 결과를 발행할 수 있습니다. 공개 범위·완료·승인자·공유 링크 관리는 담당자만 합니다. 외부 참여자는 자기가 발행한 결과의 회차와, 담당자가 회차에 추가하거나 공유 링크를 보낸 영상만 봅니다. AI 사용은 자료별 권한을 따릅니다.",
-              "Team-wide: every internal team member can see this project and its published videos and comment on them; members other than team reviewers can also upload and download files and publish results, like a shared team cloud. Visibility, completion, approver and share links stay with the lead. External participants see the rounds of results they published themselves, and others only when the lead adds them to the round or sends a share link. AI use follows per-file permissions.",
+              "팀 전체 공개: 팀의 모든 내부 멤버가 이 폴더와 발행된 영상을 보고 코멘트할 수 있고, 팀 검토자를 제외한 멤버는 팀 공용 클라우드처럼 자료를 올리고 받고 결과를 발행할 수 있습니다. 공개 범위·완료·승인자·공유 링크 관리는 담당자만 합니다. 외부 참여자는 자기가 발행한 결과의 회차와, 담당자가 회차에 추가하거나 공유 링크를 보낸 영상만 봅니다. AI 사용은 자료별 권한을 따릅니다.",
+              "Team-wide: every internal team member can see this folder and its published videos and comment on them; members other than team reviewers can also upload and download files and publish results, like a shared team cloud. Visibility, completion, approver and share links stay with the lead. External participants see the rounds of results they published themselves, and others only when the lead adds them to the round or sends a share link. AI use follows per-file permissions.",
             )
           : c(
-              "비공개: 참여자만 이 프로젝트를 볼 수 있습니다. 참여하지 않은 소유자·관리자에게도 보이지 않습니다. 발행 영상은 내부 참여자에게 자동 공개되고, 외부 참여자는 자기가 발행한 결과의 회차와, 담당자가 회차에 추가하거나 공유 링크를 보낸 영상만 봅니다.",
-              "Private: only participants can see this project, including owners and admins who don't participate. Published videos open to internal participants automatically; external participants see the rounds of results they published themselves, and others only when the lead adds them to the round or sends a share link.",
+              "비공개: 참여자만 이 폴더를 볼 수 있습니다. 참여하지 않은 소유자·관리자에게도 보이지 않습니다. 발행 영상은 내부 참여자에게 자동 공개되고, 외부 참여자는 자기가 발행한 결과의 회차와, 담당자가 회차에 추가하거나 공유 링크를 보낸 영상만 봅니다.",
+              "Private: only participants can see this folder, including owners and admins who don't participate. Published videos open to internal participants automatically; external participants see the rounds of results they published themselves, and others only when the lead adds them to the round or sends a share link.",
             )}
       </p>
       {project.allowedActions.changeVisibility && !open && (
@@ -315,17 +331,17 @@ function VisibilitySection({
         >
           <h3 className="font-medium">
             {widening
-              ? c("팀 전체 공개로 바꿀까요?", "Make this project team-wide?")
-              : c("비공개로 바꿀까요?", "Make this project private?")}
+              ? c("팀 전체 공개로 바꿀까요?", "Make this folder team-wide?")
+              : c("비공개로 바꿀까요?", "Make this folder private?")}
           </h3>
           <p className="text-sm leading-6 text-muted">
             {widening
               ? c(
-                  "팀의 모든 내부 멤버가 이 프로젝트, 발행된 영상과 그 코멘트를 보고 코멘트할 수 있게 됩니다. 팀 검토자를 제외한 멤버는 자료를 올리고 받고 결과를 발행할 수 있게 됩니다. AI 사용은 계속 자료별 권한을 따르고, 외부 참여자는 초대받은 프로젝트만 봅니다.",
-                  "Every internal team member will see this project, its published videos and their comments, and can comment. Members other than team reviewers can also upload and download files and publish results. AI use still follows per-file permissions; external people still see only projects they were invited to.",
+                  "팀의 모든 내부 멤버가 이 폴더, 발행된 영상과 그 코멘트를 보고 코멘트할 수 있게 됩니다. 팀 검토자를 제외한 멤버는 자료를 올리고 받고 결과를 발행할 수 있게 됩니다. AI 사용은 계속 자료별 권한을 따르고, 외부 참여자는 초대받은 폴더만 봅니다.",
+                  "Every internal team member will see this folder, its published videos and their comments, and can comment. Members other than team reviewers can also upload and download files and publish results. AI use still follows per-file permissions; external people still see only folders they were invited to.",
                 )
               : c(
-                  "참여자만 볼 수 있게 됩니다. 참여하지 않은 팀원은 다음 동작부터 이 프로젝트에 접근할 수 없고, 그동안 남긴 코멘트는 기록에 남습니다.",
+                  "참여자만 볼 수 있게 됩니다. 참여하지 않은 팀원은 다음 동작부터 이 폴더에 접근할 수 없고, 그동안 남긴 코멘트는 기록에 남습니다.",
                   "Only participants will see it. Team members who don't participate lose access on their next action; comments they already left stay in the record.",
                 )}
           </p>
@@ -441,7 +457,7 @@ function ProjectEditor({
       }}
     >
       <label className="block space-y-2 text-sm">
-        <span>{c("프로젝트명", "Project name")}</span>
+        <span>{c("폴더명", "Folder name")}</span>
         <input
           className={inputClass}
           required
@@ -621,7 +637,7 @@ export function ProjectParticipants({ projectId }: { projectId: string }) {
   };
   return (
     <TeamShell
-      title={c("프로젝트 참여자", "Project participants")}
+      title={c("폴더 참여자", "Folder participants")}
       description={project.name}
     >
       <SpaceBadge workspace={context.data.workspace} />
@@ -629,7 +645,7 @@ export function ProjectParticipants({ projectId }: { projectId: string }) {
         className={secondaryClass}
         href={`/dashboard/workspaces/${id}/projects/${projectId}`}
       >
-        {c("프로젝트 개요", "Project overview")}
+        {c("폴더 개요", "Folder overview")}
       </Link>
       {rosterError && (
         <B2bError code={rosterError} retry={() => void loadPeople()} />
@@ -743,9 +759,9 @@ export function ProjectParticipants({ projectId }: { projectId: string }) {
             </select>
           </label>
           <label className="block space-y-2 text-sm">
-            <span>{c("프로젝트 역할", "Project role")}</span>
+            <span>{c("폴더 역할", "Folder role")}</span>
             <select
-              aria-label={c("프로젝트 역할", "Project role")}
+              aria-label={c("폴더 역할", "Folder role")}
               className={inputClass}
               disabled={busy || !!pending.current}
               value={role}

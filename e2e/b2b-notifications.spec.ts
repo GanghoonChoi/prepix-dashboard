@@ -285,7 +285,7 @@ test("S27 notifications: current access, late and lost responses, reconnect, acc
     lostRows.getByRole("button", { name: /^(읽음으로|읽지 않음으로)$/ }),
   ).toHaveCount(0);
   await expect(lostRows.filter({ hasText: "읽지 않음" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /한 프로젝트의 참여가 끝났어요/ })).toHaveCount(1);
+  await expect(page.getByRole("button", { name: /한 폴더의 참여가 끝났어요/ })).toHaveCount(1);
   expect(await page.locator("main").innerText()).not.toContain("Secret campaign");
   await lost.first().click();
   await expect(page.getByText("현재 계정으로 이 내용을 열 수 없어요", { exact: false })).toBeVisible();
@@ -332,7 +332,7 @@ test("S27 notifications: current access, late and lost responses, reconnect, acc
   // Account switch in another tab: this tab drops ext's list and shows only
   // what the owner (billing, not a participant) may see.
   await page.goto("/dashboard/notifications");
-  await expect(page.getByRole("button", { name: /한 프로젝트의 참여가 끝났어요/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /한 폴더의 참여가 끝났어요/ })).toBeVisible();
   // The other tab performs the login page's exact writes for a real owner
   // session (the login form itself redirects while a session exists).
   const other = await context.newPage();
@@ -349,7 +349,7 @@ test("S27 notifications: current access, late and lost responses, reconnect, acc
     localStorage.setItem("refreshToken", s.refreshToken);
     localStorage.setItem("userInfo", JSON.stringify(s.user));
   }, fresh);
-  await expect(page.getByRole("button", { name: /한 프로젝트의 참여가 끝났어요/ })).toHaveCount(0, { timeout: 15_000 });
+  await expect(page.getByRole("button", { name: /한 폴더의 참여가 끝났어요/ })).toHaveCount(0, { timeout: 15_000 });
   await expect(page.getByRole("button", { name: /결제가 확인됐어요/ })).toBeVisible();
   const ownerView = await page.locator("main").innerText();
   expect(ownerView).not.toContain("Secret campaign");

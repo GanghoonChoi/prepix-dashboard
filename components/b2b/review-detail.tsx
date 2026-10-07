@@ -18,7 +18,7 @@ import {
   shareToken,
 } from "@/lib/api/services/b2b-reviews.service";
 import { userService } from "@/lib/api/services/user.service";
-import { fileApi } from "@/lib/b2b-files/api";
+import { fileApi, fileError } from "@/lib/b2b-files/api";
 import { audienceInput, detailAudience, type ReviewRecord, type ReviewScope } from "@/lib/b2b-reviews/operations";
 import {
   inputClass,
@@ -101,8 +101,8 @@ export function SharedReview({ shareId }: { shareId: string }) {
       token={state.token}
       onReview={(id) => id !== reviewId && setReviewId(id)}
       notice={c(
-        "공유받은 검토만 볼 수 있습니다. 이 링크로 프로젝트의 다른 자료·요청·검토에는 들어갈 수 없습니다.",
-        "You can see only this shared review. This link does not open the project's other files, requests or reviews.",
+        "공유받은 검토만 볼 수 있습니다. 이 링크로 폴더의 다른 자료·요청·검토에는 들어갈 수 없습니다.",
+        "You can see only this shared review. This link does not open the folder's other files, requests or reviews.",
       )}
     />
   );
@@ -178,6 +178,7 @@ function ReviewScreen({
             {c("검토 목록", "Reviews")}
           </Link>
         )}
+        {scope.kind === "project" && <VersionDownload key={selected.versionId} scope={scope} versionId={selected.versionId} />}
         <Badge>{c(...approvalCopy[data.approval])}</Badge>
         {data.approver && (
           <span className="text-sm text-muted">
@@ -187,7 +188,7 @@ function ReviewScreen({
         )}
       </div>
       {data.audience && <p className="text-sm text-muted">{c("현재 검토 대상", "Current review audience")}: {data.review.audienceScope === "project"
-        ? c("프로젝트 내부 전체 공개", "Everyone internal on the project") + (data.audience.length ? c(" · 외부 ", " · external ") + data.audience.map((p) => p.name ?? c("이름 없음", "Unnamed")).join(", ") : "")
+        ? c("폴더 내부 전체 공개", "Everyone internal on the folder") + (data.audience.length ? c(" · 외부 ", " · external ") + data.audience.map((p) => p.name ?? c("이름 없음", "Unnamed")).join(", ") : "")
         : data.audience.map((p) => p.name ?? c("이름 없음", "Unnamed")).join(", ")}</p>}
       {!data.review.audienceConfirmed && <p role="status" className="text-sm text-muted">{c("검토 대상·승인자 확정 전입니다. 담당자가 대상을 확정하면 새 검토 회차가 시작됩니다.", "The audience and approver are unconfirmed. Confirming them opens a new review round.")}</p>}
       {selected.changeReason && <p className="text-sm text-muted">{c("회차 변경 사유", "Round-change reason")}: {selected.changeReason}</p>}
@@ -233,7 +234,8 @@ function ReviewScreen({
         </div>
       </div>
       {scope.kind === "share" && data.allowedActions.download && <SharedDownload scope={scope} token={token ?? null} />}
-      {!exactTarget && scope.kind === "project" && (data.allowedActions.setAudience || data.allowedActions.setApprover || data.allowedActions.replaceVersion) && (
+      {/* P (2026-10-07): the publisher of this item shares it outside the team too (allowedActions.share). */}
+      {!exactTarget && scope.kind === "project" && (data.allowedActions.setAudience || data.allowedActions.setApprover || data.allowedActions.replaceVersion || data.allowedActions.share) && (
         <LeadTools scope={scope} detail={data} reload={load} />
       )}
     </TeamShell>
@@ -817,6 +819,46 @@ function Approval({
   );
 }
 
+/** P (2026-10-07): teammates download what was published into the folder —
+ * the exact version this round plays, through the folder's files download
+ * (short-lived attachment URL). Shown only when the files API says this
+ * account may download it. */
+function VersionDownload({ scope, versionId }: { scope: ReviewScope & { kind: "project" }; versionId: string }) {
+  const c = useCopy();
+  const [allowed, setAllowed] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let live = true;
+    fileApi(scope)
+      .version(versionId)
+      .then(({ version }) => live && setAllowed(version.allowedActions.download))
+      .catch(() => live && setAllowed(false));
+    return () => {
+      live = false;
+    };
+  }, [scope, versionId]);
+  if (!allowed) return null;
+  return (
+    <section className="space-y-2 text-sm">
+      <button
+        type="button"
+        className={secondaryClass}
+        onClick={async () => {
+          setError("");
+          try {
+            window.location.assign((await fileApi(scope).download(versionId)).url);
+          } catch (e) {
+            setError(fileError(e));
+          }
+        }}
+      >
+        {c("이 버전 받기", "Download this version")}
+      </button>
+      {error && <ReviewError code={error} />}
+    </section>
+  );
+}
+
 function SharedDownload({ scope, token }: { scope: ReviewScope; token: string | null }) {
   const c = useCopy();
   const [error, setError] = useState("");
@@ -859,7 +901,7 @@ function LeadTools({
 }) {
   const c = useCopy();
   return (
-    <section className="space-y-8 border-t border-border pt-8" aria-label={c("담당자 관리", "Lead tools")}>
+    <section className="space-y-8 border-t border-border pt-8" aria-label={c("검토 관리", "Review tools")}>
       {detail.allowedActions.setAudience && <AudienceForm key={`audience:${detail.review.revision}`} scope={scope} detail={detail} reload={reload} />}
       {detail.allowedActions.setApprover && <ApproverForm scope={scope} detail={detail} reload={reload} />}
       {detail.allowedActions.replaceVersion && <ReplaceVersion key={`replace:${detail.review.revision}`} scope={scope} detail={detail} reload={reload} />}
@@ -1055,8 +1097,8 @@ function Shares({
       <h2 className="font-medium">{c("검토 공유", "Review sharing")}</h2>
       <p className="text-sm text-muted">
         {c(
-          `공유는 현재 회차 V${detail.rounds.find((r) => r.current)?.ordinal} 영상에 고정되며, 로그인한 지정 이메일 계정만 열 수 있습니다. 기본 유효기간은 7일이고 원본 다운로드는 따로 허용해야 합니다. 링크로 프로젝트의 다른 자료나 업무에 들어갈 수 없습니다.`,
-          `A share is fixed to the current round's version and opens only for the signed-in invited accounts. It lasts 7 days by default and original download must be allowed separately. The link reaches nothing else in the project.`,
+          `공유는 현재 회차 V${detail.rounds.find((r) => r.current)?.ordinal} 영상에 고정되며, 로그인한 지정 이메일 계정만 열 수 있습니다. 기본 유효기간은 7일이고 원본 다운로드는 따로 허용해야 합니다. 링크로 폴더의 다른 자료나 업무에 들어갈 수 없습니다.`,
+          `A share is fixed to the current round's version and opens only for the signed-in invited accounts. It lasts 7 days by default and original download must be allowed separately. The link reaches nothing else in the folder.`,
         )}
       </p>
       {detail.allowedActions.share ? (

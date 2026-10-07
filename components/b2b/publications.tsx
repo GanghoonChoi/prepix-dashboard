@@ -18,7 +18,7 @@ const errors: Record<string, [string, string]> = {
   B2B_PUBLICATION_OPERATION_INVALID: ["저장된 공개 요청을 확인할 수 없습니다. 원래 기록을 유지했습니다.", "The saved publication request cannot be verified. It is retained."],
   B2B_PUBLICATION_ALREADY_PUBLISHED: ["이미 검토에 공개된 결과입니다. 기존 검토를 확인해 주세요.", "This result is already published. Open the existing review."],
   B2B_PUBLICATION_NOT_FOUND: ["현재 계정에서 볼 수 있는 등록 결과가 아닙니다.", "This registered result is unavailable to the current account."],
-  B2B_PUBLICATION_PLAYBACK_REQUIRED: ["현재 결과를 다시 재생하고 확인해 주세요. 프로젝트가 바뀌었거나 재생 주소가 만료되었습니다.", "Play and confirm this result again. The project changed or playback expired."],
+  B2B_PUBLICATION_PLAYBACK_REQUIRED: ["현재 결과를 다시 재생하고 확인해 주세요. 폴더가 바뀌었거나 재생 주소가 만료되었습니다.", "Play and confirm this result again. The folder changed or playback expired."],
 };
 function PublicationError({ error, retry }: { error: string; retry?: () => void }) {
   const c = useCopy(), message = errors[error];
@@ -66,8 +66,8 @@ function ScopedPublications({ scope: initial, requestedId }: { scope: Publicatio
     finally { applying.current = false; setBusy(false); await load(); }
   };
   if (!data && !error) return <TeamLoading />;
-  return <TeamShell title={c("등록된 결과", "Registered results")} description={c("앱에서 발행한 결과입니다. 검토본이 준비되면 이 프로젝트를 볼 수 있는 내부 구성원에게 검토로 자동 공개됩니다. 외부 참여자가 발행한 결과는 그 사람에게도 열리고, 다른 외부 참여자는 담당자가 회차에 추가하거나 공유 링크를 보낼 때만 봅니다.", "Results published from the app. Each opens for review to the internal members who can see this project once its review copy is ready. A result an external participant published also opens to them; other external participants see it only when the lead adds them to the round or sends a share link.")}>
-    <Link href={base} className={secondaryClass}>{c("프로젝트로", "Project")}</Link>
+  return <TeamShell title={c("등록된 결과", "Registered results")} description={c("앱에서 발행한 결과입니다. 검토본이 준비되면 이 폴더를 볼 수 있는 내부 구성원에게 검토로 자동 공개됩니다. 외부 참여자가 발행한 결과는 그 사람에게도 열리고, 다른 외부 참여자는 담당자가 회차에 추가하거나 공유 링크를 보낼 때만 봅니다.", "Results published from the app. Each opens for review to the internal members who can see this folder once its review copy is ready. A result an external participant published also opens to them; other external participants see it only when the lead adds them to the round or sends a share link.")}>
+    <Link href={base} className={secondaryClass}>{c("폴더로", "Folder")}</Link>
     {error && <PublicationError error={error} retry={() => void load()} />}
     {stale && <p role="status" className="text-sm text-muted">{c("마지막으로 확인한 기록입니다. 최신 상태를 확인하기 전에는 공개할 수 없습니다.", "Showing the last confirmed records. Refresh before publishing.")}</p>}
     {actionError && <PublicationError error={actionError} />}
@@ -78,12 +78,12 @@ function ScopedPublications({ scope: initial, requestedId }: { scope: Publicatio
       </dl>
       {!!data.pending.length && <section aria-label={c("공개 결과 복구", "Recover publication")} className="space-y-3 rounded-lg border border-border p-4">
         <h2 className="font-medium">{c("결과 확인이 필요한 공개 요청", "Publication requests awaiting confirmation")}</h2>
-        <p className="text-sm text-muted">{c("원래 계정·프로젝트·요청 키로 결과를 조회합니다. 미처리로 확인된 경우 같은 요청만 다시 보냅니다.", "The original account, project and key are checked. Only that same request is resent if proven not received.")}</p>
+        <p className="text-sm text-muted">{c("원래 계정·폴더·요청 키로 결과를 조회합니다. 미처리로 확인된 경우 같은 요청만 다시 보냅니다.", "The original account, folder and key are checked. Only that same request is resent if proven not received.")}</p>
         {data.recoveryError && <PublicationError error={data.recoveryError} />}
         {data.pending.map((r) => <div key={r.input.requestKey} className="flex flex-wrap items-center gap-3"><span className="break-all font-mono text-xs">{r.input.requestKey}</span><button type="button" className={secondaryClass} disabled={busy} onClick={() => void retry(r)}>{c("원래 공개 요청 다시 확인", "Check original publication")}</button></div>)}
       </section>}
       <section className="space-y-3" aria-label={c("결과 목록", "Result list")}>
-        {!data.publications.length && <p className="text-sm text-muted">{c("현재 볼 수 있는 등록 결과가 없습니다. 앱에서 프로젝트 결과를 등록해 주세요.", "No accessible results have been registered. Register a project result from the app.")}</p>}
+        {!data.publications.length && <p className="text-sm text-muted">{c("현재 볼 수 있는 등록 결과가 없습니다. 앱에서 폴더 결과를 등록해 주세요.", "No accessible results have been registered. Register a folder result from the app.")}</p>}
         {data.publications.map((p) => <article key={p.id} data-testid={`publication-${p.id}`} className="space-y-3 border-b border-border py-5">
           <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-medium">{p.title}</h2><p className="mt-1 text-sm text-muted">{c("생성", "Generated")} {kst(p.generatedAt)} · {p.metadata.durationMs === null ? c("길이 정보 없음", "Duration unavailable") : timecode(p.metadata.durationMs)} · {p.size.toLocaleString()} B</p></div><span className="text-sm">{p.state === "published" ? c("검토 공개됨", "Published to review") : c("자료 등록됨", "Result registered")} · {p.previewState === "ready" ? c("재생 준비됨", "Playback ready") : p.previewState === "failed" ? c("재생 준비 실패", "Playback preparation failed") : p.previewState === "not_requested" ? c("재생 준비 전", "Playback not requested") : c("재생 준비 중", "Preparing playback")}</span></div>
           <dl className="grid gap-2 text-xs sm:grid-cols-2"><div><dt className="text-muted">{c("결과 버전", "Result version")}</dt><dd className="break-all font-mono">{p.versionId}</dd></div><div><dt className="text-muted">{c("원본 작업 / 결과", "Original work / result")}</dt><dd className="break-all font-mono">{p.originWorkId} / {p.originResultId}</dd></div></dl>

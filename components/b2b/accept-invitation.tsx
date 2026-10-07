@@ -91,14 +91,14 @@ export function AcceptInvitation({ token }: { token: string }) {
           <h2 className="text-xl font-medium">{invite.workspaceName}</h2>
           {invite.projectName && (
             <p className="text-sm">
-              {c("초대 프로젝트", "Invited project")}: {invite.projectName}
+              {c("초대 폴더", "Invited folder")}: {invite.projectName}
             </p>
           )}
           <p className="text-sm leading-6 text-muted">
             {invite.kind === "external"
               ? c(
-                  "외부 참여자로 해당 프로젝트에 참여합니다. 다른 프로젝트나 직원 명단에는 자동 편입되지 않습니다.",
-                  "Join this project as an external collaborator. Access to other projects or the employee organisation is not granted.",
+                  "외부 참여자로 해당 폴더에 참여합니다. 다른 폴더나 직원 명단에는 자동 편입되지 않습니다.",
+                  "Join this folder as an external collaborator. Access to other folders or the employee organisation is not granted.",
                 )
               : c(
                   "내부 참여자로 초대되었습니다.",
@@ -118,9 +118,9 @@ export function AcceptInvitation({ token }: { token: string }) {
               </dt>
               <dd className="mt-1">
                 {invite.projectRole === "producer"
-                  ? c("프로젝트 제작자", "Project producer")
+                  ? c("폴더 제작자", "Folder producer")
                   : invite.projectRole === "reviewer"
-                    ? c("프로젝트 검토자", "Project reviewer")
+                    ? c("폴더 검토자", "Folder reviewer")
                     : invite.teamRole === "admin"
                       ? c("팀 관리자", "Team administrator")
                       : c("팀 참여자", "Team participant")}

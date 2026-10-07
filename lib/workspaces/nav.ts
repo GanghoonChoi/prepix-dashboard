@@ -72,7 +72,7 @@ export function workspaceLinks(
       { href: base, ko: "개요", en: "Overview" },
       ...(status.allowedActions.projects
         ? [
-            { href: `${base}/projects`, ko: "프로젝트", en: "Projects" },
+            { href: `${base}/projects`, ko: "폴더", en: "Folders" },
             { href: `${base}/library`, ko: "보관함", en: "Library" },
           ]
         : []),

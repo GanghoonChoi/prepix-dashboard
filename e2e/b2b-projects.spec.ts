@@ -85,7 +85,7 @@ test("B2B preparing gate, private projects, lost-response retry, role handoff an
     }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", { name: "프로젝트", exact: true }),
+    page.getByRole("link", { name: "폴더", exact: true }),
   ).toHaveCount(0);
   await page.goto(`${base}/projects/new`);
   await expect(page.locator("main [role=alert]")).toBeVisible();
@@ -99,7 +99,7 @@ test("B2B preparing gate, private projects, lost-response retry, role handoff an
     await signIn(editorPage, editor.email);
     await editorPage.goto(`${base}/projects/new`);
     await editorPage
-      .getByLabel("프로젝트명", { exact: true })
+      .getByLabel("폴더명", { exact: true })
       .fill("Private B2B project");
     await editorPage
       .getByLabel("작업 개요", { exact: true })
@@ -119,16 +119,16 @@ test("B2B preparing gate, private projects, lost-response retry, role handoff an
       } else await route.continue();
     });
     await editorPage
-      .getByRole("button", { name: "프로젝트 만들기", exact: true })
+      .getByRole("button", { name: "폴더 만들기", exact: true })
       .click();
     await expect(editorPage.locator("main [role=alert]")).toContainText(
       "요청을 완료하지 못했습니다",
     );
     await expect(
-      editorPage.getByLabel("프로젝트명", { exact: true }),
+      editorPage.getByLabel("폴더명", { exact: true }),
     ).toHaveValue("Private B2B project");
     await editorPage
-      .getByRole("button", { name: "프로젝트 만들기", exact: true })
+      .getByRole("button", { name: "폴더 만들기", exact: true })
       .click();
     await expect(
       editorPage.getByRole("heading", {
@@ -143,7 +143,7 @@ test("B2B preparing gate, private projects, lost-response retry, role handoff an
     expect(list.projects).toHaveLength(1);
     await page.goto(`${base}/projects`);
     await expect(
-      page.getByText("참여한 프로젝트가 없습니다.", { exact: false }),
+      page.getByText("참여한 폴더가 없습니다.", { exact: false }),
     ).toBeVisible();
     await expect(
       page.getByText("Private B2B project", { exact: true }),
@@ -317,7 +317,7 @@ test("B2B external invitation proves mailbox and preserves billing mutation on l
     await signIn(guestPage, guest.email);
     await guestPage.goto(offer!.inviteUrl);
     await expect(
-      guestPage.getByText("프로젝트 검토자", { exact: true }),
+      guestPage.getByText("폴더 검토자", { exact: true }),
     ).toBeVisible();
     await expect(
       guestPage.getByText("허용되지 않음", { exact: true }),
@@ -517,13 +517,13 @@ test("B2B owner restores vacant lead without gaining private project content", a
   const base = `/dashboard/workspaces/${team.id}`;
   await page.goto(`${base}/members`);
   await page
-    .getByLabel("복구할 프로젝트 주소", { exact: true })
+    .getByLabel("복구할 폴더 주소", { exact: true })
     .fill(`http://localhost:3001${base}/projects/${project.id}`);
   await page
     .getByRole("button", { name: "담당자 공백 확인", exact: true })
     .click();
   await expect(page.locator("main [role=alert]")).toContainText(
-    "현재 담당자가 유효한 프로젝트",
+    "현재 담당자가 유효한 폴더",
   );
   const row = page.getByRole("listitem").filter({ hasText: lead.email });
   await row.getByText("팀 역할·참여 관리", { exact: true }).click();

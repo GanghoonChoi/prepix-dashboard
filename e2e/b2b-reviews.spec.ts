@@ -293,7 +293,7 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   // Authentication returns directly to the share without reopening its URL.
   await V.page.waitForURL(/\/dashboard\/review-shares\//, { timeout: 30_000 });
   await expect(V.page.getByRole("heading", { name: "1차 편집 검토", exact: true })).toBeVisible({ timeout: 30_000 });
-  await expect(V.page.getByText("이 링크로 프로젝트의 다른 자료·요청·검토에는 들어갈 수 없습니다", { exact: false })).toBeVisible();
+  await expect(V.page.getByText("이 링크로 폴더의 다른 자료·요청·검토에는 들어갈 수 없습니다", { exact: false })).toBeVisible();
   expect(V.page.url()).not.toContain("#t=");
   await videoReady(V.page);
   await shot(V.page, "s14-share-viewer");

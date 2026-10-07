@@ -107,7 +107,7 @@ export function InvitationPanel({
     <section className="space-y-5 border-t border-border pt-8">
       <h2 className="font-medium">
         {projectId
-          ? c("프로젝트 초대", "Project invitations")
+          ? c("폴더 초대", "Folder invitations")
           : c("내부 팀 참여자 초대", "Invite internal team participants")}
       </h2>
       <p className="max-w-2xl text-sm leading-6 text-muted">

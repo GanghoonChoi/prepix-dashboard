@@ -173,8 +173,8 @@ function LibraryView({
     <TeamShell
       title={c("보관함", "Library")}
       description={c(
-        "프로젝트를 선택하지 않고 자료를 등록할 수 있습니다. 현재 접근이 허용된 버전만 표시하며, 사용할 프로젝트에 정확한 버전을 연결합니다.",
-        "Register files without choosing a project. Only accessible versions are shown; link an exact version to the project where you need it.",
+        "폴더를 선택하지 않고 자료를 등록할 수 있습니다. 현재 접근이 허용된 버전만 표시하며, 사용할 폴더에 정확한 버전을 연결합니다.",
+        "Register files without choosing a folder. Only accessible versions are shown; link an exact version to the folder where you need it.",
       )}
     >
       <form
@@ -440,7 +440,7 @@ function LibraryGroup({
                       className={secondaryClass}
                       onClick={() => setSelection(v.id)}
                     >
-                      {c("프로젝트에 연결", "Link to project")}
+                      {c("폴더에 연결", "Link to folder")}
                     </button>
                   )}
                   {entry.canLink && !entry.linked && (
@@ -489,8 +489,8 @@ function LibraryGroup({
                   ) : (
                     <p className="text-muted">
                       {c(
-                        "현재 표시할 수 있는 프로젝트 연결이 없습니다. 보관된 파일은 유지됩니다.",
-                        "No project links are currently visible. The stored file is retained.",
+                        "현재 표시할 수 있는 폴더 연결이 없습니다. 보관된 파일은 유지됩니다.",
+                        "No folder links are currently visible. The stored file is retained.",
                       )}
                     </p>
                   )}

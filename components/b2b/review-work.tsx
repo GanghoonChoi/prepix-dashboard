@@ -91,7 +91,7 @@ function ScopedPanel({ scope, onDenied }: { scope: Scope; onDenied?: () => Promi
           <input
             className={`${inputClass} min-w-0 max-w-64`}
             aria-label={c("검토 업무 검색", "Search review work")}
-            placeholder={c("검토·프로젝트 검색", "Search reviews and projects")}
+            placeholder={c("검토·폴더 검색", "Search reviews and folders")}
             maxLength={100}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -136,7 +136,7 @@ function ScopedPanel({ scope, onDenied }: { scope: Scope; onDenied?: () => Promi
             </button>
             {scope.projectId && (
               <Link className={secondaryClass} href={`/dashboard/workspaces/${scope.workspaceId}/projects/${scope.projectId}/reviews`}>
-                {c("프로젝트 검토 전체", "All project reviews")}
+                {c("폴더 검토 전체", "All folder reviews")}
               </Link>
             )}
           </div>

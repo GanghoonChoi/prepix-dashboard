@@ -284,8 +284,8 @@ function MemberActionEditor({
       >
         <p className="text-sm leading-6 text-muted">
           {c(
-            "정지·제거는 후임 지정 없이 즉시 접근을 회수합니다. 다시 활성화해도 이전 프로젝트와 결제 권한은 복구되지 않습니다. 역할 변경은 이용권 구매나 환불을 실행하지 않습니다.",
-            "Suspension and removal revoke access immediately, without waiting for handover. Reactivation does not restore project or billing grants. Role changes do not purchase or refund licences.",
+            "정지·제거는 후임 지정 없이 즉시 접근을 회수합니다. 다시 활성화해도 이전 폴더와 결제 권한은 복구되지 않습니다. 역할 변경은 이용권 구매나 환불을 실행하지 않습니다.",
+            "Suspension and removal revoke access immediately, without waiting for handover. Reactivation does not restore folder or billing grants. Role changes do not purchase or refund licences.",
           )}
         </p>
         <label className="block space-y-2 text-sm">
