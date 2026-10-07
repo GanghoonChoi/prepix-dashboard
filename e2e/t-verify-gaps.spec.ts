@@ -98,6 +98,8 @@ test("FL12: opening a web review fetches the review copy only, never the origina
 
   // Fresh page: record every request from the first byte of the review page.
   const R = await open(browser, leader, `${base}/reviews/${reviewId}`);
+  // open() returns right after "계속하기"; a goto before the session lands races the login.
+  await R.page.waitForURL((u) => !u.pathname.startsWith("/login"), { timeout: 60_000 });
   const seen: string[] = [];
   R.page.on("request", (r) => seen.push(`${r.method()} ${r.url()}`));
   await R.page.goto(`${base}/reviews/${reviewId}`);
