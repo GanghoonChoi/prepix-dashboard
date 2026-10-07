@@ -85,6 +85,9 @@ export type ProjectPerson = {
 export type ProjectPeople = { people: ProjectPerson[]; canManage: boolean };
 export type Mutation = { requestKey: string };
 export type RevisionMutation = Mutation & { revision: number };
+/** The team's "기본" folder (P, 2026-10-07): created on first use by an
+ * internal member (who becomes its lead), one per team, team-visible. */
+export type DefaultFolder = { projectId: string; name: string };
 export type CreateProject = Mutation & {
   name: string;
   brief?: string;
@@ -1460,14 +1463,18 @@ export type TeamFileTrashImpact = {
 };
 
 // F12: verified file registration and explicit review publication are separate.
+/** Two modes. A team working copy sends `participationId` and
+ * `basisRevision` (F12). Publishing local work into a folder (P, decision
+ * 2026-10-07) omits both: there is no working copy, so the server takes the
+ * registrant's current participation and today's revision as the basis. */
 export type RegisterPublication = {
   requestKey: string;
-  participationId: string;
+  participationId?: string;
   originWorkId: string;
   // A render/result identity; one editing work may generate several cuts.
   originResultId: string;
   originRequestId: string | null;
-  basisRevision: number;
+  basisRevision?: number;
   uploadId: string;
   title: string;
   generatedAt: string;
@@ -1770,6 +1777,10 @@ export type ReviewSummary = {
   approval: ReviewApprovalState;
   approver: ReviewPerson | null;
   previousRounds: number;
+  /** Who opened the review (the publisher of an app result). */
+  publisher: ReviewPerson;
+  /** Comments on the rounds this viewer can open. */
+  commentCount: number;
   createdAt: string;
   updatedAt: string;
 };
