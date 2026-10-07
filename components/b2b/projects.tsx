@@ -415,8 +415,8 @@ export function NewProject() {
                 "team",
                 c("팀 전체 공개", "Team-wide"),
                 c(
-                  "팀의 모든 내부 멤버가 프로젝트와 발행된 영상을 보고 코멘트할 수 있습니다.",
-                  "Every internal team member can see the project and its published videos and comment.",
+                  "팀의 모든 내부 멤버가 프로젝트와 발행된 영상을 보고 코멘트하고, 팀 검토자를 제외한 멤버는 자료를 올리고 받고 결과를 발행할 수 있습니다(팀 공용 클라우드).",
+                  "Every internal team member can see the project and its published videos and comment; members other than team reviewers can also upload, download and publish results (shared team cloud).",
                 ),
               ],
               [

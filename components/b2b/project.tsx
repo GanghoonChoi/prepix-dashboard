@@ -293,8 +293,8 @@ function VisibilitySection({
       <p className="max-w-3xl text-sm leading-6 text-muted">
         {project.visibility === "team"
           ? c(
-              "팀 전체 공개: 팀의 모든 내부 멤버가 이 프로젝트와 발행된 영상을 보고 코멘트할 수 있습니다. 외부 참여자는 담당자가 회차에 추가하거나 공유 링크를 보낼 때만 봅니다. 받기와 AI 사용은 자료별 권한을 따릅니다.",
-              "Team-wide: every internal team member can see this project and its published videos and comment on them. External participants see a video only when the lead adds them to the round or sends a share link. Downloads and AI use follow per-file permissions.",
+              "팀 전체 공개: 팀의 모든 내부 멤버가 이 프로젝트와 발행된 영상을 보고 코멘트할 수 있고, 팀 검토자를 제외한 멤버는 팀 공용 클라우드처럼 자료를 올리고 받고 결과를 발행할 수 있습니다. 공개 범위·완료·승인자·공유 링크 관리는 담당자만 합니다. 외부 참여자는 담당자가 회차에 추가하거나 공유 링크를 보낼 때만 봅니다. AI 사용은 자료별 권한을 따릅니다.",
+              "Team-wide: every internal team member can see this project and its published videos and comment on them; members other than team reviewers can also upload and download files and publish results, like a shared team cloud. Visibility, completion, approver and share links stay with the lead. External participants see a video only when the lead adds them to the round or sends a share link. AI use follows per-file permissions.",
             )
           : c(
               "비공개: 참여자만 이 프로젝트를 볼 수 있습니다. 참여하지 않은 소유자·관리자에게도 보이지 않습니다. 발행 영상은 내부 참여자에게 자동 공개되고, 외부 참여자는 담당자가 회차에 추가하거나 공유 링크를 보낼 때만 봅니다.",
@@ -329,8 +329,8 @@ function VisibilitySection({
           <p className="text-sm leading-6 text-muted">
             {widening
               ? c(
-                  "팀의 모든 내부 멤버가 이 프로젝트, 발행된 영상과 그 코멘트를 보고 코멘트할 수 있게 됩니다. 원본 받기와 AI 사용은 계속 자료별 권한을 따르고, 외부 참여자는 초대받은 프로젝트만 봅니다.",
-                  "Every internal team member will see this project, its published videos and their comments, and can comment. Downloads and AI use still follow per-file permissions; external people still see only projects they were invited to.",
+                  "팀의 모든 내부 멤버가 이 프로젝트, 발행된 영상과 그 코멘트를 보고 코멘트할 수 있게 됩니다. 팀 검토자를 제외한 멤버는 자료를 올리고 받고 결과를 발행할 수 있게 됩니다. AI 사용은 계속 자료별 권한을 따르고, 외부 참여자는 초대받은 프로젝트만 봅니다.",
+                  "Every internal team member will see this project, its published videos and their comments, and can comment. Members other than team reviewers can also upload and download files and publish results. AI use still follows per-file permissions; external people still see only projects they were invited to.",
                 )
               : c(
                   "참여자만 볼 수 있게 됩니다. 참여하지 않은 팀원은 다음 동작부터 이 프로젝트에 접근할 수 없고, 그동안 남긴 코멘트는 기록에 남습니다.",
