@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { sessionChanged } from "../api/session";
 import { createHash, randomUUID } from "node:crypto";
 import {
+  audienceInput,
+  detailAudience,
   checkReview,
   discardReview,
   reviewHash,
@@ -209,6 +211,39 @@ test("audience publication is project-scoped and malformed audience records cann
   assert.equal(validRecord({ ...r, input: { ...r.input, audienceUserIds: [approverUserId, approverUserId] } }, project), false);
   assert.equal(validRecord({ ...r, input: { ...r.input, approverUserId: randomUUID() } }, project), false);
   assert.equal(validRecord({ ...r, input: { ...r.input, reason: " " } }, project), false);
+});
+
+test("project-wide audience sends the opened externals only when chosen and an optional approver", () => {
+  const approverUserId = randomUUID();
+  assert.deepEqual(audienceInput({ audienceScope: "project", audienceUserIds: [], approverUserId: "" }), { audienceScope: "project" });
+  assert.deepEqual(audienceInput({ audienceScope: "project", audienceUserIds: [approverUserId], approverUserId: "" }), { audienceScope: "project", audienceUserIds: [approverUserId] });
+  assert.deepEqual(audienceInput({ audienceScope: "project", audienceUserIds: [], approverUserId }), { audienceScope: "project", approverUserId });
+  assert.deepEqual(audienceInput({ audienceScope: "selected", audienceUserIds: [approverUserId], approverUserId }), { audienceScope: "selected", audienceUserIds: [approverUserId], approverUserId });
+  const r: ReviewRecord = { ...comment(), action: "round", input: { requestKey: randomUUID(), revision: 1, versionId: randomUUID(), reason: "V2", audienceScope: "project" } };
+  assert.equal(validRecord(r, project), true);
+  assert.equal(validRecord({ ...r, input: { ...r.input, approverUserId } }, project), true);
+  assert.equal(validRecord({ ...r, input: { ...r.input, approverUserId: null } }, project), true);
+  assert.equal(validRecord({ ...r, input: { ...r.input, approverUserId: "someone" } }, project), false);
+  assert.equal(validRecord({ ...r, input: { ...r.input, audienceUserIds: [approverUserId] } }, project), true);
+  assert.equal(validRecord({ ...r, input: { ...r.input, audienceUserIds: [approverUserId, approverUserId] } }, project), false);
+  assert.equal(validRecord({ ...r, input: { ...r.input, audienceUserIds: ["someone"] } }, project), false);
+  assert.equal(validRecord({ ...r, input: { ...r.input, audienceScope: "team" } }, project), false);
+  assert.equal(validRecord({ ...r, input: { ...r.input, audienceScope: "selected" } }, project), false);
+});
+
+test("an audience change starts from the current round, never widening a selected review", () => {
+  const [a, b, ext] = [randomUUID(), randomUUID(), randomUUID()];
+  const person = (userId: string) => ({ userId, name: null, role: "reviewer" as const });
+  const approver = (userId: string, basis: "participant" | "share" = "participant", active = true) =>
+    ({ designationId: randomUUID(), person: { userId, name: null }, basis, active, assignedAt: "" });
+  const detail = (audienceScope: "project" | "selected", audience: string[], appr: ReturnType<typeof approver> | null) =>
+    ({ review: { audienceScope }, audience: audience.map(person), approver: appr }) as unknown as Parameters<typeof detailAudience>[0];
+  assert.deepEqual(detailAudience(detail("selected", [a, b], approver(b))), { audienceScope: "selected", audienceUserIds: [a, b], approverUserId: b });
+  assert.deepEqual(detailAudience(detail("selected", [a], approver(b))), { audienceScope: "selected", audienceUserIds: [a], approverUserId: "" });
+  assert.deepEqual(detailAudience(detail("selected", [a], approver(a, "share"))), { audienceScope: "selected", audienceUserIds: [a], approverUserId: "" });
+  assert.deepEqual(detailAudience(detail("project", [ext], approver(a))), { audienceScope: "project", audienceUserIds: [ext], approverUserId: a });
+  assert.deepEqual(detailAudience(detail("project", [], approver(a, "participant", false))), { audienceScope: "project", audienceUserIds: [], approverUserId: "" });
+  assert.deepEqual(audienceInput(detailAudience(detail("selected", [a, b], approver(a)))), { audienceScope: "selected", audienceUserIds: [a, b], approverUserId: a });
 });
 
 test("a lost audience-change response recovers the same round receipt after reload", async () => {

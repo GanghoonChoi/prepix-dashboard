@@ -5,6 +5,7 @@ import {
   type Browser,
   type Page,
 } from "@playwright/test";
+import { harnessEnv } from "./harness-env";
 import { execFileSync } from "node:child_process";
 import { randomUUID, createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
@@ -16,7 +17,7 @@ import { resolve } from "node:path";
 // Serve the web with `next dev`: the reference receipt downloads from the
 // local http MinIO, and the download engine accepts a loopback http storage
 // URL only in development (a production build requires https, by design).
-const api = process.env.B2B_E2E_API_URL ?? "http://127.0.0.1:3308";
+const api = harnessEnv("B2B_E2E_API_URL");
 const password = "LocalPreview123";
 type Account = Awaited<ReturnType<typeof account>>;
 
@@ -275,7 +276,7 @@ test("F13 requests by role: exact-version submission after a lost response, conf
   });
   const made = await request.post(`${api}/v2/workspaces/${team}/b2b/projects`, {
     headers: lead.headers,
-    data: { requestKey: randomUUID(), name: "브랜드 영상" },
+    data: { requestKey: randomUUID(), name: "브랜드 영상", visibility: "private" },
   });
   expect(made.status()).toBe(201);
   const project = (await made.json()).data.project.id as string;

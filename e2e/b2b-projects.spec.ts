@@ -4,9 +4,12 @@ import {
   type Page,
   type APIRequestContext,
 } from "@playwright/test";
+import { harnessEnv } from "./harness-env";
+// The backend fixtures this spec runs fall back to a shared PG (55438) when unset.
+harnessEnv("WORKSPACES_TEST_DATABASE_URL");
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
-const api = "http://127.0.0.1:3308";
+const api = harnessEnv("B2B_E2E_API_URL");
 const password = "LocalPreview123";
 const suffix = () => `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 function fixture(input: object) {
@@ -104,6 +107,8 @@ test("B2B preparing gate, private projects, lost-response retry, role handoff an
     await editorPage
       .getByLabel("납품에 편집 가능한 작업 파일과 소스 확인 필요")
       .check();
+    // V: the owner-must-not-see assertions below are the private (v1) rule.
+    await editorPage.getByRole("radio", { name: /^비공개\(참여자만\)/ }).check();
     const endpoint = `${api}/v2/workspaces/${team.id}/b2b/projects`;
     let lost = true;
     await editorPage.route(endpoint, async (route) => {
@@ -469,6 +474,7 @@ test("B2B owner restores vacant lead without gaining private project content", a
           requestKey: crypto.randomUUID(),
           name: "Private vacancy content",
           brief: "Owner must never see this",
+          visibility: "private",
         },
       })
     ).json()

@@ -1,8 +1,9 @@
 import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
+import { harnessEnv } from "./harness-env";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 // S26/S32 against the real Nest/JWT harness and PostgreSQL (F17).
-const api = process.env.B2B_E2E_API_URL ?? "http://127.0.0.1:3308";
+const api = harnessEnv("B2B_E2E_API_URL");
 const password = "LocalPreview123";
 const suffix = () => `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const DAY = 86400;

@@ -1,4 +1,7 @@
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
+import { harnessEnv } from "./harness-env";
+// The backend fixtures this spec runs fall back to a shared PG (55438) when unset.
+harnessEnv("WORKSPACES_TEST_DATABASE_URL");
 import { execFileSync } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -6,7 +9,7 @@ import { resolve } from "node:path";
 
 // Local preview: B2B_TEST_ENABLED/NEW_TEAMS/PRODUCT/STATEMENTS=true and
 // WORKSPACES_TEST_DATABASE_URL set for the fixtures (fake provider only).
-const api = process.env.B2B_E2E_API_URL ?? "http://127.0.0.1:3308",
+const api = harnessEnv("B2B_E2E_API_URL"),
   password = "LocalPreview123",
   scripts = resolve(process.env.B2B_E2E_FIXTURE_DIR ?? "../prepix-backend/backend/scripts");
 const run = (args: string[], input: object, env: Record<string, string> = {}) =>

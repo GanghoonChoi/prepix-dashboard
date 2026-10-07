@@ -1,9 +1,10 @@
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
+import { harnessEnv } from "./harness-env";
 
 // Real Chrome, real local Nest/JWT API and PostgreSQL; the payment provider is
 // the local HTTP PG double (scripts/b2b-pg-double.cjs). Requires the preview
 // harness with B2B_TEST_BILLING=true. Nothing here touches a real PG.
-const api = process.env.B2B_E2E_API_URL ?? "http://127.0.0.1:3308";
+const api = harnessEnv("B2B_E2E_API_URL");
 const double = process.env.B2B_E2E_PG_DOUBLE_URL ?? "http://127.0.0.1:3547";
 const opsKey = process.env.B2B_E2E_OPERATIONS_KEY ?? "local-preview-operations-key-0123456789";
 const password = "LocalPreview123";

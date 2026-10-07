@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { sessionChanged } from "../api/session";
 import { randomUUID, createHash } from "node:crypto";
-import { checkPublication, publicationHash, runPublication, samePublicationIntent, type PublicationApi, type PublicationOperation, type PublicationScope, type PublicationStore } from "./operations";
+import { checkPublication, publicationHash, runPublication, samePublicationIntent, validPublicationOperation, type PublicationApi, type PublicationOperation, type PublicationScope, type PublicationStore } from "./operations";
 import type { PublicationMutationLookup } from "../api/generated/b2b";
 const scope: PublicationScope = { origin: "http://localhost:3318", userId: randomUUID(), workspaceId: randomUUID(), projectId: randomUUID() };
 const operation = (): PublicationOperation => { const approver = randomUUID(); return { schema: 1, scope, action: "publish", target: randomUUID(), versionId: randomUUID(), attempts: 0, input: { requestKey: randomUUID(), revision: 3, audienceUserIds: [approver], approverUserId: approver } }; };
@@ -88,4 +88,12 @@ test("a local session fence keeps the first publish pending; only the server's o
     await assert.rejects(runPublication(r, { lookup: async () => empty(), apply: async () => { throw failure; } }, store));
     assert.equal(store.row?.input.requestKey === r.input.requestKey, kept);
   }
+});
+test("V: the lead's fallback publish without a list (whole project) is a valid durable record; a half audience is not", () => {
+  const r = operation(), whole = { ...r, input: { requestKey: r.input.requestKey, revision: 3 } };
+  assert.equal(validPublicationOperation(r, scope), true);
+  assert.equal(validPublicationOperation(whole, scope), true);
+  assert.equal(validPublicationOperation({ ...whole, input: { ...whole.input, approverUserId: randomUUID() } }, scope), true);
+  assert.equal(validPublicationOperation({ ...whole, input: { ...whole.input, audienceUserIds: [] } }, scope), false);
+  assert.equal(validPublicationOperation({ ...r, input: { ...r.input, approverUserId: randomUUID() } }, scope), false);
 });

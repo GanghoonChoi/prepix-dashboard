@@ -12,6 +12,7 @@ import {
   b2bService,
   type Project,
   type ProjectState,
+  type ProjectVisibility,
 } from "@/lib/api/services/b2b.service";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
@@ -26,6 +27,8 @@ import {
   B2bError,
   errorCode,
   StateBadge,
+  VisibilityBadge,
+  roleLabels,
   stateLabels,
   useCopy,
   freeIntent,
@@ -188,8 +191,8 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
     <TeamShell
       title={c("프로젝트", "Projects")}
       description={c(
-        "현재 참여 중인 프로젝트만 표시됩니다.",
-        "Only projects you currently participate in are shown.",
+        "참여 중인 프로젝트와 팀 공개 프로젝트가 표시됩니다.",
+        "Projects you participate in and team-wide projects are shown.",
       )}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -266,14 +269,13 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
                 <div className="min-w-0">
                   <h2 className="truncate font-medium">{p.name}</h2>
                   <p className="mt-1 text-xs text-muted">
-                    {p.role === "lead"
-                      ? c("담당자", "Lead")
-                      : p.role === "producer"
-                        ? c("제작자", "Producer")
-                        : c("검토자", "Reviewer")}
+                    {c(...roleLabels[p.role])}
                   </p>
                 </div>
-                <StateBadge state={p.state} />
+                <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                  <VisibilityBadge visibility={p.visibility} />
+                  <StateBadge state={p.state} />
+                </div>
               </Link>
             </li>
           ))}
@@ -300,6 +302,7 @@ export function NewProject() {
   const [brief, setBrief] = useState("");
   const [workingFiles, setWorkingFiles] = useState(false);
   const [originals, setOriginals] = useState(false);
+  const [visibility, setVisibility] = useState<ProjectVisibility>("team");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const pending = useRef<{ fingerprint: string; key: string } | null>(null);
@@ -325,6 +328,7 @@ export function NewProject() {
             brief: brief.trim(),
             requiresWorkingFiles: workingFiles,
             shareOriginals: originals,
+            visibility,
           };
           const fingerprint = JSON.stringify(draft);
           if (pending.current && pending.current.fingerprint !== fingerprint) {
@@ -403,6 +407,44 @@ export function NewProject() {
             )}
           </span>
         </label>
+        <fieldset className="space-y-2 text-sm">
+          <legend className="mb-2">{c("공개 범위", "Visibility")}</legend>
+          {(
+            [
+              [
+                "team",
+                c("팀 전체 공개", "Team-wide"),
+                c(
+                  "팀의 모든 내부 멤버가 프로젝트와 발행된 영상을 보고 코멘트하고, 팀 검토자를 제외한 멤버는 자료를 올리고 받고 결과를 발행할 수 있습니다(팀 공용 클라우드).",
+                  "Every internal team member can see the project and its published videos and comment; members other than team reviewers can also upload, download and publish results (shared team cloud).",
+                ),
+              ],
+              [
+                "private",
+                c("비공개(참여자만)", "Private (participants only)"),
+                c(
+                  "초대한 참여자만 볼 수 있습니다. 참여하지 않은 소유자·관리자에게도 보이지 않습니다.",
+                  "Only invited participants can see it, including owners and admins who don't participate.",
+                ),
+              ],
+            ] as const
+          ).map(([value, label, hint]) => (
+            <label key={value} className="flex min-h-11 items-start gap-3">
+              <input
+                className="mt-1"
+                type="radio"
+                name="visibility"
+                checked={visibility === value}
+                disabled={busy || !!pending.current}
+                onChange={() => setVisibility(value)}
+              />
+              <span>
+                {label}
+                <span className="mt-1 block text-xs text-muted">{hint}</span>
+              </span>
+            </label>
+          ))}
+        </fieldset>
         {error && <B2bError code={error} />}
         <button className={primaryClass} disabled={busy || !name.trim()}>
           {busy

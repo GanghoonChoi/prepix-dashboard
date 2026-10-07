@@ -11,6 +11,9 @@ export type TeamState =
   | "deleted";
 export type ProjectState = "draft" | "in_progress" | "completed" | "archived";
 export type ProjectRole = "lead" | "producer" | "reviewer";
+/** V (2026-10-06): "team" = every internal team member sees the project, its
+ * published videos and comments; "private" = explicit participants only. */
+export type ProjectVisibility = "team" | "private";
 export type ParticipationKind = "internal" | "external";
 export type B2bStatus =
   | { enabled: false; enrolled: false }
@@ -49,18 +52,22 @@ export type Project = {
   createdBy: string;
   state: ProjectState;
   shareOriginals: boolean;
+  visibility: ProjectVisibility;
   requiresWorkingFiles: boolean;
   completionRuleRevision: number;
   revision: number;
   createdAt: string;
   updatedAt: string;
-  role: ProjectRole;
+  /** "viewer": an internal member who sees a team project without taking
+   * part in it (reads and review comments only, no work). */
+  role: ProjectRole | "viewer";
   allowedActions: {
     read: boolean;
     edit: boolean;
     upload: boolean;
     managePeople: boolean;
     download: boolean;
+    changeVisibility: boolean;
   };
 };
 export type StoredProject = Omit<Project, "role" | "allowedActions">;
@@ -83,6 +90,14 @@ export type CreateProject = Mutation & {
   brief?: string;
   requiresWorkingFiles?: boolean;
   shareOriginals?: boolean;
+  /** Default "team". */
+  visibility?: ProjectVisibility;
+};
+/** Lead only. Widening to "team" needs `confirmTeamWide: true` and a reason. */
+export type ChangeProjectVisibility = RevisionMutation & {
+  visibility: ProjectVisibility;
+  confirmTeamWide?: boolean;
+  reason?: string;
 };
 export type UpdateProject = RevisionMutation & {
   name: string;
@@ -1462,11 +1477,14 @@ export type RegisterPublication = {
   // explicit choice against the revision the user just inspected.
   conflictChoice?: { mode: "new_version"; confirmedRevision: number };
 };
+/** Optional since V: a result whose preview is ready is published to
+ * everyone who can see the project automatically. A lead may still publish
+ * early, or to a selected audience (`audienceUserIds` + approver). */
 export type PublishPublication = {
   requestKey: string;
   revision: number;
-  audienceUserIds: string[];
-  approverUserId: string;
+  audienceUserIds?: string[];
+  approverUserId?: string | null;
 };
 export type TeamPublication = {
   id: string;
@@ -1492,6 +1510,12 @@ export type TeamPublication = {
   // reviewed version is independently reported here.
   currentReviewVersionId: string | null;
   publishedAt: string | null;
+  // V: why automatic publication will not open this registered result —
+  // "superseded": a newer version of its series is already under review;
+  // "legacy": registered before automatic publication. null: it opens to the
+  // team's internal members when its review copy is ready (or is published).
+  // The lead may still publish a skipped result explicitly.
+  automaticSkip: "superseded" | "legacy" | null;
   allowedActions: { publish: boolean };
 };
 export type PublicationMutationResult = {
@@ -1813,6 +1837,10 @@ export type ReviewDetail = {
     createdAt: string;
     updatedAt: string;
     audienceConfirmed: boolean;
+    /** V: "project" = every internal member who can see the project
+     * (publication rounds) plus the external participants listed in
+     * `audience`; "selected" = exactly the explicit audience below. */
+    audienceScope: "project" | "selected";
   };
   rounds: ReviewRound[];
   selectedRound: number;
@@ -1842,11 +1870,20 @@ export type ReviewAudiencePerson = ReviewPerson & {
 };
 export type ReviewAudienceCandidates = {
   currentUserId: string;
-  candidates: { userId: string; label: string; role: "lead" | "producer" | "reviewer" }[];
+  // external: a client participant; under "project" scope it sees the round
+  // only when listed.
+  candidates: { userId: string; label: string; role: "lead" | "producer" | "reviewer"; external: boolean }[];
 };
+/** "selected" (default, 0067): `audienceUserIds` and an approver among them.
+ * "project" (V): every internal member who can see the project (team viewers
+ * and internal participants) plus the participants listed in
+ * `audienceUserIds` — external participants (clients) see a project round
+ * only when the lead lists them for that round (automatic publication lists
+ * none). The approver is optional; an external approver must be listed. */
 export type ConfirmReviewAudience = {
-  audienceUserIds: string[];
-  approverUserId: string;
+  audienceScope?: "selected" | "project";
+  audienceUserIds?: string[];
+  approverUserId?: string | null;
 };
 export type CreateReview = Mutation & ConfirmReviewAudience & { title: string; versionId: string };
 export type ReplaceReviewVersion = RevisionMutation & ConfirmReviewAudience & { versionId: string; reason: string };
@@ -2305,7 +2342,9 @@ export type TeamHome = {
   // Only whether AI accounting is reconciled; there is no team AI total.
   aiUsage: { reconciled: boolean; sampledAt: string } | null;
   aiUsageError: string | null;
-  projects: { items: { id: string; name: string; state: ProjectState; role: ProjectRole; updatedAt: string }[]; hasMore: boolean };
+  projects: { items: { id: string; name: string; state: ProjectState; visibility: ProjectVisibility; role: ProjectRole | "viewer"; updatedAt: string }[]; hasMore: boolean };
+  /** V: newest published results whose review this viewer can open now. */
+  recentPublications: { items: { publicationId: string; reviewId: string; projectId: string; projectName: string; title: string; versionId: string; ordinal: number; round: number; publishedAt: string }[]; hasMore: boolean };
   transfers: { items: { id: string; projectId: string; projectName: string; name: string; state: string; size: number; lastActivityAt: string }[]; hasMore: boolean };
   aiJobs: { items: { id: string; projectId: string; projectName: string; operation: TeamAiOperation; state: string; acceptedAt: string; resultVersionId: string | null }[]; hasMore: boolean };
   deliveries: { items: { projectId: string; projectName: string; packageId: string | null; state: "prepare" | "check" | "confirm" | "confirmed"; updatedAt: string }[]; hasMore: boolean };

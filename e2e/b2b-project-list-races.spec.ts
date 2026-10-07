@@ -32,7 +32,7 @@ test.beforeAll(async () => {
         if(window.hold)await new Promise(resolve=>window.pending.push(resolve));
         if(window.deny)throw {config,response:{status:403,data:{message:"B2B_PROJECT_NOT_FOUND"}}};
         if(cursor&&cursor!=="fresh-"+generation)throw {config,response:{status:400,data:{message:"STALE_CURSOR"}}};
-        const start=cursor?50:0;const projects=Array.from({length:50},(_,n)=>({id:"project-"+(start+n),workspaceId:"team",name:search+" "+(generation?"Current":"Private")+" "+(start+n),role:"lead",state:state||"draft"}));
+        const start=cursor?50:0;const projects=Array.from({length:50},(_,n)=>({id:"project-"+(start+n),workspaceId:"team",name:search+" "+(generation?"Current":"Private")+" "+(start+n),role:"lead",visibility:"private",state:state||"draft"}));
         return {config,status:200,statusText:"OK",headers:{},data:{data:{projects,nextCursor:cursor?null:"fresh-"+generation}}};
       };
     ` }, bundle: true, write: false, format: "iife", jsx: "automatic", tsconfig: resolve(root, "tsconfig.json"),

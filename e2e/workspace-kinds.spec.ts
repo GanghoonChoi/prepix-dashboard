@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { harnessEnv } from "./harness-env";
 
 /**
  * Personal and team workspaces are different objects (spec D13), and each test
@@ -14,7 +15,7 @@ import { test, expect, type Page } from "@playwright/test";
  * Runs against scripts/workspaces-preview.cjs in prepix-backend (dedicated
  * local DB, captured mail). Uploads additionally need TEAM_TEST_STORAGE=true.
  */
-const api = "http://127.0.0.1:3308";
+const api = harnessEnv("B2B_E2E_API_URL");
 const password = "LocalPreview123";
 
 async function register(request: Page["request"], email: string) {

@@ -31,6 +31,7 @@ import type {
   ResolveOwnership,
   OwnershipTransfer,
   ChangeParticipant,
+  ChangeProjectVisibility,
   CreateProject,
   ProjectDetail,
   ProjectList,
@@ -198,6 +199,11 @@ export const b2bService = {
   updateProject: (id: string, projectId: string, input: UpdateProject) =>
     post<{ revision: number; requestId: string }>(
       projectPath(id, projectId),
+      input,
+    ),
+  changeVisibility: (id: string, projectId: string, input: ChangeProjectVisibility) =>
+    post<{ project: StoredProject; revision: number; requestId: string }>(
+      `${projectPath(id, projectId)}/visibility`,
       input,
     ),
   people: (id: string, projectId: string) =>
