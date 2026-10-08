@@ -31,7 +31,7 @@ const TOTAL_STEPS = 4;
  */
 const firstRunHref = (lang: string) =>
   process.env.NEXT_PUBLIC_START_ONBOARDING === "1"
-    ? startHref({ step: "join", workspace: null }, lang)
+    ? startHref({ step: "join", workspace: null, intent: null, next: null }, lang)
     : "/dashboard";
 
 export default function SignupPage() {
