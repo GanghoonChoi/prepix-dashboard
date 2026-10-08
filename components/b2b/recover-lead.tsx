@@ -31,10 +31,10 @@ export function RecoverLead({ people }: { people: TeamPerson[] }) {
   } | null>(null);
   return (
     <Block
-      title={c("담당자 지정 복구", "Restore folder leadership")}
+      title={c("담당자 지정 복구", "Restore project leadership")}
       description={c(
-        "담당자가 없는 폴더의 주소를 입력해 후임을 지정합니다.",
-        "Enter the address of a folder without a lead to assign a successor.",
+        "담당자가 없는 프로젝트의 주소를 입력해 후임을 지정합니다.",
+        "Enter the address of a project without a lead to assign a successor.",
       )}
     >
       <form
@@ -95,7 +95,7 @@ export function RecoverLead({ people }: { people: TeamPerson[] }) {
       >
         <label className="block space-y-1.5 text-[13px]">
           <span>
-            {c("복구할 폴더 주소", "Folder address for recovery")}
+            {c("복구할 프로젝트 주소", "Project address for recovery")}
           </span>
           <input
             type="url"
@@ -163,8 +163,8 @@ export function RecoverLead({ people }: { people: TeamPerson[] }) {
         {notice && (
           <p role="status" className="text-sm">
             {c(
-              "후임을 지정했습니다. 폴더 접근은 기존 참여 권한을 따릅니다.",
-              "The successor is assigned. Folder access follows existing participation rights.",
+              "후임을 지정했습니다. 프로젝트 접근은 기존 참여 권한을 따릅니다.",
+              "The successor is assigned. Project access follows existing participation rights.",
             )}
           </p>
         )}
@@ -196,8 +196,8 @@ export function RecoverLead({ people }: { people: TeamPerson[] }) {
       <Details>
         <p>
           {c(
-            "담당자 참여가 종료되었거나 계정이 정지된 폴더에만 지정할 수 있습니다. 이미 참여를 수락한 내부 참여자만 후임이 될 수 있고, 소유자에게 폴더 자료 접근이 추가되지 않습니다.",
-            "Only for folders whose lead has left or is suspended. The successor must be an internal participant who already accepted. The owner gains no content access.",
+            "담당자 참여가 종료되었거나 계정이 정지된 프로젝트에만 지정할 수 있습니다. 이미 참여를 수락한 내부 참여자만 후임이 될 수 있고, 소유자에게 프로젝트 자료 접근이 추가되지 않습니다.",
+            "Only for projects whose lead has left or is suspended. The successor must be an internal participant who already accepted. The owner gains no content access.",
           )}
         </p>
       </Details>

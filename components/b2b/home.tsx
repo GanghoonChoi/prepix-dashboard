@@ -206,7 +206,7 @@ function ScopedHome({
       {data && readable && (
         <>
           <Section
-            title={c("내 폴더", "My folders")}
+            title={c("내 프로젝트", "My projects")}
             action={
               <Link href={`${base}/projects`} className={linkClass}>
                 {c("전체 보기", "View all")}
@@ -236,7 +236,7 @@ function ScopedHome({
                 ))}
               </ul>
             ) : (
-              empty(c("참여한 폴더가 없습니다.", "You are not in any folder yet."))
+              empty(c("참여한 프로젝트가 없습니다.", "You are not in any project yet."))
             )}
           </Section>
           <Section title={c("최근 발행", "Recently published")}>

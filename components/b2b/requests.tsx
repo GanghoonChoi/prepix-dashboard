@@ -52,8 +52,7 @@ import {
   B2bError,
   accessEnded,
   errorCode,
-  useCopy,
-} from "./shared";
+  useCopy, projectsDenial } from "./shared";
 
 // SOT: prepix-backend backend/docs/b2b-requests.md
 type Copy = [string, string];
@@ -162,6 +161,7 @@ function useScope() {
     team: context.data.workspace.id,
     me: context.data.currentUserId ?? "",
     permitted: !!context.b2b?.enrolled && context.b2b.allowedActions.projects,
+    denial: projectsDenial(context.b2b) ?? "B2B_PROJECT_NOT_FOUND",
   };
 }
 function usePerson() {
@@ -537,7 +537,7 @@ function ProjectRequestsInner({ projectId }: { projectId: string }) {
   const c = useCopy();
   const person = usePerson();
   const router = useRouter();
-  const { team, me, permitted } = useScope();
+  const { team, me, permitted, denial } = useScope();
   const [tab, setTab] = useState<"all" | "mine" | "waiting" | "done">("all");
   const [cursor, setCursor] = useState<string>();
   const scope = useMemo(
@@ -558,7 +558,7 @@ function ProjectRequestsInner({ projectId }: { projectId: string }) {
   const [creating, setCreating] = useState(false);
   const [draft, setDraft] = useState(() => emptyDraft(me));
   const mutation = useMutation(projectId);
-  if (!permitted || !me) return <B2bError code="B2B_PROJECT_NOT_FOUND" />;
+  if (!permitted || !me) return <B2bError code={denial} />;
   if (error) return <RequestError code={error} retry={() => void load()} />;
   if (!data) return <TeamLoading />;
   const { project, list } = data;
@@ -806,7 +806,7 @@ function ProjectRequestViewInner({
 }) {
   const c = useCopy();
   const person = usePerson();
-  const { team, me, permitted } = useScope();
+  const { team, me, permitted, denial } = useScope();
   const read = useCallback(async () => {
     const [project, detail] = await Promise.all([
       b2bService.project(team, projectId),
@@ -820,7 +820,7 @@ function ProjectRequestViewInner({
   );
   const { data, error, load } = useLoader(read);
   const [editing, setEditing] = useState(false);
-  if (!permitted || !me) return <B2bError code="B2B_PROJECT_NOT_FOUND" />;
+  if (!permitted || !me) return <B2bError code={denial} />;
   if (error) return <RequestError code={error} retry={() => void load()} />;
   if (!data) return <TeamLoading />;
   const { project, detail } = data;
@@ -864,8 +864,8 @@ function ProjectRequestViewInner({
         {request.evidenceMissing && (
           <Notice role="status">
             {c(
-              "확인 이력은 보존되어 있지만 제출 버전을 이 폴더에서 쓸 수 없어 완료 근거가 되지 않습니다. 정확한 버전을 다시 연결하거나 요청을 다시 열어 주세요.",
-              "The confirmation history is preserved, but the submitted version is unavailable in this folder, so it is not completion evidence. Relink the exact version or reopen the request.",
+              "확인 이력은 보존되어 있지만 제출 버전을 이 프로젝트에서 쓸 수 없어 완료 근거가 되지 않습니다. 정확한 버전을 다시 연결하거나 요청을 다시 열어 주세요.",
+              "The confirmation history is preserved, but the submitted version is unavailable in this project, so it is not completion evidence. Relink the exact version or reopen the request.",
             )}
           </Notice>
         )}

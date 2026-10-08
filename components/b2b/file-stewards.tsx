@@ -704,8 +704,8 @@ export function StewardInbox({
                   "Record why this request is cancelled. Accepted stewardship cannot be undone by cancelling the request.",
                 )
               : c(
-                  "지정된 버전의 보관함 열람과 자료 계열의 관리 책임을 수락합니다. 다른 비공개 버전과 폴더 참여는 추가되지 않습니다.",
-                  "Accept access to the named immutable version and responsibility for its file series. Other private versions and folder participation remain separate.",
+                  "지정된 버전의 보관함 열람과 자료 계열의 관리 책임을 수락합니다. 다른 비공개 버전과 프로젝트 참여는 추가되지 않습니다.",
+                  "Accept access to the named immutable version and responsibility for its file series. Other private versions and project participation remain separate.",
                 )}
           </p>
           {!cancelling && (

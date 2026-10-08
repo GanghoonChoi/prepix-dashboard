@@ -34,8 +34,7 @@ import {
   VisibilityBadge,
   useCopy,
   accessEnded,
-  freeIntent,
-} from "./shared";
+  freeIntent, projectsDenial } from "./shared";
 
 // ponytail: folder model (2026-10-07) — teammates don't open someone's work in the app; delete after merge
 const APP_ENTRY = false;
@@ -89,7 +88,7 @@ function useProject(projectId: string) {
     context,
     id,
     project: permitted ? project : null,
-    error: permitted ? error : context.b2b ? "B2B_PROJECT_NOT_FOUND" : "",
+    error: permitted ? error : context.b2b ? (projectsDenial(context.b2b) ?? "B2B_PROJECT_NOT_FOUND") : "",
     reload,
     deny,
   };
@@ -150,8 +149,8 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
       {project.role === "viewer" && (
         <Notice role="note">
           {c(
-            "팀 공개 폴더를 열람 중입니다. 작업하려면 담당자에게 참여를 요청하세요.",
-            "You are viewing a team-wide folder. Ask the lead to add you to work on it.",
+            "팀 공개 프로젝트를 열람 중입니다. 작업하려면 담당자에게 참여를 요청하세요.",
+            "You are viewing a team-wide project. Ask the lead to add you to work on it.",
           )}
         </Notice>
       )}
@@ -237,12 +236,12 @@ function VisibilitySection({
       description={
         project.visibility === "team"
           ? c(
-              "팀의 모든 내부 멤버가 이 폴더를 보고 함께 작업합니다.",
-              "Every internal team member can see and work in this folder.",
+              "팀의 모든 내부 멤버가 이 프로젝트를 보고 함께 작업합니다.",
+              "Every internal team member can see and work in this project.",
             )
           : c(
-              "참여자만 이 폴더를 볼 수 있습니다.",
-              "Only participants can see this folder.",
+              "참여자만 이 프로젝트를 볼 수 있습니다.",
+              "Only participants can see this project.",
             )
       }
       actions={
@@ -294,17 +293,17 @@ function VisibilitySection({
         >
           <h3 className="font-medium">
             {widening
-              ? c("팀 전체 공개로 바꿀까요?", "Make this folder team-wide?")
-              : c("비공개로 바꿀까요?", "Make this folder private?")}
+              ? c("팀 전체 공개로 바꿀까요?", "Make this project team-wide?")
+              : c("비공개로 바꿀까요?", "Make this project private?")}
           </h3>
           <p className="text-sm leading-6 text-muted">
             {widening
               ? c(
-                  "팀의 모든 내부 멤버가 이 폴더, 발행된 영상과 그 코멘트를 보고 코멘트할 수 있게 됩니다. 팀 검토자를 제외한 멤버는 자료를 올리고 받고 결과를 발행할 수 있게 됩니다. AI 사용은 계속 자료별 권한을 따르고, 외부 참여자는 초대받은 폴더만 봅니다.",
-                  "Every internal team member will see this folder, its published videos and their comments, and can comment. Members other than team reviewers can also upload and download files and publish results. AI use still follows per-file permissions; external people still see only folders they were invited to.",
+                  "팀의 모든 내부 멤버가 이 프로젝트, 발행된 영상과 그 코멘트를 보고 코멘트할 수 있게 됩니다. 팀 검토자를 제외한 멤버는 자료를 올리고 받고 결과를 발행할 수 있게 됩니다. AI 사용은 계속 자료별 권한을 따르고, 외부 참여자는 초대받은 프로젝트만 봅니다.",
+                  "Every internal team member will see this project, its published videos and their comments, and can comment. Members other than team reviewers can also upload and download files and publish results. AI use still follows per-file permissions; external people still see only projects they were invited to.",
                 )
               : c(
-                  "참여자만 볼 수 있게 됩니다. 참여하지 않은 팀원은 다음 동작부터 이 폴더에 접근할 수 없고, 그동안 남긴 코멘트는 기록에 남습니다.",
+                  "참여자만 볼 수 있게 됩니다. 참여하지 않은 팀원은 다음 동작부터 이 프로젝트에 접근할 수 없고, 그동안 남긴 코멘트는 기록에 남습니다.",
                   "Only participants will see it. Team members who don't participate lose access on their next action; comments they already left stay in the record.",
                 )}
           </p>
@@ -420,7 +419,7 @@ function ProjectEditor({
       }}
     >
       <label className="block space-y-2 text-sm">
-        <span>{c("폴더명", "Folder name")}</span>
+        <span>{c("프로젝트명", "Project name")}</span>
         <input
           className={inputClass}
           required
@@ -605,7 +604,7 @@ export function ProjectParticipants({ projectId }: { projectId: string }) {
   };
   return (
     <TeamShell
-      title={c("폴더 참여자", "Folder participants")}
+      title={c("프로젝트 참여자", "Project participants")}
       description={project.name}
       tabs={folderTabs(id, project, c)}
     >
@@ -751,9 +750,9 @@ export function ProjectParticipants({ projectId }: { projectId: string }) {
                 </select>
               </label>
               <label className="space-y-2 text-sm">
-                <span>{c("폴더 역할", "Folder role")}</span>
+                <span>{c("프로젝트 역할", "Project role")}</span>
                 <select
-                  aria-label={c("폴더 역할", "Folder role")}
+                  aria-label={c("프로젝트 역할", "Project role")}
                   className={inputClass}
                   disabled={busy || !!pending.current}
                   value={role}

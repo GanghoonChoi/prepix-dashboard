@@ -32,8 +32,8 @@ export function LeaveTeam() {
               "An owner can leave after an internal successor accepts ownership transfer.",
             )
           : c(
-              "탈퇴하면 팀과 폴더 접근이 즉시 종료됩니다. 작성한 자료는 팀에 남습니다.",
-              "Leaving ends team and folder access at once. Your work stays with the team.",
+              "탈퇴하면 팀과 프로젝트 접근이 즉시 종료됩니다. 작성한 자료는 팀에 남습니다.",
+              "Leaving ends team and project access at once. Your work stays with the team.",
             )
       }
     >

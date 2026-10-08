@@ -118,8 +118,8 @@ export function workspaceLinks(
         ? ([
             {
               href: `${base}/projects`,
-              ko: "폴더",
-              en: "Folders",
+              ko: "프로젝트",
+              en: "Projects",
               group: "work",
               icon: "folder",
             },
@@ -138,7 +138,9 @@ export function workspaceLinks(
             },
           ] as const)
         : []),
-      ...(status.allowedActions.manage && status.team.currentState === "active"
+      // Managers read the roster in every state the page works in.
+      ...(status.allowedActions.manage &&
+      !["preparing", "deleting", "deleted"].includes(status.team.currentState)
         ? ([
             {
               href: `${base}/members`,
@@ -160,17 +162,15 @@ export function workspaceLinks(
             },
           ] as const)
         : []),
-      ...(status.allowedActions.manage
-        ? ([
-            {
-              href: `${base}/settings`,
-              ko: "설정",
-              en: "Settings",
-              group: "manage",
-              icon: "settings",
-            },
-          ] as const)
-        : []),
+      // Everyone: non-managers leave the team and accept an ownership offer
+      // there; the page itself shows them only what they may change.
+      {
+        href: `${base}/settings`,
+        ko: "설정",
+        en: "Settings",
+        group: "manage",
+        icon: "settings",
+      },
     ];
   }
   return [

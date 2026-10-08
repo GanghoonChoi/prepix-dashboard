@@ -18,7 +18,7 @@ import {
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
-import { B2bError, errorCode, useCopy } from "./shared";
+import { B2bError, errorCode, useCopy, projectsDenial } from "./shared";
 import { kst, timecode, useLoader } from "./reviews";
 
 const code = (e: unknown) => e instanceof Error && e.message.startsWith("B2B_") ? e.message : errorCode(e);
@@ -29,7 +29,7 @@ const errors: Record<string, [string, string]> = {
   B2B_PUBLICATION_OPERATION_INVALID: ["저장된 공개 요청을 확인할 수 없습니다. 원래 기록을 유지했습니다.", "The saved publication request cannot be verified. It is retained."],
   B2B_PUBLICATION_ALREADY_PUBLISHED: ["이미 검토에 공개된 결과입니다. 기존 검토를 확인해 주세요.", "This result is already published. Open the existing review."],
   B2B_PUBLICATION_NOT_FOUND: ["현재 계정에서 볼 수 있는 등록 결과가 아닙니다.", "This registered result is unavailable to the current account."],
-  B2B_PUBLICATION_PLAYBACK_REQUIRED: ["현재 결과를 다시 재생하고 확인해 주세요. 폴더가 바뀌었거나 재생 주소가 만료되었습니다.", "Play and confirm this result again. The folder changed or playback expired."],
+  B2B_PUBLICATION_PLAYBACK_REQUIRED: ["현재 결과를 다시 재생하고 확인해 주세요. 프로젝트가 바뀌었거나 재생 주소가 만료되었습니다.", "Play and confirm this result again. The folder changed or playback expired."],
 };
 function PublicationError({ error, retry }: { error: string; retry?: () => void }) {
   const c = useCopy(), message = errors[error];
@@ -40,7 +40,7 @@ type PageData = PublicationList & { pending: PublicationOperation[]; recoveryErr
 export function ProjectPublications({ projectId, publicationId }: { projectId: string; publicationId?: string }) {
   const context = useWorkspace()!, c = useCopy();
   const scope = { origin: publicationOrigin(), userId: context.data.currentUserId ?? "", workspaceId: context.data.workspace.id, projectId };
-  if (!context.b2b?.enrolled || !context.b2b.allowedActions.projects) return <TeamShell title={c("등록된 결과", "Registered results")}><B2bError code="B2B_PROJECT_NOT_FOUND" /></TeamShell>;
+  if (!context.b2b?.enrolled || !context.b2b.allowedActions.projects) return <TeamShell title={c("등록된 결과", "Registered results")}><B2bError code={projectsDenial(context.b2b) ?? "B2B_PROJECT_NOT_FOUND"} /></TeamShell>;
   const requestedId = publicationId && /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(publicationId) ? publicationId : "";
   return <ScopedPublications key={`${publicationScopeKey(scope)}:${requestedId}`} scope={scope} requestedId={requestedId} />;
 }
@@ -98,7 +98,7 @@ function ScopedPublications({ scope: initial, requestedId }: { scope: Publicatio
         "Results published from the app. Each opens to the team's internal members once its review copy is ready.",
       )}
     >
-      <BackLink href={base}>{c("폴더 개요", "Folder overview")}</BackLink>
+      <BackLink href={base}>{c("프로젝트 개요", "Project overview")}</BackLink>
       {error && <PublicationError error={error} retry={() => void load()} />}
       {stale && (
         <Notice role="status">

@@ -5,6 +5,7 @@ import { projectTabs } from "@/lib/b2b-projects/visibility";
 import { useI18n } from "@/lib/i18n/context";
 import type { ProjectRole, ProjectState, ProjectVisibility, TeamState } from "@/lib/api/services/b2b.service";
 import Link from "next/link";
+import { Lock, SearchX } from "lucide-react";
 import { secondaryClass } from "@/components/workspaces/shared";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import { accessNotice, kst } from "@/lib/b2b-lifecycle/view";
@@ -93,11 +94,11 @@ const invitationErrors: Record<string, [string, string]> = {
     "An invitation for this scope is already pending. Check the existing invitation.",
   ],
   B2B_ALREADY_PARTICIPATING: [
-    "이미 이 폴더에 참여하고 있습니다. 역할 변경을 이용해 주세요.",
+    "이미 이 프로젝트에 참여하고 있습니다. 역할 변경을 이용해 주세요.",
     "This person already participates. Use role changes instead.",
   ],
   B2B_PROJECT_INVITATION_REQUIRED: [
-    "새 참여자는 초대 수락 후 추가됩니다. 폴더 초대를 이용해 주세요.",
+    "새 참여자는 초대 수락 후 추가됩니다. 프로젝트 초대를 이용해 주세요.",
     "New participation requires acceptance. Send a folder invitation.",
   ],
   B2B_AFFILIATION_CHANGE_REQUIRED: [
@@ -122,7 +123,7 @@ const errors: Record<string, [string, string]> = {
     "지원하지 않는 작업 파일 형식이거나 필수 원본 목록이 올바르지 않습니다. 작업 파일 지원 설정과 파일을 확인해 주세요.",
     "This working format or its required source list is unsupported. Check the file and native upload settings.",
   ],
-  B2B_FILE_REFERENCED: ["사용 중인 폴더 연결이 있어 이 버전을 휴지통으로 이동할 수 없습니다. 허용된 폴더에서 연결을 먼저 제외하세요.", "An active folder reference prevents moving this version to trash. Remove its links in authorized folders first."],
+  B2B_FILE_REFERENCED: ["사용 중인 프로젝트 연결이 있어 이 버전을 휴지통으로 이동할 수 없습니다. 허용된 프로젝트에서 연결을 먼저 제외하세요.", "An active folder reference prevents moving this version to trash. Remove its links in authorized folders first."],
   B2B_FILE_RETENTION_REQUIRED: ["제출·승인·납품 등의 보존 근거가 있어 이 버전을 삭제할 수 없습니다.", "Submission, approval, delivery or other retention evidence prevents deletion."],
   B2B_FILE_TRASH_NOT_FOUND: ["현재 이 휴지통 버전을 확인할 수 없습니다. 버전 주소와 현재 접근을 확인하세요.", "This trash version is unavailable. Check the version address and current access."],
   B2B_FILE_TRASH_EXPIRED: ["복원 기한이 지났습니다. 팀을 복구해도 만료된 휴지통 버전은 복원되지 않습니다.", "Restoration has expired. Team recovery does not revive expired trash versions."],
@@ -136,10 +137,10 @@ const errors: Record<string, [string, string]> = {
   B2B_FILE_DOWNLOAD_STORAGE_FULL: ["브라우저 임시 저장 공간이 부족합니다. 다른 임시 수령을 정리한 뒤 재개해 주세요.", "Browser staging storage is full. Remove other staged receipts and resume."],
   B2B_FILE_DOWNLOAD_BUSY: ["다른 탭에서 같은 원본을 수령하거나 정리 중입니다. 해당 작업을 마친 뒤 재시도해 주세요.", "Another tab is receiving or removing this original. Retry after it finishes."],
   B2B_FILE_DOWNLOAD_INTERRUPTED: ["원본 수령이 중단되었습니다. 받은 부분을 확인한 뒤 이어 받을 수 있습니다.", "Receipt was interrupted. Received bytes can be checked before resuming."],
-  B2B_FILE_DOWNLOAD_DENIED: ["현재 계정에서 이 원본을 다운로드할 수 없습니다. 폴더와 자료의 다운로드 허용을 확인해 주세요.", "This account cannot download the original. Check folder and file download permissions."],
+  B2B_FILE_DOWNLOAD_DENIED: ["현재 계정에서 이 원본을 다운로드할 수 없습니다. 프로젝트와 자료의 다운로드 허용을 확인해 주세요.", "This account cannot download the original. Check folder and file download permissions."],
   B2B_FILE_OPERATION_PENDING: ["이 변경의 처리 결과를 먼저 확인해 주세요. 처음 요청을 그대로 재시도할 수 있습니다.", "Confirm the pending change first. You can retry the original request."],
   B2B_FILE_OPERATION_INVALID: ["변경 요청과 처리 결과를 확인할 수 없습니다. 원래 요청 기록을 유지합니다.", "The operation or its receipt could not be verified. The original request is retained."],
-  B2B_FILE_OPERATION_NOT_FOUND: ["현재 폴더에서 이 변경 요청을 확인할 수 없습니다.", "This operation is unavailable in the current folder."],
+  B2B_FILE_OPERATION_NOT_FOUND: ["현재 프로젝트에서 이 변경 요청을 확인할 수 없습니다.", "This operation is unavailable in the current folder."],
   B2B_FILE_STEWARD_TRANSFER_REQUIRED: ["자료 담당자의 열람을 해제하려면 담당자를 먼저 이전해야 합니다.", "Transfer stewardship before removing the steward's read access."],
   B2B_FILE_AI_INPUT_DENIED: ["현재 역할과 자료 권한으로는 AI 입력 사용을 허용할 수 없습니다.", "The current role and file permissions do not allow AI input use."],
   B2B_FILE_RESELECT_REQUIRED: ["원본 파일을 다시 선택해 주세요. 크기와 전체 해시를 확인한 뒤 남은 부분부터 전송합니다.", "Choose the source file again. Its size and full hash are checked before remaining parts are sent."],
@@ -148,7 +149,7 @@ const errors: Record<string, [string, string]> = {
   B2B_FILE_NAME_INVALID: ["파일 이름이 너무 길거나 경로·제어 문자가 포함되어 있습니다. 이름을 변경해 주세요.", "The filename is too long or contains path or control characters. Rename the file."],
   B2B_FILE_STORAGE_FULL: ["팀 저장 정원이 부족합니다. 보관된 자료와 진행 중 예약을 함께 확인해 주세요.", "Team storage is full. Check both stored files and pending reservations."],
   B2B_FILE_TRANSFER_STORAGE_UNAVAILABLE: ["이 브라우저에서 전송 기록을 보존할 수 없습니다. 브라우저 저장소를 확인한 뒤 다시 시도해 주세요.", "Transfer records cannot be saved in this browser. Check browser storage and retry."],
-  B2B_FILE_ACCOUNT_CHANGED: ["로그인 계정이 바뀌었습니다. 현재 계정으로 폴더를 다시 열어 주세요.", "The signed-in account changed. Reopen the folder for the current account."],
+  B2B_FILE_ACCOUNT_CHANGED: ["로그인 계정이 바뀌었습니다. 현재 계정으로 프로젝트를 다시 열어 주세요.", "The signed-in account changed. Reopen the folder for the current account."],
   B2B_FILE_CANCEL_PENDING: ["취소 결과를 확인해야 합니다. 같은 전송의 취소 결과 재확인을 이용해 주세요.", "Cancellation needs confirmation. Retry cancellation for this transfer."],
   B2B_FILE_BEGIN_CANCELLED: ["이 등록 요청은 취소되었습니다. 새 자료로 다시 등록할 수 있습니다.", "This registration was cancelled. You can register a new asset."],
   B2B_FILE_ALREADY_REGISTERED: ["이미 보관이 확정된 버전입니다. 전송 취소로 보관 자료를 삭제할 수 없습니다.", "This version is already stored. Cancelling a transfer cannot delete it."],
@@ -251,29 +252,13 @@ const errors: Record<string, [string, string]> = {
     "참여 상태가 이미 변경되었습니다. 최신 명단을 확인해 주세요.",
     "Participation has already changed. Review the current roster.",
   ],
-  B2B_TEAM_MANAGER_REQUIRED: [
-    "내부 팀 관리자만 이 화면에 접근할 수 있습니다.",
-    "This page requires an internal team administrator.",
-  ],
   B2B_LEAD_RECOVERY_NOT_ALLOWED: [
-    "현재 담당자가 유효한 폴더는 소유자가 담당자를 대신 변경할 수 없습니다.",
+    "현재 담당자가 유효한 프로젝트는 소유자가 담당자를 대신 변경할 수 없습니다.",
     "The owner cannot replace a currently valid folder lead.",
   ],
   B2B_ACCEPTED_SUCCESSOR_REQUIRED: [
-    "이미 폴더 참여를 수락한 내부 참여자를 지정해 주세요.",
+    "이미 프로젝트 참여를 수락한 내부 참여자를 지정해 주세요.",
     "Choose an internal participant who has already accepted folder participation.",
-  ],
-  B2B_BILLING_PERMISSION_REQUIRED: [
-    "결제 권한이 필요한 화면입니다.",
-    "This page requires billing permission.",
-  ],
-  B2B_PROJECT_NOT_FOUND: [
-    "폴더를 찾을 수 없거나 접근 권한이 없습니다.",
-    "This folder is unavailable or you no longer have access.",
-  ],
-  B2B_TEAM_NOT_FOUND: [
-    "팀에 접근할 수 없습니다.",
-    "You cannot access this team.",
   ],
   B2B_REVISION_CONFLICT: [
     "다른 사람이 먼저 변경했습니다. 입력 내용은 보존했습니다. 최신 내용을 확인한 뒤 다시 시도해 주세요.",
@@ -284,28 +269,24 @@ const errors: Record<string, [string, string]> = {
     "The pending request has different contents. Check its result before creating a new request.",
   ],
   B2B_TEAM_PREPARING: [
-    "첫 이용권 반영 후 폴더 업무를 시작할 수 있습니다.",
-    "Folder work starts after the first purchase is applied.",
+    "첫 구매가 반영되면 사용할 수 있습니다.",
+    "Available once the first purchase is applied.",
   ],
   B2B_TEAM_READ_ONLY: [
     "이용기간이 종료되어 열람과 다운로드만 가능합니다.",
     "The team period has ended. Reading and downloading remain available.",
   ],
   B2B_TEAM_RECOVERY: [
-    "복구 보관 중에는 폴더 자료를 열 수 없습니다.",
+    "복구 보관 중에는 프로젝트 자료를 열 수 없습니다.",
     "Folder content is unavailable during recovery storage.",
   ],
   B2B_PROJECT_REOPEN_REQUIRED: [
-    "완료하거나 보관한 폴더는 재개 후 변경할 수 있습니다.",
+    "완료하거나 보관한 프로젝트는 재개 후 변경할 수 있습니다.",
     "Reopen the completed folder before changing it.",
   ],
   B2B_PROJECT_LEAD_REQUIRED: [
-    "폴더 담당자만 변경할 수 있습니다.",
+    "프로젝트 담당자만 변경할 수 있습니다.",
     "Only the folder lead can make this change.",
-  ],
-  B2B_PROJECT_PARTICIPATION_REQUIRED: [
-    "팀 공개 폴더를 열람 중입니다. 작업하려면 담당자에게 참여를 요청하세요.",
-    "You are viewing a team-wide folder. Ask the lead to add you to work on it.",
   ],
   B2B_PROJECT_VISIBILITY_CONFIRMATION_REQUIRED: [
     "팀 전체 공개로 바꾸려면 공개 범위를 확인해 주세요.",
@@ -316,10 +297,6 @@ const errors: Record<string, [string, string]> = {
     "The folder already has this visibility. Check the current state.",
   ],
   B2B_REASON_REQUIRED: ["사유를 입력해 주세요.", "Enter a reason."],
-  B2B_PROJECT_PEOPLE_RESTRICTED: [
-    "이 역할에서는 참여자 명단을 볼 수 없습니다.",
-    "This role cannot view the participant roster.",
-  ],
   B2B_PROJECT_LEAD_PROTECTED: [
     "담당자는 후임에게 역할을 이전한 뒤 변경할 수 있습니다.",
     "Transfer the lead role before changing this participant.",
@@ -369,6 +346,81 @@ function TeamAccessNotice({ code, notice }: { code: string; notice: [string, str
     </div>
   );
 }
+/**
+ * The one "you can't open this" screen (2026-10-08). A refusal is not a
+ * failure to retry: it says what is missing, who can grant it, and offers the
+ * way back. Not-found and no-permission read the same on purpose — the server
+ * does not say which, so a hidden project is never confirmed to exist.
+ */
+const denials: Record<string, { found: boolean; reason: [string, string] }> = {
+  B2B_PROJECT_NOT_FOUND: {
+    found: false,
+    reason: ["프로젝트를 찾을 수 없거나 접근 권한이 없습니다.", "This project does not exist or you cannot open it."],
+  },
+  B2B_REVIEW_NOT_FOUND: {
+    found: false,
+    reason: ["검토를 찾을 수 없거나 볼 수 있는 범위가 아닙니다.", "This video does not exist or is not shared with you."],
+  },
+  B2B_TEAM_NOT_FOUND: {
+    found: false,
+    reason: ["팀이 없거나 이 팀에 접근할 수 없습니다.", "This team does not exist or you cannot open it."],
+  },
+  B2B_TEAM_MANAGER_REQUIRED: {
+    found: true,
+    reason: ["팀 소유자와 관리자만 볼 수 있는 화면입니다.", "Only the team's owner and admins can open this."],
+  },
+  B2B_BILLING_PERMISSION_REQUIRED: {
+    found: true,
+    reason: [
+      "결제 권한이 있는 사람만 볼 수 있습니다. 팀 소유자에게 결제 권한을 요청하세요.",
+      "Only people with billing permission can open this. Ask the team owner for it.",
+    ],
+  },
+  B2B_PROJECT_PARTICIPATION_REQUIRED: {
+    found: true,
+    reason: [
+      "팀 공개 프로젝트를 열람 중입니다. 작업하려면 담당자에게 참여를 요청하세요.",
+      "You are viewing a team-wide project. Ask the lead to add you to work on it.",
+    ],
+  },
+  B2B_PROJECT_PEOPLE_RESTRICTED: {
+    found: true,
+    reason: ["이 역할로는 프로젝트 멤버를 볼 수 없습니다.", "Your role cannot view this project's people."],
+  },
+  B2B_INTERNAL_MEMBER_REQUIRED: {
+    found: true,
+    reason: ["팀 내부 멤버만 할 수 있습니다.", "Only internal team members can do this."],
+  },
+};
+export const isDenial = (code: string) => code in denials;
+/** Why this person cannot open project pages right now, or null if they can:
+ * not a B2B team, or a team state that closes them (each has its notice). */
+export function projectsDenial(b2b: { enrolled: boolean; team?: { currentState: string }; allowedActions?: { projects: boolean } } | null | undefined): string | null {
+  if (!b2b?.enrolled) return "B2B_TEAM_NOT_FOUND";
+  if (!b2b.allowedActions?.projects) return `B2B_TEAM_${b2b.team!.currentState.toUpperCase()}`;
+  return null;
+}
+export function AccessDenied({ code }: { code: string }) {
+  const c = useCopy();
+  const context = useWorkspace();
+  const denial = denials[code];
+  const Icon = denial.found ? Lock : SearchX;
+  const home = context ? `/dashboard/workspaces/${context.data.workspace.id}` : "/dashboard";
+  return (
+    <div role="alert" data-testid="access-denied" className="mx-auto flex max-w-md flex-col items-center gap-3 py-16 text-center">
+      <span className="grid size-12 place-items-center rounded-full bg-surface-secondary text-muted">
+        <Icon size={20} strokeWidth={1.75} aria-hidden="true" />
+      </span>
+      <h2 className="text-[17px] font-semibold tracking-tight">
+        {denial.found ? c("권한이 없습니다", "You don't have access") : c("열 수 없습니다", "Can't open this")}
+      </h2>
+      <p className="text-[13px] leading-6 text-muted">{c(...denial.reason)}</p>
+      <Link className={`${secondaryClass} mt-2`} href={home}>
+        {context ? c("팀 홈으로", "Back to team home") : c("대시보드로", "Back to dashboard")}
+      </Link>
+    </div>
+  );
+}
 export function B2bError({
   code,
   retry,
@@ -379,10 +431,11 @@ export function B2bError({
   const c = useCopy();
   const notice = accessNotice(code);
   if (notice) return <TeamAccessNotice code={code} notice={notice} />;
+  if (isDenial(code)) return <AccessDenied code={code} />;
   const message = errors[code] ??
     invitationErrors[code] ?? [
-      "요청을 완료하지 못했습니다. 입력을 유지한 채 다시 시도할 수 있습니다.",
-      "The request could not be completed. Your input is preserved.",
+      "요청을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+      "The request could not be completed. Try again in a moment.",
     ];
   return (
     <div

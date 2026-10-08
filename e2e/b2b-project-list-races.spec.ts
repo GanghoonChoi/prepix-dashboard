@@ -114,13 +114,14 @@ test("actual Chrome back restores filters/pages/scroll through a fresh ACL chain
   await expect.poll(()=>page.evaluate(()=>window.scrollY)).toBeCloseTo(savedScroll,0);
   await expect(page.getByRole("heading",{name:/Private/})).toHaveCount(0);
 });
-test("actual Chrome back access refusal clears old titles and presents retry, never empty",async({page})=>{
+// 2026-10-08: a refusal is the access-denied screen with a way back, not a retry.
+test("actual Chrome back access refusal clears old titles and shows the way back, never empty",async({page})=>{
   await mount(page);
   await page.getByRole("link",{name:/Private 0/}).first().click();
   await page.evaluate(()=>{(window as unknown as {deny:boolean}).deny=true;});
   await page.goBack();
   await expect(page.getByRole("alert")).toBeVisible();
-  await expect(page.getByRole("button",{name:"다시 확인"})).toBeVisible();
+  await expect(page.getByRole("link",{name:/팀 홈으로|대시보드로/})).toBeVisible();
   await expect(page.getByRole("heading",{name:/Private/})).toHaveCount(0);
-  await expect(page.getByText("참여한 폴더가 없습니다.",{exact:false})).toHaveCount(0);
+  await expect(page.getByText("참여한 프로젝트가 없습니다.",{exact:false})).toHaveCount(0);
 });

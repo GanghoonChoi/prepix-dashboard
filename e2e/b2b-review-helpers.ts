@@ -147,7 +147,7 @@ export async function open(browser: Browser, user: Account, target: string) {
 }
 export async function upload(page: Page, name: string, newVersionOf?: string) {
   await expect(
-    page.getByRole("heading", { name: "폴더 자료", exact: true }),
+    page.getByRole("heading", { name: "프로젝트 자료", exact: true }),
   ).toBeVisible();
   if (newVersionOf)
     await page

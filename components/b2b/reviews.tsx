@@ -28,7 +28,7 @@ import {
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
-import { folderTabs, B2bError, accessEnded, freeIntent, errorCode, useCopy } from "./shared";
+import { folderTabs, B2bError, accessEnded, freeIntent, errorCode, isDenial, useCopy, projectsDenial } from "./shared";
 import { ReviewPending } from "./review-pending";
 
 // SOT: prepix-backend backend/docs/b2b-reviews.md (S34)
@@ -127,10 +127,10 @@ const reviewErrors: Record<string, Copy> = {
     "Custom share expiry is not configured. Leave the date empty to share for the default 7 days.",
   ],
   B2B_REVIEW_AUDIENCE_REQUIRED: ["검토 대상과 승인자 한 명을 선택해 주세요.", "Choose the review audience and one approver."],
-  B2B_REVIEW_AUDIENCE_INVALID: ["선택한 사람의 현재 폴더 참여 상태가 바뀌었습니다. 대상을 다시 확인해 주세요.", "A selected person's folder participation changed. Check the audience again."],
+  B2B_REVIEW_AUDIENCE_INVALID: ["선택한 사람의 현재 프로젝트 참여 상태가 바뀌었습니다. 대상을 다시 확인해 주세요.", "A selected person's folder participation changed. Check the audience again."],
   B2B_REVIEW_AUDIENCE_CONFIRMATION_REQUIRED: ["담당자가 검토 대상과 승인자를 확정해야 합니다.", "The lead must confirm the audience and approver."],
   B2B_REVIEW_SHARE_DOWNLOAD_NOT_ALLOWED: [
-    "원본 공유가 허용된 폴더에서, 원본을 받을 수 있는 담당자만 원본 다운로드를 허용할 수 있습니다.",
+    "원본 공유가 허용된 프로젝트에서, 원본을 받을 수 있는 담당자만 원본 다운로드를 허용할 수 있습니다.",
     "Original downloads need a folder that allows sharing originals and your own download access.",
   ],
   B2B_REVIEW_SHARE_CONFIGURATION_REQUIRED: [
@@ -167,7 +167,7 @@ const reviewErrors: Record<string, Copy> = {
 export function ReviewError({ code, retry }: { code: string; retry?: () => void }) {
   const c = useCopy();
   const message = reviewErrors[code];
-  if (!message) return <B2bError code={code} retry={retry} />;
+  if (!message || isDenial(code)) return <B2bError code={code} retry={retry} />;
   return (
     <div role="alert" className="rounded-lg border border-border bg-surface p-4 text-sm leading-6">
       <p>{c(...message)}</p>
@@ -213,6 +213,7 @@ export function useTeamScope() {
     team: context.data.workspace.id,
     me: context.data.currentUserId ?? "",
     permitted: !!context.b2b?.enrolled && context.b2b.allowedActions.projects,
+    denial: projectsDenial(context.b2b) ?? "B2B_PROJECT_NOT_FOUND",
   };
 }
 /** A definitive 4xx clears what was shown; a transient failure keeps the last
@@ -326,7 +327,7 @@ export function ReviewAudiencePicker({ scope, value, onChange, disabled, onValid
     <fieldset disabled={disabled} className="space-y-3">
       <legend className="mb-1 text-sm font-medium">{c("검토 대상과 승인자", "Review audience and approver")}</legend>
       <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-        {([["project", c("폴더 내부 전체 공개", "Everyone internal on the folder")], ["selected", c("선택한 사람만", "Selected people only")]] as const).map(([scopeValue, label]) => (
+        {([["project", c("프로젝트 내부 전체 공개", "Everyone internal on the project")], ["selected", c("선택한 사람만", "Selected people only")]] as const).map(([scopeValue, label]) => (
           <label key={scopeValue} className="flex min-h-11 items-center gap-3">
             <input type="radio" name={group} checked={value.audienceScope === scopeValue} onChange={() => choose(scopeValue, scopeValue === "project" ? value.audienceUserIds.filter(external) : value.audienceUserIds)} />
             {label}
@@ -335,7 +336,7 @@ export function ReviewAudiencePicker({ scope, value, onChange, disabled, onValid
       </div>
       <p className="text-[13px] text-muted">{selected
         ? c("고른 참여자만 보고, 승인자는 그중 한 명입니다.", "Only the people you pick can view it; the approver is one of them.")
-        : c("폴더를 볼 수 있는 내부 구성원 모두가 보고 코멘트합니다.", "Every internal member who can see the folder can view and comment.")}</p>
+        : c("프로젝트를 볼 수 있는 내부 구성원 모두가 보고 코멘트합니다.", "Every internal member who can see the project can view and comment.")}</p>
       {error && <ReviewError code={error} retry={() => void load()} />}
       {!data && !error && <TeamLoading />}
       {!selected && !!listed.length && <p className="text-sm">{c("외부 참여자에게도 이 회차 공개 (선택)", "Also open this round to external participants (optional)")}</p>}
@@ -539,15 +540,16 @@ export function VideoVersionPicker({
 }
 
 export function ProjectReviews({ projectId }: { projectId: string }) {
-  const { team, me } = useTeamScope();
+  const { team, me, permitted, denial } = useTeamScope();
+  // Refused before anything is read, so a closed page sends no request.
+  if (!permitted || !me) return <B2bError code={denial} />;
   return <ProjectReviewsInner key={`${origin()}:${team}:${me}:${projectId}`} projectId={projectId} />;
 }
 function ProjectReviewsInner({ projectId }: { projectId: string }) {
   const c = useCopy();
-  const { team, me, permitted } = useTeamScope();
+  const { team } = useTeamScope();
   const read = useCallback(async () => (await b2bService.project(team, projectId)).project, [team, projectId]);
   const { data: project, error, load } = useLoader(read);
-  if (!permitted || !me) return <B2bError code="B2B_PROJECT_NOT_FOUND" />;
   if (!project) return error ? <ReviewError code={error} retry={() => void load()} /> : <TeamLoading />;
   return (
     <TeamShell title={c("영상 검토", "Video reviews")} description={project.name} tabs={folderTabs(team, project, c)}>

@@ -44,18 +44,14 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
     )) as { periods: { id: string; state: string }[] };
     const period = licences.periods.find((p) => p.state === "active")!;
     expect(period).toBeTruthy();
+    // 멤버 = 좌석: the purchase seated the owner by itself.
     expect(
       (
-        await request.post(`${endpoint}/licences/assignments`, {
-          headers: owner.headers,
-          data: {
-            requestKey: randomUUID(),
-            periodId: period.id,
-            userId: owner.id,
-          },
-        })
-      ).status(),
-    ).toBe(201);
+        (await json(
+          request.get(`${endpoint}/licences`, { headers: owner.headers }),
+        )) as { assignments: { userId: string; state: string }[] }
+      ).assignments.some((a) => a.userId === owner.id && a.state === "active"),
+    ).toBe(true);
     fixture("b2b-paid-test-fixture.cjs", {
       workspaceId: team,
       action: "purchase",
@@ -124,7 +120,7 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
       "내 원본 전송 준비.wav",
     ]);
     const projects = O.page.getByRole("region", {
-      name: "내 폴더",
+      name: "내 프로젝트",
       exact: true,
     });
     await expect(
@@ -142,21 +138,21 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
     );
     await transfer.click();
     await expect(
-      O.page.getByRole("heading", { name: "폴더 자료", exact: true }),
+      O.page.getByRole("heading", { name: "프로젝트 자료", exact: true }),
     ).toBeVisible();
     await O.page.goto(base);
     // 2026-10-08 cleanup: requests and delivery left the home; review work
-    // stays, with its own authoritative queue.
+    // is a to-do list that appears only when a video waits on you.
     await expect(
       O.page.getByRole("heading", { name: "내 요청 업무", exact: true }),
     ).toHaveCount(0);
     await expect(
-      O.page.getByRole("heading", { name: "검토·승인 업무", exact: true }),
-    ).toBeVisible();
+      O.page.getByRole("heading", { name: /^확인할 영상/ }),
+    ).toHaveCount(0);
     E = await open(browser, external, base);
     await expect(
       E.page
-        .getByRole("region", { name: "내 폴더", exact: true })
+        .getByRole("region", { name: "내 프로젝트", exact: true })
         .getByText("홈에서 여는 내 프로젝트"),
     ).toBeVisible();
     await expect(
@@ -192,7 +188,7 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
       O.page.getByText("팀 자료 접근이 중지되었습니다.", { exact: false }),
     ).toBeVisible();
     await expect(
-      O.page.getByRole("region", { name: "내 폴더", exact: true }),
+      O.page.getByRole("region", { name: "내 프로젝트", exact: true }),
     ).toHaveCount(0);
     await expect(
       O.page.getByRole("region", { name: "내 원본 전송", exact: true }),

@@ -159,8 +159,8 @@ export function RequestReferencePicker({
             ) : !versions.length ? (
               <p className="text-[13px] text-muted">
                 {c(
-                  "이 폴더에서 열 수 있는 자료가 없습니다.",
-                  "No files you can open in this folder.",
+                  "이 프로젝트에서 열 수 있는 자료가 없습니다.",
+                  "No files you can open in this project.",
                 )}
               </p>
             ) : (

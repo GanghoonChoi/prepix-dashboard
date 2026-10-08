@@ -267,7 +267,7 @@ test("real private upload resumes after reload, verifies immutable content and s
   await page.getByLabel("비밀번호", { exact: true }).fill(password);
   await page.getByRole("button", { name: "계속하기", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "폴더 자료", exact: true }),
+    page.getByRole("heading", { name: "프로젝트 자료", exact: true }),
   ).toBeVisible();
   const content = wav(16 * 1024 * 1024 + 16044);
   let held = false,
@@ -748,17 +748,17 @@ test("real private upload resumes after reload, verifies immutable content and s
   await invite(request, user, team.id, linkedProject.id, producer, "producer");
   const targetRoot = `${api}/v2/workspaces/${team.id}/b2b/projects/${linkedProject.id}`;
   await row()
-    .getByRole("button", { name: "다른 폴더에 연결", exact: true })
+    .getByRole("button", { name: "다른 프로젝트에 연결", exact: true })
     .click();
   dialog = page.getByRole("alertdialog", {
-    name: "다른 폴더에 연결",
+    name: "다른 프로젝트에 연결",
     exact: true,
   });
   await dialog
-    .getByRole("combobox", { name: "연결할 폴더", exact: true })
+    .getByRole("combobox", { name: "연결할 프로젝트", exact: true })
     .selectOption(linkedProject.id);
   await dialog
-    .getByRole("button", { name: "다른 폴더에 연결", exact: true })
+    .getByRole("button", { name: "다른 프로젝트에 연결", exact: true })
     .click();
   await expect(dialog).toHaveCount(0);
   expect(
@@ -794,17 +794,17 @@ test("real private upload resumes after reload, verifies immutable content and s
     await route.abort("failed");
   });
   await page
-    .getByRole("button", { name: "폴더 연결 제외", exact: true })
+    .getByRole("button", { name: "프로젝트 연결 제외", exact: true })
     .click();
   dialog = page.getByRole("alertdialog", {
-    name: "폴더 연결 제외",
+    name: "프로젝트 연결 제외",
     exact: true,
   });
   await dialog
     .getByLabel("변경 사유", { exact: true })
     .fill("연결을 제외하고 보관 파일 유지");
   await dialog
-    .getByRole("button", { name: "폴더 연결 제외", exact: true })
+    .getByRole("button", { name: "프로젝트 연결 제외", exact: true })
     .click();
   await expect(
     page.getByRole("button", { name: "같은 요청 재시도", exact: true }),
@@ -814,7 +814,7 @@ test("real private upload resumes after reload, verifies immutable content and s
     page.getByText("변경이 반영되었습니다.", { exact: false }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "폴더 연결 제외", exact: true }),
+    page.getByRole("button", { name: "프로젝트 연결 제외", exact: true }),
   ).toHaveCount(0);
   expect(unlinkKeys).toHaveLength(1);
   expect(
@@ -828,7 +828,7 @@ test("real private upload resumes after reload, verifies immutable content and s
   ).toBe(usedBefore);
   await page.goto(target);
   await expect(
-    page.getByRole("heading", { name: "폴더 자료", exact: true }),
+    page.getByRole("heading", { name: "프로젝트 자료", exact: true }),
   ).toBeVisible();
   // Keyboard focus stays in the management dialog and returns to its opener.
   const opener = row().getByRole("button", {
@@ -972,7 +972,7 @@ test("real private upload resumes after reload, verifies immutable content and s
     .getByText("버전 상세와 사용 위치", { exact: true })
     .click();
   await expect(
-    libraryRow().getByText("현재 표시할 수 있는 폴더 연결이 없습니다.", {
+    libraryRow().getByText("현재 표시할 수 있는 프로젝트 연결이 없습니다.", {
       exact: false,
     }),
   ).toBeVisible();
@@ -997,17 +997,17 @@ test("real private upload resumes after reload, verifies immutable content and s
   // The orphan can be restored to its original project with an explicit
   // library intent, rather than being forced into a different project.
   await libraryRow()
-    .getByRole("button", { name: "폴더에 연결", exact: true })
+    .getByRole("button", { name: "프로젝트에 연결", exact: true })
     .click();
   dialog = page.getByRole("alertdialog", {
-    name: "다른 폴더에 연결",
+    name: "다른 프로젝트에 연결",
     exact: true,
   });
   await dialog
-    .getByRole("combobox", { name: "연결할 폴더", exact: true })
+    .getByRole("combobox", { name: "연결할 프로젝트", exact: true })
     .selectOption(project.id);
   await dialog
-    .getByRole("button", { name: "다른 폴더에 연결", exact: true })
+    .getByRole("button", { name: "다른 프로젝트에 연결", exact: true })
     .click();
   await expect(dialog).toHaveCount(0);
   const libraryReference = (
@@ -1038,17 +1038,17 @@ test("real private upload resumes after reload, verifies immutable content and s
     },
   );
   await libraryRow()
-    .getByRole("button", { name: "폴더에 연결", exact: true })
+    .getByRole("button", { name: "프로젝트에 연결", exact: true })
     .click();
   dialog = page.getByRole("alertdialog", {
-    name: "다른 폴더에 연결",
+    name: "다른 프로젝트에 연결",
     exact: true,
   });
   await dialog
-    .getByRole("combobox", { name: "연결할 폴더", exact: true })
+    .getByRole("combobox", { name: "연결할 프로젝트", exact: true })
     .selectOption(linkedProject.id);
   await dialog
-    .getByRole("button", { name: "다른 폴더에 연결", exact: true })
+    .getByRole("button", { name: "다른 프로젝트에 연결", exact: true })
     .click();
   await expect(
     page.getByRole("button", { name: "같은 요청 재시도", exact: true }),
@@ -1339,17 +1339,17 @@ test("direct library registration resumes its projectless transfer, verifies ori
     ).json()
   ).data.storage.usedBytes;
   await row()
-    .getByRole("button", { name: "폴더에 연결", exact: true })
+    .getByRole("button", { name: "프로젝트에 연결", exact: true })
     .click();
   const dialog = page.getByRole("alertdialog", {
-    name: "다른 폴더에 연결",
+    name: "다른 프로젝트에 연결",
     exact: true,
   });
   await dialog
-    .getByRole("combobox", { name: "연결할 폴더", exact: true })
+    .getByRole("combobox", { name: "연결할 프로젝트", exact: true })
     .selectOption(project.id);
   await dialog
-    .getByRole("button", { name: "다른 폴더에 연결", exact: true })
+    .getByRole("button", { name: "다른 프로젝트에 연결", exact: true })
     .click();
   await expect(
     page.getByRole("button", { name: "같은 요청 재시도", exact: true }),
