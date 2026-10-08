@@ -43,7 +43,7 @@
 
 ---
 
-### Task B1: 결제 전 초대 예약 (`held`)
+### Task 1 (B1): 결제 전 초대 예약 (`held`)
 
 **Files:**
 - Modify: `backend/src/b2b/contracts.ts:148`
@@ -177,7 +177,7 @@ export async function releaseHeldInvitations(db: B2bDB, workspaceId: string, now
 
 ---
 
-### Task B2: 사용자 온보딩 프로필 필드
+### Task 2 (B2): 사용자 온보딩 프로필 필드
 
 **Files:**
 - Create: `backend/src/database/migrations/0096_user_onboarding_profile.sql`
@@ -247,7 +247,7 @@ ALTER TABLE "users" ADD COLUMN "acquisition_source" varchar(40);
 
 ---
 
-### Task B3: 개인 워크스페이스 이름 변경은 관리 플래그와 무관
+### Task 3 (B3): 개인 워크스페이스 이름 변경은 관리 플래그와 무관
 
 **Files:**
 - Modify: `backend/src/workspaces/workspaces.service.ts:1161-1166` (`settings`)
@@ -295,7 +295,7 @@ await t.test('your own space can be renamed without the management rollout', asy
 
 ---
 
-### Task B4: Business 상품 기본값
+### Task 4 (B4): Business 상품 기본값
 
 **Files:**
 - Modify: `backend/scripts/fixtures/b2b-launch-defaults.cjs` (product 블록 + 위 주석)
@@ -344,7 +344,7 @@ const product = {
 
 ---
 
-### Task D1: 온보딩 URL 상태·좌석 계산·이메일 파싱 (`lib/onboarding.ts`)
+### Task 5 (D1): 온보딩 URL 상태·좌석 계산·이메일 파싱 (`lib/onboarding.ts`)
 
 **Files:**
 - Modify: `lib/onboarding.ts` (전체 교체)
@@ -500,7 +500,7 @@ export function parseEmails(text: string, self: string, taken: readonly string[]
 
 ---
 
-### Task D2: 계약 동기화, `held` 라벨, 프로필 타입, 기본 진입 공간
+### Task 6 (D2): 계약 동기화, `held` 라벨, 프로필 타입, 기본 진입 공간
 
 **Files:**
 - Modify: `lib/api/generated/b2b.ts` (스크립트로 동기화)
@@ -575,7 +575,7 @@ export async function homeFor(useType: string | null | undefined) {
 
 ---
 
-### Task D3: `/start` 다시 짜기
+### Task 7 (D3): `/start` 다시 짜기
 
 **Files:**
 - Create: `components/onboarding/steps.tsx` (UseStep, ProfileStep, NameStep, InviteStep, PayStep)
@@ -963,7 +963,7 @@ export function PayStep({ workspaceId, onLater }: { workspaceId: string; onLater
 
 ---
 
-### Task D4: 결제 화면 좌석 초기값, 결제 후 다음 단계, 팀 홈 예약 배너
+### Task 8 (D4): 결제 화면 좌석 초기값, 결제 후 다음 단계, 팀 홈 예약 배너
 
 **Files:**
 - Modify: `components/b2b/purchase-quotes.tsx:61-64` (초기 `extraSeats`)
@@ -1000,7 +1000,7 @@ c(`결제하면 ${held}명에게 초대가 발송됩니다.`, `Pay to send invit
 
 ---
 
-### Task D5: 플랜 페이지 Business 카드, 홈 "시작 설정 마치기"
+### Task 9 (D5): 플랜 페이지 Business 카드, 홈 "시작 설정 마치기"
 
 **Files:**
 - Modify: `app/(dashboard)/dashboard/plan/page.tsx` (~L544 `plans.map` 그리드 끝)
@@ -1036,7 +1036,7 @@ c(`결제하면 ${held}명에게 초대가 발송됩니다.`, `Pay to send invit
 
 ---
 
-### Task D6: e2e 갱신
+### Task 10 (D6): e2e 갱신
 
 **Files:**
 - Modify: `e2e/workspace-onboarding.spec.ts` (`"a new account lands in its own personal space…"` L443, `"first run offers a waiting invitation…"` L579 — 새 단계에 맞춤) + 새 테스트 2개
@@ -1049,7 +1049,7 @@ c(`결제하면 ${held}명에게 초대가 발송됩니다.`, `Pay to send invit
 
 ---
 
-### Task S1: 사이트 가격표 Business 카드와 `/start` 연결
+### Task 11 (S1): 사이트 가격표 Business 카드와 `/start` 연결
 
 **Files:**
 - Modify: `apps/site/content/landing/schema.ts:584-592` (`paid.prev` 선택, `per?` 추가)
