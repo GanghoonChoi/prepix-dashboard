@@ -107,3 +107,24 @@ test("business: team name, invitations held until payment, pay later lands on th
   await expect(page.getByLabel("추가 편집 이용권", { exact: true })).toHaveValue("2");
   expect(errors).toEqual([]);
 });
+
+test("an account that never answered is offered setup, and the plan page starts a team", async ({ page }) => {
+  const email = `later-${Date.now()}@example.test`;
+  await signup(page, email);
+  await expect(page).toHaveURL(/\/start\b/);
+
+  await page.goto("/dashboard?locale=ko");
+  await page.getByRole("link", { name: /시작 설정 마치기/ }).click();
+  await expect(page.getByRole("heading", { name: "Prepix를 어떻게 쓰실 건가요?" })).toBeVisible();
+
+  // The workspaces harness has no billing module; an empty personal catalogue
+  // is enough — Business is a team plan and is always offered.
+  await page.route(/\/v2\/subscriptions\/(current|plans)/, (route) =>
+    route.fulfill({
+      json: { data: route.request().url().includes("/plans") ? [] : null },
+    }),
+  );
+  await page.goto("/dashboard/plan?locale=ko");
+  await page.getByRole("link", { name: "팀으로 시작하기", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "팀 워크스페이스를 만드세요" })).toBeVisible();
+});

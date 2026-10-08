@@ -14,6 +14,7 @@ import { useOverlayState } from "@heroui/react";
 import { Dialog } from "@/components/dialog";
 import { useToast } from "@/components/toast";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
+import Link from "next/link";
 import { useI18n } from "@/lib/i18n/context";
 import { RefundRequestCard } from "@/components/dashboard/refund-request-card";
 import { legalUrl } from "@/lib/i18n/config";
@@ -627,6 +628,29 @@ export default function PlanPage() {
                 </div>
               );
             })}
+            {/* Business is a team plan: it is bought for the team, on the
+                team's plan page, after /start has made the team. */}
+            <div className={`${cardClass} flex flex-col gap-3 p-5`}>
+              <div>
+                <p className="font-medium">Business</p>
+                <p className="text-sm text-muted">
+                  {lang === "ko"
+                    ? "1인당 월 ₩129,000 · 3인 이상 · 부가세 별도"
+                    : "₩129,000 per seat / month · 3+ seats · VAT extra"}
+                </p>
+              </div>
+              <p className="text-sm text-muted">
+                {lang === "ko"
+                  ? "팀 워크스페이스, 멤버 관리, 공동 편집과 코멘트, 3TB"
+                  : "Team workspace, members, co-editing and comments, 3TB"}
+              </p>
+              <Link
+                className="mt-auto text-sm underline underline-offset-4"
+                href={`/start?intent=team&step=workspace&locale=${lang}`}
+              >
+                {lang === "ko" ? "팀으로 시작하기" : "Start with your team"}
+              </Link>
+            </div>
           </div>
 
           {/* Paddle requires the buyer to accept the terms and the refund policy

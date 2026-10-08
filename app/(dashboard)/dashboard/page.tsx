@@ -13,6 +13,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { usageService } from "@/lib/api/services/usage.service";
+import { userService } from "@/lib/api/services/user.service";
 import {
   subscriptionService,
   type CurrentSubscription,
@@ -45,6 +46,14 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [profile, setProfile] = useState<Record<string, string> | null>(null);
+  // The cached userInfo predates the answer; ask the server once.
+  const [unanswered, setUnanswered] = useState(false);
+  useEffect(() => {
+    void userService
+      .getProfile()
+      .then((value) => setUnanswered(!value.useType))
+      .catch(() => undefined);
+  }, []);
   const [usage, setUsage] = useState<Usage | null>(null);
   const [subscription, setSubscription] = useState<CurrentSubscription | null>(null);
   const [recent, setRecent] = useState<{ space: string; assets: Asset[] } | null>(null);
@@ -164,6 +173,14 @@ export default function DashboardPage() {
         }
         description={t("dashboard.subtitle")}
       />
+
+      {/* Only for accounts that never answered /start's first question. */}
+      {process.env.NEXT_PUBLIC_START_ONBOARDING === "1" && unanswered && (
+        <Link href={`/start?locale=${lang}`} className={`${cardClass} block p-4 text-sm`}>
+          <span className="font-medium">{lang === "ko" ? "시작 설정 마치기" : "Finish setting up"}</span>
+          <span className="ml-2 text-muted">{lang === "ko" ? "1분이면 끝나요" : "Takes a minute"}</span>
+        </Link>
+      )}
 
       {loadError && (
         <div className="flex items-center justify-between rounded-lg border border-danger/30 bg-danger/5 px-5 py-4">
