@@ -538,6 +538,33 @@ test("real private upload resumes after reload, verifies immutable content and s
       ).json()
     ).data.versions,
   ).toHaveLength(3);
+  // Delete moves a file to the trash; 최근 삭제한 파일 brings it back (2026-10-08).
+  const versionCount = async () =>
+    (
+      await (await request.get(`${root}/files`, { headers: user.headers })).json()
+    ).data.versions.length;
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.reload();
+  const deletable = page
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("button", { name: /작업$/ }) })
+    .first();
+  const deletedName = await deletable.getByRole("heading").first().innerText();
+  await deletable.getByRole("button", { name: /작업$/ }).click();
+  await page.getByRole("menuitem", { name: "삭제", exact: true }).click();
+  const confirmDelete = page.getByRole("alertdialog", { name: "파일 삭제" });
+  await expect(confirmDelete).toContainText("30일");
+  await confirmDelete.getByRole("button", { name: "삭제", exact: true }).click();
+  await expect.poll(versionCount).toBe(2);
+  const recent = page.getByText(/^최근 삭제한 파일 1$/);
+  await expect(recent).toBeVisible();
+  await recent.click();
+  const trashed = page.getByRole("list", { name: "최근 삭제한 파일" }).getByRole("listitem");
+  await expect(trashed).toHaveCount(1);
+  await expect(trashed).toContainText(deletedName);
+  await trashed.getByRole("button", { name: "복원", exact: true }).click();
+  await expect.poll(versionCount).toBe(3);
+  await expect(page.getByText(/^최근 삭제한 파일/)).toHaveCount(0);
   // Account assertion is enforced even if a different valid JWT can read this
   // team. A forged expectation cannot reserve or retrieve any file metadata.
   expect(

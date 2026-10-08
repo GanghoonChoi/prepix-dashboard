@@ -18,6 +18,8 @@ import type {
   TeamFileMutationLookup,
   TeamLibraryList,
   TeamLibraryEntry,
+  TeamFileTrashList,
+  TeamFileTrashReceipt,
 } from "../api/generated/b2b";
 
 export type FileScope = {
@@ -192,6 +194,50 @@ export function fileApi(scope: FileScope) {
         input,
         signal,
       ),
+    // The team's trash (2026-10-08): a deleted file waits 30 days there.
+    trashList: async (signal?: AbortSignal) =>
+      (
+        await apiClient.get<{ data: TeamFileTrashList }>(
+          `/workspaces/${e(scope.workspaceId)}/b2b/file-trash`,
+          { signal, timeout: 15_000, headers: { "X-Prepix-Account-ID": scope.userId } },
+        )
+      ).data.data,
+    trash: async (
+      input: {
+        requestKey: string;
+        versionId: string;
+        revision: number;
+        reason: string;
+        sourceProjectId?: string;
+        fromLibrary: boolean;
+      },
+      signal?: AbortSignal,
+    ) =>
+      (
+        await apiClient.post<{ data: TeamFileTrashReceipt }>(
+          `/workspaces/${e(scope.workspaceId)}/b2b/file-trash`,
+          input,
+          { signal, timeout: 30_000, headers: { "X-Prepix-Account-ID": scope.userId } },
+        )
+      ).data.data,
+    restore: async (
+      trashId: string,
+      input: {
+        requestKey: string;
+        revision: number;
+        reason: string;
+        sourceProjectId?: string;
+        fromLibrary: boolean;
+      },
+      signal?: AbortSignal,
+    ) =>
+      (
+        await apiClient.post<{ data: TeamFileTrashReceipt }>(
+          `/workspaces/${e(scope.workspaceId)}/b2b/file-trash/entries/${e(trashId)}/restore`,
+          input,
+          { signal, timeout: 30_000, headers: { "X-Prepix-Account-ID": scope.userId } },
+        )
+      ).data.data,
     operation: (
       action: TeamFileMutationAction,
       requestKey: string,

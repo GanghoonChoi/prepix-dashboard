@@ -1,5 +1,6 @@
 "use client";
-import { Pause, Play, X } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown, ChevronUp, Pause, Play, X } from "lucide-react";
 import { useI18n } from "@/lib/i18n/context";
 import { bytes } from "@/lib/workspaces/upload";
 import {
@@ -13,7 +14,9 @@ import {
 import type { UploadQueue } from "@/lib/workspaces/use-upload-queue";
 import { CloudProgress, cloudMessage } from "@/components/workspaces/cloud-shared";
 
-/** What the upload queue is doing, one row per file (F04.3). */
+/** What the upload queue is doing, one row per file (F04.3) — a tray in the
+ * corner, like a video cloud's upload sheet (2026-10-08): it floats over the
+ * archive instead of pushing it down, and folds to one line. */
 export function TransferPanel({
   queue,
   onCancel,
@@ -25,6 +28,7 @@ export function TransferPanel({
   const { lang } = useI18n();
   const c = (ko: string, en: string) => (lang === "ko" ? ko : en);
   const { transfers, summary } = queue;
+  const [folded, setFolded] = useState(false);
   if (!transfers.length) return null;
 
   /*
@@ -61,9 +65,9 @@ export function TransferPanel({
   return (
     <section
       aria-label={c("전송 패널", "Transfer panel")}
-      className="space-y-1 rounded-lg border border-border p-4"
+      className="fixed bottom-4 right-4 z-40 w-[22rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-border bg-background shadow-lg"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2.5">
         {/* Five counters, four of them usually zero. Only what is actually
             happening earns a place on the line. */}
         <p role="status" className="text-[13px] font-medium tabular-nums">
@@ -80,20 +84,34 @@ export function TransferPanel({
             .join(" · ") ||
             c(`전송 ${summary.total}개`, `${summary.total} transfers`)}
         </p>
-        {transfers.some((entry) => isSettled(entry.state)) && (
+        <div className="flex shrink-0 items-center">
+          {transfers.some((entry) => isSettled(entry.state)) && (
+            <button
+              className="rounded-md px-2 py-1 text-xs text-muted transition-colors hover:bg-surface-secondary hover:text-foreground"
+              onClick={queue.clearSettled}
+            >
+              {c("끝난 항목 지우기", "Clear finished")}
+            </button>
+          )}
           <button
-            className="rounded-md px-2 py-1 text-[13px] text-muted transition-colors hover:bg-surface-secondary hover:text-foreground"
-            onClick={queue.clearSettled}
+            className={iconButton}
+            aria-label={folded ? c("펼치기", "Expand") : c("접기", "Collapse")}
+            aria-expanded={!folded}
+            onClick={() => setFolded((v) => !v)}
           >
-            {c("끝난 항목 지우기", "Clear finished")}
+            {folded ? (
+              <ChevronUp size={16} strokeWidth={1.75} aria-hidden="true" />
+            ) : (
+              <ChevronDown size={16} strokeWidth={1.75} aria-hidden="true" />
+            )}
           </button>
-        )}
+        </div>
       </div>
-      <ul className="divide-y divide-border">
+      <ul className="max-h-72 divide-y divide-border overflow-y-auto px-4" hidden={folded}>
         {transfers.map((entry) => {
           const shown = transferProgress(entry);
           return (
-            <li key={entry.id} className="space-y-1.5 py-3 last:pb-0">
+            <li key={entry.id} className="space-y-1.5 py-3">
               <div className="flex items-center justify-between gap-2">
                 <p className="min-w-0 break-all text-sm">{entry.name}</p>
                 <div className="flex shrink-0">

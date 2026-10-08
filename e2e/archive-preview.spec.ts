@@ -91,8 +91,12 @@ test("a playable original opens in the player, an undecodable one says so", asyn
 
   // Verification has to finish before the bytes are released for download, and
   // a player opened before that would ask for a URL the server refuses.
+  // A stored, playable file's name becomes the play button (2026-10-08: the
+  // row says nothing when a file is simply stored).
   const playableRow = page.getByRole("row").filter({ hasText: "playable.mp4" });
-  await expect(playableRow).toContainText("보관됨", { timeout: 30_000 });
+  await expect(
+    playableRow.getByRole("button", { name: "playable.mp4", exact: true }),
+  ).toBeVisible({ timeout: 30_000 });
 
   // Order by name so the walk below is deterministic — newest-first would put
   // whichever file finished verifying last at the top. Sorting is the other

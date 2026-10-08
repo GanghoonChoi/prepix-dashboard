@@ -52,9 +52,12 @@ export type ArchiveHandlers = {
 export function AssetActions({
   asset,
   handlers,
+  compact = false,
 }: {
   asset: Asset;
   handlers: ArchiveHandlers;
+  /** On a card's corner: tighter, no gap. */
+  compact?: boolean;
 }) {
   const { lang } = useI18n();
   const c = (ko: string, en: string) => (lang === "ko" ? ko : en);
@@ -72,10 +75,10 @@ export function AssetActions({
     !asset.trashedAt && ready && new Date(asset.expiresAt).getTime() > now;
 
   return (
-    <div className="flex shrink-0 items-center gap-1">
+    <div className={`flex shrink-0 items-center ${compact ? "" : "gap-1"}`}>
       {active && data.canDownload && (
         <button
-          className="grid size-9 place-items-center rounded-md text-muted transition-colors hover:bg-surface-secondary hover:text-foreground disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
+          className={`grid ${compact ? "size-8" : "size-9"} place-items-center rounded-md text-muted transition-colors hover:bg-surface-secondary hover:text-foreground disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground`}
           disabled={!!busy}
           title={c("원본 다운로드", "Download original")}
           aria-label={c("원본 다운로드", "Download original")}

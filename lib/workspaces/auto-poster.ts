@@ -14,12 +14,15 @@ const CONCURRENCY = 2;
 
 export const posterable = (asset: Asset) => VIDEO.test(asset.name) || IMAGE.test(asset.name);
 
-/** One frame a little into a video, or the image itself, as a JPEG data URL. */
-function grab(url: string, image: boolean): Promise<string | undefined> {
+/** One frame a little into a video, or the image itself, as a JPEG data URL;
+ * a video's length (seconds) comes with it. */
+type Grab = { frame?: string; duration?: number };
+function grab(url: string, image: boolean): Promise<Grab> {
   return new Promise((resolve) => {
-    const done = (value?: string) => {
+    let duration: number | undefined;
+    const done = (frame?: string) => {
       clearTimeout(timer);
-      resolve(value);
+      resolve({ frame, duration });
     };
     const timer = setTimeout(() => done(), 20_000);
     if (image) {
@@ -53,6 +56,7 @@ function grab(url: string, image: boolean): Promise<string | undefined> {
       done(value);
     };
     video.onloadedmetadata = () => {
+      if (Number.isFinite(video.duration)) duration = video.duration;
       video.currentTime = Math.min(1, (video.duration || 0) / 2);
     };
     video.onseeked = () => stop(captureFrame(video));
@@ -78,7 +82,7 @@ export function useAutoPosters({
   assets: Asset[];
   posters: Map<string, string>;
   enabled: boolean;
-  onPoster: (key: string, dataUrl: string) => void;
+  onPoster: (key: string, dataUrl: string, duration?: number) => void;
 }) {
   const tried = useRef(new Set<string>());
   const report = useRef(onPoster);
@@ -102,10 +106,10 @@ export function useAutoPosters({
         try {
           const { url } = await cloudService.download(workspaceId, asset.id);
           // A frame already on its way is kept even if the view moved on.
-          const frame = await grab(url, IMAGE.test(asset.name));
+          const { frame, duration } = await grab(url, IMAGE.test(asset.name));
           if (!frame) continue;
-          report.current(key, frame);
-          void writePoster(key, frame);
+          report.current(key, frame, duration);
+          void writePoster(key, frame, duration);
         } catch {
           /* leave the icon */
         }
