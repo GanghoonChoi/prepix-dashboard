@@ -1,5 +1,4 @@
 "use client";
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   b2bService,
@@ -132,16 +131,10 @@ export function InviteForm({
           : projectId
             ? c("이 프로젝트에 참여합니다. 편집자는 자료를 올리고 받을 수 있습니다.", "They join this project. Editors can upload and download.")
             : seats && seats.free > 0
-              ? c(`편집 좌석을 씁니다 · 남은 좌석 ${seats.free}/${seats.capacity}석`, `Takes an editing seat · ${seats.free} of ${seats.capacity} free`)
-              : c("편집 좌석을 씁니다 · 남은 좌석이 없으면 자리가 날 때까지 대기합니다.", "Takes an editing seat · waits if none is free.")}
-        {!viewer && !projectId && seats?.free === 0 && canBill && (
-          <>
-            {" "}
-            <Link className="underline" href={`/dashboard/workspaces/${id}/plan`}>
-              {c("좌석 추가", "Add a seat")}
-            </Link>
-          </>
-        )}
+              ? c(`좌석 1개를 씁니다 · 남은 좌석 ${seats.free}/${seats.capacity}석`, `Takes a seat · ${seats.free} of ${seats.capacity} free`)
+              : canBill
+                ? c("좌석 1개를 씁니다 · 수락하면 멤버 화면에서 이번 달 남은 기간만큼 결제하고 바로 쓸 수 있습니다.", "Takes a seat · once they accept, pay for the rest of this month on People and they start at once.")
+                : c("좌석 1개를 씁니다 · 남은 좌석이 없으면 결제 권한자가 좌석을 추가할 때까지 대기합니다.", "Takes a seat · waits until someone with billing permission adds one.")}
       </p>
       {error && <B2bError code={error} />}
     </form>

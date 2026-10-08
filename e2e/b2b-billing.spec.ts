@@ -194,7 +194,7 @@ test("card registration, renewal plan, refund reservation and account switch kee
   const renewal = page.getByRole("combobox", { name: "갱신 방식", exact: true });
   await expect(renewal).toBeEnabled({ timeout: 30_000 });
   await renewal.selectOption("automatic");
-  await page.getByLabel("다음 기간 추가 이용권", { exact: true }).fill("1");
+  await page.getByLabel("다음 기간 추가 좌석 (최대)", { exact: true }).fill("1");
   await page.getByRole("checkbox", { name: /매월 기간 종료 전에 등록 카드로 결제하는 데 동의합니다/ }).check();
   await page.getByRole("button", { name: "갱신 설정 저장", exact: true }).click();
   await expect(page.getByRole("button", { name: "자동결제 중지", exact: true })).toBeVisible();

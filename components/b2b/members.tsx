@@ -1,13 +1,11 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useOverlayState } from "@heroui/react";
-import { Eye, Mail, PenLine, Plus } from "lucide-react";
+import { Mail, PenLine, Plus } from "lucide-react";
 import {
   b2bService,
   type ChangeTeamMember,
   type Invitation,
-  type SeatState,
   type TeamPeople,
   type TeamPerson,
 } from "@/lib/api/services/b2b.service";
@@ -32,6 +30,7 @@ import {
   thClass,
 } from "@/components/ui";
 import { useI18n } from "@/lib/i18n/context";
+import { AddSeats } from "./add-seats";
 import { RecoverLead } from "./recover-lead";
 import { changeInvitation, InviteForm, useInvitationStatus } from "./invitations";
 import { B2bError, errorCode, useCopy } from "./shared";
@@ -42,8 +41,9 @@ import { B2bError, errorCode, useCopy } from "./shared";
  * row's menu holds the rest. No tabs, no filters beyond a search, and no
  * reason to type — the audit trail names the action itself.
  *
- * 멤버 = 좌석: 편집자 and 관리자 hold an editing seat, 뷰어 is free. The seat
- * follows the role.
+ * 멤버 = 좌석 = 결제 (2026-10-08): every member but a viewer holds a paid
+ * seat, like Figma. There is no seat column; a member short of one says so,
+ * and whoever can pay buys the rest of the month right here.
  */
 export function TeamMembers() {
   const { data, b2b } = useWorkspace()!;
@@ -60,26 +60,29 @@ export function TeamMembers() {
   const [query, setQuery] = useState("");
   const [removing, setRemoving] = useState<TeamPerson | null>(null);
   const invite = useOverlayState();
+  const buy = useOverlayState();
   const sequence = useRef(0);
   const id = data.workspace.id;
   const manager = !!b2b?.enrolled && b2b.allowedActions.manage;
   const load = useCallback(async () => {
     // A refused page sends nothing: no roster read, no 30s poll of 403s.
-    if (!manager) return;
+    if (!manager) return null;
     const request = ++sequence.current;
     try {
       const [people, invitations] = await Promise.all([
         b2bService.members(id),
         b2bService.invitations(id),
       ]);
-      if (request !== sequence.current) return;
+      if (request !== sequence.current) return null;
       setRoster(people);
       setInvites(invitations.invitations.filter((i) => !i.acceptedAt && !i.revokedAt && !i.projectId));
       setLoadError("");
+      return people;
     } catch (e) {
-      if (request !== sequence.current) return;
+      if (request !== sequence.current) return null;
       setRoster(null);
       setLoadError(errorCode(e));
+      return null;
     }
   }, [id, manager]);
   useEffect(() => {
@@ -99,6 +102,7 @@ export function TeamMembers() {
     return <B2bError code="B2B_TEAM_PREPARING" />;
   const editable = b2b.team.currentState === "active";
   const owner = data.role === "owner";
+  const canBill = b2b.allowedActions.billing;
   const people = roster?.people ?? [];
   const seats = roster?.seats;
   const q = query.trim().toLowerCase();
@@ -110,7 +114,7 @@ export function TeamMembers() {
   const pending = invites.filter((i) => match(i.email));
 
   const run = async (work: () => Promise<unknown>) => {
-    if (busy) return;
+    if (busy) return null;
     setBusy(true);
     setError("");
     try {
@@ -119,8 +123,8 @@ export function TeamMembers() {
       setError(errorCode(e));
     } finally {
       setBusy(false);
-      await load();
     }
+    return load();
   };
   const change = (p: TeamPerson, action: ChangeTeamMember["action"], reason: string) =>
     b2bService.changeTeamMember(id, p.userId, {
@@ -129,13 +133,17 @@ export function TeamMembers() {
       action,
       reason,
     });
-  const setRole = (p: TeamPerson, next: "admin" | "editor" | "reviewer") =>
-    run(async () => {
+  const turnOnSeat = (p: TeamPerson) =>
+    b2bService.setSeat(id, p.userId, { requestKey: crypto.randomUUID(), editing: true });
+  const setRole = async (p: TeamPerson, next: "admin" | "editor" | "reviewer") => {
+    const after = await run(async () => {
       await change(p, next, "역할 변경");
       // The seat follows the role: someone who now edits wants one.
-      if (next !== "reviewer" && (p.seat ?? "none") === "none")
-        await b2bService.setSeat(id, p.userId, { requestKey: crypto.randomUUID(), editing: true });
+      if (next !== "reviewer" && (p.seat ?? "none") === "none") await turnOnSeat(p);
     });
+    // Short of a seat now: offer to pay for it at once.
+    if (next !== "reviewer" && canBill && after?.seats?.waiting) buy.open();
+  };
   // The owner cannot be changed here, nor can you change yourself, and only
   // the owner manages admins (the server enforces all three).
   const manageable = (p: TeamPerson) =>
@@ -152,23 +160,13 @@ export function TeamMembers() {
           <div className="flex items-center gap-4">
             {seats && (
               <span className="hidden items-center gap-3 text-[13px] sm:flex">
-                <span className="inline-flex items-center gap-1.5" title={c("편집 좌석 · 사용/구매", "Editing seats · used/bought")}>
+                <span className="inline-flex items-center gap-1.5" title={c("좌석 · 사용/구매 (뷰어는 무료)", "Seats · used/bought (viewers are free)")}>
                   <PenLine size={15} strokeWidth={1.75} className="text-muted" aria-hidden="true" />
                   <span className="tabular-nums">
                     {seats.assigned}
                     <span className="text-muted">/{seats.capacity}</span>
                   </span>
                 </span>
-                {seats.waiting > 0 && (
-                  <span className="inline-flex items-center gap-1.5">
-                    <Tag>{c(`대기 ${seats.waiting}`, `${seats.waiting} waiting`)}</Tag>
-                    {b2b.allowedActions.billing && (
-                      <Link className="text-muted underline underline-offset-2 hover:text-foreground" href={`/dashboard/workspaces/${id}/plan`}>
-                        {c("좌석 추가", "Add seats")}
-                      </Link>
-                    )}
-                  </span>
-                )}
               </span>
             )}
             {editable && (
@@ -187,6 +185,30 @@ export function TeamMembers() {
         !loadError && <TeamLoading />
       ) : (
         <div className="space-y-3">
+          {!!seats?.waiting && (
+            <div
+              role="status"
+              data-testid="seat-shortage"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface-secondary px-4 py-3 text-[13px] leading-5"
+            >
+              <p>
+                {canBill
+                  ? c(
+                      `${seats.waiting}명이 좌석을 기다리고 있어요. 좌석을 추가하면 바로 편집할 수 있습니다.`,
+                      `${seats.waiting} waiting for a seat. Add seats and they can edit right away.`,
+                    )
+                  : c(
+                      `${seats.waiting}명이 좌석을 기다리고 있어요. 결제 권한이 있는 멤버에게 좌석 추가를 요청하세요.`,
+                      `${seats.waiting} waiting for a seat. Ask someone with billing permission to add seats.`,
+                    )}
+              </p>
+              {canBill && editable && (
+                <button type="button" className={primaryClass} onClick={buy.open}>
+                  {c(`좌석 ${seats.waiting}개 추가`, `Add ${seats.waiting} seat${seats.waiting > 1 ? "s" : ""}`)}
+                </button>
+              )}
+            </div>
+          )}
           <SearchField
             value={query}
             onChange={setQuery}
@@ -198,7 +220,6 @@ export function TeamMembers() {
               <tr>
                 <th className={thClass}>{c("이름", "Name")}</th>
                 <th className={`${thClass} w-32`}>{c("역할", "Role")}</th>
-                <th className={`${thClass} hidden w-44 sm:table-cell`}>{c("좌석", "Seat")}</th>
                 <th className={`${thClass} hidden w-28 md:table-cell`}>{c("최근 활동", "Last active")}</th>
                 <th className={`${thClass} w-10`}>
                   <span className="sr-only">{c("작업", "Actions")}</span>
@@ -217,6 +238,7 @@ export function TeamMembers() {
                           {p.userId === data.currentUserId && <span className="text-muted">{c("(나)", "(You)")}</span>}
                           {p.kind === "external" && <Tag>{c("외부", "Guest")}</Tag>}
                           {p.billingAllowed && p.role !== "owner" && <Tag>{c("결제 권한", "Billing")}</Tag>}
+                          {p.seat === "waiting" && <Tag>{c("좌석 대기", "Waiting for seat")}</Tag>}
                           {p.suspendedAt && <Tag tone="danger">{c("정지됨", "Suspended")}</Tag>}
                           {p.accountUnavailable && <Tag tone="danger">{c("계정 사용 불가", "Account unavailable")}</Tag>}
                         </div>
@@ -241,19 +263,6 @@ export function TeamMembers() {
                       <span className="text-muted">{c(...roleCopy[p.role])}</span>
                     )}
                   </td>
-                  <td className={`${tdClass} hidden whitespace-nowrap sm:table-cell`}>
-                    <SeatCell
-                      person={p}
-                      onTurnOn={
-                        manageable(p) && p.role !== "reviewer" && !p.suspendedAt && (p.seat ?? "none") === "none"
-                          ? () =>
-                              void run(() =>
-                                b2bService.setSeat(id, p.userId, { requestKey: crypto.randomUUID(), editing: true }),
-                              )
-                          : undefined
-                      }
-                    />
-                  </td>
                   <td className={`${tdClass} hidden whitespace-nowrap text-muted md:table-cell`}>{ago(p.lastActiveAt, lang)}</td>
                   <td className={`${tdClass} text-right`}>
                     <RowMenu label={c(`${p.name || p.email} 작업`, `Actions for ${p.name || p.email}`)}>
@@ -273,6 +282,12 @@ export function TeamMembers() {
                           }
                         >
                           {p.billingAllowed ? c("결제 권한 회수", "Remove billing permission") : c("결제 권한 주기", "Give billing permission")}
+                        </RowMenuItem>
+                      )}
+                      {/* Someone whose seat was turned off before seats followed roles. */}
+                      {manageable(p) && p.role !== "reviewer" && !p.suspendedAt && (p.seat ?? "none") === "none" && (
+                        <RowMenuItem disabled={busy} onClick={() => void run(() => turnOnSeat(p))}>
+                          {c("좌석 켜기", "Turn on seat")}
                         </RowMenuItem>
                       )}
                       {manageable(p) && p.suspendedAt && (
@@ -297,7 +312,10 @@ export function TeamMembers() {
                         <Mail size={14} strokeWidth={1.75} aria-hidden="true" />
                       </span>
                       <div className="min-w-0">
-                        <span className="block truncate font-medium">{row.email}</span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="truncate font-medium">{row.email}</span>
+                          <Tag>{c("초대됨", "Invited")}</Tag>
+                        </div>
                         <p className="truncate text-xs text-muted">
                           {status(row)} · {c("만료", "Expires")} {new Date(row.expiresAt).toLocaleDateString(lang)}
                         </p>
@@ -306,9 +324,6 @@ export function TeamMembers() {
                   </td>
                   <td className={`${tdClass} text-muted`}>
                     {c(...roleCopy[row.teamRole])}
-                  </td>
-                  <td className={`${tdClass} hidden sm:table-cell`}>
-                    <Tag>{c("초대됨", "Invited")}</Tag>
                   </td>
                   <td className={`${tdClass} hidden md:table-cell`} />
                   <td className={`${tdClass} text-right`}>
@@ -347,8 +362,17 @@ export function TeamMembers() {
         </div>
       )}
       <Dialog state={invite} title={c("멤버 초대", "Invite people")}>
-        <InviteForm onSent={load} />
+        <InviteForm onSent={async () => void (await load())} />
       </Dialog>
+      {canBill && !!seats?.waiting && (
+        <AddSeats
+          state={buy}
+          workspaceId={id}
+          userId={data.currentUserId ?? null}
+          count={seats.waiting}
+          onDone={() => void load()}
+        />
+      )}
       {removing && (
         <ConfirmDialog
           label={c("팀에서 제거", "Remove from team")}
@@ -388,28 +412,3 @@ const roleCopy: Record<TeamPerson["role"], [string, string]> = {
   editor: ["편집자", "Editor"],
   reviewer: ["뷰어", "Viewer"],
 };
-const seatCopy: Record<SeatState, [string, string]> = {
-  assigned: ["편집", "Edit"],
-  releasing: ["해제 중", "Releasing"],
-  waiting: ["대기", "Waiting"],
-  none: ["보기", "View"],
-};
-function SeatCell({ person, onTurnOn }: { person: TeamPerson; onTurnOn?: () => void }) {
-  const c = useCopy();
-  const seat = person.seat ?? "none";
-  const Icon = seat === "none" ? Eye : PenLine;
-  return (
-    <span className={`inline-flex items-center gap-2 ${seat === "assigned" ? "" : "text-muted"}`}>
-      <span className="grid size-7 place-items-center rounded-md bg-surface-secondary">
-        <Icon size={14} strokeWidth={1.75} aria-hidden="true" />
-      </span>
-      {seat === "waiting" ? <Tag>{c(...seatCopy.waiting)}</Tag> : c(...seatCopy[seat])}
-      {/* An editor whose seat was turned off before seats followed roles. */}
-      {onTurnOn && (
-        <button type="button" onClick={onTurnOn} className="text-xs underline underline-offset-2 hover:text-foreground">
-          {c("좌석 켜기", "Turn on")}
-        </button>
-      )}
-    </span>
-  );
-}
