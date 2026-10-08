@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, KeyRound, Laptop } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -21,6 +21,7 @@ import {
   type ScheduleLicenceRevocation,
   type TeamPerson,
 } from "@/lib/api/services/b2b.service";
+import { Avatar } from "@/components/ui";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
   Block,
@@ -50,8 +51,67 @@ const instant = (value: string) =>
     dateStyle: "medium",
     timeStyle: "long",
   }).format(new Date(value));
+const day = (value: string) =>
+  new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    dateStyle: "medium",
+  }).format(new Date(value));
 const personName = (person?: TeamPerson) => person?.name || person?.email;
-const listClass = "divide-y divide-border rounded-lg border border-border";
+
+/** Assignment and device lists share one grid, so each reads as a table while
+ * every row keeps its own region and the one disclosure under it. */
+const rowGrid =
+  "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 sm:grid-cols-[minmax(0,1fr)_14rem_8rem]";
+const rowClass =
+  "space-y-1.5 border-b border-border py-3 text-[13px] sm:[&>*:not(:first-child)]:pl-11";
+const pillClass =
+  "inline-flex w-fit items-center rounded-full border border-border px-2 py-0.5 text-xs";
+function ListHead({ columns }: { columns: [string, string, string] }) {
+  return (
+    <div
+      aria-hidden="true"
+      className={`${rowGrid} hidden h-11 border-b border-border text-xs font-medium text-muted sm:grid`}
+    >
+      {columns.map((label) => (
+        <span key={label}>{label}</span>
+      ))}
+    </div>
+  );
+}
+function IconBox({ icon: Icon }: { icon: typeof Laptop }) {
+  return (
+    <span className="grid size-8 shrink-0 place-items-center rounded-md bg-surface-secondary text-muted">
+      <Icon size={15} strokeWidth={1.75} aria-hidden="true" />
+    </span>
+  );
+}
+function RowHead({
+  icon,
+  name,
+  when,
+  state,
+}: {
+  icon: ReactNode;
+  name: string;
+  when: string;
+  state: string;
+}) {
+  return (
+    <div className={rowGrid}>
+      <div className="flex min-w-0 items-center gap-3">
+        {icon}
+        <div className="min-w-0">
+          <p className="truncate font-medium">{name}</p>
+          <p className="truncate text-xs text-muted tabular-nums sm:hidden">
+            {when}
+          </p>
+        </div>
+      </div>
+      <p className="hidden truncate text-muted tabular-nums sm:block">{when}</p>
+      <span className={pillClass}>{state}</span>
+    </div>
+  );
+}
 
 // Keep unknown outcomes in the form, including when a background refresh
 // changes its revision. Retry the original input before starting another action.
@@ -324,7 +384,10 @@ function PersonalDevices({
           )}
         </p>
       ) : (
-        <div className={listClass}>
+        <div>
+          <ListHead
+            columns={[c("장치", "Device"), c("등록", "Registered"), c("상태", "State")]}
+          />
           {overview.devices
             .toSorted(
               (a, b) =>
@@ -377,21 +440,18 @@ function DeviceRow({
         : "Retirement pending",
   );
   return (
-    <section
-      aria-label={`${name} · ${state}`}
-      className="space-y-1 px-4 py-3 text-sm"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h3 className="font-medium">{name}</h3>
-        <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs">
-          {state}
-        </span>
-      </div>
-      <p className="text-xs text-muted tabular-nums">
-        {c("등록", "Registered")} · {instant(device.createdAt)}
-        {device.retirementReason &&
-          ` · ${c("해제 사유", "Retirement reason")} · ${device.retirementReason}`}
-      </p>
+    <section aria-label={`${name} · ${state}`} className={rowClass}>
+      <RowHead
+        icon={<IconBox icon={Laptop} />}
+        name={name}
+        when={day(device.createdAt)}
+        state={state}
+      />
+      {device.retirementReason && (
+        <p className="text-xs text-muted">
+          {c("해제 사유", "Retirement reason")} · {device.retirementReason}
+        </p>
+      )}
       {device.state === "retiring" && (
         <p role="status" className="text-xs leading-5 text-muted">
           {device.latestExpiry
@@ -523,7 +583,7 @@ function PersonalLicences({
               ? "Next licence period"
               : "Current licence period",
         )}
-        description={`${instant(rows[0].startsAt)} — ${instant(rows[0].endsAt)} (KST)`}
+        description={`${day(rows[0].startsAt)} — ${day(rows[0].endsAt)}`}
       >
         {future && (
           <p className="text-[13px] text-muted">
@@ -533,7 +593,7 @@ function PersonalLicences({
             )}
           </p>
         )}
-        <div className={listClass}>
+        <div>
           {rows.map((assignment) => (
             <AssignmentRow
               key={assignment.id}
@@ -596,7 +656,7 @@ function PeriodLicences({
             ? "Purchased next period"
             : "Current purchased period",
       )}
-      description={`${instant(period.startsAt)} — ${instant(period.endsAt)} (KST)`}
+      description={`${day(period.startsAt)} — ${day(period.endsAt)}`}
       actions={
         // Each figure on its own, never summed: pending revocations still
         // hold capacity, so one total would hide them.
@@ -625,7 +685,10 @@ function PeriodLicences({
       }
     >
       {rows.length > 0 && (
-        <div className={listClass}>
+        <div>
+          <ListHead
+            columns={[c("이름", "Name"), c("배정 기간", "Assigned for"), c("상태", "State")]}
+          />
           {rows.map((assignment) => (
             <AssignmentRow
               key={assignment.id}
@@ -796,26 +859,29 @@ function AssignmentRow({
     labels[assignment.state][0],
     labels[assignment.state][1],
   );
+  const name = manager
+    ? (personName(person) ?? c("이전 참여자", "Former participant"))
+    : c("내 배정", "My assignment");
   return (
-    <section
-      aria-label={`${manager ? (personName(person) ?? c("이전 참여자", "Former participant")) : c("내 배정", "My assignment")} · ${stateLabel}`}
-      className="space-y-1 px-4 py-3 text-sm"
-    >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="font-medium break-all">
-          {manager
-            ? (personName(person) ?? c("이전 참여자", "Former participant"))
-            : c("내 배정", "My assignment")}
+    <section aria-label={`${name} · ${stateLabel}`} className={rowClass}>
+      <RowHead
+        icon={
+          manager ? (
+            <Avatar id={assignment.userId} name={name} />
+          ) : (
+            <IconBox icon={KeyRound} />
+          )
+        }
+        name={name}
+        when={`${day(assignment.startsAt)} — ${day(assignment.endsAt)}`}
+        state={stateLabel}
+      />
+      {assignment.scheduledRevokeAt && (
+        <p className="text-xs text-muted tabular-nums">
+          {c("예정 회수", "Scheduled revocation")}{" "}
+          {instant(assignment.scheduledRevokeAt)}
         </p>
-        <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs">
-          {stateLabel}
-        </span>
-      </div>
-      <p className="text-xs tabular-nums text-muted">
-        {instant(assignment.startsAt)} — {instant(assignment.endsAt)} (KST)
-        {assignment.scheduledRevokeAt &&
-          ` · ${c("예정 회수", "Scheduled revocation")} ${instant(assignment.scheduledRevokeAt)}`}
-      </p>
+      )}
       {assignment.state === "revoking" && (
         <p role="status" className="text-xs leading-5 text-muted">
           {wait

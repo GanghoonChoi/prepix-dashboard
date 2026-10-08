@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { File as FileIcon, FileCog, Film } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import {
   b2bService,
@@ -194,9 +195,11 @@ function FilesView({ scope }: { scope: FileScope }) {
             }
           />
         ) : (
-          <ul className="divide-y divide-border border-y border-border">
+          <>
+          <FileListHead />
+          <ul>
             {list.versions.map((version) => (
-              <li className="space-y-1 py-3" key={version.id}>
+              <li className={fileRowClass} key={version.id}>
                 <VersionHeader
                   version={version}
                   action={
@@ -277,6 +280,7 @@ function FilesView({ scope }: { scope: FileScope }) {
               </li>
             ))}
           </ul>
+          </>
         )}
         {(cursor || list.nextCursor) && (
           <div className="flex flex-wrap gap-3">
@@ -323,24 +327,52 @@ export function VersionHeader({
   action?: ReactNode;
 }) {
   const c = useCopy();
+  const Icon = version.kind === "output" ? Film : version.kind === "working" ? FileCog : FileIcon;
   return (
-    <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
-      <div className="min-w-0 flex-1">
-        <h2 className="break-all text-sm font-medium">{version.assetName}</h2>
-        <p className="break-all text-[13px] text-muted tabular-nums">
-          {version.name} · {c("버전", "Version")} {version.ordinal} ·{" "}
-          {bytes(version.size)} · {c(...kinds[version.kind])}
-        </p>
-      </div>
-      <div className="flex shrink-0 flex-wrap items-center gap-2">
-        <span
-          aria-live="polite"
-          className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs"
-        >
-          {previewStateCopy(version.previewState, c)}
+    <div className={fileGrid}>
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="grid size-8 shrink-0 place-items-center rounded-md bg-surface-secondary text-muted">
+          <Icon size={15} strokeWidth={1.75} aria-hidden="true" />
         </span>
-        {action}
+        <div className="min-w-0">
+          <h2 className="truncate text-[13px] font-medium">{version.assetName}</h2>
+          <p className="truncate text-xs text-muted tabular-nums">
+            {version.name} · {c("버전", "Version")} {version.ordinal}
+            <span className="sm:hidden">
+              {" "}· {bytes(version.size)} · {c(...kinds[version.kind])}
+            </span>
+          </p>
+        </div>
       </div>
+      <p className="hidden text-[13px] text-muted tabular-nums sm:block">
+        {bytes(version.size)} · {c(...kinds[version.kind])}
+      </p>
+      <span
+        aria-live="polite"
+        className="hidden w-fit items-center rounded-full border border-border px-2 py-0.5 text-xs sm:inline-flex"
+      >
+        {previewStateCopy(version.previewState, c)}
+      </span>
+      <div className="flex justify-end">{action}</div>
+    </div>
+  );
+}
+
+/** One grid for the file list's head and every row, so they line up like a
+ * table while each row stays a list item with its own actions under it. */
+const fileGrid =
+  "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 sm:grid-cols-[minmax(0,1fr)_9rem_10rem_8rem]";
+/** Actions and details under a row line up with the file name, not the icon. */
+export const fileRowClass = "space-y-1.5 border-b border-border py-3 sm:[&>*:not(:first-child)]:pl-11";
+
+export function FileListHead() {
+  const c = useCopy();
+  return (
+    <div aria-hidden="true" className={`${fileGrid} hidden h-11 border-b border-border text-xs font-medium text-muted sm:grid`}>
+      <span>{c("이름", "Name")}</span>
+      <span>{c("크기·종류", "Size · kind")}</span>
+      <span>{c("미리보기", "Preview")}</span>
+      <span />
     </div>
   );
 }
