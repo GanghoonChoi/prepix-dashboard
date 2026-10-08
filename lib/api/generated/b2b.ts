@@ -146,7 +146,7 @@ export type Invitation = {
   expiresAt: string;
   acceptedAt: string | null;
   revokedAt: string | null;
-  deliveryState: "queued" | "sending" | "sent" | "failed";
+  deliveryState: "held" | "queued" | "sending" | "sent" | "failed";
   revision: number;
 };
 export type InvitationPreview = {

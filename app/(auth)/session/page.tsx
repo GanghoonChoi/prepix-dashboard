@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { LoadingScreen } from "@/components/loading-screen";
 import { apiClient } from "@/lib/api/client";
 import { readHandoff, clearHandoff } from "@/lib/handoff";
+import { landing } from "@/lib/home";
 import { safeReturnTo } from "@/lib/return-to";
 import { markSignedIn } from "@/lib/account-hint";
 import { loginHref } from "@/lib/auth-entry";
@@ -55,13 +56,15 @@ export default function SessionPage() {
         code: handoff.code,
         codeVerifier: handoff.verifier,
       })
-      .then(({ data }) => {
+      .then(async ({ data }) => {
         const session = data.data;
         storeSession(session.accessToken, session.refreshToken, session.user);
         // So prepix.ai's header can offer "dashboard" instead of "sign in".
         markSignedIn();
-        const back = safeReturnTo(
-          new URLSearchParams(window.location.search).get("returnTo"),
+        const back = await landing(
+          safeReturnTo(
+            new URLSearchParams(window.location.search).get("returnTo"),
+          ),
         );
         if (back.startsWith("/")) {
           window.location.replace(back);

@@ -13,6 +13,12 @@ export type Profile = {
    * only ever act on an explicit `false`.
    */
   emailVerified?: boolean;
+  /** /start answers, as codes (backend migration 0096). Null = never asked. */
+  useType?: "personal" | "team" | null;
+  jobRole?: string | null;
+  industry?: string | null;
+  teamSize?: string | null;
+  acquisitionSource?: string | null;
   [key: string]: unknown;
 };
 

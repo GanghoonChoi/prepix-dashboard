@@ -105,6 +105,27 @@ function ScopedHome({
   if (offered && !ownership) setOwnership(true);
   const [data, setData] = useState<TeamHome | null>(null),
     [error, setError] = useState("");
+  // Invitations typed in /start wait for the first payment; say how many.
+  const [held, setHeld] = useState(0);
+  const preparing = status.team.currentState === "preparing";
+  useEffect(() => {
+    if (!preparing) return;
+    let live = true;
+    void b2bService
+      .invitations(workspace.id)
+      .then(
+        (r) =>
+          live &&
+          setHeld(
+            r.invitations.filter((i) => i.deliveryState === "held" && !i.revokedAt)
+              .length,
+          ),
+      )
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [workspace.id, preparing]);
   const lifetime = useRef<AbortController | null>(null),
     sequence = useRef(0);
   const load = useCallback(async () => {
@@ -182,10 +203,15 @@ function ScopedHome({
           <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-muted">
             <span>
               {state === "preparing"
-                ? c(
-                    "첫 이용권 반영 전에는 이용기간이 시작되지 않습니다.",
-                    "The period starts when the first purchase is applied.",
-                  )
+                ? held > 0
+                  ? c(
+                      `결제하면 ${held}명에게 초대가 발송됩니다.`,
+                      `Pay to send invitations to ${held} people.`,
+                    )
+                  : c(
+                      "첫 이용권 반영 전에는 이용기간이 시작되지 않습니다.",
+                      "The period starts when the first purchase is applied.",
+                    )
                 : state === "read_only"
                   ? c(
                       "이용기간이 종료되어 열람과 다운로드만 가능합니다.",
@@ -198,9 +224,19 @@ function ScopedHome({
             </span>
             {state === "preparing" ? (
               status.allowedActions.billing && (
-                <Link className="text-foreground underline underline-offset-4" href={`${base}/plan`}>
-                  {c("플랜과 결제", "Plan and billing")}
-                </Link>
+                <>
+                  <Link className="text-foreground underline underline-offset-4" href={`${base}/plan`}>
+                    {held > 0 ? c("결제하기", "Pay") : c("플랜과 결제", "Plan and billing")}
+                  </Link>
+                  {held > 0 && (
+                    <Link
+                      className="text-foreground underline underline-offset-4"
+                      href={`/start?step=invite&intent=team&workspace=${workspace.id}`}
+                    >
+                      {c("초대 명단 보기", "See who is invited")}
+                    </Link>
+                  )}
+                </>
               )
             ) : (
               <Link className="text-foreground underline underline-offset-4" href={`${base}/status`}>

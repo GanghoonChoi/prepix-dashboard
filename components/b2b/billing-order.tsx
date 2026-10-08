@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import {
@@ -222,6 +223,14 @@ export function BillingOrder({ workspaceId, orderId }: { workspaceId: string; or
             <p className="text-[13px] leading-5 text-muted">
               {c("결제가 확인되었습니다. 이용권과 제공량을 반영하는 중이며 다시 결제할 필요가 없습니다.", "Payment is confirmed. Licences and allowances are being applied; no further payment is needed.")}
             </p>
+          )}
+          {process.env.NEXT_PUBLIC_START_ONBOARDING === "1" && order.state === "applied" && (
+            <Link
+              className="text-[13px] text-foreground underline underline-offset-4"
+              href={`/start?step=app&workspace=${workspaceId}`}
+            >
+              {c("다음: 앱 설치하고 첫 편집", "Next: install the app")}
+            </Link>
           )}
           {order.state === "review_required" && (
             <p className="text-[13px] leading-5 text-muted">

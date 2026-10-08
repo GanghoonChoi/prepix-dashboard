@@ -56,9 +56,16 @@ export function PurchaseQuotes({
   const [renewal, setRenewal] = useState<"one_off" | "automatic">("one_off");
   // A seat carries the person's app editing and AI limits, like a personal
   // plan: nothing to buy but seats and storage (no AI packs).
-  const [quantities, setQuantities] = useState({
-    extraSeats: "0",
-    storagePacks: "0",
+  const [quantities, setQuantities] = useState(() => {
+    // /start hands over the seat count it showed; the quote is still the price.
+    const asked =
+      typeof window === "undefined"
+        ? null
+        : new URLSearchParams(window.location.search).get("extraSeats");
+    return {
+      extraSeats: asked && /^\d{1,4}$/.test(asked) ? asked : "0",
+      storagePacks: "0",
+    };
   });
   const pending = useRef<CreateTeamQuote | null>(null);
   const sequence = useRef(0);

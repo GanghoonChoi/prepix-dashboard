@@ -1,35 +1,41 @@
 "use client";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
-import { ArrowLeft, Check, Download, Pencil } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowLeft, Download } from "lucide-react";
 import { Lockup } from "@/components/brand";
 import { useI18n } from "@/lib/i18n/context";
 import { loginHref, signupHref } from "@/lib/auth-entry";
 import {
   readStartState,
   startHref,
+  type Intent,
   type StartState,
   type StartStep,
 } from "@/lib/onboarding";
 import {
   workspaceService,
-  type Capabilities,
-  type WorkspaceDetail,
   type WorkspaceList,
 } from "@/lib/api/services/workspace.service";
-import {
-  inputClass,
-  primaryClass,
-  secondaryClass,
-} from "@/components/workspaces/shared";
-import { useTeamCreation } from "@/components/workspaces/use-team-creation";
+import { userService, type Profile } from "@/lib/api/services/user.service";
+import { primaryClass, secondaryClass } from "@/components/workspaces/shared";
 import { CloudEntry } from "@/components/workspaces/cloud-entry";
-import { InviteForm } from "@/components/workspaces/invite-form";
-import { workspaceError } from "@/lib/workspaces/onboarding";
-import { isPersonal, personalFirst, seatFigures } from "@/lib/workspaces/kind";
+import { isPersonal, personalFirst } from "@/lib/workspaces/kind";
+import {
+  InviteStep,
+  NameStep,
+  PayStep,
+  ProfileStep,
+  UseStep,
+} from "./steps";
 
 type Row = WorkspaceList["workspaces"][number];
 
+/**
+ * First run, for both kinds of account (spec:
+ * docs/plans/onboarding-renewal-design-2026-10-08.md). One sequence; the
+ * answer to "how will you use Prepix" only decides whether the team steps —
+ * invite and pay — follow the name.
+ */
 export function StartExperience() {
   const { lang, t } = useI18n();
   const ko = lang === "ko";
@@ -37,14 +43,20 @@ export function StartExperience() {
   const [state, setState] = useState<StartState | null>(null);
   const [signedIn, setSignedIn] = useState(false);
   const [list, setList] = useState<WorkspaceList | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
   const [attempt, setAttempt] = useState(0);
+  // Whether the visitor arrived already having answered (the site's Business
+  // button sends intent=team). Then "use" is not part of their sequence.
+  const arrivedWithIntent = useRef<boolean | null>(null);
 
   useEffect(() => {
     const read = () => {
-      setState(readStartState(window.location.search));
+      const next = readStartState(window.location.search);
+      arrivedWithIntent.current ??= next.intent !== null;
+      setState(next);
       setAttempt((value) => value + 1);
       try {
         setSignedIn(
@@ -71,18 +83,15 @@ export function StartExperience() {
   }, []);
 
   const reload = useCallback(async () => {
-    try {
-      setList(await workspaceService.list());
-      setStatus("ready");
-    } catch {
-      setStatus("error");
-    }
+    const next = await workspaceService.list();
+    setList(next);
+    setStatus("ready");
+    return next;
   }, []);
 
   useEffect(() => {
     if (!signedIn) return;
     let active = true;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setStatus("loading");
     void workspaceService
       .list()
@@ -98,6 +107,26 @@ export function StartExperience() {
       active = false;
     };
   }, [signedIn, attempt]);
+
+  // The profile only steers; failing to read it changes nothing but defaults.
+  useEffect(() => {
+    if (!signedIn) return;
+    let active = true;
+    void userService
+      .getProfile()
+      .then((value) => active && setProfile(value))
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [signedIn]);
+
+  // An answer that came from the site is saved once, the same as one given here.
+  const urlIntent = state?.intent ?? null;
+  useEffect(() => {
+    if (!profile || profile.useType || !urlIntent) return;
+    void userService.updateProfile({ useType: urlIntent }).catch(() => undefined);
+  }, [profile, urlIntent]);
 
   function navigate(next: StartState) {
     window.history.pushState(null, "", startHref(next, lang));
@@ -115,41 +144,71 @@ export function StartExperience() {
   const target = startHref(state, lang);
 
   const rows = personalFirst(list?.workspaces ?? []);
-  // Every authenticated account is provisioned a personal space. More than one
-  // workspace is possible, so honour an explicit `?workspace=`; otherwise the
-  // account's own space is the first row, because personal sorts first.
+  const personal: Row | undefined = rows.find(isPersonal);
+  // An explicit `?workspace=` (the team made here) wins; otherwise the
+  // account's own space, which sorts first.
   const workspace: Row | undefined =
     rows.find((row) => row.id === state.workspace) ?? rows[0];
-  const personal = !!workspace && isPersonal(workspace);
   const pending = list?.pendingInvitationCount ?? list?.invitations.length ?? 0;
+  const intent: Intent | null =
+    state.intent ?? (profile?.useType as Intent | null | undefined) ?? null;
+  // "With my team" for someone who already runs one means that team, never a
+  // second create form.
+  const team: Row | undefined =
+    workspace && !isPersonal(workspace)
+      ? workspace
+      : intent === "team"
+        ? rows.find(
+            (row) =>
+              !isPersonal(row) && (row.role === "owner" || row.role === "admin"),
+          )
+        : undefined;
   // "No workspace yet" is a server still catching up, never a prompt to make
-  // one. It is a waiting state with a retry, never a dead end — the Linear trap
-  // is gating everything behind a membership you do not have yet.
+  // one. It is a waiting state with a retry, never a dead end.
   const provisioning = status === "ready" && !workspace;
 
-  // The join offer only exists when there is something to join, so for most
-  // people it is not a step at all.
-  const step: StartStep =
-    state.step === "join" && pending === 0 ? "workspace" : state.step;
+  // The join offer only exists when there is something to join, and the first
+  // question is only asked of someone who has not answered it.
+  let step: StartStep = state.step;
+  if (step === "join" && pending === 0) step = intent ? "profile" : "use";
+  if (step === "use" && intent) step = "profile";
+  if ((step === "invite" || step === "pay") && !team) step = "workspace";
+  // Seats and held invitations are B2B team things; an older team has neither.
+  if ((step === "invite" || step === "pay") && team?.b2bEnrolled === false)
+    step = "app";
   const sequence: StartStep[] = [
     ...(pending > 0 ? (["join"] as StartStep[]) : []),
+    ...(arrivedWithIntent.current ? [] : (["use"] as StartStep[])),
+    "profile",
     "workspace",
-    "invite",
+    ...(intent === "team" ? (["invite", "pay"] as StartStep[]) : []),
     "app",
   ];
+  const go = (next: Partial<StartState>) => navigate({ ...state, ...next });
+  const afterName = () =>
+    state.next === "plan"
+      ? window.location.assign("/dashboard/plan")
+      : go({ step: "app" });
   const label: Record<StartStep, string> = {
     join: copy("Join", "참여"),
+    use: copy("How you'll use it", "사용 방식"),
+    profile: copy("About you", "소개"),
     workspace: copy("Workspace", "워크스페이스"),
     invite: copy("Invite", "초대"),
+    pay: copy("Pay", "결제"),
     app: copy("Open the app", "앱 열기"),
     edit: copy("First edit", "첫 편집"),
   };
   const heading: Record<StartStep, [string, string]> = {
     join: ["You have been invited", "초대를 받았습니다"],
-    workspace: personal
-      ? [t("team.startPersonalTitle"), t("team.startPersonalTitle")]
-      : ["Your workspace is ready", "워크스페이스가 준비되었습니다"],
+    use: ["How will you use Prepix?", "Prepix를 어떻게 쓰실 건가요?"],
+    profile: ["Tell us a little about your work", "어떤 일을 하시나요?"],
+    workspace:
+      intent === "team"
+        ? ["Create your team workspace", "팀 워크스페이스를 만드세요"]
+        : ["Name your workspace", "워크스페이스 이름을 정하세요"],
     invite: ["Invite your team", "함께할 팀원을 초대하세요"],
+    pay: ["Review seats and pay", "좌석을 확인하고 결제하세요"],
     app: ["Open Prepix on your computer", "컴퓨터에서 Prepix를 여세요"],
     edit: ["Make your first edit", "첫 편집을 만들어 보세요"],
   };
@@ -158,18 +217,31 @@ export function StartExperience() {
       "Someone has already made a space for you. Joining it puts your work alongside theirs.",
       "이미 만들어 둔 공간에 초대받았습니다. 참여하면 동료와 같은 곳에서 작업하게 됩니다.",
     ],
-    // Step 2 is not a fork between "personal" and "team" any more — the personal
-    // space already exists, and a team is a separate thing you make when you
-    // need one (spec D13 §2.3: auto-provision, never a forced step).
-    workspace: personal
-      ? [t("team.startPersonalBody"), t("team.startPersonalBody")]
-      : [
-          "We made it with your account. Rename it if you like — the address stays the same either way.",
-          "계정 정보로 만들어 두었습니다. 원하면 이름을 바꾸세요. 주소는 그대로 유지됩니다.",
-        ],
+    use: [
+      "Only the next steps change. You can make a team any time.",
+      "답에 따라 다음 단계만 달라집니다. 나중에 언제든 팀을 만들 수 있어요.",
+    ],
+    profile: [
+      "Only used to tailor what we show you. Skip if you like.",
+      "더 맞는 안내를 위해서만 씁니다. 건너뛰어도 됩니다.",
+    ],
+    workspace:
+      intent === "team"
+        ? [
+            "Your team works here together. You stay the owner; your own space is kept too.",
+            "팀이 함께 쓰는 공간입니다. 만든 사람이 소유자가 되고, 개인 공간도 그대로 남습니다.",
+          ]
+        : [
+            "Your own space, made with your account. Rename it if you like.",
+            "계정과 함께 만들어진 내 공간입니다. 원하면 이름을 바꾸세요.",
+          ],
     invite: [
-      "Anyone you invite joins this same workspace. You can do this later instead.",
-      "초대한 사람은 이 워크스페이스에 함께 참여합니다. 나중에 해도 됩니다.",
+      "Invitations go out the moment payment completes.",
+      "결제가 끝나는 순간 초대 메일이 발송됩니다.",
+    ],
+    pay: [
+      "Seats are you plus everyone you invited. Payment happens on the team's plan page.",
+      "좌석은 나와 초대한 팀원 수입니다. 결제는 팀 플랜 화면에서 진행됩니다.",
     ],
     app: [
       "Editing happens in the desktop app, on your computer. Your work stays local.",
@@ -201,7 +273,7 @@ export function StartExperience() {
         {step === "edit" && (
           <button
             className="flex items-center gap-2 text-sm text-muted"
-            onClick={() => navigate({ ...state, step: "app" })}
+            onClick={() => go({ step: "app" })}
           >
             <ArrowLeft size={16} strokeWidth={1.5} />
             {copy("Installation help", "설치 안내 다시 보기")}
@@ -283,7 +355,7 @@ export function StartExperience() {
               </button>
               <button
                 className={secondaryClass}
-                onClick={() => navigate({ ...state, step: "app" })}
+                onClick={() => go({ step: "app" })}
               >
                 {copy("Open the app", "앱 열기")}
               </button>
@@ -309,7 +381,7 @@ export function StartExperience() {
               </button>
               <button
                 className={secondaryClass}
-                onClick={() => navigate({ ...state, step: "app" })}
+                onClick={() => go({ step: "app" })}
               >
                 {copy("Open the app meanwhile", "먼저 앱 열기")}
               </button>
@@ -318,57 +390,53 @@ export function StartExperience() {
         ) : step === "join" && list ? (
           <JoinStep
             list={list}
-            onSkip={() =>
-              navigate({ step: "workspace", workspace: state.workspace })
-            }
+            onSkip={() => go({ step: intent ? "profile" : "use" })}
           />
-        ) : step === "workspace" && workspace ? (
-          personal ? (
-            <PersonalStep
-              onTeam={async (teamId) => {
-                const next = await workspaceService.list();
-                if (!next.workspaces.some((row) => row.id === teamId))
-                  throw new Error("Team destination unavailable");
-                setList(next);
-                setStatus("ready");
-                navigate({ step: "invite", workspace: teamId });
-              }}
-              onNext={() =>
-                navigate({ step: "invite", workspace: workspace.id })
-              }
-            />
-          ) : (
-            <WorkspaceStep
-              workspace={workspace}
-              onRenamed={reload}
-              onNext={() =>
-                navigate({ step: "invite", workspace: workspace.id })
-              }
-            />
-          )
-        ) : step === "invite" && workspace ? (
-          personal ? (
-            // There is nobody to invite into a personal space, and there is no
-            // form here that could pretend otherwise. The step stays in the
-            // sequence so the shape of first run does not change under people
-            // who came back to it.
+        ) : step === "use" ? (
+          <UseStep onPick={(picked) => go({ step: "profile", intent: picked })} />
+        ) : step === "profile" ? (
+          <ProfileStep onDone={() => go({ step: "workspace" })} />
+        ) : step === "workspace" && personal ? (
+          intent === "team" && team ? (
+            // Back here after the team exists: never a second create form.
             <section className="space-y-5 rounded-lg border border-border p-6">
-              <p className="text-sm leading-6">{t("team.startNoTeam")}</p>
+              <p className="font-medium">{team.name}</p>
               <button
-                className={secondaryClass}
-                onClick={() =>
-                  navigate({ step: "app", workspace: workspace.id })
-                }
+                className={primaryClass}
+                onClick={() => go({ step: "invite", workspace: team.id })}
               >
-                {copy("Do this later", "나중에 하기")}
+                {copy("Continue", "계속하기")}
               </button>
             </section>
           ) : (
-            <InviteStep
-              workspace={workspace}
-              onNext={() => navigate({ step: "app", workspace: workspace.id })}
+            <NameStep
+              intent={intent ?? "personal"}
+              personal={personal}
+              onPersonal={() => {
+                void reload().catch(() => undefined);
+                afterName();
+              }}
+              onTeam={async (teamId) => {
+                const next = await reload();
+                if (!next.workspaces.some((row) => row.id === teamId))
+                  throw new Error("Team destination unavailable");
+                go({ step: "invite", workspace: teamId });
+              }}
             />
           )
+        ) : step === "invite" && team ? (
+          <InviteStep
+            workspaceId={team.id}
+            self={String(profile?.email ?? "")}
+            onNext={() => go({ step: "pay", workspace: team.id })}
+          />
+        ) : step === "pay" && team ? (
+          <PayStep
+            workspaceId={team.id}
+            onLater={() =>
+              window.location.assign(`/dashboard/workspaces/${team.id}`)
+            }
+          />
         ) : null}
 
         {signedIn && (step === "app" || step === "edit") && (
@@ -376,7 +444,7 @@ export function StartExperience() {
             {workspace && step === "app" && (
               <aside className="space-y-2 rounded-lg border border-border bg-surface p-5">
                 <p className="font-medium">
-                  {personal ? t("team.kind.personal") : workspace.name}
+                  {isPersonal(workspace) ? t("team.kind.personal") : workspace.name}
                 </p>
                 <p className="text-sm leading-6 text-muted">
                   {copy(
@@ -415,7 +483,7 @@ export function StartExperience() {
                   </a>
                   <button
                     className={secondaryClass}
-                    onClick={() => navigate({ ...state, step: "edit" })}
+                    onClick={() => go({ step: "edit" })}
                   >
                     {copy(
                       "I have the app — next steps",
@@ -536,340 +604,6 @@ function JoinStep({
           {copy("Not now", "나중에 하기")}
         </button>
       </div>
-    </section>
-  );
-}
-
-/**
- * Step 2 for the space every account already has.
- *
- * Not a fork between "my videos" and "start with a team" — that was a
- * signup-time choice, and the thing it chose between is now two persistent
- * objects. The personal space is already here; a team is an explicit, named
- * action taken when somebody needs one, which is also the D13 §2.3 requirement
- * that a personal→team move never happen by accident.
- */
-function PersonalStep({
-  onTeam,
-  onNext,
-}: {
-  onTeam: (workspaceId: string) => Promise<void>;
-  onNext: () => void;
-}) {
-  const { lang, t } = useI18n();
-  const ko = lang === "ko";
-  const copy = (en: string, korean: string) => (ko ? korean : en);
-  const [name, setName] = useState("");
-  const [open, setOpen] = useState(false);
-  const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
-  const { submit, busy, pending, error } = useTeamCreation(capabilities);
-  const [capabilityFailure, setCapabilityFailure] = useState(false);
-  useEffect(() => {
-    let active = true;
-    workspaceService
-      .capabilities()
-      .then((value) => {
-        if (active) setCapabilities(value);
-      })
-      .catch(() => {
-        if (active) setCapabilityFailure(true);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-  const b2b = capabilities?.newTeamPolicy === "b2b_v1";
-  return (
-    <section className="space-y-5 rounded-lg border border-border p-6">
-      <p className="text-sm leading-6 text-muted">{t("team.personalDesc")}</p>
-      {open ? (
-        <form
-          className="space-y-4"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            if (capabilities)
-              await submit(name, (workspace) => onTeam(workspace.id));
-          }}
-        >
-          <label
-            className="block text-sm font-medium"
-            htmlFor="start-team-name"
-          >
-            {t("team.startTeamName")}
-          </label>
-          {capabilityFailure && (
-            <p role="alert" className="text-sm text-muted">
-              {copy(
-                "Team settings could not be loaded. Open the team creation page to retry.",
-                "팀 생성 설정을 불러오지 못했습니다. 팀 생성 화면에서 다시 시도해 주세요.",
-              )}{" "}
-              <Link className="underline" href="/dashboard/workspaces/new">
-                {t("team.create")}
-              </Link>
-            </p>
-          )}
-          <input
-            id="start-team-name"
-            className={`${inputClass} max-w-sm`}
-            value={name}
-            maxLength={b2b ? 100 : 80}
-            disabled={busy || pending || !capabilities}
-            placeholder={t("team.placeholder")}
-            onChange={(event) => setName(event.target.value)}
-          />
-          <p className="text-xs leading-5 text-muted">
-            {t(b2b ? "team.b2bCreationTerms" : "team.startTeamHint")}
-          </p>
-          {error && (
-            <p role="alert" className="text-sm leading-6">
-              {t(`team.error.${error}`)}
-            </p>
-          )}
-          {pending && !busy && (
-            <p role="status" className="text-sm leading-6 text-muted">
-              {t("team.creationRetryHint")}
-            </p>
-          )}
-          <div className="flex flex-wrap gap-3">
-            <button
-              className={primaryClass}
-              disabled={
-                busy || !name.trim() || (!pending && !capabilities?.canCreate)
-              }
-            >
-              {t(
-                busy
-                  ? "team.creating"
-                  : pending
-                    ? "team.creationRetry"
-                    : "team.makeTeam",
-              )}
-            </button>
-            <button
-              type="button"
-              className={secondaryClass}
-              disabled={busy || pending}
-              onClick={() => setOpen(false)}
-            >
-              {copy("Cancel", "취소")}
-            </button>
-          </div>
-        </form>
-      ) : (
-        <div className="flex flex-wrap gap-3">
-          <button className={primaryClass} onClick={onNext}>
-            {copy("Continue", "계속하기")}
-          </button>
-          <button className={secondaryClass} onClick={() => setOpen(true)}>
-            {t("team.makeTeam")}
-          </button>
-        </div>
-      )}
-    </section>
-  );
-}
-
-/**
- * Step 2 for a team — the one step the research says matters.
- *
- * Vercel is the only product that auto-names; every other one makes you type a
- * name, so people arrive expecting to. A good default plus an easy rename is
- * the point: nothing is required here, and continuing without touching it is a
- * perfectly good answer.
- */
-function WorkspaceStep({
-  workspace,
-  onRenamed,
-  onNext,
-}: {
-  workspace: Row;
-  onRenamed: () => Promise<void>;
-  onNext: () => void;
-}) {
-  const { lang } = useI18n();
-  const ko = lang === "ko";
-  const copy = (en: string, korean: string) => (ko ? korean : en);
-  const [draft, setDraft] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [saved, setSaved] = useState(false);
-  // Rename sits behind its own backend flag, and a reviewer cannot rename at
-  // all. Either way the name is shown; only the field goes away.
-  const canRename =
-    workspace.managementEnabled !== false &&
-    (workspace.role === "owner" || workspace.role === "admin");
-  const name = draft ?? workspace.name;
-  async function save(event: React.FormEvent) {
-    event.preventDefault();
-    const next = name.trim();
-    if (busy || !next || next === workspace.name) return;
-    setBusy(true);
-    setError("");
-    try {
-      await workspaceService.settings(workspace.id, {
-        name: next,
-        // `settings` replaces all three fields, so echoing the current
-        // description is what keeps a rename from wiping it.
-        description: workspace.description ?? "",
-        revision: workspace.revision ?? 0,
-      });
-      await onRenamed();
-      setDraft(null);
-      setSaved(true);
-    } catch (e) {
-      setError(workspaceError(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <section className="space-y-5 rounded-lg border border-border p-6">
-      {canRename ? (
-        <form className="space-y-4" onSubmit={save}>
-          <label
-            className="block text-sm font-medium"
-            htmlFor="start-workspace-name"
-          >
-            {copy("Workspace name", "워크스페이스 이름")}
-          </label>
-          <div className="flex flex-wrap gap-3">
-            <input
-              id="start-workspace-name"
-              className={`${inputClass} max-w-sm flex-1`}
-              value={name}
-              maxLength={workspace.b2bEnrolled ? 100 : 80}
-              disabled={busy}
-              onChange={(event) => {
-                setDraft(event.target.value);
-                setSaved(false);
-              }}
-            />
-            <button
-              className={secondaryClass}
-              disabled={busy || !name.trim() || name.trim() === workspace.name}
-            >
-              <Pencil size={16} strokeWidth={1.5} aria-hidden="true" />
-              {copy(
-                busy ? "Saving…" : "Save name",
-                busy ? "저장 중…" : "이름 저장",
-              )}
-            </button>
-          </div>
-          <p className="text-xs text-muted">
-            {copy(
-              `Up to ${workspace.b2bEnrolled ? 100 : 80} characters. Renaming does not change the workspace address.`,
-              `최대 ${workspace.b2bEnrolled ? 100 : 80}자. 이름을 바꿔도 워크스페이스 주소는 바뀌지 않습니다.`,
-            )}
-          </p>
-          {saved && (
-            <p role="status" className="flex items-center gap-2 text-sm">
-              <Check size={16} strokeWidth={1.5} aria-hidden="true" />
-              {copy("Name saved.", "이름을 저장했습니다.")}
-            </p>
-          )}
-          {error && (
-            <p role="alert" className="text-sm leading-6">
-              {error === "WORKSPACE_SETTINGS_CHANGED"
-                ? copy(
-                    "This workspace changed somewhere else. Reload and rename again.",
-                    "다른 곳에서 워크스페이스가 변경되었습니다. 새로고침한 뒤 다시 시도하세요.",
-                  )
-                : copy(
-                    "We could not save that name. Your text is still here — try again.",
-                    "이름을 저장하지 못했습니다. 입력한 내용은 그대로 있습니다. 다시 시도하세요.",
-                  )}
-            </p>
-          )}
-        </form>
-      ) : (
-        <p className="font-medium">{workspace.name}</p>
-      )}
-      <button className={primaryClass} onClick={onNext}>
-        {copy("Continue", "계속하기")}
-      </button>
-    </section>
-  );
-}
-
-/**
- * Step 3 — inviting someone is the whole conversion from solo to team, so it is
- * an explicit step with an explicit way past it (Slack/Figma): a visible
- * "later", never a silent completion.
- */
-function InviteStep({
-  workspace,
-  onNext,
-}: {
-  workspace: Row;
-  onNext: () => void;
-}) {
-  const { lang } = useI18n();
-  const ko = lang === "ko";
-  const copy = (en: string, korean: string) => (ko ? korean : en);
-  const [detail, setDetail] = useState<WorkspaceDetail | null>(null);
-  const [failed, setFailed] = useState(false);
-  const load = useCallback(async () => {
-    try {
-      setDetail(await workspaceService.detail(workspace.id));
-      setFailed(false);
-    } catch {
-      setFailed(true);
-    }
-  }, [workspace.id]);
-  useEffect(() => {
-    // Deferred by a tick, the way workspace-context.tsx does it: the fetch is
-    // async, but starting it inside the effect body still trips the cascading
-    // render rule.
-    const initial = window.setTimeout(() => void load(), 0);
-    return () => window.clearTimeout(initial);
-  }, [load]);
-  return (
-    <section className="space-y-5 rounded-lg border border-border p-6">
-      {detail?.b2bEnrolled ? (
-        <div className="space-y-3">
-          <p className="text-sm leading-6 text-muted">
-            {copy(
-              "Check your current service status from the team home. Teams in preparation can use settings and purchasing. Participation is free, and editing licences are assigned separately.",
-              "팀 홈에서 현재 이용 상태를 확인해 주세요. 준비 상태에서는 설정과 구매만 이용할 수 있습니다. 팀 참여는 무료이고, 편집 이용권은 별도로 배정합니다.",
-            )}
-          </p>
-          <Link
-            className={primaryClass}
-            href={`/dashboard/workspaces/${workspace.id}`}
-          >
-            {copy("Open team home", "팀 홈으로 이동하기")}
-          </Link>
-        </div>
-      ) : detail ? (
-        <InviteForm
-          workspaceId={workspace.id}
-          workspace={detail.workspace}
-          isOwner={detail.role === "owner"}
-          availableSeats={seatFigures(detail)?.remaining ?? 0}
-          existingEmails={detail.members.map((member) => member.email)}
-          pendingEmails={detail.invitations
-            .filter((row) => !row.acceptedAt && !row.revokedAt)
-            .map((row) => row.email)}
-          ownerEmail={
-            detail.members.find((member) => member.role === "owner")?.email
-          }
-          onChange={load}
-        />
-      ) : failed ? (
-        <p role="alert" className="text-sm leading-6">
-          {copy(
-            "We could not load the invitation form. You can invite people later from the workspace.",
-            "초대 화면을 불러오지 못했습니다. 나중에 워크스페이스에서 초대할 수 있습니다.",
-          )}
-        </p>
-      ) : (
-        <p role="status" className="text-sm text-muted">
-          {copy("Loading…", "불러오는 중…")}
-        </p>
-      )}
-      <button className={secondaryClass} onClick={onNext}>
-        {copy("Do this later", "나중에 하기")}
-      </button>
     </section>
   );
 }
