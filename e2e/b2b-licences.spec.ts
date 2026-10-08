@@ -446,7 +446,7 @@ test("멤버 = 좌석: joining takes a seat, the fourth waits, turning one off h
   });
   let charged: { quoteId?: string } = {};
   const orderId = randomUUID();
-  await page.route(/\/b2b\/billing\/seats$/, async (route) => {
+  await page.route(/\/b2b\/billing\/charge$/, async (route) => {
     charged = route.request().postDataJSON();
     await route.fulfill({ json: { data: { order: { id: orderId, state: "received" } } } });
   });

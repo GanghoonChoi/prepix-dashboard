@@ -37,14 +37,21 @@ const buyer = {
   receiptEmail: "finance@example.test",
 };
 
+/** A one-off checkout order made through the API: the window path the order
+ * page still serves (the plan page itself charges the registered card). */
+async function checkoutOrder(request: APIRequestContext, id: string, h: Record<string, string>) {
+  const base = `${api}/v2/workspaces/${id}/b2b`;
+  const product = (await (await request.get(`${base}/commerce`, { headers: h })).json()).data.product;
+  const quote = (await (await request.post(`${base}/commerce/quotes`, { headers: h, data: { requestKey: crypto.randomUUID(), productVersion: product.version, target: "initial", renewal: "one_off", extraSeats: 0, aiPacks: 0, storagePacks: 0 } })).json()).data.quote;
+  const order = (await (await request.post(`${base}/commerce/orders`, { headers: h, data: { requestKey: crypto.randomUUID(), quoteId: quote.id, buyer: { schemaVersion: "local-v1", ...buyer } } })).json()).data;
+  return order.orderId as string;
+}
+
 test("a late payment return cannot clear the query of the next client-side view", async ({ page, request }) => {
   const owner = await account(request, "billing-late-return");
   const id = await team(request, owner.headers);
-  await login(page, owner.email, `/dashboard/workspaces/${id}/plan/settings`);
-  await saveProfile(page);
-  await expect(page.getByLabel("상호", { exact: true })).toBeEnabled();
-  await page.goto(`/dashboard/workspaces/${id}/plan`);
-  await page.getByRole("button", { name: "견적 확인", exact: true }).click();
+  const orderId = await checkoutOrder(request, id, owner.headers);
+  await login(page, owner.email, `/dashboard/workspaces/${id}/plan/orders/${orderId}`);
   let release!: () => void;
   const gate = new Promise<void>((resolve) => { release = resolve; });
   let received!: () => void;
@@ -92,66 +99,63 @@ async function saveProfile(page: Page) {
   await page.getByRole("button", { name: "사업자 정보 저장", exact: true }).click();
 }
 
-test("purchase survives lost replies: one profile change, one order, one payment, applied once", async ({ page, request }) => {
+test("Business checkout: details, one card window, the first month charged once despite a lost reply, then back to /start", async ({ page, request }) => {
   const owner = await account(request, "billing-buy");
   const id = await team(request, owner.headers);
-  await login(page, owner.email, `/dashboard/workspaces/${id}/plan/settings`);
-  // Lost reply on the profile change: the original request is confirmed, not repeated.
-  let profileCalls = 0;
-  await page.route(`${api}/v2/workspaces/${id}/b2b/billing/profile`, async (route) => {
-    profileCalls++;
-    if (profileCalls === 1) {
+  const h = owner.headers,
+    base = `${api}/v2/workspaces/${id}/b2b`;
+  // An invitation made before paying waits for the payment.
+  const invited = `held-${crypto.randomUUID()}@example.test`;
+  expect((await request.post(`${base}/invitations`, { headers: h, data: { requestKey: crypto.randomUUID(), email: invited, kind: "internal", teamRole: "editor", assignSeat: true } })).status()).toBe(201);
+  const back = `/start?locale=ko&step=app&workspace=${id}`;
+  await login(page, owner.email, `/dashboard/workspaces/${id}/plan?${new URLSearchParams({ return: back })}`);
+  const checkout = page.getByTestId("business-checkout");
+  // Owner + one invited editor: under the 3-seat floor.
+  await expect(checkout).toContainText("3석");
+  await expect(checkout).toContainText("멤버 2명");
+  await checkout.getByLabel("상호", { exact: true }).fill(buyer.businessName);
+  await checkout.getByLabel("사업자등록번호", { exact: true }).fill(buyer.businessRegistrationNumber);
+  await checkout.getByLabel("대표자", { exact: true }).fill(buyer.representative);
+  await checkout.getByLabel("사업장 주소", { exact: true }).fill(buyer.address);
+  await checkout.getByLabel("증빙 수신 이메일", { exact: true }).fill(buyer.receiptEmail);
+  const pay = checkout.getByRole("button", { name: /카드 등록하고 .*원 결제/ });
+  await expect(pay).toBeDisabled();
+  await checkout.getByRole("checkbox", { name: /자동결제하는 데 동의합니다/ }).check();
+  // The charge succeeds but its reply is lost: the retry asks for the same order.
+  let charges = 0;
+  await page.route(new RegExp(`/workspaces/${id}/b2b/billing/charge$`), async (route) => {
+    charges++;
+    if (charges === 1) {
       await route.fetch();
       return route.abort("failed");
     }
     return route.continue();
   });
-  await saveProfile(page);
-  await expect(page.getByRole("button", { name: /결과 확인/ })).toBeVisible();
-  await expect(page.getByLabel("상호", { exact: true })).toBeDisabled();
-  await page.getByRole("button", { name: /결과 확인/ }).click();
-  await expect(page.getByRole("button", { name: /결과 확인/ })).toHaveCount(0);
-  expect(profileCalls).toBe(1);
-  const billing = (await (await request.get(`${api}/v2/workspaces/${id}/b2b/billing`, { headers: owner.headers })).json()).data;
-  expect(billing.profile.revision).toBe(0);
-  // Quote, then a lost order reply; the retry finds the same order.
-  await page.goto(`/dashboard/workspaces/${id}/plan`);
-  await page.getByLabel("추가 편집 이용권", { exact: true }).fill("1");
-  await page.getByRole("button", { name: "견적 확인", exact: true }).click();
-  let orderCalls = 0;
-  await page.route(`${api}/v2/workspaces/${id}/b2b/commerce/orders`, async (route) => {
-    if (route.request().method() !== "POST") return route.continue();
-    orderCalls++;
-    if (orderCalls === 1) {
-      await route.fetch();
-      return route.abort("failed");
-    }
-    return route.continue();
-  });
-  await page.getByRole("button", { name: /^결제하기/ }).click();
-  await expect(page.getByRole("button", { name: "같은 주문 결과 확인", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "같은 주문 결과 확인", exact: true }).click();
-  // The local PG double's payment window.
-  await page.waitForURL(`${double}/checkout?**`);
-  expect(orderCalls).toBe(1);
-  await page.getByRole("link", { name: "결제 인증 완료" }).click();
-  await page.waitForURL(`**/plan/orders/**`);
-  await expect(page.getByText("반영 완료", { exact: true })).toBeVisible({ timeout: 30_000 });
-  expect(page.url()).not.toContain("paymentKey");
-  const orders = (await (await request.get(`${api}/v2/workspaces/${id}/b2b/commerce/orders`, { headers: owner.headers })).json()).data;
+  await pay.click();
+  await page.waitForURL(`${double}/billing-auth?**`);
+  await page.getByRole("link", { name: "카드 등록 완료" }).click();
+  await page.waitForURL(`**/plan?registration=**`);
+  // The card is completed by the server and the one-time key leaves the address.
+  await expect.poll(() => page.url(), { timeout: 30_000 }).not.toContain("authKey");
+  const retry = checkout.getByRole("button", { name: /^[\d,]+원 결제$/ });
+  await expect(retry).toBeEnabled({ timeout: 30_000 });
+  await retry.click();
+  await page.waitForURL(`**${back}`, { timeout: 30_000 });
+  expect(charges).toBe(2);
+  const orders = (await (await request.get(`${base}/commerce/orders`, { headers: h })).json()).data;
   expect(orders.items).toHaveLength(1);
   expect(orders.items[0].state).toBe("applied");
-  // Refresh after application does not confirm again or show a new checkout.
-  await page.reload();
-  await expect(page.getByText("반영 완료", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^결제하기/ })).toHaveCount(0);
-  // A tampered return for another amount is never confirmed.
-  await page.goto(`${page.url().split("?")[0]}?pg=success&paymentKey=tdbl_forged&orderId=${orders.items[0].providerOrderId}&amount=1`);
-  await expect(page.getByText("반영 완료", { exact: true })).toBeVisible();
-  await page.setViewportSize({ width: 390, height: 844 });
-  await expect(page.getByText("반영 완료", { exact: true })).toBeVisible();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.screenshot({ path: "test-results/billing-order-390.png", fullPage: true });
+  const billing = (await (await request.get(`${base}/billing`, { headers: h })).json()).data;
+  expect(billing.renewal.mode).toBe("automatic");
+  expect(billing.profile.businessName).toBe(buyer.businessName);
+  const status = (await (await request.get(`${base}/status`, { headers: h })).json()).data;
+  expect(status.team.currentState).toBe("active");
+  const invitations = (await (await request.get(`${base}/invitations`, { headers: h })).json()).data.invitations;
+  expect(invitations.find((i: { email: string }) => i.email === invited).deliveryState).not.toBe("held");
+  // The plan page now points at People instead of a second checkout.
+  await page.goto(`/dashboard/workspaces/${id}/plan`);
+  await expect(page.getByRole("link", { name: "멤버로 이동", exact: true })).toBeVisible();
+  await expect(page.getByTestId("business-checkout")).toHaveCount(0);
 });
 
 test("card registration, renewal plan, refund reservation and account switch keep teams and accounts apart", async ({ page, request }) => {

@@ -65,16 +65,6 @@ export const PLAN_COPY: Record<Lang, Record<string, PlanCopy>> = {
         "Priority processing",
       ],
     },
-    premium: {
-      description: "Done-for-you editing with a dedicated director.",
-      features: [
-        "Unlimited AI processing",
-        "Source-to-final delivery",
-        "Dedicated directing",
-        "2–3 revision rounds",
-        "Custom SLA",
-      ],
-    },
   },
   ko: {
     free: {
@@ -105,16 +95,6 @@ export const PLAN_COPY: Record<Lang, Record<string, PlanCopy>> = {
         "자연어 검색",
         "Premiere Pro · Final Cut 내보내기",
         "우선 처리",
-      ],
-    },
-    premium: {
-      description: "전담 디렉터가 대신 편집해 드려요.",
-      features: [
-        "무제한 AI 처리",
-        "촬영본부터 완성본까지 대행",
-        "전담 디렉팅",
-        "2~3회 수정",
-        "맞춤 SLA",
       ],
     },
   },

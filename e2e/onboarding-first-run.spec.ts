@@ -126,9 +126,11 @@ test("business: team name, invitations held until payment, pay later lands on th
   ).toEqual([[hire, "held"]]);
   const profile = await get<{ useType: string; teamSize: string }>(page, "/users/profile");
   expect(profile).toMatchObject({ useType: "team", teamSize: "6-20" });
-  // The seat count /start showed is what checkout starts from.
-  await page.goto(`/dashboard/workspaces/${id}/plan?extraSeats=2&locale=ko`);
-  await expect(page.getByLabel("추가 편집 이용권", { exact: true })).toHaveValue("2");
+  // The seat count /start showed is what the checkout charges: you and the
+  // invited teammate, under the 3-seat floor.
+  await page.goto(`/dashboard/workspaces/${id}/plan?locale=ko`);
+  await expect(page.getByTestId("business-checkout")).toContainText("3석");
+  await expect(page.getByTestId("business-checkout")).toContainText("멤버 2명");
   // Coming back to "create your team" never offers a second team.
   await page.goto("/start?intent=team&step=workspace&locale=ko");
   await expect(page.locator("section").getByText(`Studio ${suffix}`)).toBeVisible();

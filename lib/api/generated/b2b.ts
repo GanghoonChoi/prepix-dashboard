@@ -600,9 +600,10 @@ export type TeamRenewalPlan = {
   firstChargeAt: string | null;
   upcomingSkipped: boolean;
 };
-/** Seats for this period, charged at once to the renewal card: `quoteId` is a
- * `current` quote of extra seats only. Answers with the order detail. */
-export type AddTeamSeats = { requestKey: string; quoteId: string };
+/** A seats-only quote charged at once to the card on automatic renewal:
+ * `initial` (first month), `current` (seats for the time left) or `restore`.
+ * Answers with the order detail. */
+export type ChargeTeamQuote = { requestKey: string; quoteId: string };
 export type ChangeTeamRenewalPlan = {
   requestKey: string;
   revision: number;
