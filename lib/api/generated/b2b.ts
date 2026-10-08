@@ -182,8 +182,20 @@ export type TeamPerson = {
   accountUnavailable?: boolean;
   /** When this person last used Prepix (newest session refresh); null if never. */
   lastActiveAt?: string | null;
+  /** Their editing seat in the running period (멤버 = 좌석, 0094). */
+  seat?: SeatState;
 };
-export type TeamPeople = { people: TeamPerson[]; canDelegateBilling: boolean };
+/** assigned: holds a seat; releasing: being returned (devices to confirm);
+ * waiting: wants one and none is free; none: reviewer, or turned off. */
+export type SeatState = "assigned" | "releasing" | "waiting" | "none";
+export type TeamPeople = {
+  people: TeamPerson[];
+  canDelegateBilling: boolean;
+  /** Seats of the running period; null before the first purchase. */
+  seats?: { capacity: number; assigned: number; waiting: number } | null;
+};
+/** Turn a member's editing seat on or off; the server assigns or releases. */
+export type SetMemberSeat = { requestKey: string; editing: boolean };
 
 export type ChangeTeamMember = RevisionMutation & {
   action: "admin" | "editor" | "reviewer" | "remove" | "suspend" | "reactivate";
@@ -2364,6 +2376,8 @@ export type TeamHome = {
   currentUserId: string; workspaceId: string; serverTime: string;
   currentState: TeamState;
   period: { startsAt: string; endsAt: string; readUntil: string; recoveryUntil: string } | null;
+  /** My editing seat in the running period (멤버 = 좌석, 0094). */
+  seat?: SeatState;
   periods: { id: string; startsAt: string; endsAt: string;
     state: "current" | "scheduled" | "withheld" | "ended";
     licence: { id: string; state: LicenceState; startsAt: string; endsAt: string; scheduledRevokeAt: string | null } | null;

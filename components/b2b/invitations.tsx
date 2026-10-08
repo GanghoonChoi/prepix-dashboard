@@ -85,7 +85,6 @@ export function InvitationPanel({
     };
   }, [load]);
   const live = rows.filter((row) => !row.acceptedAt && !row.revokedAt);
-  const waiting = rows.filter((row) => row.acceptedAt && row.seat === "waiting");
   useEffect(() => {
     onCount?.(live.length);
   }, [live.length, onCount]);
@@ -386,30 +385,6 @@ export function InvitationPanel({
               </div>
             </ConfirmDialog>
   );
-  const waitingList = (
-    <>
-          {waiting.length > 0 && (
-            <div className="space-y-2" data-testid="invite-seat-waiting">
-              <h3 className="text-[13px] font-medium">
-                {c("좌석 대기", "Waiting for a seat")}
-              </h3>
-              <p className="text-xs text-muted">
-                {c(
-                  "좌석을 추가하면 멤버 화면에서 바로 배정할 수 있습니다.",
-                  "Add a seat, then give it to them from People.",
-                )}
-              </p>
-              <ul className="divide-y divide-border">
-                {waiting.map((row) => (
-                  <li key={row.id} className="break-all py-2.5 text-sm">
-                    {row.email}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-    </>
-  );
   const status = (row: Invitation) =>
     new Date(row.expiresAt).getTime() <= Date.now()
       ? c("초대 만료", "Expired")
@@ -427,12 +402,12 @@ export function InvitationPanel({
         </Dialog>
         <div className="space-y-4">
           {!dialog.isOpen && errorView}
-          {live.length === 0 && !waiting.length ? (
+          {live.length === 0 ? (
             <p className="py-10 text-center text-[13px] text-muted">
               {c("대기 중인 초대가 없습니다.", "No pending invitations.")}
             </p>
           ) : (
-            live.length > 0 && (
+            (
               <table className="w-full border-collapse text-left text-[13px]">
                 <thead>
                   <tr className="border-b border-border text-xs text-muted">
@@ -479,7 +454,6 @@ export function InvitationPanel({
             )
           )}
           {asking && confirm}
-          {waitingList}
         </div>
       </>
     );
@@ -542,7 +516,6 @@ export function InvitationPanel({
             </ul>
           )}
           {asking && confirm}
-          {waitingList}
         </Block>
       )}
     </>
