@@ -422,7 +422,15 @@ test("B2B external invitation proves mailbox and preserves billing mutation on l
     await expect(guestPage.locator("main [role=alert]")).toContainText(
       "접근 권한이 없습니다",
     );
-    await guestPage.goto(`${base}/settings`);
+    // Settings and billing are for owners and admins; a guest leaves from home.
+    for (const path of ["settings", "plan"]) {
+      await guestPage.goto(`${base}/${path}`);
+      await expect(guestPage.getByTestId("access-denied")).toContainText(
+        "권한이 없습니다",
+      );
+    }
+    await guestPage.goto(base);
+    await guestPage.getByRole("button", { name: "팀 나가기", exact: true }).click();
     await guestPage
       .getByLabel("탈퇴 사유", { exact: true })
       .fill("End external participation");
@@ -693,7 +701,8 @@ test("B2B ownership uses consent and verification, retries lost responses and re
   const successorPage = await successorContext.newPage();
   try {
     await signIn(successorPage, successor.email);
-    await successorPage.goto(`${base}/settings`);
+    // A reviewer has no settings page; the offer waits on the team home.
+    await successorPage.goto(base);
     await successorPage
       .getByLabel("소유권 변경 사유", { exact: true })
       .fill("Accept ownership responsibility");
@@ -762,6 +771,7 @@ test("B2B ownership uses consent and verification, retries lost responses and re
     expect(currentOwner.team.revision).toBe(2);
     expect(currentOwner.team.periodEndsAt).toBe(before.team.periodEndsAt);
     await page.goto(`${base}/settings`);
+    await page.getByRole("button", { name: "팀 나가기", exact: true }).click();
     await page
       .getByLabel("탈퇴 사유", { exact: true })
       .fill("Leave after successor acceptance");

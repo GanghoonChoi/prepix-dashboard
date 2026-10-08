@@ -7,12 +7,16 @@ import {
   Block,
   inputClass,
   primaryClass,
+  secondaryClass,
 } from "@/components/workspaces/shared";
 import { B2bError, freeIntent, errorCode, useCopy } from "./shared";
 export function LeaveTeam() {
   const { data, b2b } = useWorkspace()!;
   const c = useCopy();
   const router = useRouter();
+  // Folded behind one button: on the team home this is the last row, and an
+  // open "why are you leaving" box is not something to scroll past daily.
+  const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -36,8 +40,16 @@ export function LeaveTeam() {
               "Leaving ends team and project access at once. Your work stays with the team.",
             )
       }
+      actions={
+        data.role !== "owner" &&
+        !open && (
+          <button className={secondaryClass} onClick={() => setOpen(true)}>
+            {c("팀 나가기", "Leave team")}
+          </button>
+        )
+      }
     >
-      {data.role !== "owner" && (
+      {data.role !== "owner" && open && (
         <form
           className="max-w-xl space-y-4"
           onSubmit={async (event) => {
@@ -75,11 +87,21 @@ export function LeaveTeam() {
             />
           </label>
           {error && <B2bError code={error} />}
-          <button className={primaryClass} disabled={busy || !reason.trim()}>
-            {busy
-              ? c("탈퇴 처리 중…", "Leaving…")
-              : c("팀 탈퇴 확인", "Confirm leaving team")}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button className={primaryClass} disabled={busy || !reason.trim()}>
+              {busy
+                ? c("탈퇴 처리 중…", "Leaving…")
+                : c("팀 탈퇴 확인", "Confirm leaving team")}
+            </button>
+            <button
+              type="button"
+              className={secondaryClass}
+              disabled={busy || !!pending.current}
+              onClick={() => setOpen(false)}
+            >
+              {c("취소", "Cancel")}
+            </button>
+          </div>
         </form>
       )}
     </Block>
