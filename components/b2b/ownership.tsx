@@ -24,6 +24,19 @@ type Intent = {
   targetId: string;
   transferId?: string;
 };
+/**
+ * An ownership offer addressed to me, on the team home: settings is for
+ * owners and admins, so everyone else answers it there (a viewer too, who is
+ * otherwise sent to the project list). Once shown it stays: accepting removes
+ * the offer, and unmounting then would drop a lost response's retry mid-flight.
+ */
+export function OwnershipOffer() {
+  const me = useWorkspace()?.data;
+  const offered = !!me?.pendingTransfer && me.pendingTransfer.toUserId === me.currentUserId;
+  const [shown, setShown] = useState(offered);
+  if (offered && !shown) setShown(true);
+  return shown ? <OwnershipControls /> : null;
+}
 export function OwnershipControls() {
   const { data, b2b, reload } = useWorkspace()!;
   const c = useCopy();

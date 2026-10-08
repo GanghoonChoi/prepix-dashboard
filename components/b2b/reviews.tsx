@@ -321,7 +321,7 @@ export function ReviewAudiencePicker({ scope, value, onChange, disabled, onValid
       ? !!data && !error && value.audienceUserIds.length > 0 && value.audienceUserIds.every(known) && value.audienceUserIds.includes(value.approverUserId)
       : value.audienceUserIds.every(external) && (!value.approverUserId || (known(value.approverUserId) && (!external(value.approverUserId) || value.audienceUserIds.includes(value.approverUserId)))));
   }, [data, error, value, selected, external, onValidityChange]);
-  const roles = { lead: c("담당자", "Lead"), producer: c("제작자", "Producer"), reviewer: c("검토자", "Reviewer") };
+  const roles = { lead: c("담당자", "Lead"), producer: c("편집자", "Editor"), reviewer: c("뷰어", "Viewer") };
   const listed = data?.candidates.filter((person) => selected || person.external) ?? [];
   return (
     <fieldset disabled={disabled} className="space-y-3">

@@ -35,7 +35,7 @@ import {
   useCopy,
 } from "./shared";
 import { ReviewWorkPanel } from "./review-work";
-import { OwnershipControls } from "./ownership";
+import { OwnershipOffer } from "./ownership";
 import { LeaveTeam } from "./leave-team";
 const date = (value: string) =>
   new Intl.DateTimeFormat("ko-KR", {
@@ -96,13 +96,6 @@ function ScopedHome({
 }) {
   const c = useCopy(),
     base = `/dashboard/workspaces/${workspace.id}`;
-  const me = useWorkspace()?.data;
-  // Settings is for owners and admins, so an offer addressed to anyone else
-  // is answered here. Once shown it stays: accepting removes the offer, and
-  // unmounting then would drop a lost response's retry mid-flight.
-  const offered = !!me?.pendingTransfer && me.pendingTransfer.toUserId === me.currentUserId;
-  const [ownership, setOwnership] = useState(offered);
-  if (offered && !ownership) setOwnership(true);
   const [data, setData] = useState<TeamHome | null>(null),
     [error, setError] = useState("");
   // Invitations typed in /start wait for the first payment; say how many.
@@ -246,7 +239,7 @@ function ScopedHome({
           </p>
         )}
       </div>
-      {ownership && <OwnershipControls />}
+      <OwnershipOffer />
       {error && <B2bError code={error} retry={() => void load()} />}
       {!data && !error && <TeamLoading />}
       {data && readable && (

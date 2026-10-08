@@ -70,7 +70,7 @@ export function MemberActions({
     ({
       admin: c("관리자로 변경", "Change to admin"),
       editor: c("편집자로 변경", "Change to editor"),
-      reviewer: c("검토자로 변경", "Change to reviewer"),
+      reviewer: c("뷰어로 변경", "Change to viewer"),
       suspend: c("참여 정지", "Suspend"),
       reactivate: c("참여 재개", "Reactivate"),
       remove: c("팀에서 제거", "Remove from team"),

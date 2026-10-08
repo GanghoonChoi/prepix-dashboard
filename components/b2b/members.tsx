@@ -165,7 +165,15 @@ export function TeamMembers() {
               </span>
             )}
             {editable && (
-              <button className={primaryClass} onClick={inviteDialog.open}>
+              <button
+                className={primaryClass}
+                // The dialog lives in the 초대 tab's panel; opened from a hidden
+                // panel it never showed. Land on the tab the invite goes to.
+                onClick={() => {
+                  setTab("invites");
+                  inviteDialog.open();
+                }}
+              >
                 <Plus size={16} strokeWidth={1.75} aria-hidden="true" />
                 {c("초대", "Invite")}
               </button>
@@ -217,8 +225,8 @@ export function TeamMembers() {
                     { value: "all", label: c("전체", "All") },
                     { value: "owner", label: c("소유자", "Owner") },
                     { value: "admin", label: c("관리자", "Admin") },
-                    { value: "editor", label: c("제작", "Editor") },
-                    { value: "reviewer", label: c("검토", "Reviewer") },
+                    { value: "editor", label: c("편집자", "Editor") },
+                    { value: "reviewer", label: c("뷰어", "Viewer") },
                     { value: "external", label: c("외부", "External") },
                   ]}
                 />
@@ -365,7 +373,7 @@ function PersonTags({ person: p }: { person: TeamPerson }) {
     <>
       {p.role === "owner" && <Tag>{c("소유자", "Owner")}</Tag>}
       {p.role === "admin" && <Tag>{c("관리자", "Admin")}</Tag>}
-      {p.role === "reviewer" && <Tag>{c("검토", "Reviewer")}</Tag>}
+      {p.role === "reviewer" && <Tag>{c("뷰어", "Viewer")}</Tag>}
       {p.kind === "external" && <Tag>{c("외부", "External")}</Tag>}
       {p.billingAllowed && p.role !== "owner" && <Tag>{c("결제 권한", "Billing")}</Tag>}
       {p.suspendedAt && <Tag tone="danger">{c("참여 정지", "Suspended")}</Tag>}
@@ -398,9 +406,9 @@ function MemberSheet({
   const affiliation = roster.canDelegateBilling && person.role !== "owner" && !person.suspendedAt;
   const roleLabel = {
     owner: c("소유자", "Owner"),
-    admin: c("팀 관리자", "Team administrator"),
-    editor: c("팀 참여자 · 제작", "Team participant · Production"),
-    reviewer: c("팀 참여자 · 검토", "Team participant · Review"),
+    admin: c("관리자", "Admin"),
+    editor: c("편집자", "Editor"),
+    reviewer: c("뷰어 · 보기와 코멘트", "Viewer · watch and comment"),
   }[person.role];
   return (
     <Sheet title={name} onClose={onClose}>
@@ -460,7 +468,7 @@ function SeatControl({
     waiting: c("좌석 대기 · 자리가 나면 자동으로 배정됩니다", "Waiting · gets the next free seat"),
     none:
       person.role === "reviewer"
-        ? c("검토 역할은 좌석이 필요 없습니다", "Reviewers need no seat")
+        ? c("뷰어는 좌석이 필요 없습니다 (무료)", "Viewers need no seat (free)")
         : c("좌석 꺼짐 · 웹에서 보기·검토만", "Seat off · view and review on the web"),
   }[seat];
   const can = editable && !person.suspendedAt && !person.accountUnavailable && person.role !== "reviewer";
@@ -632,10 +640,10 @@ function MemberActionEditor({
           disabled={busy || !!pending.current}
           onChange={(e) => setAction(e.target.value as ChangeTeamMember["action"])}
         >
-          <option value="reviewer">{c("팀 참여자 · 검토", "Team participant · Review")}</option>
-          <option value="editor">{c("팀 참여자 · 제작", "Team participant · Production")}</option>
+          <option value="reviewer">{c("뷰어 · 보기와 코멘트", "Viewer · watch and comment")}</option>
+          <option value="editor">{c("편집자", "Editor")}</option>
           {data.role === "owner" && person.kind === "internal" && (
-            <option value="admin">{c("팀 관리자", "Team administrator")}</option>
+            <option value="admin">{c("관리자", "Admin")}</option>
           )}
           {person.suspendedAt ? (
             <option value="reactivate">{c("팀 참여 다시 활성화", "Reactivate team participation")}</option>

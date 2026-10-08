@@ -17,6 +17,8 @@ import {
   type ProjectVisibility,
 } from "@/lib/api/services/b2b.service";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
+import { ReviewWorkPanel } from "./review-work";
+import { LeaveTeam } from "./leave-team";
 import {
   inputClass,
   primaryClass,
@@ -59,6 +61,7 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
   const base = `/dashboard/workspaces/${id}/projects`;
   const status = context.b2b;
   const permitted = !!status?.enrolled && status.allowedActions.projects;
+  const viewer = context.data.role === "reviewer";
   const [rows, setRows] = useState<Project[] | null>(null);
   const [cursor, setCursor] = useState<string | null>(null);
   const [navigation, setNavigation] = useState(initialNavigation);
@@ -204,6 +207,8 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
         )
       }
     >
+      {/* A viewer has no team home, so what waits on them shows here. */}
+      {viewer && <ReviewWorkPanel />}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SearchField
           value={search}
@@ -301,6 +306,7 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
           {busy ? c("불러오는 중…", "Loading…") : c("더 보기", "Load more")}
         </button>
       )}
+      {viewer && <LeaveTeam />}
     </TeamShell>
   );
 }
@@ -325,7 +331,9 @@ export function NewProject() {
           projectsDenial(b2b) ??
           (b2b.enrolled && b2b.team.currentState !== "active"
             ? `B2B_TEAM_${b2b.team.currentState.toUpperCase()}`
-            : "B2B_INTERNAL_MEMBER_REQUIRED")
+            : data.role === "reviewer"
+              ? "B2B_VIEWER_READ_ONLY"
+              : "B2B_INTERNAL_MEMBER_REQUIRED")
         }
       />
     );

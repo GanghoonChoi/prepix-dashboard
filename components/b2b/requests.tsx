@@ -504,8 +504,8 @@ function RequestFields({
                 onChange={(e) => set({ ...draft, shared: e.target.checked })}
               />
               {c(
-                "검토자와 외부 참여자 모두에게 공개",
-                "Share with reviewers and external participants",
+                "뷰어와 외부 참여자 모두에게 공개",
+                "Share with viewers and external participants",
               )}
             </label>
           </div>

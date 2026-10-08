@@ -67,8 +67,8 @@ const messages: Record<string, [string, string]> = {
     "Upload details do not match. Select the original upload from the file list.",
   ],
   PROJECT_ROLE_EXCEEDED: [
-    "검토자에게는 보기 또는 다운로드 권한만 부여할 수 있습니다.",
-    "Reviewers can only receive view or download access.",
+    "뷰어에게는 보기 또는 다운로드 권한만 부여할 수 있습니다.",
+    "Viewers can only receive view or download access.",
   ],
   WORKSPACE_OWNER_PROTECTED: [
     "소유자는 멤버 관리에서 제거하거나 역할을 변경할 수 없습니다.",

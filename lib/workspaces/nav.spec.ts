@@ -142,6 +142,31 @@ test("plan and settings are for owners and admins only", () => {
   ]);
 });
 
+test("a viewer gets the projects shared with them and nothing else", () => {
+  const b2b = {
+    enabled: true,
+    enrolled: true,
+    team: {
+      workspaceId: "w1",
+      policyVersion: "v1",
+      currentState: "active",
+      state: "active",
+      periodStartsAt: null,
+      periodEndsAt: null,
+      legacyArchive: true,
+      revision: 0,
+    },
+    member: { kind: "external", billingAllowed: false, revision: 0 },
+    allowedActions: { projects: true, createProject: false, manage: false, billing: false },
+  } as const;
+  const options = { cloudEnabled: true, managementEnabled: true, b2b, role: "reviewer" };
+  assert.deepEqual(hrefs(options), ["/dashboard/workspaces/w1/projects"]);
+  assert.deepEqual(
+    hrefs({ ...options, b2b: { ...b2b, allowedActions: { ...b2b.allowedActions, projects: false } } }),
+    [],
+  );
+});
+
 test("monthly statements follow current billing permission, never project access", () => {
   const b2b = {
     enabled: true,

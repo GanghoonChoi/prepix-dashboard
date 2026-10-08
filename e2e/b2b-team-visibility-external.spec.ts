@@ -60,8 +60,10 @@ test("V: an external client does not see an automatically published round until 
   await C.page.goto(`${base}/reviews/${reviewId}`);
   await expect(C.page.getByText("검토를 찾을 수 없거나 볼 수 있는 범위가 아닙니다.", { exact: true })).toBeVisible({ timeout: 30_000 });
   await expect(C.page.locator("body")).not.toContainText(internal);
+  // A viewer's home is the project list (2026-10-08), with nothing waiting on them.
   await C.page.goto(home);
-  await expect(C.page.getByRole("region", { name: "최근 발행", exact: true }).getByText("지금 볼 수 있는 발행 영상이 없습니다.", { exact: false })).toBeVisible({ timeout: 30_000 });
+  await C.page.waitForURL((url) => url.pathname === `${home}/projects`);
+  await expect(C.page.getByRole("link", { name: /고객 검토 영상/ })).toBeVisible({ timeout: 30_000 });
   await expect(C.page.locator("body")).not.toContainText("고객 전 내부 검토");
 
   // The lead opens a round to the client: the audience form starts from the
@@ -71,7 +73,7 @@ test("V: an external client does not see an automatically published round until 
   const audience = L.page.getByRole("heading", { name: "검토 대상 변경", exact: true }).locator("..");
   await expect(audience.getByRole("radio", { name: "프로젝트 내부 전체 공개", exact: true })).toBeChecked({ timeout: 30_000 });
   await expect(audience.getByText("외부 참여자에게도 이 회차 공개 (선택)", { exact: true })).toBeVisible();
-  await audience.getByRole("checkbox", { name: "tvx-client · 검토자", exact: true }).check();
+  await audience.getByRole("checkbox", { name: "tvx-client · 뷰어", exact: true }).check();
   await audience.getByLabel("대상 변경 사유(필수)", { exact: true }).fill("고객 검토 시작");
   await shot(L.page, "s14-lead-open-to-client");
   await audience.getByRole("button", { name: "대상을 확정하고 새 회차 공개", exact: true }).click();

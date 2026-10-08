@@ -25,9 +25,10 @@ export const stateLabels: Record<TeamState | ProjectState, [string, string]> = {
 };
 export const roleLabels: Record<ProjectRole | "viewer", [string, string]> = {
   lead: ["담당자", "Lead"],
-  producer: ["제작자", "Producer"],
-  reviewer: ["검토자", "Reviewer"],
-  viewer: ["팀 열람", "Team viewer"],
+  // Figma-like: an editor makes, a viewer watches and comments.
+  producer: ["편집자", "Editor"],
+  reviewer: ["뷰어", "Viewer"],
+  viewer: ["뷰어", "Viewer"],
 };
 export const visibilityLabels: Record<ProjectVisibility, [string, string]> = {
   team: ["팀 공개", "Team-wide"],
@@ -390,6 +391,13 @@ const denials: Record<string, { found: boolean; reason: [string, string] }> = {
   B2B_INTERNAL_MEMBER_REQUIRED: {
     found: true,
     reason: ["팀 내부 멤버만 할 수 있습니다.", "Only internal team members can do this."],
+  },
+  B2B_VIEWER_READ_ONLY: {
+    found: true,
+    reason: [
+      "뷰어는 공유받은 프로젝트를 보고 코멘트만 할 수 있습니다. 편집하려면 팀 관리자에게 편집자 역할을 요청하세요.",
+      "Viewers watch and comment on shared projects. Ask a team admin for the editor role to make things.",
+    ],
   },
 };
 export const isDenial = (code: string) => code in denials;

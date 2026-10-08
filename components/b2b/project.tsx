@@ -248,7 +248,7 @@ function VisibilitySection({
         {project.visibility === "team" ? (
           <p>
             {c(
-              "팀 검토자를 제외한 멤버는 팀 공용 클라우드처럼 자료를 올리고 받고 결과를 발행할 수 있습니다. 공개 범위·완료·승인자·공유 링크 관리는 담당자만 합니다. AI 사용은 자료별 권한을 따릅니다.",
+              "뷰어를 제외한 멤버는 팀 공용 클라우드처럼 자료를 올리고 받고 결과를 발행할 수 있습니다. 공개 범위·완료·승인자·공유 링크 관리는 담당자만 합니다. AI 사용은 자료별 권한을 따릅니다.",
               "Members other than team reviewers can upload and download files and publish results, like a shared team cloud. Visibility, completion, approver and share links stay with the lead. AI use follows per-file permissions.",
             )}
           </p>
@@ -284,7 +284,7 @@ function VisibilitySection({
           <p className="text-sm leading-6 text-muted">
             {widening
               ? c(
-                  "팀의 모든 내부 멤버가 이 프로젝트, 발행된 영상과 그 코멘트를 보고 코멘트할 수 있게 됩니다. 팀 검토자를 제외한 멤버는 자료를 올리고 받고 결과를 발행할 수 있게 됩니다. AI 사용은 계속 자료별 권한을 따르고, 외부 참여자는 초대받은 프로젝트만 봅니다.",
+                  "팀의 모든 내부 멤버가 이 프로젝트, 발행된 영상과 그 코멘트를 보고 코멘트할 수 있게 됩니다. 뷰어를 제외한 멤버는 자료를 올리고 받고 결과를 발행할 수 있게 됩니다. AI 사용은 계속 자료별 권한을 따르고, 외부 참여자는 초대받은 프로젝트만 봅니다.",
                   "Every internal team member will see this project, its published videos and their comments, and can comment. Members other than team reviewers can also upload and download files and publish results. AI use still follows per-file permissions; external people still see only projects they were invited to.",
                 )
               : c(
@@ -650,8 +650,8 @@ export function ProjectParticipants({ projectId }: { projectId: string }) {
                     {person.role === "lead"
                       ? c("담당자", "Lead")
                       : person.role === "producer"
-                        ? c("제작자", "Producer")
-                        : c("검토자", "Reviewer")}{" "}
+                        ? c("편집자", "Editor")
+                        : c("뷰어", "Viewer")}{" "}
                     ·{" "}
                     {person.canDownload
                       ? c("다운로드 허용", "Downloads allowed")
@@ -745,8 +745,8 @@ export function ProjectParticipants({ projectId }: { projectId: string }) {
                     setRole(e.target.value as "producer" | "reviewer")
                   }
                 >
-                  <option value="producer">{c("제작자", "Producer")}</option>
-                  <option value="reviewer">{c("검토자", "Reviewer")}</option>
+                  <option value="producer">{c("편집자", "Editor")}</option>
+                  <option value="reviewer">{c("뷰어", "Viewer")}</option>
                 </select>
               </label>
             </div>

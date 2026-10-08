@@ -114,9 +114,9 @@ export function AcceptInvitation({ token }: { token: string }) {
               [
                 c("초대 역할", "Invitation role"),
                 invite.projectRole === "producer"
-                  ? c("프로젝트 제작자", "Project producer")
+                  ? c("프로젝트 편집자", "Project editor")
                   : invite.projectRole === "reviewer"
-                    ? c("프로젝트 검토자", "Project reviewer")
+                    ? c("프로젝트 뷰어", "Project viewer")
                     : invite.teamRole === "admin"
                       ? c("팀 관리자", "Team administrator")
                       : c("팀 참여자", "Team participant"),

@@ -368,7 +368,7 @@ test("an invited new user completes signup and returns directly to the invitatio
   await expect(
     page.getByRole("heading", { name: "팀 초대를 받았습니다" })
   ).toBeVisible();
-  await expect(page.getByText("검토자", { exact: true })).toBeVisible();
+  await expect(page.getByText("뷰어", { exact: true })).toBeVisible();
   await page
     .getByRole("button", { name: "워크스페이스 참여", exact: true })
     .click();

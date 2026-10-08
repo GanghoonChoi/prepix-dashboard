@@ -632,7 +632,7 @@ test("F13 requests by role: exact-version submission after a lost response, conf
   );
   await L.getByRole("checkbox", { name: /참고 첨부 edit\.wav/ }).check();
   await L.getByRole("checkbox", {
-    name: "검토자와 외부 참여자 모두에게 공개",
+    name: "뷰어와 외부 참여자 모두에게 공개",
     exact: true,
   }).check();
   await L.getByRole("button", { name: "요청 저장", exact: true }).click();
