@@ -87,8 +87,6 @@ test("B2B preparing gate, private projects, lost-response retry, role handoff an
   await expect(
     page.getByRole("link", { name: "프로젝트", exact: true }),
   ).toHaveCount(0);
-  await page.goto(`${base}/projects/new`);
-  await expect(page.locator("main [role=alert]")).toBeVisible();
   fixture({ workspaceId: team.id, action: "activate" });
   fixture({ workspaceId: team.id, action: "join", userId: editor.id });
   const editorContext = await browser.newContext({ locale: "ko-KR" });
@@ -97,43 +95,28 @@ test("B2B preparing gate, private projects, lost-response retry, role handoff an
   editorPage.on("pageerror", (e) => browserErrors.push(e.message));
   try {
     await signIn(editorPage, editor.email);
-    await editorPage.goto(`${base}/projects/new`);
-    await editorPage
-      .getByLabel("프로젝트명", { exact: true })
-      .fill("Private B2B project");
-    await editorPage
-      .getByLabel("작업 개요", { exact: true })
-      .fill("Only invited people may see this brief");
-    // V: the owner-must-not-see assertions below are the private (v1) rule.
-    await editorPage.getByRole("radio", { name: /^비공개\(참여자만\)/ }).check();
+    // Projects come from the app (one per app project, 2026-10-09); the API
+    // stands in for that first share.
     const endpoint = `${api}/v2/workspaces/${team.id}/b2b/projects`;
-    let lost = true;
-    await editorPage.route(endpoint, async (route) => {
-      if (route.request().method() === "POST" && lost) {
-        lost = false;
-        await route.fetch();
-        await route.abort();
-      } else await route.continue();
+    const created = await request.post(endpoint, {
+      headers: editor.headers,
+      data: {
+        requestKey: crypto.randomUUID(),
+        name: "Private B2B project",
+        brief: "Only invited people may see this brief",
+        // V: the owner-must-not-see assertions below are the private (v1) rule.
+        visibility: "private",
+      },
     });
-    await editorPage
-      .getByRole("button", { name: "프로젝트 만들기", exact: true })
-      .click();
-    await expect(editorPage.locator("main [role=alert]")).toContainText(
-      "요청을 완료하지 못했습니다",
-    );
-    await expect(
-      editorPage.getByLabel("프로젝트명", { exact: true }),
-    ).toHaveValue("Private B2B project");
-    await editorPage
-      .getByRole("button", { name: "프로젝트 만들기", exact: true })
-      .click();
+    expect(created.status()).toBe(201);
+    const projectId = (await created.json()).data.project.id as string;
+    await editorPage.goto(`${base}/projects/${projectId}`);
     await expect(
       editorPage.getByRole("heading", {
         name: "Private B2B project",
         exact: true,
       }),
     ).toBeVisible();
-    const projectId = editorPage.url().split("/").at(-1)!;
     const list = (
       await (await request.get(endpoint, { headers: editor.headers })).json()
     ).data;

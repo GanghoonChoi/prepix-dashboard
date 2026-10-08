@@ -10,7 +10,7 @@ import {
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import { apiClient } from "@/lib/api/client";
 import { useOverlayState } from "@heroui/react";
-import { Lock, Plus, UserPlus } from "lucide-react";
+import { Lock, UserPlus } from "lucide-react";
 import {
   b2bService,
   type B2bStatus,
@@ -25,7 +25,6 @@ import {
 } from "@/lib/b2b-home/home";
 import {
   Details,
-  primaryClass,
   secondaryClass,
   TeamLoading,
   TeamShell,
@@ -186,7 +185,6 @@ function ScopedHome({
     `${base}/projects/${id}${suffix}`;
   const listClass = "divide-y divide-border border-y border-border";
   const rowClass = "block min-h-14 py-3 transition-colors hover:bg-surface";
-  const canCreate = status.allowedActions.createProject && state === "active";
   const watch = data?.toWatch?.items ?? [];
   const current = data?.periods.find((p) => p.state === "current");
   return (
@@ -200,12 +198,6 @@ function ScopedHome({
               <UserPlus size={16} strokeWidth={1.75} aria-hidden="true" />
               {c("초대", "Invite")}
             </button>
-          )}
-          {canCreate && (
-            <Link className={primaryClass} href={`${base}/projects/new`}>
-              <Plus size={16} strokeWidth={1.75} aria-hidden="true" />
-              {c("새 프로젝트", "New project")}
-            </Link>
           )}
         </div>
       }
@@ -316,7 +308,7 @@ function ScopedHome({
             )
           }
         >
-          {data.projects.items.length || canCreate ? (
+          {data.projects.items.length ? (
             <ul className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] sm:gap-x-4 sm:gap-y-6">
               {data.projects.items.map((p) => (
                 <li key={p.id}>
@@ -343,18 +335,6 @@ function ScopedHome({
                   </Link>
                 </li>
               ))}
-              {canCreate && (
-                <li>
-                  <Link href={`${base}/projects/new`} className="group block outline-none">
-                    <span className={`${thumbClass} grid place-items-center border border-dashed border-border bg-transparent text-muted transition-colors group-hover:border-foreground/30 group-hover:text-foreground`}>
-                      <Plus size={20} strokeWidth={1.5} aria-hidden="true" />
-                    </span>
-                    <span className="mt-2 block text-[13px] font-medium text-muted group-hover:text-foreground">
-                      {c("새 프로젝트", "New project")}
-                    </span>
-                  </Link>
-                </li>
-              )}
             </ul>
           ) : (
             <p className="text-[13px] text-muted">

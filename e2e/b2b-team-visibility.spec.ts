@@ -20,14 +20,11 @@ test("V: team-wide project, publish → review on team home, private stays hidde
   const home = `/dashboard/workspaces/${team}`;
   const teamName = "팀 공개 브랜드 영상", secretName = "비밀 런칭 영상";
 
-  // S06: the lead creates a team-wide project (the default) in the UI.
-  const L = await open(browser, lead, `${home}/projects/new`);
-  await L.page.getByLabel("프로젝트명", { exact: true }).fill(teamName);
-  await expect(L.page.getByRole("radio", { name: /^팀 전체 공개/ })).toBeChecked();
-  await shot(L.page, "s06-visibility-choice");
-  await L.page.getByRole("button", { name: "프로젝트 만들기", exact: true }).click();
+  // S06: the lead's first share from the app makes a team-wide project (the
+  // default); projects are never made on the web (2026-10-09).
+  const projectId = (await json(request.post(`${api}/v2/workspaces/${team}/b2b/projects`, { headers: lead.headers, data: { requestKey: randomUUID(), name: teamName } }))).project.id as string;
+  const L = await open(browser, lead, `${home}/projects/${projectId}`);
   await expect(L.page.getByRole("heading", { name: teamName, exact: true })).toBeVisible();
-  const projectId = L.page.url().split("/").at(-1)!;
   await expect(L.page.getByText("팀 공개", { exact: true }).first()).toBeVisible();
   const secretId = (await json(request.post(`${api}/v2/workspaces/${team}/b2b/projects`, { headers: lead.headers, data: { requestKey: randomUUID(), name: secretName, visibility: "private" } }))).project.id as string;
   await invite(request, lead, team, projectId, producer, "internal", "producer");

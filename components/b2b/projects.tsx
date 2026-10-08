@@ -13,16 +13,12 @@ import { useRouter } from "next/navigation";
 import {
   b2bService,
   type Project,
-  type ProjectVisibility,
 } from "@/lib/api/services/b2b.service";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import { ReviewWorkPanel } from "./review-work";
 import { LeaveTeam } from "./leave-team";
 import {
-  inputClass,
-  primaryClass,
   secondaryClass,
-  SpaceBadge,
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
@@ -32,7 +28,7 @@ import {
   roleLabels,
   visibilityLabels,
   useCopy,
-  freeIntent, projectsDenial } from "./shared";
+  projectsDenial } from "./shared";
 
 export function Projects() {
   const context = useWorkspace()!;
@@ -193,17 +189,7 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
       />
     );
   return (
-    <TeamShell
-      title={c("프로젝트", "Projects")}
-      actions={
-        status.enrolled &&
-        status.allowedActions.createProject && (
-          <Link className={primaryClass} href={`${base}/new`}>
-            {c("프로젝트 만들기", "Create project")}
-          </Link>
-        )
-      }
-    >
+    <TeamShell title={c("프로젝트", "Projects")}>
       {/* A viewer has no team home, so what waits on them shows here. */}
       {viewer && <ReviewWorkPanel />}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -226,8 +212,8 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
         <p className="py-8 text-center text-sm text-muted">
           {status.enrolled && status.member.kind === "internal"
             ? c(
-                "참여한 프로젝트가 없습니다. 새 프로젝트를 만들 수 있습니다.",
-                "You have no projects yet. Create one to begin.",
+                "참여한 프로젝트가 없습니다. 앱에서 프로젝트를 공유하면 여기에 나타나요.",
+                "No projects yet. A project shared from the app shows up here.",
               )
             : c(
                 "초대된 프로젝트가 없습니다. 프로젝트 담당자에게 문의하세요.",
@@ -288,149 +274,6 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
         </button>
       )}
       {viewer && <LeaveTeam />}
-    </TeamShell>
-  );
-}
-
-export function NewProject() {
-  const { data, b2b } = useWorkspace()!;
-  const c = useCopy();
-  const router = useRouter();
-  const [name, setName] = useState("");
-  const [brief, setBrief] = useState("");
-  const [visibility, setVisibility] = useState<ProjectVisibility>("team");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const pending = useRef<{ fingerprint: string; key: string } | null>(null);
-  if (!b2b) return <TeamLoading />;
-  if (!b2b.enrolled || !b2b.allowedActions.createProject)
-    return (
-      <B2bError
-        code={
-          projectsDenial(b2b) ??
-          (b2b.enrolled && b2b.team.currentState !== "active"
-            ? `B2B_TEAM_${b2b.team.currentState.toUpperCase()}`
-            : data.role === "reviewer"
-              ? "B2B_VIEWER_READ_ONLY"
-              : "B2B_INTERNAL_MEMBER_REQUIRED")
-        }
-      />
-    );
-  return (
-    <TeamShell
-      title={c("프로젝트 만들기", "Create project")}
-      description={c(
-        "만든 사람이 프로젝트 담당자가 됩니다.",
-        "You become the project lead.",
-      )}
-    >
-      <form
-        className="max-w-xl space-y-6"
-        onSubmit={async (event) => {
-          event.preventDefault();
-          if (busy) return;
-          const draft = {
-            name: name.trim(),
-            brief: brief.trim(),
-            requiresWorkingFiles: false,
-            shareOriginals: false,
-            visibility,
-          };
-          const fingerprint = JSON.stringify(draft);
-          if (pending.current && pending.current.fingerprint !== fingerprint) {
-            // The server may have committed a request whose response was lost.
-            // Keep retrying that intent until its outcome is known.
-            setError("B2B_REQUEST_KEY_CONFLICT");
-            return;
-          }
-          pending.current ??= { fingerprint, key: crypto.randomUUID() };
-          setBusy(true);
-          setError("");
-          try {
-            const result = await b2bService.createProject(data.workspace.id, {
-              ...draft,
-              requestKey: pending.current.key,
-            });
-            router.replace(
-              `/dashboard/workspaces/${data.workspace.id}/projects/${result.project.id}`,
-            );
-          } catch (e) {
-            setError(errorCode(e));
-            if (freeIntent(pending.current, e)) pending.current = null;
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
-        <label className="block space-y-2 text-sm">
-          <span>{c("프로젝트명", "Project name")}</span>
-          <input
-            className={inputClass}
-            maxLength={100}
-            required
-            value={name}
-            disabled={busy || !!pending.current}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </label>
-        <label className="block space-y-2 text-sm">
-          <span>{c("작업 개요", "Brief")}</span>
-          <textarea
-            className={`${inputClass} min-h-28`}
-            maxLength={5000}
-            value={brief}
-            disabled={busy || !!pending.current}
-            onChange={(e) => setBrief(e.target.value)}
-          />
-        </label>
-        <fieldset className="space-y-1 text-sm">
-          <legend className="mb-2">{c("공개 범위", "Visibility")}</legend>
-          {(
-            [
-              [
-                "team",
-                c("팀 전체 공개", "Team-wide"),
-                c(
-                  "팀의 모든 내부 멤버가 보고 함께 작업합니다.",
-                  "Every internal team member can see and work in it.",
-                ),
-              ],
-              [
-                "private",
-                c("비공개(참여자만)", "Private (participants only)"),
-                c(
-                  "초대한 참여자만 볼 수 있습니다.",
-                  "Only invited participants can see it.",
-                ),
-              ],
-            ] as const
-          ).map(([value, label, hint]) => (
-            <label key={value} className="flex min-h-11 items-start gap-3 py-1">
-              <input
-                className="mt-1"
-                type="radio"
-                name="visibility"
-                checked={visibility === value}
-                disabled={busy || !!pending.current}
-                onChange={() => setVisibility(value)}
-              />
-              <span>
-                {label}
-                <span className="block text-[13px] text-muted">{hint}</span>
-              </span>
-            </label>
-          ))}
-        </fieldset>
-        {error && <B2bError code={error} />}
-        <div className="flex flex-wrap items-center gap-3">
-          <button className={primaryClass} disabled={busy || !name.trim()}>
-            {busy
-              ? c("만드는 중…", "Creating…")
-              : c("프로젝트 만들기", "Create project")}
-          </button>
-          <SpaceBadge workspace={data.workspace} />
-        </div>
-      </form>
     </TeamShell>
   );
 }
