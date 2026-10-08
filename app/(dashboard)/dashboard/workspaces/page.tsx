@@ -1,8 +1,9 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight } from "lucide-react";
+import { ChevronRight, Mail } from "lucide-react";
+import { Tag } from "@/components/ui";
 import { useI18n } from "@/lib/i18n/context";
 import {
   workspaceService,
@@ -10,7 +11,6 @@ import {
 } from "@/lib/api/services/workspace.service";
 import { useWorkspaceCapabilities } from "@/components/workspaces/capabilities";
 import {
-  EmptyState,
   TeamShell,
   TeamError,
   TeamLoading,
@@ -114,27 +114,27 @@ export default function WorkspacesPage() {
                 section simply does not appear for them.
               */}
               {data.invitations.length > 0 && (
-                <section className="space-y-3">
+                <section className="space-y-2">
                   <h2 className="text-[15px] font-medium">{t("team.pending")}</h2>
-                  <ul className="divide-y divide-border rounded-lg border border-border">
+                  <ul className="border-t border-border">
                     {data.invitations.map((invite) => (
-                      <li
-                        key={invite.id}
-                        className="flex flex-wrap items-center justify-between gap-3 px-5 py-3"
-                      >
-                        <div className="min-w-0">
-                          <p className="break-words text-sm font-medium">
+                      <li key={invite.id} className={`${spaceGrid} border-b border-border py-3`}>
+                        <div className="flex min-w-0 items-center gap-3">
+                          <IconBox>
+                            <Mail size={15} strokeWidth={1.75} aria-hidden="true" />
+                          </IconBox>
+                          <p className="truncate text-[13px] font-medium">
                             {invite.workspaceName}
                           </p>
-                          <p className="mt-0.5 text-xs text-muted">
-                            {t(`team.role.${invite.role}`)} ·{" "}
-                            {t("team.expires", {
-                              date: new Date(
-                                invite.expiresAt,
-                              ).toLocaleDateString(lang),
-                            })}
-                          </p>
                         </div>
+                        <p className="hidden truncate text-[13px] text-muted sm:block">
+                          {t(`team.role.${invite.role}`)} ·{" "}
+                          {t("team.expires", {
+                            date: new Date(
+                              invite.expiresAt,
+                            ).toLocaleDateString(lang),
+                          })}
+                        </p>
                         {/*
                           The list response carries ids but deliberately no
                           tokens, so acceptance goes through the id-addressed
@@ -175,11 +175,23 @@ export default function WorkspacesPage() {
   );
 }
 
+/** Name | your role | open, so a row reads like the members table. */
+const spaceGrid =
+  "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 sm:grid-cols-[minmax(0,1fr)_14rem_auto]";
+
+function IconBox({ children }: { children: ReactNode }) {
+  return (
+    <span className="grid size-8 shrink-0 place-items-center rounded-md bg-surface-secondary text-muted">
+      {children}
+    </span>
+  );
+}
+
 /**
- * Two kinds, two sections (spec D13). Personal first and shaped like a person;
- * teams below and shaped like a building. An account with only a personal space
- * must not read as an empty team list — it reads as "this is your space", which
- * is the sentence under the Teams heading when that section is empty.
+ * Two kinds, one table (spec D13): the personal space first and shaped like a
+ * person, teams below and shaped like a building. An account with only a
+ * personal space must not read as an empty team list, so it says what to do
+ * under the table instead.
  */
 function Spaces({
   rows,
@@ -190,41 +202,36 @@ function Spaces({
 }) {
   const { t } = useI18n();
   const ordered = personalFirst(rows);
-  const personal = ordered.filter(isPersonal);
   const teams = ordered.filter((row) => !isPersonal(row));
   return (
-    <>
-      {personal.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-[15px] font-medium">{t("team.spaceHeading")}</h2>
-          {personal.map((workspace) => (
-            <SpaceCard key={workspace.id} workspace={workspace} />
-          ))}
-        </section>
-      )}
-      <section className="space-y-3">
-        <h2 className="text-[15px] font-medium">{t("team.teamsHeading")}</h2>
-        {teams.length === 0 ? (
-          <EmptyState title={t("team.personalOne")} />
+    <div>
+      <div
+        aria-hidden="true"
+        className={`${spaceGrid} hidden h-11 border-b border-border text-xs font-medium text-muted sm:grid`}
+      >
+        <span>{t("team.col.name")}</span>
+        <span>{t("team.col.role")}</span>
+        <span className="w-4" />
+      </div>
+      {ordered.map((workspace) =>
+        workspace.suspendedAt && !isPersonal(workspace) ? (
+          <SuspendedSpace
+            key={workspace.id}
+            workspace={workspace}
+            onChange={onChange}
+          />
         ) : (
-          teams.map((workspace) =>
-            workspace.suspendedAt ? (
-              <SuspendedSpace
-                key={workspace.id}
-                workspace={workspace}
-                onChange={onChange}
-              />
-            ) : (
-              <SpaceCard key={workspace.id} workspace={workspace} />
-            ),
-          )
-        )}
-      </section>
-    </>
+          <SpaceRow key={workspace.id} workspace={workspace} />
+        ),
+      )}
+      {teams.length === 0 && (
+        <p className="py-4 text-[13px] text-muted">{t("team.personalOne")}</p>
+      )}
+    </div>
   );
 }
 
-function SpaceCard({
+function SpaceRow({
   workspace,
 }: {
   workspace: WorkspaceList["workspaces"][number];
@@ -236,26 +243,28 @@ function SpaceCard({
     <Link
       href={`/dashboard/workspaces/${workspace.id}`}
       data-space={personal ? "personal" : "team"}
-      className="flex items-center gap-4 rounded-lg border border-border px-5 py-4 transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-foreground"
+      className={`${spaceGrid} border-b border-border py-3 text-[13px] transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-foreground`}
     >
-      <SpaceIcon kind={personal ? "personal" : "team"} />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{spaceName(workspace)}</p>
-        {/*
-          A personal space has no role to report — there is nobody to have a
-          role relative to — so it says what it is instead. What is NOT here
-          any more is "워크스페이스 열기": a row that is a link does not also
-          need a sentence saying it opens when clicked.
-        */}
-        <p className="mt-0.5 text-xs text-muted">
-          {personal
-            ? t("team.kind.personal")
-            : workspace.onboardingCompletedAt
-              ? t(`team.role.${workspace.role}`)
-              : t("team.continueSetup")}
-        </p>
+      <div className="flex min-w-0 items-center gap-3">
+        <IconBox>
+          <SpaceIcon kind={personal ? "personal" : "team"} size={15} />
+        </IconBox>
+        <p className="truncate font-medium">{spaceName(workspace)}</p>
       </div>
-      <ArrowUpRight strokeWidth={1.75} size={16} aria-hidden="true" className="text-muted" />
+      {/*
+        A personal space has no role to report — there is nobody to have a
+        role relative to — so its cell stays empty.
+      */}
+      <p className="hidden text-muted sm:block">
+        {personal ? (
+          "—"
+        ) : workspace.onboardingCompletedAt ? (
+          t(`team.role.${workspace.role}`)
+        ) : (
+          <Tag>{t("team.continueSetup")}</Tag>
+        )}
+      </p>
+      <ChevronRight size={15} strokeWidth={1.75} aria-hidden="true" className="text-muted" />
     </Link>
   );
 }
@@ -275,21 +284,25 @@ function SuspendedSpace({
   return (
     <div
       data-space="team"
-      className="flex flex-wrap items-center gap-4 rounded-lg border border-border px-5 py-4"
+      className={`${spaceGrid} gap-y-3 border-b border-border py-3 text-[13px]`}
     >
-      <span className="text-muted">
-        <SpaceIcon kind="team" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{workspace.name}</p>
-        <p className="mt-0.5 text-xs text-muted">{t("team.seatSuspended")}</p>
+      <div className="flex min-w-0 items-center gap-3">
+        <IconBox>
+          <SpaceIcon kind="team" size={15} />
+        </IconBox>
+        <p className="truncate font-medium text-muted">{workspace.name}</p>
       </div>
-      {workspace.managementEnabled && (
+      <p className="hidden sm:block">
+        <Tag tone="danger">{t("team.seatSuspended")}</Tag>
+      </p>
+      {workspace.managementEnabled ? (
         <SuspendedLeave
           id={workspace.id}
           name={workspace.name}
           onChange={onChange}
         />
+      ) : (
+        <span />
       )}
     </div>
   );
@@ -311,7 +324,7 @@ function SuspendedLeave({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   return (
-    <div className={open ? "w-full" : undefined}>
+    <div className={open ? "col-span-full" : "justify-self-end"}>
       {!open ? (
         <button
           ref={trigger}

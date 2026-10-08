@@ -1,6 +1,6 @@
 "use client";
 import { billingTabs } from "./billing-shared";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { apiClient } from "@/lib/api/client";
@@ -194,6 +194,8 @@ function stateText(
   if (state === "blocked") return c("발행 설정 누락", "Issue setting missing");
   return c("집계 중", "Collecting");
 }
+const monthGrid =
+  "grid grid-cols-[1fr_auto] items-center gap-x-4 sm:grid-cols-[9rem_minmax(0,1fr)_12rem_1.5rem]";
 export function TeamStatements() {
   const c = useCopy();
   const { lang } = useI18n();
@@ -233,25 +235,33 @@ export function TeamStatements() {
               )}
             </p>
           ) : (
-            <ul className="divide-y divide-border border-y border-border" aria-label={c("명세 월 목록", "Statement months")}>
-              {view.months.map((m) => (
-                <li key={m.month}>
-                  <Link
-                    href={`/dashboard/workspaces/${scope.workspaceId}/statements/${m.month}`}
-                    className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-1 py-4 hover:bg-surface focus-visible:outline-2 focus-visible:outline-foreground sm:grid-cols-[10rem_1fr_auto]"
-                  >
-                    <span className="font-medium">{monthLabel(m.month, lang === "ko" ? "ko" : "en")}</span>
-                    <span className="text-sm text-muted sm:order-none">
-                      {stateText(c, m.state, m.issueOn, m.revisions)}
-                    </span>
-                    {/* The state already names the issue day; only the issue time is new. */}
-                    <span className="col-span-2 text-[13px] tabular-nums text-muted sm:col-span-1 sm:text-right">
-                      {m.latest && c(`${kst(m.latest.issuedAt)} 발행`, `Issued ${kst(m.latest.issuedAt)}`)}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <div>
+              <div aria-hidden="true" className={`${monthGrid} hidden h-11 border-b border-border text-xs font-medium text-muted sm:grid`}>
+                <span>{c("월", "Month")}</span>
+                <span>{c("상태", "State")}</span>
+                <span>{c("발행", "Issued")}</span>
+              </div>
+              <ul aria-label={c("명세 월 목록", "Statement months")}>
+                {view.months.map((m) => (
+                  <li key={m.month} className="border-b border-border">
+                    <Link
+                      href={`/dashboard/workspaces/${scope.workspaceId}/statements/${m.month}`}
+                      className={`${monthGrid} py-3 text-[13px] transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-foreground`}
+                    >
+                      <span className="font-medium">{monthLabel(m.month, lang === "ko" ? "ko" : "en")}</span>
+                      <span className="text-muted">
+                        {stateText(c, m.state, m.issueOn, m.revisions)}
+                      </span>
+                      {/* The state already names the issue day; only the issue time is new. */}
+                      <span className="hidden truncate tabular-nums text-muted sm:block">
+                        {m.latest ? kst(m.latest.issuedAt) : "—"}
+                      </span>
+                      <ChevronRight size={15} strokeWidth={1.75} aria-hidden="true" className="hidden justify-self-end text-muted sm:block" />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </>
       )}

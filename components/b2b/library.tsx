@@ -39,7 +39,7 @@ import {
   PendingFileOperations,
   textAction,
 } from "./file-management";
-import { VersionHeader, versionFacts } from "./files";
+import { FileListHead, fileRowClass, VersionHeader, versionFacts } from "./files";
 import { TrashPanel, TrashVersion } from "./file-trash";
 
 type TeamScope = Omit<FileScope, "projectId">;
@@ -432,6 +432,7 @@ function LibraryGroup({
           close={() => setSelection(undefined)}
         />
       )}
+      {!!entries.length && <FileListHead />}
       {!!entries.length && (
         <ul>
           {entries.map((entry) => {
@@ -440,7 +441,7 @@ function LibraryGroup({
               <li
                 key={v.id}
                 data-testid={`library-file-${v.id}`}
-                className="space-y-1 border-b border-border py-3"
+                className={fileRowClass}
               >
                 <VersionHeader
                   version={v}
