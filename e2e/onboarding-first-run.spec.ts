@@ -102,5 +102,8 @@ test("business: team name, invitations held until payment, pay later lands on th
   expect(invitations.invitations.map((i) => [i.email, i.deliveryState])).toEqual([[hire, "held"]]);
   const profile = await get<{ useType: string; teamSize: string }>(page, "/users/profile");
   expect(profile).toMatchObject({ useType: "team", teamSize: "6-20" });
+  // The seat count /start showed is what checkout starts from.
+  await page.goto(`/dashboard/workspaces/${id}/plan?extraSeats=2&locale=ko`);
+  await expect(page.getByLabel("추가 편집 이용권", { exact: true })).toHaveValue("2");
   expect(errors).toEqual([]);
 });
