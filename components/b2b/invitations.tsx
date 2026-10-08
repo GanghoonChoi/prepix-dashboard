@@ -386,14 +386,24 @@ export function InvitationPanel({
               </div>
             </ConfirmDialog>
   );
+  // Held comes first: a held invitation's week starts at payment, so its
+  // stored expiry says nothing yet.
   const status = (row: Invitation) =>
-    new Date(row.expiresAt).getTime() <= Date.now()
-      ? c("초대 만료", "Expired")
-      : row.deliveryState === "sent"
-        ? c("메일 발송 완료 · 수락 대기", "Email sent · Awaiting acceptance")
-        : row.deliveryState === "failed"
-          ? c("메일 발송 실패 · 재전송 가능", "Email failed · Can resend")
-          : c("메일 발송 대기", "Email queued");
+    row.deliveryState === "held"
+      ? c("결제 후 발송", "Sent after payment")
+      : new Date(row.expiresAt).getTime() <= Date.now()
+        ? c("초대 만료", "Expired")
+        : row.deliveryState === "sent"
+          ? c("메일 발송 완료 · 수락 대기", "Email sent · Awaiting acceptance")
+          : row.deliveryState === "failed"
+            ? c("메일 발송 실패 · 재전송 가능", "Email failed · Can resend")
+            : c("메일 발송 대기", "Email queued");
+  // Resending a held invitation would mail it before payment; the server
+  // refuses it too.
+  const actions = (row: Invitation) =>
+    row.deliveryState === "held"
+      ? (["revoke"] as const)
+      : (["resend", "revoke"] as const);
   if (dialog)
     // Team members page, 초대 tab: the tab is the section, rows are a table.
     return (
@@ -435,7 +445,7 @@ export function InvitationPanel({
                       <td className="py-3 pl-3 text-right">
                         {editable && (
                           <span className="inline-flex gap-3">
-                            {(["resend", "revoke"] as const).map((action) => (
+                            {actions(row).map((action) => (
                               <button
                                 key={action}
                                 className="text-xs text-muted transition-colors hover:text-foreground disabled:opacity-50"
@@ -481,26 +491,14 @@ export function InvitationPanel({
                   <div className="min-w-0">
                     <p className="break-all text-sm font-medium">{row.email}</p>
                     <p className="mt-0.5 text-xs text-muted">
-                      {new Date(row.expiresAt).getTime() <= Date.now()
-                        ? c("초대 만료", "Expired")
-                        : row.deliveryState === "sent"
-                          ? c(
-                              "메일 발송 완료 · 수락 대기",
-                              "Email sent · Awaiting acceptance",
-                            )
-                          : row.deliveryState === "failed"
-                            ? c(
-                                "메일 발송 실패 · 재전송 가능",
-                                "Email failed · Can resend",
-                              )
-                            : c("메일 발송 대기", "Email queued")}
+                      {status(row)}
                       {row.assignSeat &&
                         c(" · 수락하면 좌석 배정", " · Seat on acceptance")}
                     </p>
                   </div>
                   {editable && (
                     <div className="flex gap-2">
-                      {(["resend", "revoke"] as const).map((action) => (
+                      {actions(row).map((action) => (
                         <button
                           key={action}
                           className={secondaryClass}

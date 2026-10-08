@@ -12,6 +12,7 @@ import { sleep } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useI18n } from "@/lib/i18n/context";
 import { readReturnTo } from "@/lib/return-to";
+import { landing } from "@/lib/home";
 import { CouponWaiting } from "@/components/auth/coupon-waiting";
 import { markSignedIn } from "@/lib/account-hint";
 import { signupHref } from "@/lib/auth-entry";
@@ -55,7 +56,7 @@ export default function LoginPage() {
   // Already signed in? Skip the form.
   useEffect(() => {
     if (localStorage.getItem("accessToken") || localStorage.getItem("refreshToken")) {
-      go(safeReturnTo());
+      void landing(safeReturnTo()).then(go);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -87,7 +88,7 @@ export default function LoginPage() {
       setIsLoading(false);
       setIsSigningIn(true);
       await sleep(1000);
-      go(safeReturnTo());
+      go(await landing(safeReturnTo()));
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
       // The server distinguishes "wrong password" from "this account has no
@@ -210,7 +211,7 @@ export default function LoginPage() {
             setError("");
             setIsSigningIn(true);
             await sleep(800);
-            go(safeReturnTo());
+            go(await landing(safeReturnTo()));
           }}
         />
       </div>
