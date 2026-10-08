@@ -187,3 +187,64 @@ test("the pay step always has a way out", async ({ page }) => {
   await page.getByRole("button", { name: "나중에 결제할게요", exact: true }).click();
   await expect(page).toHaveURL(/\/dashboard\/workspaces\/[0-9a-f-]{36}/);
 });
+
+test("a returning user is never shown the first question again", async ({ page }) => {
+  await signup(page, `back-${Date.now()}@example.test`);
+  await page.getByRole("button", { name: /혼자 쓸게요/ }).click();
+  await expect(page.getByRole("heading", { name: "어떤 일을 하시나요?" })).toBeVisible();
+  // Record every heading the page ever shows, and make the profile slow.
+  await page.addInitScript(() => {
+    const seen: string[] = ((window as unknown as { seen: string[] }).seen = []);
+    new MutationObserver(() => {
+      for (const h of document.querySelectorAll("h1")) if (!seen.includes(h.textContent ?? "")) seen.push(h.textContent ?? "");
+    }).observe(document, { subtree: true, childList: true, characterData: true });
+  });
+  await page.route(/\/v2\/users\/profile$/, async (route) => {
+    if (route.request().method() === "GET") await new Promise((done) => setTimeout(done, 800));
+    await route.continue();
+  });
+  await page.goto("/start?locale=ko");
+  await expect(page.getByRole("heading", { name: "어떤 일을 하시나요?" })).toBeVisible();
+  const seen = await page.evaluate(() => (window as unknown as { seen: string[] }).seen);
+  expect(seen).not.toContain("Prepix를 어떻게 쓰실 건가요?");
+});
+
+test("a team that has already paid skips past the pay step", async ({ page }) => {
+  const suffix = Date.now();
+  await signup(page, `paid-${suffix}@example.test`, `&returnTo=${encodeURIComponent("/start?intent=team")}`);
+  await page.getByRole("button", { name: "건너뛰기", exact: true }).click();
+  await page.getByLabel("회사 또는 팀 이름", { exact: true }).fill(`Paid ${suffix}`);
+  await page.getByRole("button", { name: "팀 만들기", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "팀원을 초대해 주세요" })).toBeVisible();
+  // The catalogue reports a period already bought.
+  await page.route(/\/b2b\/commerce$/, async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.data.currentPeriod = {
+      id: crypto.randomUUID(),
+      startsAt: new Date().toISOString(),
+      endsAt: new Date(Date.now() + 30 * 86400000).toISOString(),
+      anchorDay: 8,
+      extraSeats: 0,
+      product: body.data.product,
+    };
+    await route.fulfill({ response, json: body });
+  });
+  await page.getByRole("button", { name: "나중에 할게요", exact: true }).click();
+  await expect(page.getByText("이미 결제한 팀이에요.", { exact: false })).toBeVisible();
+  await expect(page.getByRole("link", { name: /결제하기/ })).toHaveCount(0);
+  await page.getByRole("button", { name: "다음", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "데스크톱 앱을 설치해 주세요" })).toBeVisible();
+});
+
+test("right after making a team, signing in again lands on the team", async ({ page }) => {
+  const suffix = Date.now();
+  await signup(page, `again-${suffix}@example.test`, `&returnTo=${encodeURIComponent("/start?intent=team")}`);
+  await page.getByRole("button", { name: "건너뛰기", exact: true }).click();
+  await page.getByLabel("회사 또는 팀 이름", { exact: true }).fill(`Again ${suffix}`);
+  await page.getByRole("button", { name: "팀 만들기", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "팀원을 초대해 주세요" })).toBeVisible();
+  // Straight from /start, without the dashboard refreshing the cached account.
+  await page.goto("/login?locale=ko");
+  await expect(page).toHaveURL(/\/dashboard\/workspaces\/[0-9a-f-]{36}/);
+});
