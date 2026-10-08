@@ -15,7 +15,7 @@ import {
   type TeamFileCapabilities,
   type TeamFileVersionList,
 } from "@/lib/api/services/b2b.service";
-import type { TeamFileVersion } from "@/lib/api/generated/b2b";
+import type { TeamFileTrashEntry, TeamFileVersion } from "@/lib/api/generated/b2b";
 import { fileApi, fileError, type FileScope } from "@/lib/b2b-files/api";
 import { useFileDownloads } from "@/lib/b2b-files/use-downloads";
 import { FileDownloads } from "./file-downloads";
@@ -23,14 +23,18 @@ import { scopeKey } from "@/lib/b2b-files/store";
 import { bytes } from "@/lib/workspaces/upload";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
+  ConfirmDialog,
+  Details,
   EmptyState,
   inputClass,
+  primaryClass,
   secondaryClass,
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
+import { RowMenu, RowMenuItem } from "@/components/workspaces/row-menu";
 import { FileTransfers } from "./file-transfers";
-import { folderTabs, B2bError, useCopy, previewStateCopy, projectsDenial } from "./shared";
+import { folderTabs, B2bError, errorCode, useCopy, previewStateCopy, projectsDenial } from "./shared";
 
 export function ProjectFiles({ projectId }: { projectId: string }) {
   const context = useWorkspace()!;
@@ -107,6 +111,7 @@ function FilesView({ scope }: { scope: FileScope }) {
     };
   }, [reload]);
   const downloads = useFileDownloads(scope, !!data, reload);
+  const trash = useProjectTrash(scope, api, reload);
   if (error) return <B2bError code={error} retry={() => void reload()} />;
   if (!data) return <TeamLoading />;
   const { project, capabilities, list } = data;
@@ -170,7 +175,8 @@ function FilesView({ scope }: { scope: FileScope }) {
                 <VersionHeader
                   version={version}
                   action={
-                    version.allowedActions.download && (
+                    <span className="flex items-center gap-1">
+                    {version.allowedActions.download && (
                       <button
                         type="button"
                         className={secondaryClass}
@@ -185,7 +191,15 @@ function FilesView({ scope }: { scope: FileScope }) {
                       >
                         {c("원본 다운로드", "Download original")}
                       </button>
-                    )
+                    )}
+                    {version.allowedActions.unlink && version.referenceRevision !== null && (
+                      <RowMenu label={c(`${version.assetName} 작업`, `Actions for ${version.assetName}`)}>
+                        <RowMenuItem tone="danger" disabled={trash.busy} onClick={() => trash.ask(version)}>
+                          {c("삭제", "Delete")}
+                        </RowMenuItem>
+                      </RowMenu>
+                    )}
+                    </span>
                   }
                 />
                 {/* A file row is the file and its download (2026-10-08):
@@ -217,8 +231,160 @@ function FilesView({ scope }: { scope: FileScope }) {
           </div>
         )}
       </section>
+      {trash.error && <B2bError code={trash.error} />}
+      {trash.entries.length > 0 && (
+        <Details summary={c(`최근 삭제한 파일 ${trash.entries.length}`, `Recently deleted ${trash.entries.length}`)}>
+          <ul className="divide-y divide-border text-foreground" aria-label={c("최근 삭제한 파일", "Recently deleted")}>
+            {trash.entries.map((entry) => (
+              <li key={entry.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-medium">{entry.version.assetName}</p>
+                  <p className="text-xs text-muted tabular-nums">
+                    {c(
+                      `${day(entry.restoreUntil)}까지 복원할 수 있습니다`,
+                      `Restorable until ${day(entry.restoreUntil)}`,
+                    )}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className={secondaryClass}
+                  disabled={trash.busy}
+                  onClick={() => void trash.restore(entry)}
+                >
+                  {c("복원", "Restore")}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Details>
+      )}
+      {trash.asking && (
+        <ConfirmDialog
+          label={c("파일 삭제", "Delete file")}
+          onClose={() => {
+            if (!trash.busy) trash.ask(null);
+          }}
+        >
+          <p className="break-all text-sm font-medium">{trash.asking.assetName}</p>
+          <p className="text-sm text-muted">
+            {trash.asking.allowedActions.manage
+              ? c(
+                  "휴지통으로 옮깁니다. 30일 안에는 이 화면 아래 '최근 삭제한 파일'에서 복원할 수 있고, 그 뒤 완전히 지워집니다.",
+                  "It moves to the trash. Restore it from 'Recently deleted' below within 30 days; after that it is gone for good.",
+                )
+              : c(
+                  "이 프로젝트에서 뺍니다. 파일을 올린 사람의 보관 공간에는 남습니다.",
+                  "It leaves this project. It stays with the person who uploaded it.",
+                )}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <button className={primaryClass} disabled={trash.busy} onClick={() => void trash.remove()}>
+              {trash.busy ? c("삭제하는 중…", "Deleting…") : c("삭제", "Delete")}
+            </button>
+            <button type="button" className={secondaryClass} disabled={trash.busy} onClick={() => trash.ask(null)}>
+              {c("취소", "Cancel")}
+            </button>
+          </div>
+        </ConfirmDialog>
+      )}
     </TeamShell>
   );
+}
+
+const day = (value: string) =>
+  new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", dateStyle: "medium" }).format(new Date(value));
+
+/**
+ * Delete and restore, the Figma way (2026-10-08): a file leaves the project
+ * and, when you uploaded it, waits 30 days in the trash, listed here with a
+ * 복원. The server keeps these as two steps each (unlink then trash, restore
+ * then link back), so a failure between them leaves the first done; the
+ * reread shows where the file is.
+ */
+function useProjectTrash(
+  scope: FileScope,
+  api: ReturnType<typeof fileApi>,
+  reload: () => Promise<void>,
+) {
+  const [entries, setEntries] = useState<TeamFileTrashEntry[]>([]);
+  const [asking, ask] = useState<TeamFileVersion | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const load = useCallback(async () => {
+    try {
+      const list = await api.trashList();
+      setEntries(
+        list.entries.filter(
+          (e) => e.state === "recoverable" && e.allowedActions.restore && e.version.projectId === scope.projectId,
+        ),
+      );
+    } catch {
+      setEntries([]);
+    }
+  }, [api, scope.projectId]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => clearTimeout(timer);
+  }, [load]);
+  const run = async (work: () => Promise<unknown>) => {
+    setBusy(true);
+    setError("");
+    try {
+      await work();
+    } catch (e) {
+      setError(errorCode(e));
+    } finally {
+      setBusy(false);
+      await reload();
+      await load();
+    }
+  };
+  return {
+    entries,
+    asking,
+    ask,
+    busy,
+    error,
+    remove: () =>
+      run(async () => {
+        const version = asking;
+        if (!version || version.referenceRevision === null) return;
+        await api.unlink(version.id, {
+          requestKey: crypto.randomUUID(),
+          revision: version.referenceRevision,
+          reason: "파일 삭제",
+        });
+        // Only the uploader holds the file itself; a lead's delete is the unlink.
+        if (version.allowedActions.manage)
+          await api.trash({
+            requestKey: crypto.randomUUID(),
+            versionId: version.id,
+            revision: version.assetRevision,
+            reason: "파일 삭제",
+            fromLibrary: true,
+            sourceProjectId: scope.projectId,
+          });
+        ask(null);
+      }),
+    restore: (entry: TeamFileTrashEntry) =>
+      run(async () => {
+        await api.restore(entry.id, {
+          requestKey: crypto.randomUUID(),
+          revision: entry.revision,
+          reason: "파일 복원",
+          fromLibrary: true,
+          sourceProjectId: scope.projectId,
+        });
+        // Back into the project it left (its original source).
+        await api.link({
+          requestKey: crypto.randomUUID(),
+          versionId: entry.version.id,
+          fromLibrary: true,
+          sourceProjectId: scope.projectId,
+        });
+      }),
+  };
 }
 
 type Copy = (ko: string, en: string) => string;
