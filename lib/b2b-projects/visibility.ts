@@ -18,20 +18,23 @@ export function projectSurfaces(role: Project["role"]) {
   };
 }
 
-/** A folder's pages as one tab row (2026-10-08), each only where
- * `projectSurfaces` already allows it. They used to be reached through a row
- * of buttons on the overview, a line of underlined links below the fold and a
- * "폴더 개요" back button on every sub-page — the reviews list only through a
- * "전체 보기" link. */
-export function projectTabs(base: string, role: Project["role"]) {
+/** A folder is its videos and its files (2026-10-08 cleanup). 멤버 shows
+ * only where a roster means something: a private folder, or the lead of a
+ * team folder (who adds external people). Requests, delivery and registered
+ * results keep their routes but no tab. `match` keeps 영상 lit on the review
+ * pages under it. */
+export function projectTabs(
+  base: string,
+  role: Project["role"],
+  visibility: Project["visibility"],
+) {
   const s = projectSurfaces(role);
   return [
-    { href: base, ko: "개요", en: "Overview" },
+    { href: base, ko: "영상", en: "Videos", match: `${base}/reviews` },
     { href: `${base}/files`, ko: "자료", en: "Files" },
-    { href: `${base}/reviews`, ko: "영상 검토", en: "Reviews" },
-    ...(s.requests ? [{ href: `${base}/requests`, ko: "요청사항", en: "Requests" }] : []),
-    ...(s.people ? [{ href: `${base}/people`, ko: "참여자", en: "Participants" }] : []),
-    ...(s.delivery ? [{ href: `${base}/delivery`, ko: "납품", en: "Delivery" }] : []),
+    ...(s.people && (visibility === "private" || role === "lead")
+      ? [{ href: `${base}/people`, ko: "멤버", en: "People" }]
+      : []),
   ];
 }
 

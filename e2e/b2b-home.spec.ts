@@ -101,7 +101,7 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
     });
     expect(source.status(), await source.text()).toBe(201);
     await O.page.reload();
-    const periods = O.page.getByRole("region", { name: "내 이용기간" });
+    const periods = O.page.getByRole("region", { name: "내 좌석" });
     await expect(
       periods.getByText("현재 이용기간", { exact: true }),
     ).toBeVisible();
@@ -109,7 +109,7 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
       periods.getByText("다음 기간 예정", { exact: true }),
     ).toBeVisible();
     await expect(
-      periods.getByText("편집 이용권 배정 중", { exact: true }),
+      periods.getByText("편집 좌석 있음", { exact: true }),
     ).toBeVisible();
     // Team AI is the app's, on the person's seat: the web shows no AI figures.
     await expect(periods.getByText(/AI/)).toHaveCount(0);
@@ -145,14 +145,11 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
       O.page.getByRole("heading", { name: "폴더 자료", exact: true }),
     ).toBeVisible();
     await O.page.goto(base);
-    await expect(
-      O.page.getByRole("link", { name: /홈에서 여는 내 프로젝트.*납품 준비/ }),
-    ).toHaveAttribute("href", `${base}/projects/${own}/delivery`);
-    // Existing request/review panels are part of the real home, with their
-    // own authoritative queues rather than approximations of this card page.
+    // 2026-10-08 cleanup: requests and delivery left the home; review work
+    // stays, with its own authoritative queue.
     await expect(
       O.page.getByRole("heading", { name: "내 요청 업무", exact: true }),
-    ).toBeVisible();
+    ).toHaveCount(0);
     await expect(
       O.page.getByRole("heading", { name: "검토·승인 업무", exact: true }),
     ).toBeVisible();
@@ -178,7 +175,7 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
     await O.page.setViewportSize({ width: 390, height: 844 });
     await O.page.reload();
     await expect(
-      periods.getByText("편집 이용권 배정 중", { exact: true }),
+      periods.getByText("편집 좌석 있음", { exact: true }),
     ).toBeVisible();
     expect(
       await O.page.evaluate(
@@ -198,7 +195,7 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
       O.page.getByRole("region", { name: "내 폴더", exact: true }),
     ).toHaveCount(0);
     await expect(
-      O.page.getByRole("region", { name: "전송·납품 업무", exact: true }),
+      O.page.getByRole("region", { name: "내 원본 전송", exact: true }),
     ).toHaveCount(0);
     await expect(
       O.page.getByRole("link", { name: "이용 상태", exact: true }),

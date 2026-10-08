@@ -152,7 +152,7 @@ test("B2B preparing gate, private projects, lost-response retry, role handoff an
     await expect(page.locator("main [role=alert]")).toContainText(
       "접근 권한이 없습니다",
     );
-    await editorPage.getByRole("link", { name: "참여자", exact: true }).click();
+    await editorPage.getByRole("link", { name: "멤버", exact: true }).click();
     await editorPage
       .getByLabel("초대 이메일", { exact: true })
       .fill(owner.email);

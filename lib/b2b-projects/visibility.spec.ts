@@ -25,12 +25,15 @@ test("widening to team needs the confirmation and a reason before anything is se
   assert.deepEqual(visibilityChange(project, { reason: " 팀 공유 ", confirmed: true }), { visibility: "team", revision: 7, confirmTeamWide: true, reason: "팀 공유" });
 });
 
-test("folder tabs follow the same surfaces as the pages behind them", () => {
-  const labels = (role: Parameters<typeof projectTabs>[1]) =>
-    projectTabs("/f", role).map((t) => t.ko);
-  assert.deepEqual(labels("lead"), ["개요", "자료", "영상 검토", "요청사항", "참여자", "납품"]);
-  // A reviewer works in reviews and requests, never the roster.
-  assert.ok(!labels("reviewer").includes("참여자"));
-  // A team viewer reads; no requests, delivery or roster.
-  assert.deepEqual(labels("viewer"), ["개요", "자료", "영상 검토"]);
+test("a folder is its videos and files; 멤버 only where a roster matters", () => {
+  const labels = (role: Parameters<typeof projectTabs>[1], visibility: "team" | "private") =>
+    projectTabs("/f", role, visibility).map((t) => t.ko);
+  assert.deepEqual(labels("lead", "team"), ["영상", "자료", "멤버"]);
+  assert.deepEqual(labels("producer", "team"), ["영상", "자료"]);
+  assert.deepEqual(labels("producer", "private"), ["영상", "자료", "멤버"]);
+  // A reviewer or a team viewer never gets the roster.
+  assert.deepEqual(labels("reviewer", "private"), ["영상", "자료"]);
+  assert.deepEqual(labels("viewer", "team"), ["영상", "자료"]);
+  // 영상 stays lit on the review pages beneath it.
+  assert.equal(projectTabs("/f", "lead", "team")[0].match, "/f/reviews");
 });

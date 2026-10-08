@@ -39,7 +39,7 @@ export function PageHeader({
 export function PageTabs({
   tabs,
 }: {
-  tabs: { href: string; label: string }[];
+  tabs: { href: string; label: string; match?: string }[];
 }) {
   const path = usePathname();
   return (
@@ -49,7 +49,8 @@ export function PageTabs({
         // their children (a statement month, a request).
         const active =
           path === tab.href ||
-          (tab.href !== tabs[0].href && path.startsWith(`${tab.href}/`));
+          (tab.href !== tabs[0].href && path.startsWith(`${tab.href}/`)) ||
+          (!!tab.match && (path === tab.match || path.startsWith(`${tab.match}/`)));
         return (
           <Link
             key={tab.href}
