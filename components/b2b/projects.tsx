@@ -317,8 +317,6 @@ export function NewProject() {
   const router = useRouter();
   const [name, setName] = useState("");
   const [brief, setBrief] = useState("");
-  const [workingFiles, setWorkingFiles] = useState(false);
-  const [originals, setOriginals] = useState(false);
   const [visibility, setVisibility] = useState<ProjectVisibility>("team");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -353,8 +351,8 @@ export function NewProject() {
           const draft = {
             name: name.trim(),
             brief: brief.trim(),
-            requiresWorkingFiles: workingFiles,
-            shareOriginals: originals,
+            requiresWorkingFiles: false,
+            shareOriginals: false,
             visibility,
           };
           const fingerprint = JSON.stringify(draft);
@@ -441,33 +439,6 @@ export function NewProject() {
               </span>
             </label>
           ))}
-        </fieldset>
-        <fieldset className="space-y-1 text-sm">
-          <legend className="mb-2">{c("납품", "Delivery")}</legend>
-          <label className="flex min-h-11 items-center gap-3">
-            <input
-              type="checkbox"
-              checked={workingFiles}
-              disabled={busy || !!pending.current}
-              onChange={(e) => setWorkingFiles(e.target.checked)}
-            />
-            {c(
-              "납품에 편집 가능한 작업 파일과 소스 확인 필요",
-              "Require verified editable working files and sources for delivery",
-            )}
-          </label>
-          <label className="flex min-h-11 items-center gap-3">
-            <input
-              type="checkbox"
-              checked={originals}
-              disabled={busy || !!pending.current}
-              onChange={(e) => setOriginals(e.target.checked)}
-            />
-            {c(
-              "프로젝트에서 원본 공유 허용",
-              "Allow original sharing in the project",
-            )}
-          </label>
         </fieldset>
         {error && <B2bError code={error} />}
         <div className="flex flex-wrap items-center gap-3">

@@ -74,7 +74,6 @@ test("V: an external client does not see an automatically published round until 
   await expect(audience.getByRole("radio", { name: "프로젝트 내부 전체 공개", exact: true })).toBeChecked({ timeout: 30_000 });
   await expect(audience.getByText("외부 참여자에게도 이 회차 공개 (선택)", { exact: true })).toBeVisible();
   await audience.getByRole("checkbox", { name: "tvx-client · 뷰어", exact: true }).check();
-  await audience.getByLabel("대상 변경 사유(필수)", { exact: true }).fill("고객 검토 시작");
   await shot(L.page, "s14-lead-open-to-client");
   await audience.getByRole("button", { name: "대상을 확정하고 새 회차 공개", exact: true }).click();
   await expect(L.page.getByText(/V1 · 회차 2/)).toBeVisible({ timeout: 30_000 });

@@ -391,8 +391,6 @@ export function VideoVersionPicker({
   const [preview, setPreview] = useState<ReviewPreview | null>(null);
   const [busy, setBusy] = useState(false);
   const [playback, setPlayback] = useState<{ url: string; expiresAt: string } | null>(null);
-  const [played, setPlayed] = useState(false);
-  const [confirmed, setConfirmed] = useState(false);
   const selectedRef = useRef<string | null>(null);
   const load = useCallback(async () => {
     try {
@@ -466,8 +464,6 @@ export function VideoVersionPicker({
                     selectedRef.current = v.id;
                     setPreview(null);
                     setPlayback(null);
-                    setPlayed(false);
-                    setConfirmed(false);
                     void status(v);
                   }}
                 />
@@ -492,12 +488,9 @@ export function VideoVersionPicker({
               } catch (e) { setError(errorCode(e)); }
               finally { setBusy(false); }
             }}>{c("공개 전 재생", "Play before publishing")}</button>
-            {playback && <video key={`${selected.id}:${playback.url}`} src={playback.url} controls playsInline preload="metadata" aria-label={c("공개 전 검토본 재생", "Review copy before publishing")} className="w-full max-h-80 rounded-md bg-black" onPlay={() => setPlayed(true)} onError={() => { setPlayed(false); setConfirmed(false); setError("B2B_PREVIEW_NOT_READY"); }} />}
-            <label className="flex min-h-11 items-center gap-3">
-              <input type="checkbox" checked={confirmed} disabled={disabled || !played} onChange={(e) => setConfirmed(e.target.checked)} />
-              {c("선택한 검토본 재생을 확인했습니다", "I checked playback of the selected review copy")}
-            </label>
-            {confirmed && children}
+            {playback && <video key={`${selected.id}:${playback.url}`} src={playback.url} controls playsInline preload="metadata" aria-label={c("공개 전 검토본 재생", "Review copy before publishing")} className="w-full max-h-80 rounded-md bg-black" onError={() => setError("B2B_PREVIEW_NOT_READY")} />}
+            {/* Playing it first is optional (2026-10-08): no "I watched it" box. */}
+            {children}
           </>}
           {canPrepare &&
             (preview.state === "not_requested" ||
@@ -528,7 +521,7 @@ export function VideoVersionPicker({
           <button
             type="button"
             className={primaryClass}
-            disabled={disabled || busy || preview.state !== "ready" || !confirmed || actionDisabled}
+            disabled={disabled || busy || preview.state !== "ready" || actionDisabled}
             onClick={() => onPick(selected, preview)}
           >
             {action}

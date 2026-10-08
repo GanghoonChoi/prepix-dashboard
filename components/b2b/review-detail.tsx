@@ -1327,7 +1327,6 @@ function Approval({
   const c = useCopy();
   const [asking, setAsking] = useState(false);
   const [reason, setReason] = useState("");
-  const [cancelReason, setCancelReason] = useState("");
   const mutation = useRun();
   const current = detail.decisions.find((d) => d.current);
   const canCancel = !!current && detail.allowedActions.cancelDecision;
@@ -1424,26 +1423,17 @@ function Approval({
           </ol>
           {canCancel && (
             <form
-              className="mt-2 flex items-end gap-2"
+              className="mt-2"
               onSubmit={async (e) => {
                 e.preventDefault();
-                const input = { revision: detail.review.revision, reason: cancelReason };
-                const done = await mutation.run(input, (requestKey) =>
+                const input = { revision: detail.review.revision, reason: "결정 취소" };
+                await mutation.run(input, (requestKey) =>
                   reviewsService.mutate(scope, "cancel", { requestKey, ...input }, current!.id, token),
                 );
-                if (done) setCancelReason("");
                 await reload();
               }}
             >
-              <input
-                className={`${inputClass} min-w-0 flex-1`}
-                value={cancelReason}
-                maxLength={1000}
-                placeholder={c("결정을 취소하는 이유", "Why cancel the decision")}
-                aria-label={c("결정 취소 사유", "Reason to cancel the decision")}
-                onChange={(e) => setCancelReason(e.target.value)}
-              />
-              <button type="submit" className={secondaryClass} disabled={mutation.busy || !cancelReason.trim()}>
+              <button type="submit" className={secondaryClass} disabled={mutation.busy}>
                 {c("결정 취소", "Cancel decision")}
               </button>
             </form>
@@ -1613,21 +1603,19 @@ function LeadTools({
 function AudienceForm({ scope, detail, reload }: { scope: ReviewScope & { kind: "project" }; detail: ReviewDetail; reload: () => Promise<void> }) {
   const c = useCopy();
   const [audience, setAudience] = useState<AudienceSelection>(() => detailAudience(detail));
-  const [ready, setReady] = useState(false), [reason, setReason] = useState("");
+  const [ready, setReady] = useState(false);
   const mutation = useRun();
   return <form className={`${card} min-w-0 space-y-3 p-4`} onSubmit={async (e) => {
     e.preventDefault();
-    const input = { revision: detail.review.revision, ...audienceInput(audience), reason: reason.trim() };
-    const done = await mutation.run(input, (requestKey) => reviewsService.mutate(scope, "audience", { requestKey, ...input }));
-    if (done) setReason("");
+    const input = { revision: detail.review.revision, ...audienceInput(audience), reason: "검토 대상 변경" };
+    await mutation.run(input, (requestKey) => reviewsService.mutate(scope, "audience", { requestKey, ...input }));
     await reload();
   }}>
     <h2 className="text-[13px] font-medium">{c("검토 대상 변경", "Change review audience")}</h2>
     <p className="-mt-2 text-xs leading-5 text-muted">{c("바꾸면 새 회차가 열리고 다시 승인받아야 합니다.", "Changing it opens a new round that needs a fresh approval.")}</p>
     <ReviewAudiencePicker scope={scope} value={audience} onChange={setAudience} disabled={mutation.busy} onValidityChange={setReady} />
-    <label className="block space-y-2 text-sm"><span>{c("대상 변경 사유(필수)", "Audience-change reason (required)")}</span><input className={inputClass} value={reason} maxLength={1000} disabled={mutation.busy} onChange={(e) => setReason(e.target.value)} /></label>
     {mutation.error && <ReviewError code={mutation.error} />}
-    <button type="submit" className={primaryClass} disabled={mutation.busy || !ready || !reason.trim()}>{c("대상을 확정하고 새 회차 공개", "Confirm audience and publish a new round")}</button>
+    <button type="submit" className={primaryClass} disabled={mutation.busy || !ready}>{c("대상을 확정하고 새 회차 공개", "Confirm audience and publish a new round")}</button>
   </form>;
 }
 
@@ -1645,7 +1633,7 @@ function ReplaceVersion({
   const [open, setOpen] = useState(false);
   const mutation = useRun();
   const [audience, setAudience] = useState<AudienceSelection>(() => detailAudience(detail));
-  const [audienceReady, setAudienceReady] = useState(false), [reason, setReason] = useState("");
+  const [audienceReady, setAudienceReady] = useState(false);
   const [assetId, setAssetId] = useState<string>();
   const [assetError, setAssetError] = useState("");
   useEffect(() => {
@@ -1684,10 +1672,10 @@ function ReplaceVersion({
           exclude={detail.review.versionId}
           canPrepare
           disabled={mutation.busy}
-          actionDisabled={!audienceReady || !reason.trim()}
+          actionDisabled={!audienceReady}
           action={c("이 버전으로 교체", "Replace with this version")}
           onPick={async (version) => {
-            const input = { revision: detail.review.revision, versionId: version.id, ...audienceInput(audience), reason: reason.trim() };
+            const input = { revision: detail.review.revision, versionId: version.id, ...audienceInput(audience), reason: "새 영상 버전으로 교체" };
             const done = await mutation.run(input, (requestKey) =>
               reviewsService.mutate(scope, "round", { requestKey, ...input }),
             );
@@ -1696,7 +1684,6 @@ function ReplaceVersion({
           }}
         >
           <ReviewAudiencePicker scope={scope} value={audience} onChange={setAudience} disabled={mutation.busy} onValidityChange={setAudienceReady} />
-          <label className="block space-y-2 text-sm"><span>{c("영상 교체 사유(필수)", "Video-replacement reason (required)")}</span><input className={inputClass} value={reason} maxLength={1000} disabled={mutation.busy} onChange={(e) => setReason(e.target.value)} /></label>
         </VideoVersionPicker>
       )}
       {mutation.error && <ReviewError code={mutation.error} />}
@@ -1719,7 +1706,6 @@ function Shares({
   const { data, error, load } = useLoader(read);
   const [recipients, setRecipients] = useState(""),
     [expiry, setExpiry] = useState(""),
-    [allowDownload, setAllowDownload] = useState(false),
     [link, setLink] = useState("");
   const mutation = useRun();
   const emails = recipients.split(/[\s,;]+/).map((e) => e.trim()).filter(Boolean);
@@ -1741,7 +1727,8 @@ function Shares({
               versionId: detail.review.versionId,
               recipients: emails,
               ...(expiry ? { expiresAt: new Date(`${expiry}T23:59:00+09:00`).toISOString() } : {}),
-              allowDownload,
+              // A share link is watch-and-comment (2026-10-08), like a viewer.
+              allowDownload: false,
             };
             const done = await mutation.run(input, (requestKey) =>
               reviewsService.mutate(scope, "share", { requestKey, ...input }),
@@ -1750,7 +1737,6 @@ function Shares({
               const l = await reviewsService.shareLink(scope, done.shareId).catch(() => null);
               if (l) setLink(shareUrl(l.shareId, l.token));
               setRecipients("");
-              setAllowDownload(false);
               setExpiry("");
             }
             await load();
@@ -1767,10 +1753,6 @@ function Shares({
               <input type="date" className={inputClass} value={expiry} onChange={(e) => setExpiry(e.target.value)} />
             </label>
           )}
-          <label className="flex min-h-11 items-center gap-2 text-sm sm:min-h-0">
-            <input type="checkbox" checked={allowDownload} onChange={(e) => setAllowDownload(e.target.checked)} />
-            {c("원본 다운로드 허용", "Allow original download")}
-          </label>
           {mutation.error && <ReviewError code={mutation.error} />}
           <button type="submit" className={primaryClass} disabled={mutation.busy || !emails.length}>
             {c("공유하기", "Share")}
@@ -1818,8 +1800,7 @@ function ShareRow({
   onLink: (url: string) => void;
   c: Copy;
 }) {
-  const [reason, setReason] = useState(""),
-    [error, setError] = useState("");
+  const [error, setError] = useState("");
   const mutation = useRun();
   const label = { active: c("유효", "Active"), expired: c("만료", "Expired"), revoked: c("회수됨", "Revoked") }[s.state];
   return (
@@ -1849,16 +1830,14 @@ function ShareRow({
       <p className="break-all text-xs text-muted">
         {s.recipients.map((r) => `${r.email}${r.ended ? ` (${c("접근 종료", "ended")})` : ""}`).join(", ")}
       </p>
-      {s.revoked && <p className="text-xs">{c("회수 사유", "Revoked")}: {s.revoked.reason}</p>}
       {s.state === "active" && (
         <div className="flex gap-2">
-          <input className={`${inputClass} min-w-0 flex-1`} placeholder={c("회수 사유", "Reason to revoke")} value={reason} maxLength={1000} onChange={(e) => setReason(e.target.value)} aria-label={c("회수 사유", "Reason to revoke")} />
           <button
             type="button"
             className={secondaryClass}
-            disabled={mutation.busy || !reason.trim()}
+            disabled={mutation.busy}
             onClick={async () => {
-              const input = { reason };
+              const input = { reason: "공유 회수" };
               await mutation.run({ ...input, shareId: s.id }, (requestKey) =>
                 reviewsService.mutate(scope, "revoke", { requestKey, ...input }, s.id),
               );

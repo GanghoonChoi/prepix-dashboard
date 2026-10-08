@@ -217,6 +217,16 @@ async function invite(
     ).status(),
   ).toBe(201);
 }
+
+// File management sits in each row's 관리·상세 fold (2026-10-08): open it
+// (once) before reaching for an action inside.
+async function fold(row: import("@playwright/test").Locator) {
+  const details = row.locator("details", { hasText: "관리·상세" }).first();
+  // Opened directly: at 390px the dev overlay's badge can sit on the summary.
+  await details.evaluate((d) => ((d as HTMLDetailsElement).open = true));
+  return row;
+}
+
 test("real private upload resumes after reload, verifies immutable content and survives cancellation response loss", async ({
   page,
   request,
@@ -631,7 +641,7 @@ test("real private upload resumes after reload, verifies immutable content and s
         }),
       })
       .first();
-  await row()
+  await (await fold(row()))
     .getByRole("button", { name: "자료 권한 관리", exact: true })
     .click();
   let dialog = page.getByRole("alertdialog", {
@@ -671,7 +681,7 @@ test("real private upload resumes after reload, verifies immutable content and s
       } else await route.continue();
     },
   );
-  await row()
+  await (await fold(row()))
     .getByRole("button", { name: "자료 권한 관리", exact: true })
     .click();
   dialog = page.getByRole("alertdialog", {
@@ -702,7 +712,7 @@ test("real private upload resumes after reload, verifies immutable content and s
       ).json()
     ).data.versions[0].allowedActions,
   ).toMatchObject({ download: false, ai: false });
-  await row()
+  await (await fold(row()))
     .getByRole("button", { name: "자료 권한 관리", exact: true })
     .click();
   dialog = page.getByRole("alertdialog", {
@@ -747,7 +757,7 @@ test("real private upload resumes after reload, verifies immutable content and s
   const linkedProject = (await targetReply.json()).data.project;
   await invite(request, user, team.id, linkedProject.id, producer, "producer");
   const targetRoot = `${api}/v2/workspaces/${team.id}/b2b/projects/${linkedProject.id}`;
-  await row()
+  await (await fold(row()))
     .getByRole("button", { name: "다른 프로젝트에 연결", exact: true })
     .click();
   dialog = page.getByRole("alertdialog", {
@@ -793,7 +803,7 @@ test("real private upload resumes after reload, verifies immutable content and s
     await route.fetch();
     await route.abort("failed");
   });
-  await page
+  await (await fold(page.locator("li", { hasText: "관리·상세" }).first()))
     .getByRole("button", { name: "프로젝트 연결 제외", exact: true })
     .click();
   dialog = page.getByRole("alertdialog", {
@@ -831,7 +841,7 @@ test("real private upload resumes after reload, verifies immutable content and s
     page.getByRole("heading", { name: "프로젝트 자료", exact: true }),
   ).toBeVisible();
   // Keyboard focus stays in the management dialog and returns to its opener.
-  const opener = row().getByRole("button", {
+  const opener = (await fold(row())).getByRole("button", {
     name: "자료 권한 관리",
     exact: true,
   });
@@ -1155,7 +1165,7 @@ test("real private upload resumes after reload, verifies immutable content and s
     ).status(),
   ).toBe(422);
   const other = await account(request);
-  await row()
+  await (await fold(row()))
     .getByRole("button", { name: "자료 권한 관리", exact: true })
     .click();
   await expect(
@@ -1601,24 +1611,29 @@ test("steward handoff and separate recovery acceptance preserve exact-version pr
     page.getByText("private-unselected.wav", { exact: true }),
   ).toHaveCount(0);
 
+  // Suspension left the people table (2026-10-08); the server keeps it.
+  const producerRevision = (
+    await (await request.get(`${base}/members`, { headers: owner.headers })).json()
+  ).data.people.find((p: { userId: string }) => p.userId === producer.id).revision;
+  expect(
+    (
+      await request.post(`${base}/members/${producer.id}/action`, {
+        headers: owner.headers,
+        data: {
+          requestKey: randomUUID(),
+          revision: producerRevision,
+          action: "suspend",
+          reason: "자료 담당자 부재로 후임 복구",
+        },
+      })
+    ).status(),
+  ).toBe(201);
   await loginSteward(page, owner, membersPath);
-  // People table (2026-10-08): a person's settings open from their row.
-  await page.getByRole("row").filter({ hasText: producer.email }).click();
-  const producerMember = page.getByRole("dialog");
-  await producerMember
-    .getByLabel("참여 변경", { exact: true })
-    .selectOption("suspend");
-  await producerMember
-    .getByLabel("참여 변경 사유", { exact: true })
-    .fill("자료 담당자 부재로 후임 복구");
-  await producerMember
-    .getByRole("button", { name: "참여 변경 확인", exact: true })
-    .click();
   await expect(
-    producerMember.getByText("참여 정지", { exact: true }),
+    page.getByRole("row").filter({ hasText: producer.email }).getByText("정지됨", { exact: true }),
   ).toBeVisible();
-  await producerMember.getByRole("button", { name: "닫기", exact: true }).click();
-  await page.getByRole("tab", { name: "복구", exact: true }).click();
+  // Repairs fold at the bottom of the people page.
+  await page.getByText("담당자 복구", { exact: true }).click();
   const eligibility = (
     await (
       await request.get(`${stewards}/recovery/${recovery.versionId}`, {
@@ -1687,6 +1702,7 @@ test("steward handoff and separate recovery acceptance preserve exact-version pr
       .first(),
   ).toBeVisible();
   await page.reload();
+  await page.getByText("담당자 복구", { exact: true }).click();
   await expect(
     page
       .getByText(

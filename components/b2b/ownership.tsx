@@ -42,7 +42,6 @@ export function OwnershipControls() {
   const c = useCopy();
   const [people, setPeople] = useState<TeamPerson[]>([]);
   const [target, setTarget] = useState("");
-  const [reason, setReason] = useState("");
   const [confirm, setConfirm] = useState<"request" | "accept" | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState(false);
@@ -77,7 +76,7 @@ export function OwnershipControls() {
       action,
       requestKey: crypto.randomUUID(),
       revision: b2b.team.revision,
-      reason: reason.trim(),
+      reason: { request: "소유권 이전 요청", accept: "소유권 수락", cancel: "소유권 이전 취소", decline: "소유권 이전 거절" }[action],
       targetId: target,
       transferId: offer?.id,
     };
@@ -111,7 +110,6 @@ export function OwnershipControls() {
       }
       pending.current = null;
       setConfirm(null);
-      setReason("");
       setNotice(true);
       await reload();
     } catch (e) {
@@ -176,20 +174,6 @@ export function OwnershipControls() {
             </select>
           </label>
         )}
-        {(data.role === "owner" || offer?.toUserId === data.currentUserId) && (
-          <label className="block space-y-1.5 text-[13px]">
-            <span>{c("소유권 변경 사유", "Reason for ownership action")}</span>
-            <textarea
-              aria-label={c("소유권 변경 사유", "Reason for ownership action")}
-              className={inputClass}
-              required
-              maxLength={1000}
-              value={reason}
-              disabled={frozen}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </label>
-        )}
         {!confirm && (
           <div className="flex flex-wrap gap-3">
             {!offer && data.role === "owner" && (
@@ -198,7 +182,6 @@ export function OwnershipControls() {
                 disabled={
                   busy ||
                   !target ||
-                  !reason.trim() ||
                   (!!pending.current && pending.current.action !== "request")
                 }
                 onClick={() => setConfirm("request")}
@@ -209,7 +192,7 @@ export function OwnershipControls() {
             {canAccept && (
               <button
                 className={primaryClass}
-                disabled={busy || !reason.trim()}
+                disabled={busy}
                 onClick={() => setConfirm("accept")}
               >
                 {c("소유권 수락 본인 확인", "Verify to accept ownership")}
@@ -220,7 +203,6 @@ export function OwnershipControls() {
                 className={secondaryClass}
                 disabled={
                   busy ||
-                  !reason.trim() ||
                   (!!pending.current && pending.current.action !== "decline")
                 }
                 onClick={() => void execute("decline").catch(() => {})}
@@ -233,7 +215,6 @@ export function OwnershipControls() {
                 className={secondaryClass}
                 disabled={
                   busy ||
-                  !reason.trim() ||
                   (!!pending.current && pending.current.action !== "cancel")
                 }
                 onClick={() => void execute("cancel").catch(() => {})}

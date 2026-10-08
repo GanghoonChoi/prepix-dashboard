@@ -847,26 +847,18 @@ test("멤버 = 좌석: joining takes a seat, the fourth waits, turning one off h
   await expect(page.getByText("대기 1", { exact: true })).toBeVisible();
   await expect(row(c.email).getByText("대기", { exact: true })).toBeVisible();
   await expect(row(a.email).getByText("편집", { exact: true })).toBeVisible();
-  // Turning a's seat off hands it to c, who was waiting.
-  await row(a.email).click();
-  const sheet = page.getByRole("dialog");
-  await expect(sheet.getByText(/편집 좌석 사용 중/)).toBeVisible();
-  await sheet.getByRole("button", { name: "좌석 끄기", exact: true }).click();
-  await expect(sheet.getByText(/좌석 꺼짐/)).toBeVisible();
-  await sheet.getByRole("button", { name: "닫기", exact: true }).click();
+  // The seat follows the role (2026-10-08): making a a viewer hands their
+  // seat to c, who was waiting.
+  await row(a.email).getByLabel(/역할$/).selectOption("reviewer");
   await expect(row(c.email).getByText("편집", { exact: true })).toBeVisible();
   await expect(row(a.email).getByText("보기", { exact: true })).toBeVisible();
   await expect(page.getByText("대기 1", { exact: true })).toHaveCount(0);
   expect((await roster()).seats).toEqual({ capacity: 3, assigned: 3, waiting: 0 });
-  // Back on with every seat taken: a waits for the next free one.
-  await row(a.email).click();
-  await sheet.getByRole("button", { name: "좌석 켜기", exact: true }).click();
-  await expect(sheet.getByText(/좌석 대기/)).toBeVisible();
-  await sheet.getByRole("button", { name: "닫기", exact: true }).click();
-  // A reviewer has no seat to turn on.
-  await row(r.email).click();
-  await expect(sheet.getByText(/검토 역할은 좌석이 필요 없습니다/)).toBeVisible();
-  await expect(sheet.getByRole("button", { name: "좌석 켜기", exact: true })).toHaveCount(0);
+  // Back to editor with every seat taken: a waits for the next free one.
+  await row(a.email).getByLabel(/역할$/).selectOption("editor");
+  await expect(row(a.email).getByText("대기", { exact: true })).toBeVisible();
+  // A viewer has no seat to turn on.
+  await expect(row(r.email).getByRole("button", { name: "좌석 켜기", exact: true })).toHaveCount(0);
   expect(
     (
       await request.post(`${endpoint}/members/${r.id}/seat`, {

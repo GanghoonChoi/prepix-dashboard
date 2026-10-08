@@ -13,6 +13,8 @@ import {
   type ProjectPeople,
 } from "@/lib/api/services/b2b.service";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
+import { RowMenu, RowMenuItem } from "@/components/workspaces/row-menu";
+import { Avatar, Tag } from "@/components/ui";
 import {
   Block,
   ConfirmDialog,
@@ -188,24 +190,14 @@ function VisibilitySection({
 }) {
   const c = useCopy();
   const [open, setOpen] = useState(false);
-  const [reason, setReason] = useState("");
-  const [confirmed, setConfirmed] = useState(false);
   const mutation = useRun();
   const widening = project.visibility === "private";
   const close = () => {
     setOpen(false);
-    setReason("");
-    setConfirmed(false);
     mutation.setError("");
   };
   const submit = async () => {
-    let input;
-    try {
-      input = visibilityChange(project, { reason, confirmed });
-    } catch (e) {
-      mutation.setError((e as Error).message);
-      return;
-    }
+    const input = visibilityChange(project);
     const done = await mutation.run(input, (requestKey) =>
       b2bService.changeVisibility(project.workspaceId, project.id, {
         ...input,
@@ -292,42 +284,12 @@ function VisibilitySection({
                   "Only participants will see it. Team members who don't participate lose access on their next action; comments they already left stay in the record.",
                 )}
           </p>
-          {widening && (
-            <label className="flex min-h-11 items-center gap-3 text-sm">
-              <input
-                type="checkbox"
-                checked={confirmed}
-                disabled={mutation.busy}
-                onChange={(e) => setConfirmed(e.target.checked)}
-              />
-              {c(
-                "모든 팀원에게 공개되는 범위를 확인했습니다",
-                "I understand every team member will see it",
-              )}
-            </label>
-          )}
-          <label className="block space-y-2 text-sm">
-            <span>
-              {widening
-                ? c("공개 사유(필수)", "Reason (required)")
-                : c("사유(선택)", "Reason (optional)")}
-            </span>
-            <input
-              className={inputClass}
-              value={reason}
-              maxLength={1000}
-              disabled={mutation.busy}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </label>
           {mutation.error && <B2bError code={mutation.error} />}
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
               className={primaryClass}
-              disabled={
-                mutation.busy || (widening && (!confirmed || !reason.trim()))
-              }
+              disabled={mutation.busy}
               onClick={() => void submit()}
             >
               {widening
@@ -361,8 +323,6 @@ function ProjectEditor({
   const c = useCopy();
   const [name, setName] = useState(project.name);
   const [brief, setBrief] = useState(project.brief);
-  const [working, setWorking] = useState(project.requiresWorkingFiles);
-  const [originals, setOriginals] = useState(project.shareOriginals);
   const [revision, setRevision] = useState(project.revision);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -376,8 +336,9 @@ function ProjectEditor({
         const input = {
           name: name.trim(),
           brief: brief.trim(),
-          requiresWorkingFiles: working,
-          shareOriginals: originals,
+          // Delivery settings left the form (2026-10-08); they keep their values.
+          requiresWorkingFiles: project.requiresWorkingFiles,
+          shareOriginals: project.shareOriginals,
           revision,
         };
         const fingerprint = JSON.stringify(input);
@@ -425,30 +386,6 @@ function ProjectEditor({
           onChange={(e) => setBrief(e.target.value)}
         />
       </label>
-      <fieldset className="space-y-1 text-sm">
-        <legend className="mb-2">{c("납품", "Delivery")}</legend>
-        <label className="flex min-h-11 items-center gap-3">
-          <input
-            type="checkbox"
-            checked={working}
-            disabled={busy || !!pending.current}
-            onChange={(e) => setWorking(e.target.checked)}
-          />
-          {c(
-            "납품에 작업 파일 확인 필요",
-            "Require verified working files for delivery",
-          )}
-        </label>
-        <label className="flex min-h-11 items-center gap-3">
-          <input
-            type="checkbox"
-            checked={originals}
-            disabled={busy || !!pending.current}
-            onChange={(e) => setOriginals(e.target.checked)}
-          />
-          {c("원본 공유 허용", "Allow original sharing")}
-        </label>
-      </fieldset>
       {error && <B2bError code={error} />}
       {revision !== project.revision && (
         <Notice role="status">
@@ -457,12 +394,6 @@ function ProjectEditor({
               {c("최신 내용", "Current server version")}: {project.name}
             </p>
             <p className="whitespace-pre-wrap text-muted">{project.brief}</p>
-            <p>
-              {c("작업 파일 확인", "Working file verification")}:{" "}
-              {project.requiresWorkingFiles
-                ? c("필수", "Required")
-                : c("선택", "Optional")}
-            </p>
             <button
               type="button"
               className={secondaryClass}
@@ -501,17 +432,17 @@ function ProjectEditor({
   );
 }
 
+/**
+ * A project's people, like a Figma folder's share list (2026-10-08): each
+ * row's role is changed where it is shown, the rest sits in the row's menu,
+ * and the lead invites below. No reason to type.
+ */
 export function ProjectParticipants({ projectId }: { projectId: string }) {
-  const { context, id, project, error, reload } = useProject(projectId);
+  const { id, project, error, reload } = useProject(projectId);
   const c = useCopy();
   const [roster, setRoster] = useState<ProjectPeople | null>(null);
   const [rosterError, setRosterError] = useState("");
-  const [target, setTarget] = useState("");
-  const [role, setRole] = useState<"producer" | "reviewer">("producer");
-  const [download, setDownload] = useState(false);
-  const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
-  const pending = useRef<{ hash: string; key: string } | null>(null);
   const active = !!project && projectSurfaces(project.role).people;
   const loadPeople = useCallback(async () => {
     if (!active) return;
@@ -540,56 +471,39 @@ export function ProjectParticipants({ projectId }: { projectId: string }) {
       />
     );
   const editable = project.allowedActions.managePeople;
-  const mutate = async (
-    input:
-      | {
-          userId: string;
-          role: "producer" | "reviewer";
-          canDownload: boolean;
-          remove?: boolean;
-        }
-      | { targetId: string },
-  ) => {
-    if (busy || !reason.trim()) return;
-    const body = {
-      ...input,
-      revision: project.revision,
-      reason: reason.trim(),
-    };
-    const hash = JSON.stringify(body);
-    if (pending.current && pending.current.hash !== hash) {
-      setRosterError("B2B_REQUEST_KEY_CONFLICT");
-      return;
-    }
-    pending.current ??= { hash, key: crypto.randomUUID() };
+  const run = async (work: (base: { requestKey: string; revision: number }) => Promise<unknown>) => {
+    if (busy) return;
     setBusy(true);
     setRosterError("");
     try {
-      if ("targetId" in input)
-        await b2bService.transferLead(id, projectId, {
-          ...body,
-          ...input,
-          requestKey: pending.current.key,
-        });
-      else
-        await b2bService.changeParticipant(id, projectId, {
-          ...body,
-          ...input,
-          requestKey: pending.current.key,
-        });
-      pending.current = null;
-      await reload();
-      await loadPeople();
+      await work({ requestKey: crypto.randomUUID(), revision: project.revision });
     } catch (e) {
       setRosterError(errorCode(e));
-      if (freeIntent(pending.current, e)) pending.current = null;
     } finally {
       setBusy(false);
+      await reload();
+      await loadPeople();
     }
   };
+  type Person = ProjectPeople["people"][number];
+  const change = (
+    person: Person,
+    next: { role?: "producer" | "reviewer"; canDownload?: boolean; remove?: boolean },
+    reason: string,
+  ) =>
+    run((base) =>
+      b2bService.changeParticipant(id, projectId, {
+        ...base,
+        userId: person.userId,
+        role: next.role ?? (person.role as "producer" | "reviewer"),
+        canDownload: next.canDownload ?? person.canDownload,
+        ...(next.remove ? { remove: true } : {}),
+        reason,
+      }),
+    );
   return (
     <TeamShell
-      title={c("프로젝트 참여자", "Project participants")}
+      title={c("프로젝트 멤버", "Project people")}
       description={project.name}
       tabs={folderTabs(id, project, c)}
     >
@@ -599,176 +513,92 @@ export function ProjectParticipants({ projectId }: { projectId: string }) {
       {!roster ? (
         !rosterError && <TeamLoading />
       ) : (
-        <section className="space-y-4 border-b border-border pb-8 last:border-b-0 last:pb-0">
-          {/* One reason serves every change below it — removal, handoff and
-              the participation form — so it sits above all of them. */}
-          {editable && (
-            <label className="block max-w-xl space-y-2 text-sm">
-              <span>
-                {c(
-                  "변경·종료·이전 사유",
-                  "Reason for change, removal or handoff",
-                )}
-              </span>
-              <input
-                aria-label={c(
-                  "변경·종료·이전 사유",
-                  "Reason for change, removal or handoff",
-                )}
-                className={inputClass}
-                maxLength={1000}
-                placeholder={c(
-                  "입력하면 아래 변경을 할 수 있습니다",
-                  "Required for the changes below",
-                )}
-                disabled={busy || !!pending.current}
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-              />
-            </label>
-          )}
-          <ul className="divide-y divide-border border-y border-border">
-            {roster.people.map((person) => (
+        <ul className="divide-y divide-border border-y border-border">
+          {[...roster.people]
+            .sort((a, b) => Number(b.role === "lead") - Number(a.role === "lead"))
+            .map((person) => {
+            const name = person.name || person.email;
+            const lead = person.role === "lead";
+            return (
               <li
-                className="flex flex-wrap items-center justify-between gap-3 py-3"
+                className="flex items-center gap-3 py-3"
                 key={person.userId}
+                data-person={person.email}
               >
-                <div className="min-w-0">
-                  <p className="break-all text-sm font-medium">
-                    {person.name || person.email}
-                  </p>
-                  {person.name && (
-                    <p className="break-all text-[13px] text-muted">
-                      {person.email}
-                    </p>
-                  )}
-                  <p className="text-[13px] text-muted">
-                    {person.kind === "external"
-                      ? c("외부 참여자", "External")
-                      : c("내부 참여자", "Internal")}{" "}
-                    ·{" "}
-                    {person.role === "lead"
-                      ? c("담당자", "Lead")
-                      : person.role === "producer"
-                        ? c("편집자", "Editor")
-                        : c("뷰어", "Viewer")}{" "}
-                    ·{" "}
-                    {person.canDownload
-                      ? c("다운로드 허용", "Downloads allowed")
-                      : c("다운로드 비허용", "Downloads denied")}
-                  </p>
-                </div>
-                {editable && person.role !== "lead" && (
-                  <div className="flex flex-wrap gap-2">
-                    {person.kind === "internal" && (
-                      <button
-                        className={secondaryClass}
-                        disabled={busy || !reason.trim()}
-                        onClick={() => void mutate({ targetId: person.userId })}
-                      >
-                        {c("담당자 이전", "Transfer lead")}
-                      </button>
-                    )}
-                    <button
-                      className={secondaryClass}
-                      disabled={busy || !reason.trim()}
-                      onClick={() =>
-                        void mutate({
-                          userId: person.userId,
-                          role: person.role as "producer" | "reviewer",
-                          canDownload: person.canDownload,
-                          remove: true,
-                        })
-                      }
-                    >
-                      {c("참여 종료", "Remove")}
-                    </button>
+                <Avatar id={person.userId} name={name} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <p className="truncate text-sm font-medium">{name}</p>
+                    {person.kind === "external" && <Tag>{c("외부", "Guest")}</Tag>}
+                    {person.canDownload && !lead && <Tag>{c("다운로드", "Download")}</Tag>}
                   </div>
+                  {person.name && (
+                    <p className="truncate text-[13px] text-muted">{person.email}</p>
+                  )}
+                </div>
+                {editable && !lead ? (
+                  <select
+                    aria-label={c(`${name} 역할`, `Role of ${name}`)}
+                    className="w-24 rounded-md border border-transparent bg-transparent py-1 text-[13px] hover:border-border focus-visible:border-foreground/40 disabled:opacity-60"
+                    value={person.role}
+                    disabled={busy}
+                    onChange={(e) => {
+                      const next = e.target.value as "producer" | "reviewer";
+                      // An editor works with the files; a viewer only watches.
+                      void change(person, { role: next, canDownload: next === "producer" }, "역할 변경");
+                    }}
+                  >
+                    <option value="producer">{c("편집자", "Editor")}</option>
+                    <option value="reviewer">{c("뷰어", "Viewer")}</option>
+                  </select>
+                ) : (
+                  <span className="w-24 text-[13px] text-muted">
+                    {lead ? c("담당자", "Lead") : person.role === "producer" ? c("편집자", "Editor") : c("뷰어", "Viewer")}
+                  </span>
                 )}
+                <span className="w-8 text-right">
+                  {editable && !lead && (
+                    <RowMenu label={c(`${name} 작업`, `Actions for ${name}`)}>
+                      {person.kind === "internal" && (
+                        <RowMenuItem
+                          disabled={busy}
+                          onClick={() =>
+                            void run((base) =>
+                              b2bService.transferLead(id, projectId, {
+                                ...base,
+                                targetId: person.userId,
+                                reason: "담당자 지정",
+                              }),
+                            )
+                          }
+                        >
+                          {c("담당자로 지정", "Make lead")}
+                        </RowMenuItem>
+                      )}
+                      <RowMenuItem
+                        disabled={busy}
+                        onClick={() =>
+                          void change(person, { canDownload: !person.canDownload }, "다운로드 권한 변경")
+                        }
+                      >
+                        {person.canDownload
+                          ? c("다운로드 막기", "Block downloads")
+                          : c("다운로드 허용", "Allow downloads")}
+                      </RowMenuItem>
+                      <RowMenuItem
+                        tone="danger"
+                        disabled={busy}
+                        onClick={() => void change(person, { remove: true }, "프로젝트에서 제외")}
+                      >
+                        {c("프로젝트에서 제외", "Remove from project")}
+                      </RowMenuItem>
+                    </RowMenu>
+                  )}
+                </span>
               </li>
-            ))}
-          </ul>
-        </section>
-      )}
-      {editable && (
-        <Block title={c("참여 범위 변경", "Change participation")}>
-          <form
-            className="max-w-xl space-y-4"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void mutate({ userId: target, role, canDownload: download });
-            }}
-          >
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="space-y-2 text-sm">
-                <span>{c("팀 참여자", "Team participant")}</span>
-                <select
-                  aria-label={c("팀 참여자", "Team participant")}
-                  className={inputClass}
-                  required
-                  disabled={busy || !!pending.current}
-                  value={target}
-                  onChange={(e) => {
-                    setTarget(e.target.value);
-                    const person = roster?.people.find(
-                      (p) => p.userId === e.target.value,
-                    );
-                    setRole(
-                      person?.role === "reviewer" ? "reviewer" : "producer",
-                    );
-                    setDownload(person?.canDownload ?? false);
-                  }}
-                >
-                  <option value="">{c("선택", "Select")}</option>
-                  {context.data.members
-                    .filter(
-                      (m) =>
-                        !m.suspendedAt &&
-                        m.userId !== project.leadId &&
-                        roster?.people.some((p) => p.userId === m.userId),
-                    )
-                    .map((m) => (
-                      <option value={m.userId} key={m.userId}>
-                        {m.name || m.email}
-                      </option>
-                    ))}
-                </select>
-              </label>
-              <label className="space-y-2 text-sm">
-                <span>{c("프로젝트 역할", "Project role")}</span>
-                <select
-                  aria-label={c("프로젝트 역할", "Project role")}
-                  className={inputClass}
-                  disabled={busy || !!pending.current}
-                  value={role}
-                  onChange={(e) =>
-                    setRole(e.target.value as "producer" | "reviewer")
-                  }
-                >
-                  <option value="producer">{c("편집자", "Editor")}</option>
-                  <option value="reviewer">{c("뷰어", "Viewer")}</option>
-                </select>
-              </label>
-            </div>
-            <label className="flex min-h-11 items-center gap-3 text-sm">
-              <input
-                type="checkbox"
-                checked={download}
-                disabled={busy || !!pending.current}
-                onChange={(e) => setDownload(e.target.checked)}
-              />
-              {c("다운로드 허용", "Allow downloads")}
-            </label>
-            <button
-              className={primaryClass}
-              disabled={busy || !target || !reason.trim()}
-            >
-              {busy
-                ? c("처리 중…", "Saving…")
-                : c("참여 범위 저장", "Save participation")}
-            </button>
-          </form>
-        </Block>
+            );
+          })}
+        </ul>
       )}
       {project.role === "lead" && (
         <InvitationPanel projectId={projectId} editable={editable} />
