@@ -542,6 +542,15 @@ function Content({ id }: { id: string }) {
       )}
       {data && handlers && (
         <>
+          {/* Capacity first (2026-10-08): how full the archive is frames
+              everything below it, like a drive's quota card. */}
+          <StorageMeter
+            storage={data.storage}
+            note={c(
+              `파일당 최대 ${bytes(data.capabilities.maxFileBytes)}`,
+              `Up to ${bytes(data.capabilities.maxFileBytes)} per file`,
+            )}
+          />
           <section className="space-y-6">
             {/* The toolbar: where you are on the left, how you look on the
                 right (Drive, Frame.io). */}
@@ -776,16 +785,6 @@ function Content({ id }: { id: string }) {
               </div>
             )}
           </section>
-          {/* Capacity is the page's footer, not its headline: it matters when
-              it runs out, and the error says so then. The per-file limit sits
-              with it — the only part of the old footnote a person acts on. */}
-          <StorageMeter
-            storage={data.storage}
-            note={c(
-              `파일당 최대 ${bytes(data.capabilities.maxFileBytes)}`,
-              `Up to ${bytes(data.capabilities.maxFileBytes)} per file`,
-            )}
-          />
           <TransferPanel queue={queue} onCancel={cancelTransfer} />
           {dragging && (
             <div className="pointer-events-none fixed inset-0 z-50 grid place-items-center bg-background/70 p-6 backdrop-blur-sm">

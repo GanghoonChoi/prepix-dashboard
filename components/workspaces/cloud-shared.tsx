@@ -1,4 +1,5 @@
 "use client";
+import { HardDrive } from "lucide-react";
 import { useI18n } from "@/lib/i18n/context";
 import { workspaceError } from "@/lib/workspaces/onboarding";
 import { bytes } from "@/lib/workspaces/upload";
@@ -182,45 +183,101 @@ export function CloudError({
     </div>
   );
 }
+/**
+ * Storage, as a card at the top of the archive (2026-10-08): how much is used
+ * out of how much, how much is left, and a bar that splits what is stored
+ * from what is still uploading. It turns amber past 80% and red past 95%,
+ * because a full archive is the one moment this number matters.
+ */
 export function StorageMeter({
   storage,
   note,
 }: {
   storage: StorageUsage;
-  /** One more muted fact for the line under the bar (e.g. the per-file limit). */
+  /** One more muted fact for the legend line (e.g. the per-file limit). */
   note?: string;
 }) {
   const { lang } = useI18n();
-  const ko = lang === "ko";
-  // The split only matters while something is in flight. Printing
-  // "reserved 0 B" on every visit spends a line to say nothing.
-  const footer = [
-    storage.reserved > 0
-      ? ko
-        ? `${bytes(storage.used)} 저장 · ${bytes(storage.reserved)} 업로드 중`
-        : `${bytes(storage.used)} stored · ${bytes(storage.reserved)} uploading`
-      : null,
-    note,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const c = (ko: string, en: string) => (lang === "ko" ? ko : en);
+  const total = storage.used + storage.reserved;
+  const free = Math.max(0, storage.limit - total);
+  const share = storage.limit > 0 ? total / storage.limit : 0;
+  const width = (n: number) =>
+    storage.limit > 0 && n > 0 ? `max(${Math.min(100, (n / storage.limit) * 100)}%, 4px)` : "0%";
+  const percent =
+    total > 0 && share < 0.001 ? c("0.1% 미만", "under 0.1%") : `${(share * 100).toFixed(share < 0.1 ? 1 : 0)}%`;
+  const tone =
+    share >= 0.95 ? "bg-danger" : share >= 0.8 ? "bg-warning" : "bg-foreground";
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap justify-between gap-2 text-[13px]">
-        <span className="text-muted">{ko ? "저장 용량" : "Storage"}</span>
-        <span className="tabular-nums">
-          {bytes(storage.used + storage.reserved)} / {bytes(storage.limit)}
-        </span>
+    <section
+      aria-label={c("저장 공간", "Storage")}
+      className="rounded-2xl border border-border bg-gradient-to-b from-surface/60 to-background p-4 sm:p-5"
+    >
+      <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
+        <div className="flex items-center gap-3">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-secondary text-foreground">
+            <HardDrive size={18} strokeWidth={1.75} aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-xs text-muted">{c("저장 공간", "Storage")}</p>
+            <p className="text-lg font-semibold tracking-tight tabular-nums">
+              {bytes(total)}
+              <span className="ml-1 text-sm font-normal text-muted">/ {bytes(storage.limit)}</span>
+            </p>
+          </div>
+        </div>
+        <p className="text-[13px] tabular-nums text-muted">
+          <span className={share >= 0.8 ? "font-medium text-foreground" : ""}>
+            {c(`${percent} 사용`, `${percent} used`)}
+          </span>{" "}
+          · {c(`${bytes(free)} 남음`, `${bytes(free)} left`)}
+        </p>
       </div>
-      <CloudProgress
-        label={ko ? "저장 용량 사용량" : "Storage usage"}
-        value={storage.used + storage.reserved}
-        max={storage.limit}
-      />
-      {footer && (
-        <p className="text-xs leading-5 text-muted tabular-nums">{footer}</p>
+      <div
+        role="progressbar"
+        aria-label={c("저장 용량 사용량", "Storage usage")}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(Math.min(1, share) * 100)}
+        className="mt-4 flex h-2 w-full gap-0.5 overflow-hidden rounded-full bg-surface-secondary"
+      >
+        <div
+          className={`h-full rounded-full ${tone} transition-[width] duration-700 ease-out`}
+          style={{ width: width(storage.used) }}
+        />
+        {storage.reserved > 0 && (
+          <div
+            className={`h-full animate-pulse rounded-full ${tone} opacity-40 transition-[width] duration-700 ease-out`}
+            style={{ width: width(storage.reserved) }}
+          />
+        )}
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-muted tabular-nums">
+        <span className="inline-flex items-center gap-1.5">
+          <span className={`size-2 rounded-full ${tone}`} aria-hidden="true" />
+          {c("저장됨", "Stored")} {bytes(storage.used)}
+        </span>
+        {storage.reserved > 0 && (
+          <span className="inline-flex items-center gap-1.5">
+            <span className={`size-2 rounded-full ${tone} opacity-40`} aria-hidden="true" />
+            {c("업로드 중", "Uploading")} {bytes(storage.reserved)}
+          </span>
+        )}
+        <span className="inline-flex items-center gap-1.5">
+          <span className="size-2 rounded-full bg-surface-secondary ring-1 ring-border" aria-hidden="true" />
+          {c("남은 공간", "Free")} {bytes(free)}
+        </span>
+        {note && <span className="sm:ml-auto">{note}</span>}
+      </div>
+      {share >= 0.95 && (
+        <p className="mt-3 text-xs leading-5 text-danger">
+          {c(
+            "저장 공간이 거의 찼습니다. 휴지통을 비우거나 플랜에서 용량을 늘려 주세요.",
+            "Storage is nearly full. Empty the trash or add capacity on your plan.",
+          )}
+        </p>
       )}
-    </div>
+    </section>
   );
 }
 export function CloudProgress({
