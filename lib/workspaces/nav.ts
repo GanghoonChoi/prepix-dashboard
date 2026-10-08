@@ -109,6 +109,21 @@ export function workspaceLinks(
   */
   if (options.b2b?.enrolled) {
     const status = options.b2b;
+    // 뷰어 (team role "reviewer", 2026-10-08): like a Figma viewer, free and
+    // without the team dashboard — only the projects shared with them, to
+    // watch and comment. The team home sends them to the same list.
+    if (options.role === "reviewer")
+      return status.allowedActions.projects
+        ? [
+            {
+              href: `${base}/projects`,
+              ko: "프로젝트",
+              en: "Projects",
+              group: "work",
+              icon: "folder",
+            },
+          ]
+        : [];
     return [
       { href: base, ko: "홈", en: "Home", group: "work", icon: "home" },
       // 2026-10-08 cleanup: folders are the one place for team work. 보관함,

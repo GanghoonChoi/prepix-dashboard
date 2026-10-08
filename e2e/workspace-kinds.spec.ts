@@ -269,7 +269,7 @@ test("seat figures stay separate numbers and move independently, and the capabil
     .filter({ hasText: memberEmail })
     .getByRole("button", { name: "작업" })
     .click();
-  await page.getByRole("menuitem", { name: "검토자로 변경" }).click();
+  await page.getByRole("menuitem", { name: "뷰어로 변경" }).click();
   const change = page.getByRole("dialog");
   await expect(change).toContainText(memberEmail);
   await expect(

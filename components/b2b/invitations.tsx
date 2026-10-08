@@ -44,7 +44,9 @@ export function InvitationPanel({
     projectId ? "external" : "internal",
   );
   const [role, setRole] = useState<"producer" | "reviewer">("producer");
-  const [admin, setAdmin] = useState(false);
+  // Team invitations (Figma-like): 편집자 makes with a seat, 뷰어 watches
+  // and comments for free, 관리자 (owner only) also runs the team.
+  const [teamRole, setTeamRole] = useState<"editor" | "reviewer" | "admin">("editor");
   const [download, setDownload] = useState(false);
   // Team invitations: take a paid seat when accepted (never buys one).
   const [seat, setSeat] = useState(true);
@@ -176,16 +178,15 @@ export function InvitationPanel({
         const input = {
           email: email.trim(),
           kind,
-          teamRole:
-            !projectId && admin
-              ? ("admin" as const)
-              : role === "reviewer"
-                ? ("reviewer" as const)
-                : ("editor" as const),
+          teamRole: !projectId
+            ? teamRole
+            : role === "reviewer"
+              ? ("reviewer" as const)
+              : ("editor" as const),
           projectId,
           projectRole: projectId ? role : undefined,
           canDownload: projectId ? download : false,
-          assignSeat: projectId ? undefined : seat,
+          assignSeat: projectId ? undefined : teamRole !== "reviewer" && seat,
         };
         const hash = JSON.stringify(input);
         if (pending.current && pending.current.hash !== hash) {
@@ -258,8 +259,8 @@ export function InvitationPanel({
                 setRole(e.target.value as "producer" | "reviewer")
               }
             >
-              <option value="producer">{c("제작자", "Producer")}</option>
-              <option value="reviewer">{c("검토자", "Reviewer")}</option>
+              <option value="producer">{c("편집자", "Editor")}</option>
+              <option value="reviewer">{c("뷰어 · 보기와 코멘트", "Viewer · watch and comment")}</option>
             </select>
           </label>
           <label className="flex min-h-11 items-center gap-3 text-[13px] sm:min-h-9">
@@ -278,18 +279,23 @@ export function InvitationPanel({
           </label>
         </>
       )}
-      {!projectId && data.role === "owner" && (
-        <label className="flex min-h-11 items-center gap-3 text-[13px] sm:min-h-9">
-          <input
-            type="checkbox"
-            checked={admin}
+      {!projectId && (
+        <label className="block space-y-1.5 text-[13px]">
+          <span>{c("초대 역할", "Invitation role")}</span>
+          <select
+            aria-label={c("초대 역할", "Invitation role")}
+            className={inputClass}
             disabled={busy || !!pending.current || !!pendingChange.current}
-            onChange={(e) => setAdmin(e.target.checked)}
-          />
-          {c("팀 관리자로 초대", "Invite as team administrator")}
+            value={teamRole}
+            onChange={(e) => setTeamRole(e.target.value as typeof teamRole)}
+          >
+            <option value="editor">{c("편집자 · 앱에서 편집 (좌석)", "Editor · edits in the app (seat)")}</option>
+            <option value="reviewer">{c("뷰어 · 보기와 코멘트 (무료)", "Viewer · watch and comment (free)")}</option>
+            {data.role === "owner" && <option value="admin">{c("관리자 · 팀 운영", "Admin · runs the team")}</option>}
+          </select>
         </label>
       )}
-      {!projectId && (
+      {!projectId && teamRole !== "reviewer" && (
         <div className="space-y-1">
           <label className="flex min-h-11 items-center gap-3 text-[13px] sm:min-h-9">
             <input

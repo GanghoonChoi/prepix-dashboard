@@ -113,8 +113,8 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   await L.page.locator("video").evaluate((v: HTMLVideoElement) => v.play());
   await L.page.getByLabel("선택한 검토본 재생을 확인했습니다", { exact: true }).check();
   await L.page.getByRole("radio", { name: "선택한 사람만", exact: true }).check();
-  await L.page.getByRole("checkbox", { name: "producer · 제작자", exact: true }).check();
-  await L.page.getByRole("checkbox", { name: "client · 검토자", exact: true }).check();
+  await L.page.getByRole("checkbox", { name: "producer · 편집자", exact: true }).check();
+  await L.page.getByRole("checkbox", { name: "client · 뷰어", exact: true }).check();
   await L.page.getByRole("combobox", { name: "승인자 선택", exact: true }).selectOption(client.id);
   await L.page.getByRole("button", { name: "이 버전으로 검토 시작", exact: true }).click();
   await expect(L.page.getByRole("heading", { name: "1차 편집 검토", exact: true })).toBeVisible();
@@ -373,8 +373,8 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   await L.page.getByLabel("선택한 검토본 재생을 확인했습니다", { exact: true }).check();
   const replacing = L.page.getByRole("heading", { name: "새 영상 버전으로 교체", exact: true }).locator("..");
   await replacing.getByRole("radio", { name: "선택한 사람만", exact: true }).check();
-  await replacing.getByRole("checkbox", { name: "producer · 제작자", exact: true }).check();
-  await replacing.getByRole("checkbox", { name: "client · 검토자", exact: true }).check();
+  await replacing.getByRole("checkbox", { name: "producer · 편집자", exact: true }).check();
+  await replacing.getByRole("checkbox", { name: "client · 뷰어", exact: true }).check();
   await replacing.getByRole("combobox", { name: "승인자 선택", exact: true }).selectOption(client.id);
   await replacing.getByLabel("영상 교체 사유(필수)", { exact: true }).fill("Feedback applied to version 2");
   await L.page.getByRole("button", { name: "이 버전으로 교체", exact: true }).click();
@@ -419,7 +419,10 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
     request.get(`${api}/v2/workspaces/${team}/b2b/review-work`, { headers: client.headers }),
   );
   expect(clientWork.counts.approvals).toBe(1);
+  // The client is a viewer: their home is the project list (2026-10-08),
+  // and what waits on them shows there.
   await C.page.goto(`/dashboard/workspaces/${team}`);
+  await C.page.waitForURL((url) => url.pathname === `/dashboard/workspaces/${team}/projects`);
   await expect(C.page.getByRole("heading", { name: /^확인할 영상/ })).toBeVisible();
   await expect(C.page.getByText("1차 편집 검토", { exact: true })).toBeVisible();
   await shot(C.page, "team-home-review-work");

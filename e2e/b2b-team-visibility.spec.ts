@@ -63,17 +63,18 @@ test("V: team-wide project, publish → review on team home, private stays hidde
   await expect(P.page.getByRole("button", { name: "지금 공개", exact: true })).toHaveCount(0);
   await shot(P.page, "publications-auto-published");
 
-  // S04: the member sees it under 최근 발행, opens the exact round, plays and
-  // leaves a range comment.
+  // S04: a viewer (team role "reviewer") has no team home (2026-10-08): it
+  // opens on the projects shared with them, then the project's videos; they
+  // play one and leave a range comment.
   const M = await open(browser, member, home);
-  const recent = M.page.getByRole("region", { name: "최근 발행", exact: true });
-  await expect(recent.getByRole("link", { name: /첫 발행 결과/ })).toBeVisible({ timeout: 30_000 });
-  const projects = M.page.getByRole("region", { name: "내 프로젝트", exact: true });
-  await expect(projects.getByRole("link", { name: new RegExp(teamName) })).toContainText("팀 열람");
+  await M.page.waitForURL((url) => url.pathname === `${home}/projects`);
+  const shared = M.page.getByRole("row", { name: new RegExp(teamName) });
+  await expect(shared).toContainText("뷰어", { timeout: 30_000 });
   await expect(M.page.getByText(secretName, { exact: false })).toHaveCount(0);
-  await shot(M.page, "s04-member-recent-publications");
-  await recent.getByRole("link", { name: /첫 발행 결과/ }).click();
-  await M.page.waitForURL(new RegExp(`/reviews/${reviewId}\\?round=1&versionId=${version.id}$`));
+  await shot(M.page, "s04-viewer-projects");
+  await shared.getByRole("link").click();
+  await M.page.getByRole("link", { name: /첫 발행 결과/ }).first().click();
+  await M.page.waitForURL(new RegExp(`/reviews/${reviewId}`));
   // Everyone in the project is the default audience: no line says so (2026-10-08).
   await expect(M.page.getByText(/현재 검토 대상/)).toHaveCount(0);
   await videoReady(M.page);
@@ -171,13 +172,12 @@ test("V: team-wide project, publish → review on team home, private stays hidde
   await M.page.goto(`${base}/reviews/${reviewId}`);
   await expect(M.page.getByText("프로젝트를 찾을 수 없거나 접근 권한이 없습니다.", { exact: true })).toBeVisible();
   await expect(M.page.getByText("팀원 의견: 로고 전환이 빠릅니다", { exact: true })).toHaveCount(0);
+  // A viewer's home is the project list (2026-10-08): the project is gone from it.
   await M.page.goto(home);
-  await expect(M.page.getByRole("region", { name: "최근 발행", exact: true }).getByText("지금 볼 수 있는 발행 영상이 없습니다.", { exact: false })).toBeVisible({ timeout: 30_000 });
-  await expect(M.page.locator("body")).not.toContainText(teamName);
-  await shot(M.page, "s04-member-after-private");
-  await M.page.goto(`${home}/projects`);
+  await M.page.waitForURL((url) => url.pathname === `${home}/projects`);
   await expect(M.page.getByText("참여한 프로젝트가 없습니다.", { exact: false })).toBeVisible({ timeout: 30_000 });
   await expect(M.page.locator("body")).not.toContainText(teamName);
+  await shot(M.page, "s04-member-after-private");
   // Internal participants keep it; the external client never had the
   // automatic round (2026-10-07: externals only when the lead opens one).
   expect((await request.get(`${root}/reviews/${reviewId}`, { headers: producer.headers })).status()).toBe(200);
@@ -198,8 +198,11 @@ test("V: team-wide project, publish → review on team home, private stays hidde
   await expect(L.page.getByText("팀 공개", { exact: true }).first()).toBeVisible();
   const back = await json(request.get(root, { headers: member.headers }));
   expect([back.project.visibility, back.project.role]).toEqual(["team", "viewer"]);
+  // Back in the viewer's project list, and its video with it.
   await M.page.goto(home);
-  await expect(M.page.getByRole("region", { name: "최근 발행", exact: true }).getByRole("link", { name: /첫 발행 결과/ })).toBeVisible({ timeout: 30_000 });
+  await M.page.waitForURL((url) => url.pathname === `${home}/projects`);
+  await M.page.getByRole("row", { name: new RegExp(teamName) }).getByRole("link").click();
+  await expect(M.page.getByRole("link", { name: /첫 발행 결과/ }).first()).toBeVisible({ timeout: 30_000 });
 
   for (const view of [L, P, M, O, C, K]) expect(view.errors).toEqual([]);
   await Promise.all([L, P, M, O, C, K].map((v) => v.close()));

@@ -75,7 +75,7 @@ export function fixture(script: string, input: object) {
 // Local harnesses that share one database share its invitation queue, so a
 // queued invitation can be delivered into any of their mailboxes.
 const mailboxes = (process.env.B2B_E2E_MAILBOXES ?? `${api}/__test/mail`).split(",");
-const allMail = async (request: APIRequestContext) =>
+export const allMail = async (request: APIRequestContext) =>
   (await Promise.all(mailboxes.map((url) => request.get(url).then((r) => r.json()).catch(() => [])))).flat();
 export async function invite(
   request: APIRequestContext,

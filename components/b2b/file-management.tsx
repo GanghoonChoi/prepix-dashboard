@@ -364,8 +364,8 @@ export function FileManager({
                   {selectedPerson.role === "reviewer" && (
                     <p className="text-sm text-muted">
                       {c(
-                        "검토자는 AI 입력 사용 권한을 받을 수 없습니다.",
-                        "Reviewers cannot receive AI input permission.",
+                        "뷰어는 AI 입력 사용 권한을 받을 수 없습니다.",
+                        "Viewers cannot receive AI input permission.",
                       )}
                     </p>
                   )}

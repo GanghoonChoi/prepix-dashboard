@@ -149,11 +149,12 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
     await expect(
       O.page.getByRole("heading", { name: /^확인할 영상/ }),
     ).toHaveCount(0);
+    // A viewer has no team home (2026-10-08): it opens on the projects
+    // shared with them.
     E = await open(browser, external, base);
+    await E.page.waitForURL((url) => url.pathname === `${base}/projects`);
     await expect(
-      E.page
-        .getByRole("region", { name: "내 프로젝트", exact: true })
-        .getByText("홈에서 여는 내 프로젝트"),
+      E.page.getByRole("link", { name: /홈에서 여는 내 프로젝트/ }),
     ).toBeVisible();
     await expect(
       E.page.getByText("홈에서 숨겨야 할 다른 프로젝트", { exact: true }),

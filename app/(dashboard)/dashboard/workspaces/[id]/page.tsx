@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { File } from "lucide-react";
 import { useI18n } from "@/lib/i18n/context";
 import {
@@ -43,9 +44,19 @@ export default function Page() {
   const [archive, setArchive] = useState<
     { storage: StorageUsage; assets: Asset[] } | null | undefined
   >(undefined);
+  const router = useRouter();
+  // A viewer has no team dashboard: their home is the projects shared with
+  // them. Only an ownership offer addressed to them is answered here first.
+  const viewer =
+    !!context?.b2b?.enrolled &&
+    context.data.role === "reviewer" &&
+    context.data.pendingTransfer?.toUserId !== context.data.currentUserId;
+  useEffect(() => {
+    if (viewer && id) router.replace(`/dashboard/workspaces/${id}/projects`);
+  }, [viewer, id, router]);
 
   useEffect(() => {
-    if (!id || !cloudEnabled) return;
+    if (!id || !cloudEnabled || viewer) return;
     let alive = true;
     void cloudService
       .archive(id)
@@ -62,9 +73,9 @@ export default function Page() {
     return () => {
       alive = false;
     };
-  }, [id, cloudEnabled]);
+  }, [id, cloudEnabled, viewer]);
 
-  if (!context || !workspace) return null;
+  if (!context || !workspace || viewer) return null;
   const { data } = context;
   const base = `/dashboard/workspaces/${workspace.id}`;
   const c = (ko: string, en: string) => (lang === "ko" ? ko : en);

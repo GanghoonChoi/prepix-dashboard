@@ -317,7 +317,7 @@ test("B2B external invitation proves mailbox and preserves billing mutation on l
     await signIn(guestPage, guest.email);
     await guestPage.goto(offer!.inviteUrl);
     await expect(
-      guestPage.getByText("프로젝트 검토자", { exact: true }),
+      guestPage.getByText("프로젝트 뷰어", { exact: true }),
     ).toBeVisible();
     await expect(
       guestPage.getByText("허용되지 않음", { exact: true }),
