@@ -671,11 +671,14 @@ export function InviteStep({
 
 export function PayStep({
   workspaceId,
+  returnTo,
   onLater,
   onPaid,
   onPreview,
 }: {
   workspaceId: string;
+  /** Where the plan page sends the payer once the month is paid. */
+  returnTo: string;
   onLater: () => void;
   onPaid: () => void;
   onPreview: (update: PreviewUpdate) => void;
@@ -788,7 +791,7 @@ export function PayStep({
         primary={
           <Link
             className={primaryButton}
-            href={`/dashboard/workspaces/${workspaceId}/plan?extraSeats=${plan.extraSeats}`}
+            href={`/dashboard/workspaces/${workspaceId}/plan?${new URLSearchParams({ return: returnTo })}`}
           >
             {copy(`Pay ${won(plan.totalKrw)}`, `${won(plan.totalKrw)} 결제하기`)}
           </Link>

@@ -1,7 +1,7 @@
 "use client";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { PurchaseQuotes } from "./purchase-quotes";
+import { BusinessCheckout } from "./business-checkout";
 import { RenewalConsentCard, TeamTermination } from "./billing-legal";
 import type { TeamOrderList } from "@/lib/api/services/b2b.service";
 import { billingTabs,
@@ -49,6 +49,10 @@ export function B2bPlan({
   if (!status.allowedActions.billing)
     return <B2bError code="B2B_BILLING_PERMISSION_REQUIRED" />;
   const view = billing.billing;
+  // Unpaid (never bought) or lapsed: the checkout; a running team pays for
+  // new members on People and renews by itself.
+  const lapsed = ["read_only", "recovery", "deletion_due"].includes(status.team.currentState);
+  const target = !status.team.periodEndsAt ? "initial" : lapsed ? "restore" : null;
   return (
     <TeamShell title={c("플랜과 결제", "Plan and billing")} tabs={billingTabs(workspace.id, c)}>
       <RenewalConsentCard billing={billing} />
@@ -63,14 +67,28 @@ export function B2bPlan({
       />
       {/* The space is named where the money goes, not in a row of its own. */}
       <Block
-        title={c("팀 상품", "Team product")}
+        title={c("Business 플랜", "Business plan")}
         description={c(
-          "편집 이용권은 앱 편집에만 쓰이며, 웹 검토와 팀 참여에는 필요 없습니다.",
-          "Editing licences are only for desktop editing; web review and team participation need none.",
+          "뷰어를 뺀 멤버마다 좌석 하나, 매월 자동결제됩니다. 뷰어는 무료입니다.",
+          "One seat per member but viewers, charged monthly. Viewers are free.",
         )}
         actions={<SpaceBadge workspace={workspace} />}
       >
-        <PurchaseQuotes workspaceId={workspace.id} status={status} billing={billing} />
+        {target ? (
+          <Suspense>
+            <BusinessCheckout workspaceId={workspace.id} target={target} billing={billing} />
+          </Suspense>
+        ) : (
+          <p className="text-[13px] leading-5 text-muted">
+            {c(
+              "멤버를 추가하면 멤버 화면에서 이번 달 남은 기간만큼 바로 결제하고, 다음 달부터 함께 갱신됩니다.",
+              "Adding a member is paid on People for the rest of this month, then renews with the team.",
+            )}{" "}
+            <Link className="text-foreground underline underline-offset-4" href={`/dashboard/workspaces/${workspace.id}/members`}>
+              {c("멤버로 이동", "Go to People")}
+            </Link>
+          </p>
+        )}
       </Block>
       {/* No orders yet is the absence of this section, not a heading over "none". */}
       {(failure || (orders && orders.items.length > 0)) && (

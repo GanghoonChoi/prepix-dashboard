@@ -85,7 +85,7 @@ export function AddSeats({
     setPaying(true);
     setError("");
     try {
-      let { order } = await api().addSeats({ requestKey: requestKey.current, quoteId: quote.id });
+      let { order } = await api().charge({ requestKey: requestKey.current, quoteId: quote.id });
       // The server applies paid seats within seconds.
       for (let i = 0; i < 40 && !settled.includes(order.state); i++) {
         await new Promise((r) => setTimeout(r, 1500));

@@ -417,6 +417,7 @@ export function StartExperience() {
     body = (
       <PayStep
         workspaceId={team.id}
+        returnTo={startHref({ ...state, step: "app", workspace: team.id }, lang)}
         onPreview={setDraft}
         onPaid={() => go({ step: "app" })}
         onLater={() => window.location.assign(`/dashboard/workspaces/${team.id}`)}
