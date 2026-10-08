@@ -22,6 +22,8 @@ import type {
   TeamPeople,
   ChangeAffiliation,
   ChangeTeamMember,
+  SeatState,
+  SetMemberSeat,
   RecoverProjectLead,
   ProjectLeadRecovery,
   RequestOwnership,
@@ -222,6 +224,12 @@ export const b2bService = {
   changeTeamMember: (id: string, userId: string, input: ChangeTeamMember) =>
     post<{ revision: number; requestId: string }>(
       `${base(id)}/members/${e(userId)}/action`,
+      input,
+    ),
+  /** 멤버 = 좌석: turn a member's editing seat on or off. */
+  setSeat: (id: string, userId: string, input: SetMemberSeat) =>
+    post<{ seat: SeatState; requestId: string }>(
+      `${base(id)}/members/${e(userId)}/seat`,
       input,
     ),
   leadRecovery: (id: string, projectId: string) =>

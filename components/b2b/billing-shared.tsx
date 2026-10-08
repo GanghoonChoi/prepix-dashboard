@@ -79,7 +79,7 @@ const messages: Record<string, [string, string]> = {
   B2B_REFUND_NOT_REFUNDABLE: ["선택한 항목에는 환불할 미사용분이 없거나 승인된 기준상 환불 대상이 아닙니다.", "The selection has no refundable unused portion under the approved policy."],
   B2B_REFUND_PENDING: ["환불이 처리 중입니다. 끝난 뒤에 진행해 주세요. 같은 기간의 새 구매도 그때까지 막힙니다.", "A refund is in progress. Continue after it finishes; buying the same period again waits too."],
   B2B_REFUND_BASIS_STALE: ["환불 금액을 확인한 지 시간이 지났습니다. 다시 확인해 주세요.", "The refund amount was checked a while ago. Check it again."],
-  B2B_REFUND_SEATS_IN_USE: ["배정 중이거나 회수 대기인 이용권은 환불할 수 없습니다. 배정을 먼저 정리해 주세요.", "Assigned or pending-reclaim licences cannot be refunded."],
+  B2B_REFUND_SEATS_IN_USE: ["사용 중인 좌석은 환불할 수 없습니다. 멤버 화면에서 좌석을 먼저 꺼 주세요.", "Seats in use cannot be refunded. Turn seats off on People first."],
   B2B_REFUND_STORAGE_IN_USE: ["사용 중인 저장 용량은 환불할 수 없습니다.", "Storage in use cannot be refunded."],
   B2B_REFUND_AI_IN_USE: ["사용·예약된 AI 제공량은 환불할 수 없습니다.", "Used or reserved AI cannot be refunded."],
   B2B_REFUND_AMOUNT_CHANGED: ["사용량이 바뀌어 환불 금액이 달라졌습니다. 다시 확인해 주세요.", "Usage changed the refund amount. Review it again."],

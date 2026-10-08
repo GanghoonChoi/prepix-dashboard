@@ -158,12 +158,29 @@ async function device(
     },
   };
 }
+/** 멤버 = 좌석 (2026-10-08): a purchase seats the owner by itself; this is
+ * that seat, read back rather than assigned by hand. */
+async function ownSeat(
+  request: APIRequestContext,
+  licences: string,
+  owner: Awaited<ReturnType<typeof account>>,
+) {
+  const { assignments } = (
+    await (await request.get(licences, { headers: owner.headers })).json()
+  ).data as { assignments: { id: string; userId: string; state: string; revision: number }[] };
+  const seat = assignments.find(
+    (a) => a.userId === owner.id && a.state === "active",
+  );
+  expect(seat, "the purchase seats the owner").toBeTruthy();
+  return seat!;
+}
 async function invite(
   request: APIRequestContext,
   workspaceId: string,
   owner: Awaited<ReturnType<typeof account>>,
   user: Awaited<ReturnType<typeof account>>,
   projectId?: string,
+  team: { role?: "editor" | "reviewer"; seat?: boolean } = {},
 ) {
   expect(
     (
@@ -175,10 +192,11 @@ async function invite(
             requestKey: randomUUID(),
             email: user.email,
             kind: projectId ? "external" : "internal",
-            teamRole: "editor",
+            teamRole: team.role ?? "editor",
             projectId,
             projectRole: projectId ? "producer" : undefined,
             canDownload: false,
+            assignSeat: team.seat,
           },
         },
       )
@@ -258,18 +276,7 @@ test("purchased capacity, lost-response assignment, no web AI figures, private s
   ).data.project;
   await invite(request, team.id, owner, guest, project.id);
   await invite(request, team.id, owner, staff);
-  expect(
-    (
-      await request.post(`${endpoint}/licences/assignments`, {
-        headers: owner.headers,
-        data: {
-          requestKey: randomUUID(),
-          periodId,
-          userId: owner.id,
-        },
-      })
-    ).status(),
-  ).toBe(201);
+  await ownSeat(request, `${endpoint}/licences`, owner);
   await page.reload();
   const current = page
     .locator("section")
@@ -464,10 +471,7 @@ test("purchased capacity, lost-response assignment, no web AI figures, private s
       has: page.getByRole("heading", { name: "구매한 다음 기간", exact: true }),
     })
     .first();
-  await future.getByLabel("배정 대상", { exact: true }).selectOption(guest.id);
-  await future
-    .getByRole("button", { name: "이용권 배정", exact: true })
-    .click();
+  // 멤버 = 좌석: the paid next month carries every held seat over.
   await expect(
     future.getByRole("region", {
       name: "licence-guest · 다음 기간 배정",
@@ -568,19 +572,19 @@ test("own device retirement survives a lost response and keeps replacement capac
     ).json()
   ).data.project;
   await invite(request, team.id, owner, staff, project.id);
-  for (const user of [owner, staff])
-    expect(
-      (
-        await request.post(`${endpoint}/licences/assignments`, {
-          headers: owner.headers,
-          data: {
-            requestKey: randomUUID(),
-            periodId,
-            userId: user.id,
-          },
-        })
-      ).status(),
-    ).toBe(201);
+  await ownSeat(request, `${endpoint}/licences`, owner);
+  expect(
+    (
+      await request.post(`${endpoint}/licences/assignments`, {
+        headers: owner.headers,
+        data: {
+          requestKey: randomUUID(),
+          periodId,
+          userId: staff.id,
+        },
+      })
+    ).status(),
+  ).toBe(201);
   const d1 = await device(request, team.id, owner, project.id),
     d2 = await device(request, team.id, owner, project.id);
   await device(request, team.id, owner, project.id);
@@ -737,25 +741,14 @@ test("a revocation response lost after immediate release stays retryable across 
       })
     ).json()
   ).data.workspace;
-  const { periodId } = paidFixture({
+  paidFixture({
     workspaceId: team.id,
     action: "purchase",
     target: "initial",
   });
   const endpoint = `${api}/v2/workspaces/${team.id}/b2b/licences`,
     base = `/dashboard/workspaces/${team.id}/licences`;
-  const assigned = (
-    await (
-      await request.post(`${endpoint}/assignments`, {
-        headers: owner.headers,
-        data: {
-          requestKey: randomUUID(),
-          periodId,
-          userId: owner.id,
-        },
-      })
-    ).json()
-  ).data.assignment;
+  const assigned = await ownSeat(request, endpoint, owner);
   await signIn(page, owner.email, base);
   const row = page.getByRole("region", {
     name: "licence-close-owner · 배정 중",
@@ -810,4 +803,76 @@ test("a revocation response lost after immediate release stays retryable across 
   await expect(
     page.getByRole("button", { name: "같은 회수 요청 다시 확인", exact: true }),
   ).toHaveCount(0);
+});
+
+test("멤버 = 좌석: joining takes a seat, the fourth waits, turning one off hands it on, reviewers need none", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(120000);
+  const owner = await account(request, "seat-owner"),
+    a = await account(request, "seat-a"),
+    b = await account(request, "seat-b"),
+    c = await account(request, "seat-c"),
+    r = await account(request, "seat-reviewer");
+  const team = (
+    await (
+      await request.post(`${api}/v2/workspaces`, {
+        headers: owner.headers,
+        data: { name: "좌석 자동 배정", requestKey: randomUUID() },
+      })
+    ).json()
+  ).data.workspace;
+  const endpoint = `${api}/v2/workspaces/${team.id}/b2b`;
+  const status = (
+    await (await request.get(`${endpoint}/status`, { headers: owner.headers })).json()
+  ).data;
+  test.skip(!status.enrolled, "Requires B2B_TEST_NEW_TEAMS=true and B2B_TEST_PRODUCT=true local preview");
+  paidFixture({ workspaceId: team.id, action: "purchase", target: "initial" });
+  // Three seats: the owner took one with the purchase; a and b take the rest.
+  for (const u of [a, b, c]) await invite(request, team.id, owner, u, undefined, { seat: true });
+  await invite(request, team.id, owner, r, undefined, { role: "reviewer" });
+  const roster = async () =>
+    (await (await request.get(`${endpoint}/members`, { headers: owner.headers })).json()).data as {
+      seats: { capacity: number; assigned: number; waiting: number };
+      people: { userId: string; seat: string }[];
+    };
+  const seatOf = async (id: string) => (await roster()).people.find((p) => p.userId === id)?.seat;
+  expect((await roster()).seats).toEqual({ capacity: 3, assigned: 3, waiting: 1 });
+  expect(await seatOf(c.id)).toBe("waiting");
+  expect(await seatOf(r.id)).toBe("none");
+
+  await signIn(page, owner.email, `/dashboard/workspaces/${team.id}/members`);
+  const row = (email: string) => page.getByRole("row").filter({ hasText: email });
+  await expect(page.getByText("대기 1", { exact: true })).toBeVisible();
+  await expect(row(c.email).getByText("대기", { exact: true })).toBeVisible();
+  await expect(row(a.email).getByText("편집", { exact: true })).toBeVisible();
+  // Turning a's seat off hands it to c, who was waiting.
+  await row(a.email).click();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet.getByText(/편집 좌석 사용 중/)).toBeVisible();
+  await sheet.getByRole("button", { name: "좌석 끄기", exact: true }).click();
+  await expect(sheet.getByText(/좌석 꺼짐/)).toBeVisible();
+  await sheet.getByRole("button", { name: "닫기", exact: true }).click();
+  await expect(row(c.email).getByText("편집", { exact: true })).toBeVisible();
+  await expect(row(a.email).getByText("보기", { exact: true })).toBeVisible();
+  await expect(page.getByText("대기 1", { exact: true })).toHaveCount(0);
+  expect((await roster()).seats).toEqual({ capacity: 3, assigned: 3, waiting: 0 });
+  // Back on with every seat taken: a waits for the next free one.
+  await row(a.email).click();
+  await sheet.getByRole("button", { name: "좌석 켜기", exact: true }).click();
+  await expect(sheet.getByText(/좌석 대기/)).toBeVisible();
+  await sheet.getByRole("button", { name: "닫기", exact: true }).click();
+  // A reviewer has no seat to turn on.
+  await row(r.email).click();
+  await expect(sheet.getByText(/검토 역할은 좌석이 필요 없습니다/)).toBeVisible();
+  await expect(sheet.getByRole("button", { name: "좌석 켜기", exact: true })).toHaveCount(0);
+  expect(
+    (
+      await request.post(`${endpoint}/members/${r.id}/seat`, {
+        headers: owner.headers,
+        data: { requestKey: randomUUID(), editing: true },
+      })
+    ).status(),
+  ).toBe(422);
 });

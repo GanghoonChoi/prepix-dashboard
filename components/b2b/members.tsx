@@ -1,12 +1,13 @@
 "use client";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useOverlayState } from "@heroui/react";
 import { ArrowDown, ArrowUp, ChevronRight, Eye, PenLine, Plus } from "lucide-react";
 import {
   b2bService,
   type ChangeAffiliation,
   type ChangeTeamMember,
-  type LicenceOverview,
+  type SeatState,
   type TeamPeople,
   type TeamPerson,
 } from "@/lib/api/services/b2b.service";
@@ -44,7 +45,7 @@ import { B2bError, freeIntent, errorCode, useCopy } from "./shared";
  */
 type Tab = "people" | "invites" | "recovery";
 type RoleFilter = "all" | "owner" | "admin" | "editor" | "reviewer" | "external";
-type SeatFilter = "all" | "edit" | "view";
+type SeatFilter = "all" | "assigned" | "waiting" | "none";
 type ActiveFilter = "all" | "7" | "30" | "stale";
 
 export function TeamMembers() {
@@ -52,7 +53,6 @@ export function TeamMembers() {
   const c = useCopy();
   const { lang } = useI18n();
   const [roster, setRoster] = useState<TeamPeople | null>(null);
-  const [licences, setLicences] = useState<LicenceOverview | null>(null);
   // "Last active" filters compare against when the roster was read.
   const [readAt, setReadAt] = useState(0);
   const [error, setError] = useState("");
@@ -70,14 +70,9 @@ export function TeamMembers() {
   const load = useCallback(async () => {
     const request = ++sequence.current;
     try {
-      const [result, seats] = await Promise.all([
-        b2bService.members(id),
-        // Seat column only; the table still renders when it is unreadable.
-        b2bService.licences(id).catch(() => null),
-      ]);
+      const result = await b2bService.members(id);
       if (request !== sequence.current) return;
       setRoster(result);
-      setLicences(seats);
       setReadAt(Date.now());
       setError("");
     } catch (e) {
@@ -97,22 +92,6 @@ export function TeamMembers() {
     };
   }, [load]);
 
-  // Who holds an editing seat in the period running now.
-  const current = licences?.periods.find((p) => p.state === "active");
-  const editors = useMemo(() => {
-    const period = licences?.periods.find((p) => p.state === "active");
-    return new Set(
-      (licences?.assignments ?? [])
-        .filter(
-          (a) =>
-            a.periodId === period?.id &&
-            !a.closedAt &&
-            (a.state === "active" || a.state === "revoking"),
-        )
-        .map((a) => a.userId),
-    );
-  }, [licences]);
-
   if (!b2b?.enrolled || !b2b.allowedActions.manage)
     return <B2bError code="B2B_TEAM_MANAGER_REQUIRED" />;
   if (b2b.team.currentState === "preparing")
@@ -125,7 +104,7 @@ export function TeamMembers() {
       const q = query.trim().toLowerCase();
       if (q && !`${p.name ?? ""} ${p.email}`.toLowerCase().includes(q)) return false;
       if (role === "external" ? p.kind !== "external" : role !== "all" && p.role !== role) return false;
-      if (seat !== "all" && (seat === "edit") !== editors.has(p.userId)) return false;
+      if (seat !== "all" && seatOf(p) !== seat && !(seat === "assigned" && seatOf(p) === "releasing")) return false;
       if (active !== "all") {
         const at = p.lastActiveAt ? Date.parse(p.lastActiveAt) : 0;
         const within = readAt - at <= Number(active === "stale" ? 30 : active) * day;
@@ -138,6 +117,7 @@ export function TeamMembers() {
       return desc ? -order : order;
     });
   const selected = people.find((p) => p.userId === open) ?? null;
+  const seats = roster?.seats;
   const owner = data.role === "owner";
 
   return (
@@ -146,19 +126,27 @@ export function TeamMembers() {
       actions={
         roster && (
           <div className="flex items-center gap-4">
-            <span className="hidden items-center gap-3 text-[13px] sm:flex">
-              <span className="inline-flex items-center gap-1.5" title={c("편집 좌석 · 사용/구매", "Editing seats · used/bought")}>
-                <span className="tabular-nums">
-                  {editors.size}
-                  {current && <span className="text-muted">/{current.capacity}</span>}
+            {seats && (
+              <span className="hidden items-center gap-3 text-[13px] sm:flex">
+                <span className="inline-flex items-center gap-1.5" title={c("편집 좌석 · 사용/구매", "Editing seats · used/bought")}>
+                  <PenLine size={15} strokeWidth={1.75} className="text-muted" aria-hidden="true" />
+                  <span className="tabular-nums">
+                    {seats.assigned}
+                    <span className="text-muted">/{seats.capacity}</span>
+                  </span>
                 </span>
-                <PenLine size={15} strokeWidth={1.75} className="text-muted" aria-label={c("편집", "Edit")} />
+                {seats.waiting > 0 && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Tag>{c(`대기 ${seats.waiting}`, `${seats.waiting} waiting`)}</Tag>
+                    {b2b.allowedActions.billing && (
+                      <Link className="text-muted underline underline-offset-2 hover:text-foreground" href={`/dashboard/workspaces/${id}/plan`}>
+                        {c("좌석 추가", "Add seats")}
+                      </Link>
+                    )}
+                  </span>
+                )}
               </span>
-              <span className="inline-flex items-center gap-1.5" title={c("보기·검토만", "View and review only")}>
-                <span className="tabular-nums">{people.length - editors.size}</span>
-                <Eye size={15} strokeWidth={1.75} className="text-muted" aria-label={c("보기", "View")} />
-              </span>
-            </span>
+            )}
             {editable && (
               <button className={primaryClass} onClick={inviteDialog.open}>
                 <Plus size={16} strokeWidth={1.75} aria-hidden="true" />
@@ -223,8 +211,9 @@ export function TeamMembers() {
                   onChange={setSeat}
                   options={[
                     { value: "all", label: c("전체", "All") },
-                    { value: "edit", label: c("편집", "Edit") },
-                    { value: "view", label: c("보기", "View") },
+                    { value: "assigned", label: c("편집", "Edit") },
+                    { value: "waiting", label: c("대기", "Waiting") },
+                    { value: "none", label: c("보기", "View") },
                   ]}
                 />
                 <FilterSelect
@@ -264,7 +253,6 @@ export function TeamMembers() {
                 </thead>
                 <tbody>
                   {shown.map((p) => {
-                    const edit = editors.has(p.userId);
                     return (
                       <tr key={p.userId} className={rowClass} onClick={() => setOpen(p.userId)}>
                         <td className={tdClass}>
@@ -290,16 +278,7 @@ export function TeamMembers() {
                           </div>
                         </td>
                         <td className={`${tdClass} hidden whitespace-nowrap sm:table-cell`}>
-                          <span className="inline-flex items-center gap-2">
-                            <span className="grid size-7 place-items-center rounded-md bg-surface-secondary">
-                              {edit ? (
-                                <PenLine size={14} strokeWidth={1.75} aria-hidden="true" />
-                              ) : (
-                                <Eye size={14} strokeWidth={1.75} aria-hidden="true" />
-                              )}
-                            </span>
-                            {edit ? c("편집", "Edit") : c("보기", "View")}
-                          </span>
+                          <SeatCell seat={seatOf(p)} />
                         </td>
                         <td className={`${tdClass} hidden whitespace-nowrap text-muted md:table-cell`}>{ago(p.lastActiveAt, lang)}</td>
                         <td className={`${tdClass} text-right text-muted`}>
@@ -334,13 +313,32 @@ export function TeamMembers() {
         <MemberSheet
           person={selected}
           roster={roster}
-          seat={editors.has(selected.userId)}
-          licences={editable ? licences : null}
+          editable={editable}
           onSaved={load}
           onClose={() => setOpen(null)}
         />
       )}
     </TeamShell>
+  );
+}
+
+const seatOf = (p: TeamPerson): SeatState => p.seat ?? "none";
+const seatCopy: Record<SeatState, [string, string]> = {
+  assigned: ["편집", "Edit"],
+  releasing: ["해제 중", "Releasing"],
+  waiting: ["대기", "Waiting"],
+  none: ["보기", "View"],
+};
+function SeatCell({ seat }: { seat: SeatState }) {
+  const c = useCopy();
+  const Icon = seat === "none" ? Eye : PenLine;
+  return (
+    <span className={`inline-flex items-center gap-2 ${seat === "assigned" ? "" : "text-muted"}`}>
+      <span className="grid size-7 place-items-center rounded-md bg-surface-secondary">
+        <Icon size={14} strokeWidth={1.75} aria-hidden="true" />
+      </span>
+      {seat === "waiting" ? <Tag>{c(...seatCopy.waiting)}</Tag> : c(...seatCopy[seat])}
+    </span>
   );
 }
 
@@ -362,15 +360,13 @@ function PersonTags({ person: p }: { person: TeamPerson }) {
 function MemberSheet({
   person,
   roster,
-  seat,
-  licences,
+  editable,
   onSaved,
   onClose,
 }: {
   person: TeamPerson;
   roster: TeamPeople;
-  seat: boolean;
-  licences: LicenceOverview | null;
+  editable: boolean;
   onSaved: () => Promise<void>;
   onClose: () => void;
 }) {
@@ -410,10 +406,7 @@ function MemberSheet({
             : []),
           [
             c("좌석", "Seat"),
-            <span key="seat" className="inline-flex flex-wrap items-center gap-x-3">
-              {seat ? c("편집 좌석", "Editing seat") : c("보기·검토만", "View and review only")}
-              {licences && <SeatToggle key={person.revision} person={person} licences={licences} onSaved={onSaved} />}
-            </span>,
+            <SeatControl key="seat" person={person} editable={editable} onSaved={onSaved} />,
           ],
           [c("최근 활동", "Last active"), ago(person.lastActiveAt, lang)],
         ]}
@@ -424,59 +417,42 @@ function MemberSheet({
   );
 }
 
-const occupying = ["active", "scheduled", "revoking"];
 /**
- * A seat is one switch on the person (2026-10-08): 배정 takes a free seat in
- * every purchased period still to run, 해제 releases each one they hold. The
- * per-period, scheduled and device-wait detail stays on /licences, which no
- * longer has a nav entry.
+ * 멤버 = 좌석 (2026-10-08): an editing member holds a seat; the server hands
+ * them out and takes them back. This is the one switch a manager has: turn
+ * a person's seat off (they edit nothing in the app) or back on (they take a
+ * free seat, or wait for one).
  */
-function SeatToggle({
+function SeatControl({
   person,
-  licences,
+  editable,
   onSaved,
 }: {
   person: TeamPerson;
-  licences: LicenceOverview;
+  editable: boolean;
   onSaved: () => Promise<void>;
 }) {
   const { data } = useWorkspace()!;
   const c = useCopy();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const now = Date.parse(licences.serverTime);
-  const periods = licences.periods.filter(
-    (p) => ["active", "future"].includes(p.state) && Date.parse(p.endsAt) > now,
-  );
-  const mine = licences.assignments.filter(
-    (a) => a.userId === person.userId && periods.some((p) => p.id === a.periodId),
-  );
-  const held = mine.filter((a) => a.state === "active" || a.state === "scheduled");
-  const open = periods.filter(
-    (p) =>
-      !mine.some((a) => a.periodId === p.id && occupying.includes(a.state)) &&
-      licences.assignments.filter((a) => a.periodId === p.id && occupying.includes(a.state)).length < p.capacity,
-  );
-  const releasing = !held.length && mine.some((a) => a.state === "revoking");
-  if (releasing) return <span className="text-muted">{c("해제 중", "Releasing")}</span>;
-  const assign = !held.length;
-  if (assign && (!open.length || person.suspendedAt || person.accountUnavailable))
-    return !periods.length || person.suspendedAt || person.accountUnavailable ? null : (
-      <span className="text-muted">{c("남은 좌석 없음", "No free seat")}</span>
-    );
+  const seat = seatOf(person);
+  const note = {
+    assigned: c("편집 좌석 사용 중", "Holds an editing seat"),
+    releasing: c("좌석 반환 중 · 앱의 장치 확인을 기다립니다", "Returning the seat · waiting for their devices"),
+    waiting: c("좌석 대기 · 자리가 나면 자동으로 배정됩니다", "Waiting · gets the next free seat"),
+    none:
+      person.role === "reviewer"
+        ? c("검토 역할은 좌석이 필요 없습니다", "Reviewers need no seat")
+        : c("좌석 꺼짐 · 웹에서 보기·검토만", "Seat off · view and review on the web"),
+  }[seat];
+  const can = editable && !person.suspendedAt && !person.accountUnavailable && person.role !== "reviewer";
+  const on = seat !== "none";
   const run = async () => {
     setBusy(true);
     setError("");
     try {
-      // One request per period; a refresh shows whatever landed.
-      for (const p of assign ? open : [])
-        await b2bService.assignLicence(data.workspace.id, { requestKey: crypto.randomUUID(), periodId: p.id, userId: person.userId });
-      for (const a of assign ? [] : held)
-        await b2bService.revokeLicence(data.workspace.id, a.id, {
-          requestKey: crypto.randomUUID(),
-          revision: a.revision,
-          reason: "멤버 화면에서 좌석 해제",
-        });
+      await b2bService.setSeat(data.workspace.id, person.userId, { requestKey: crypto.randomUUID(), editing: !on });
     } catch (e) {
       setError(errorCode(e));
     } finally {
@@ -485,17 +461,20 @@ function SeatToggle({
     }
   };
   return (
-    <>
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() => void run()}
-        className="text-muted underline underline-offset-2 hover:text-foreground disabled:opacity-60"
-      >
-        {assign ? c("좌석 배정", "Give a seat") : c("좌석 해제", "Release seat")}
-      </button>
+    <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
+      {note}
+      {can && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void run()}
+          className="text-muted underline underline-offset-2 hover:text-foreground disabled:opacity-60"
+        >
+          {on ? c("좌석 끄기", "Turn seat off") : c("좌석 켜기", "Turn seat on")}
+        </button>
+      )}
       {error && <B2bError code={error} />}
-    </>
+    </span>
   );
 }
 

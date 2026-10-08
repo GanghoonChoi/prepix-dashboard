@@ -159,6 +159,10 @@ const errors: Record<string, [string, string]> = {
     "사용량 기록을 확인하고 있습니다. 확인이 끝날 때까지 새 작업과 정산을 진행할 수 없습니다.",
     "Usage records need review. New jobs and settlement are unavailable until this is resolved.",
   ],
+  B2B_SEAT_REVIEWER: [
+    "검토 역할에는 편집 좌석을 줄 수 없습니다. 먼저 역할을 제작으로 바꿔 주세요.",
+    "Reviewers cannot hold an editing seat. Change their role to editor first.",
+  ],
   B2B_LICENCE_CAPACITY_FULL: [
     "구매 정원이 가득 찼습니다. 회수 대기인 장치가 모두 종료되거나 추가 구매가 반영된 뒤 배정할 수 있습니다.",
     "Purchased capacity is full. Assign after all pending devices end or added capacity is applied.",

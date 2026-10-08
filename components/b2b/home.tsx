@@ -299,6 +299,14 @@ function ScopedHome({
       )}
       {data && (
         <Section title={c("내 좌석", "My seat")}>
+          {data.seat === "waiting" && (
+            <p className="text-[13px] text-muted">
+              {c(
+                "남은 좌석이 없어 대기 중입니다. 자리가 나거나 좌석이 추가되면 자동으로 배정됩니다.",
+                "No seat is free yet. You get one automatically when a seat frees up or is added.",
+              )}
+            </p>
+          )}
           {!data.period &&
             empty(
               c(
@@ -331,7 +339,9 @@ function ScopedHome({
                   <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs">
                     {p.licence
                       ? c(licences[p.licence.state][0], licences[p.licence.state][1])
-                      : c("편집 좌석 없음 · 보기만", "No editing seat · view only")}
+                      : p.state === "current" && data.seat === "waiting"
+                        ? c("좌석 대기", "Waiting for a seat")
+                        : c("편집 좌석 없음 · 보기만", "No editing seat · view only")}
                   </span>
                 </li>
               ))}
