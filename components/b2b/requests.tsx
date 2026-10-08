@@ -656,14 +656,14 @@ function ProjectRequestsInner({ projectId }: { projectId: string }) {
           <div
             role="group"
             aria-label={c("보기", "View")}
-            className="inline-flex flex-wrap rounded-md border border-border p-0.5"
+            className="flex flex-wrap gap-1"
           >
             {tabs.map(([key, label]) => (
               <button
                 key={key}
                 type="button"
                 aria-pressed={tab === key}
-                className="rounded px-3 py-1.5 text-[13px] text-muted transition-colors hover:text-foreground aria-pressed:bg-surface-secondary aria-pressed:font-medium aria-pressed:text-foreground"
+                className="h-8 rounded-md px-3 text-[13px] text-muted transition-colors hover:text-foreground aria-pressed:bg-surface-secondary aria-pressed:font-medium aria-pressed:text-foreground"
                 onClick={() => {
                   setTab(key);
                   setCursor(undefined);
