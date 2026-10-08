@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, Folder } from "lucide-react";
-import { FilterSelect, rowClass, SearchField, tableClass, tdClass, thClass } from "@/components/ui";
+import { rowClass, SearchField, tableClass, tdClass, thClass } from "@/components/ui";
 import { apiClient } from "@/lib/api/client";
 import { homeEnvironment } from "@/lib/b2b-home/home";
 import {
@@ -13,7 +13,6 @@ import { useRouter } from "next/navigation";
 import {
   b2bService,
   type Project,
-  type ProjectState,
   type ProjectVisibility,
 } from "@/lib/api/services/b2b.service";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
@@ -30,9 +29,7 @@ import {
 import {
   B2bError,
   errorCode,
-  StateBadge,
   roleLabels,
-  stateLabels,
   visibilityLabels,
   useCopy,
   freeIntent, projectsDenial } from "./shared";
@@ -216,18 +213,6 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
           label={c("이름으로 검색", "Search by name")}
           placeholder={c("프로젝트 검색…", "Search projects…")}
         />
-        <FilterSelect
-          label={c("상태", "State")}
-          value={state}
-          onChange={(value) => changeFilter({ state: value })}
-          options={[
-            { value: "", label: c("전체", "All") },
-            ...(["draft", "in_progress", "completed", "archived"] as ProjectState[]).map((s) => ({
-              value: s as string,
-              label: c(...stateLabels[s]),
-            })),
-          ]}
-        />
       </div>
       {error === "B2B_PROJECT_LIST_SCOPE_CHANGED" ? (
         <div role="alert" className="space-y-3 text-sm">
@@ -256,7 +241,6 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
               <th className={thClass}>{c("이름", "Name")}</th>
               <th className={`${thClass} hidden w-[20%] sm:table-cell`}>{c("내 역할", "My role")}</th>
               <th className={`${thClass} hidden w-[18%] md:table-cell`}>{c("공개 범위", "Visibility")}</th>
-              <th className={`${thClass} w-[16%]`}>{c("상태", "State")}</th>
               <th className={`${thClass} w-10`}><span className="sr-only">{c("열기", "Open")}</span></th>
             </tr>
           </thead>
@@ -286,9 +270,6 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
                 </td>
                 <td className={`${tdClass} hidden text-muted sm:table-cell`}>{c(...roleLabels[p.role])}</td>
                 <td className={`${tdClass} hidden text-muted md:table-cell`}>{c(...visibilityLabels[p.visibility])}</td>
-                <td className={tdClass}>
-                  <StateBadge state={p.state} />
-                </td>
                 <td className={`${tdClass} text-right text-muted`}>
                   <ChevronRight size={16} strokeWidth={1.75} aria-hidden="true" className="ml-auto" />
                 </td>

@@ -33,7 +33,6 @@ import {
 } from "@/components/ui";
 import { useI18n } from "@/lib/i18n/context";
 import { RecoverLead } from "./recover-lead";
-import { RecoverSteward } from "./file-stewards";
 import { changeInvitation, InviteForm, useInvitationStatus } from "./invitations";
 import { B2bError, errorCode, useCopy } from "./shared";
 
@@ -335,14 +334,12 @@ export function TeamMembers() {
               {c("검색과 맞는 사람이 없습니다.", "No one matches your search.")}
             </p>
           )}
-          {/* Rare repairs, out of the way: a project whose lead left, a file
-              whose steward left. */}
+          {/* A rare repair, out of the way: a project whose lead left. */}
           {owner && (
             <div className="pt-6">
               <Details summary={c("담당자 복구", "Restore a lead")}>
-                <div className="space-y-8 text-foreground">
+                <div className="text-foreground">
                   <RecoverLead people={people} />
-                  <RecoverSteward />
                 </div>
               </Details>
             </div>

@@ -246,12 +246,12 @@ test("S27 notifications: current access, late and lost responses, reconnect, acc
   await expect(row).toHaveCount(2);
   expect(await unread(request, ext)).toBe(0);
 
-  // Clicking rechecks the target and opens the exact request.
+  // Clicking rechecks the target. Requests left the web (2026-10-08): a
+  // request notice opens its project.
   await row.last().click();
   await expect(page).toHaveURL(
-    new RegExp(`/dashboard/workspaces/${team}/projects/${project}/requests/${first}$`),
+    new RegExp(`/dashboard/workspaces/${team}/projects/${project}$`),
   );
-  await expect(page.getByText("Private subtitle").first()).toBeVisible();
 
   // Revocation: old notices lose names and links; clicking gives the generic
   // notice; nothing new is created for the lost project.

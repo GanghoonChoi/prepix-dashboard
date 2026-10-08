@@ -2,7 +2,6 @@
 import { InvitationPanel } from "./invitations";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiClient } from "@/lib/api/client";
-import { buildTeamProjectOpenUrl } from "@/lib/workspaces/app-link";
 import {
   projectSurfaces,
   visibilityChange,
@@ -31,14 +30,10 @@ import {
   folderTabs,
   B2bError,
   errorCode,
-  StateBadge,
   VisibilityBadge,
   useCopy,
   accessEnded,
   freeIntent, projectsDenial } from "./shared";
-
-// ponytail: folder model (2026-10-07) — teammates don't open someone's work in the app; delete after merge
-const APP_ENTRY = false;
 
 function useProject(projectId: string) {
   const context = useWorkspace()!;
@@ -112,11 +107,6 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
   if (error && !project)
     return <B2bError code={error} retry={() => void reload()} />;
   if (!project) return <TeamLoading />;
-  const appUrl = buildTeamProjectOpenUrl({
-    workspaceId: id,
-    projectId: project.id,
-  });
-  const surfaces = projectSurfaces(project.role);
   const settable = project.allowedActions.edit || project.allowedActions.changeVisibility;
   return (
     <TeamShell
@@ -126,16 +116,7 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
       tabs={folderTabs(id, project, c)}
       actions={
         <>
-          {/* The folder's state sits with its name, not on a row of its own. */}
-          <div className="flex items-center gap-2">
-            <StateBadge state={project.state} />
-            <VisibilityBadge visibility={project.visibility} />
-          </div>
-          {APP_ENTRY && appUrl && surfaces.app && (
-            <a className={secondaryClass} href={appUrl}>
-              {c("앱에서 작업하기", "Work in app")}
-            </a>
-          )}
+          <VisibilityBadge visibility={project.visibility} />
           {settable && (
             <button
               className={secondaryClass}

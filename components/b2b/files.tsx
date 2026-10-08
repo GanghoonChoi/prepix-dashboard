@@ -19,28 +19,18 @@ import type { TeamFileVersion } from "@/lib/api/generated/b2b";
 import { fileApi, fileError, type FileScope } from "@/lib/b2b-files/api";
 import { useFileDownloads } from "@/lib/b2b-files/use-downloads";
 import { FileDownloads } from "./file-downloads";
-import { TransferSteward, VersionAddress } from "./file-stewards";
 import { scopeKey } from "@/lib/b2b-files/store";
 import { bytes } from "@/lib/workspaces/upload";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
-  Details,
   EmptyState,
   inputClass,
-  KeyValues,
   secondaryClass,
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
 import { FileTransfers } from "./file-transfers";
 import { folderTabs, B2bError, useCopy, previewStateCopy, projectsDenial } from "./shared";
-import { useFileOperations } from "@/lib/b2b-files/use-operations";
-import {
-  FileManager,
-  PendingFileOperations,
-  textAction,
-  type FileManagementMode,
-} from "./file-management";
 
 export function ProjectFiles({ projectId }: { projectId: string }) {
   const context = useWorkspace()!;
@@ -75,10 +65,6 @@ function FilesView({ scope }: { scope: FileScope }) {
     [query, setQuery] = useState(""),
     [search, setSearch] = useState(""),
     [cursor, setCursor] = useState<string>();
-  const [management, setManagement] = useState<{
-    versionId: string;
-    mode: FileManagementMode;
-  } | null>(null);
   const serial = useRef(0),
     readController = useRef<AbortController | null>(null);
   const reload = useCallback(async () => {
@@ -120,14 +106,10 @@ function FilesView({ scope }: { scope: FileScope }) {
       window.removeEventListener("focus", refresh);
     };
   }, [reload]);
-  const operations = useFileOperations(scope, !!data, reload);
   const downloads = useFileDownloads(scope, !!data, reload);
   if (error) return <B2bError code={error} retry={() => void reload()} />;
   if (!data) return <TeamLoading />;
   const { project, capabilities, list } = data;
-  const managedVersion = list.versions.find(
-    (v) => v.id === management?.versionId,
-  );
   return (
     <TeamShell
       title={c("프로젝트 자료", "Project files")}
@@ -141,21 +123,6 @@ function FilesView({ scope }: { scope: FileScope }) {
         changed={() => void reload()}
       />
       <FileDownloads downloads={downloads} />
-      <PendingFileOperations operations={operations} />
-      {management &&
-        managedVersion &&
-        (management.mode === "unlink"
-          ? managedVersion.allowedActions.unlink
-          : managedVersion.allowedActions.manage) && (
-          <FileManager
-            key={`${managedVersion.id}:${management.mode}`}
-            scope={scope}
-            version={managedVersion}
-            mode={management.mode}
-            operations={operations}
-            close={() => setManagement(null)}
-          />
-        )}
       <section
         className="space-y-4"
         aria-label={c("보관된 자료", "Stored files")}
@@ -221,64 +188,9 @@ function FilesView({ scope }: { scope: FileScope }) {
                     )
                   }
                 />
-                {/* The row is the file and its download; everything else a
-                    file can do is folded here (2026-10-08). */}
-                <Details summary={c("관리·상세", "Manage & details")}>
-                {(version.allowedActions.manage ||
-                  version.allowedActions.unlink) && (
-                  <div className="flex flex-wrap items-center gap-x-4 text-foreground">
-                    {version.allowedActions.manage && (
-                      <>
-                        <button
-                          type="button"
-                          className={textAction}
-                          onClick={() =>
-                            setManagement({
-                              versionId: version.id,
-                              mode: "permission",
-                            })
-                          }
-                        >
-                          {c("자료 권한 관리", "Manage permissions")}
-                        </button>
-                        <button
-                          type="button"
-                          className={textAction}
-                          onClick={() =>
-                            setManagement({
-                              versionId: version.id,
-                              mode: "link",
-                            })
-                          }
-                        >
-                          {c("다른 프로젝트에 연결", "Link to another project")}
-                        </button>
-                        <TransferSteward
-                          scope={scope}
-                          version={version}
-                          changed={reload}
-                        />
-                      </>
-                    )}
-                    {version.allowedActions.unlink && (
-                      <button
-                        type="button"
-                        className={textAction}
-                        onClick={() =>
-                          setManagement({
-                            versionId: version.id,
-                            mode: "unlink",
-                          })
-                        }
-                      >
-                        {c("프로젝트 연결 제외", "Unlink from project")}
-                      </button>
-                    )}
-                  </div>
-                )}
-                  <KeyValues items={versionFacts(version, c)} />
-                  <VersionAddress scope={scope} versionId={version.id} />
-                </Details>
+                {/* A file row is the file and its download (2026-10-08):
+                    per-file permissions, cross-project links and stewards
+                    left the web; the project decides who sees what. */}
               </li>
             ))}
           </ul>

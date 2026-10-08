@@ -1,11 +1,12 @@
-"use client";
-import { use } from "react";
-import { ProjectRequests } from "@/components/b2b/requests";
-export default function Page({
+import { redirect } from "next/navigation";
+
+// Retired 2026-10-08 (Figma-simple): the project's videos are the one place
+// for this now. The address still resolves for old links and notifications.
+export default async function Page({
   params,
 }: {
-  params: Promise<{ projectId: string }>;
+  params: Promise<{ id: string; projectId: string }>;
 }) {
-  const { projectId } = use(params);
-  return <ProjectRequests key={projectId} projectId={projectId} />;
+  const { id, projectId } = await params;
+  redirect(`/dashboard/workspaces/${id}/projects/${projectId}`);
 }
