@@ -98,6 +98,8 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
     expect(source.status(), await source.text()).toBe(201);
     await O.page.reload();
     const periods = O.page.getByRole("region", { name: "내 좌석" });
+    // One line on the home; periods and devices are folded under it.
+    await periods.getByText("기간과 장치", { exact: true }).click();
     await expect(
       periods.getByText("현재 이용기간", { exact: true }),
     ).toBeVisible();
@@ -105,7 +107,7 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
       periods.getByText("다음 기간 예정", { exact: true }),
     ).toBeVisible();
     await expect(
-      periods.getByText("편집 좌석 있음", { exact: true }),
+      periods.getByRole("listitem").getByText("편집 좌석 있음", { exact: true }).first(),
     ).toBeVisible();
     // Team AI is the app's, on the person's seat: the web shows no AI figures.
     await expect(periods.getByText(/AI/)).toHaveCount(0);
@@ -120,7 +122,7 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
       "내 원본 전송 준비.wav",
     ]);
     const projects = O.page.getByRole("region", {
-      name: "내 프로젝트",
+      name: "프로젝트",
       exact: true,
     });
     await expect(
@@ -171,8 +173,9 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
     ).toBe(404);
     await O.page.setViewportSize({ width: 390, height: 844 });
     await O.page.reload();
+    await periods.getByText("기간과 장치", { exact: true }).click();
     await expect(
-      periods.getByText("편집 좌석 있음", { exact: true }),
+      periods.getByRole("listitem").getByText("편집 좌석 있음", { exact: true }).first(),
     ).toBeVisible();
     expect(
       await O.page.evaluate(
@@ -189,7 +192,7 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
       O.page.getByText("팀 자료 접근이 중지되었습니다.", { exact: false }),
     ).toBeVisible();
     await expect(
-      O.page.getByRole("region", { name: "내 프로젝트", exact: true }),
+      O.page.getByRole("region", { name: "프로젝트", exact: true }),
     ).toHaveCount(0);
     await expect(
       O.page.getByRole("region", { name: "내 원본 전송", exact: true }),

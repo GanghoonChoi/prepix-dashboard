@@ -330,6 +330,19 @@ export function notificationApi(userId: string) {
           ).data.data,
         ),
       ),
+    /** Opening a review reads every notice about it. */
+    readReview: async (reviewId: string) =>
+      changed(
+        check(
+          (
+            await apiClient.post<{ data: { currentUserId: string; unreadCount: number } }>(
+              `/b2b/notifications/targets/review/${encodeURIComponent(reviewId)}/read`,
+              {},
+              { headers, timeout: 15000 },
+            )
+          ).data.data,
+        ),
+      ),
     open: async (id: string) =>
       changed(
         check(

@@ -2396,7 +2396,12 @@ export type TeamHome = {
   // Only whether AI accounting is reconciled; there is no team AI total.
   aiUsage: { reconciled: boolean; sampledAt: string } | null;
   aiUsageError: string | null;
-  projects: { items: { id: string; name: string; state: ProjectState; visibility: ProjectVisibility; role: ProjectRole | "viewer"; updatedAt: string }[]; hasMore: boolean };
+  /** Grid cards (2026-10-08): posterUrl is the newest video this viewer can
+   * open (short-lived), videos how many, unread their unread review notices. */
+  projects: { items: { id: string; name: string; state: ProjectState; visibility: ProjectVisibility; role: ProjectRole | "viewer"; updatedAt: string; posterUrl?: string | null; videos?: number; unread?: number }[]; hasMore: boolean };
+  /** 확인할 영상: approvals assigned to this viewer first, then unread notices
+   * of a new version (or being added), comments, or a decision. */
+  toWatch?: { items: { reviewId: string; projectId: string; projectName: string; title: string; round: number; versionId: string; ordinal: number; reason: "approval" | "version" | "comment" | "decision"; comments: number; at: string; posterUrl: string | null }[]; hasMore: boolean };
   /** V: newest published results whose review this viewer can open now. */
   recentPublications: { items: { publicationId: string; reviewId: string; projectId: string; projectName: string; title: string; versionId: string; ordinal: number; round: number; publishedAt: string }[]; hasMore: boolean };
   transfers: { items: { id: string; projectId: string; projectName: string; name: string; state: string; size: number; lastActivityAt: string }[]; hasMore: boolean };
