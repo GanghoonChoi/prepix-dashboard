@@ -29,7 +29,7 @@ export function TeamShell({
   title?: string;
   description?: ReactNode;
   /** Sibling pages of one topic (e.g. 플랜과 결제 · 결제 정보 · 월 이용명세서). */
-  tabs?: { href: string; label: string }[];
+  tabs?: { href: string; label: string; match?: string }[];
   /** The page's own actions, beside the title. */
   actions?: ReactNode;
   children: ReactNode;

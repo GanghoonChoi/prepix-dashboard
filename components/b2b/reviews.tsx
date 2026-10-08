@@ -18,7 +18,6 @@ import {
   reviewsService,
 } from "@/lib/api/services/b2b-reviews.service";
 import { audienceInput, type AudienceSelection, type ReviewScope } from "@/lib/b2b-reviews/operations";
-import { itemMeta } from "@/lib/b2b-reviews/items";
 import { fileApi } from "@/lib/b2b-files/api";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
@@ -545,8 +544,30 @@ export function ProjectReviews({ projectId }: { projectId: string }) {
 }
 function ProjectReviewsInner({ projectId }: { projectId: string }) {
   const c = useCopy();
-  const router = useRouter();
   const { team, me, permitted } = useTeamScope();
+  const read = useCallback(async () => (await b2bService.project(team, projectId)).project, [team, projectId]);
+  const { data: project, error, load } = useLoader(read);
+  if (!permitted || !me) return <B2bError code="B2B_PROJECT_NOT_FOUND" />;
+  if (!project) return error ? <ReviewError code={error} retry={() => void load()} /> : <TeamLoading />;
+  return (
+    <TeamShell title={c("영상 검토", "Video reviews")} description={project.name} tabs={folderTabs(team, project, c)}>
+      <ReviewList projectId={projectId} />
+    </TeamShell>
+  );
+}
+
+/** A folder's videos (2026-10-08): one row per review series — what
+ * teammates published from the app, or a review started by hand — with
+ * search, paging and 새 검토. The folder's first page and /reviews both
+ * render it. */
+export function ReviewList({ projectId }: { projectId: string }) {
+  const { team, me } = useTeamScope();
+  return <ReviewListInner key={`${origin()}:${team}:${me}:${projectId}`} projectId={projectId} />;
+}
+function ReviewListInner({ projectId }: { projectId: string }) {
+  const c = useCopy();
+  const router = useRouter();
+  const { team, me } = useTeamScope();
   const [search, setSearch] = useState(""),
     [query, setQuery] = useState(""),
     [cursor, setCursor] = useState<string>(),
@@ -556,34 +577,44 @@ function ProjectReviewsInner({ projectId }: { projectId: string }) {
     () => ({ origin: origin(), userId: me, kind: "project", workspaceId: team, projectId, reviewId: NO_REVIEW }),
     [team, projectId, me],
   );
-  const read = useCallback(async () => {
-    const [project, list] = await Promise.all([
-      b2bService.project(team, projectId),
-      reviewsService.list(scope, { search: query, cursor }),
-    ]);
-    return { project: project.project, list };
-  }, [team, projectId, scope, query, cursor]);
-  const { data, error, stale, load } = useLoader(read);
+  const read = useCallback(() => reviewsService.list(scope, { search: query, cursor }), [scope, query, cursor]);
+  const { data: list, error, stale, load } = useLoader(read);
   const mutation = useRun();
   const [audience, setAudience] = useState<AudienceSelection>(projectAudience);
   const [audienceReady, setAudienceReady] = useState(false);
-  if (!permitted || !me) return <B2bError code="B2B_PROJECT_NOT_FOUND" />;
-  if (!data) return error ? <ReviewError code={error} retry={() => void load()} /> : <TeamLoading />;
-  const { project, list } = data;
+  if (!list) return error ? <ReviewError code={error} retry={() => void load()} /> : <TeamLoading />;
   const base = `/dashboard/workspaces/${team}/projects/${projectId}`;
   return (
-    <TeamShell
-      title={c("영상 검토", "Video reviews")}
-      description={project.name}
-      tabs={folderTabs(team, project, c)}
-      actions={list.allowedActions.create && (
-        <button type="button" className={primaryClass} onClick={() => setCreating((v) => !v)}>
-          {c("새 검토", "New review")}
-        </button>
-      )}
-    >
+    <section className="space-y-3" aria-label={c("영상", "Videos")}>
       <ReviewPending scope={scope} />
       {stale && <ReviewError code={error} retry={() => void load()} />}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <form
+          className="flex w-full min-w-0 gap-2 sm:max-w-sm"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setCursor(undefined);
+            setQuery(search.trim());
+          }}
+        >
+          <input
+            className={`${inputClass} min-w-0`}
+            aria-label={c("검토 검색", "Search reviews")}
+            placeholder={c("영상 제목 검색", "Search videos")}
+            maxLength={100}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <button type="submit" className={`${secondaryClass} shrink-0`}>
+            {c("검색", "Search")}
+          </button>
+        </form>
+        {list.allowedActions.create && (
+          <button type="button" className={secondaryClass} onClick={() => setCreating((v) => !v)}>
+            {c("새 검토", "New review")}
+          </button>
+        )}
+      </div>
       {creating && list.allowedActions.create && (
         <section className="max-w-3xl space-y-4 rounded-lg border border-border p-5" aria-label={c("새 검토", "New review")}>
           <h2 className="text-[15px] font-medium">{c("새 검토", "New review")}</h2>
@@ -613,140 +644,79 @@ function ProjectReviewsInner({ projectId }: { projectId: string }) {
           {mutation.error && <ReviewError code={mutation.error} />}
         </section>
       )}
-      <div className="space-y-3">
-        <form
-          className="flex w-full min-w-0 gap-2 sm:max-w-sm"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setCursor(undefined);
-            setQuery(search.trim());
-          }}
-        >
-          <input
-            className={`${inputClass} min-w-0`}
-            aria-label={c("검토 검색", "Search reviews")}
-            placeholder={c("검토 제목 검색", "Search review titles")}
-            maxLength={100}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <button type="submit" className={`${secondaryClass} shrink-0`}>
-            {c("검색", "Search")}
-          </button>
-        </form>
-        {list.reviews.length === 0 ? (
-          <EmptyState title={query ? c("검색 결과가 없습니다.", "No matching reviews.") : c("아직 검토가 없습니다.", "No reviews yet.")} />
-        ) : (
-          <table className={`${tableClass} table-fixed`}>
-            <thead>
-              <tr>
-                <th className={thClass}>{c("제목", "Title")}</th>
-                <th className={`${thClass} hidden w-[18%] sm:table-cell`}>{c("버전", "Version")}</th>
-                <th className={`${thClass} hidden w-[20%] md:table-cell`}>{c("승인자", "Approver")}</th>
-                <th className={`${thClass} w-[16%]`}>{c("상태", "State")}</th>
-                <th className={`${thClass} w-10`}><span className="sr-only">{c("열기", "Open")}</span></th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.reviews.map((r) => (
-                <tr
-                  key={r.id}
-                  className={rowClass}
-                  onClick={(e) => {
-                    if (!(e.target as HTMLElement).closest("a")) router.push(`${base}/reviews/${r.id}`);
-                  }}
-                >
-                  <td className={tdClass}>
-                    <Link href={`${base}/reviews/${r.id}`} className="flex min-w-0 items-center gap-3 outline-none focus-visible:underline">
-                      <span className="grid size-8 shrink-0 place-items-center rounded-md bg-surface-secondary text-muted">
-                        <Clapperboard size={15} strokeWidth={1.75} aria-hidden="true" />
-                      </span>
-                      <span className="truncate font-medium">{r.title}</span>
-                    </Link>
-                  </td>
-                  <td className={`${tdClass} hidden whitespace-nowrap text-muted sm:table-cell`}>
-                    V{r.ordinal}
-                    {r.previousRounds > 0 && ` · ${c("이전", "prev")} ${r.previousRounds}`}
-                  </td>
-                  <td className={`${tdClass} hidden truncate text-muted md:table-cell`}>
-                    {r.approver ? r.approver.name ?? c("이름 없음", "Unnamed") : "—"}
-                  </td>
-                  <td className={tdClass}>
-                    <Badge>{c(...approvalCopy[r.approval])}</Badge>
-                  </td>
-                  <td className={`${tdClass} text-right text-muted`}>
-                    <ChevronRight size={16} strokeWidth={1.75} aria-hidden="true" className="ml-auto" />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        {(cursor || list.nextCursor) && (
-          <div className="flex gap-2">
-            {cursor && (
-              <button type="button" className={secondaryClass} onClick={() => setCursor(undefined)}>
-                {c("처음으로", "First page")}
-              </button>
-            )}
-            {list.nextCursor && (
-              <button type="button" className={secondaryClass} onClick={() => setCursor(list.nextCursor!)}>
-                {c("다음", "Next")}
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-    </TeamShell>
-  );
-}
-
-/** P (2026-10-07): a folder leads with what teammates published into it from
- * the app — one row per review series (republishing adds a version), each
- * opening its review page for playback, comments and download. Search, paging
- * and starting a review by hand stay on the reviews page ("전체 보기"). */
-export function PublishedItems({ projectId }: { projectId: string }) {
-  const c = useCopy();
-  const { team, me } = useTeamScope();
-  const scope = useMemo<ReviewScope & { kind: "project" }>(
-    () => ({ origin: origin(), userId: me, kind: "project", workspaceId: team, projectId, reviewId: NO_REVIEW }),
-    [team, projectId, me],
-  );
-  const read = useCallback(() => reviewsService.list(scope, {}), [scope]);
-  const { data, error, load } = useLoader(read);
-  const base = `/dashboard/workspaces/${team}/projects/${projectId}`;
-  return (
-    <section className="space-y-4 border-b border-border pb-8 last:border-b-0 last:pb-0" aria-label={c("발행된 항목", "Published items")}>
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-[15px] font-medium">{c("발행된 항목", "Published items")}</h2>
-        <Link href={`${base}/reviews`} className="text-[13px] text-muted underline-offset-4 hover:text-foreground hover:underline">
-          {c("전체 보기", "View all")}
-        </Link>
-      </div>
-      {error && <ReviewError code={error} retry={() => void load()} />}
-      {!data ? (
-        !error && (
-          <p role="status" className="text-[13px] text-muted">
-            {c("발행된 항목을 불러오는 중입니다.", "Loading published items.")}
-          </p>
-        )
-      ) : data.reviews.length === 0 ? (
+      {list.reviews.length === 0 ? (
         <EmptyState
-          title={c("아직 발행된 항목이 없습니다.", "Nothing published yet.")}
-          description={c("앱에서 발행한 영상이 여기에 모입니다.", "Videos you publish from the app gather here.")}
+          title={query ? c("검색 결과가 없습니다.", "No matching videos.") : c("아직 발행된 영상이 없습니다.", "Nothing published yet.")}
+          description={query ? undefined : c("앱에서 발행한 영상이 여기에 모입니다.", "Videos you publish from the app gather here.")}
         />
       ) : (
-        <ul className="divide-y divide-border border-y border-border">
-          {data.reviews.map((r) => (
-            <li key={r.id}>
-              <Link href={`${base}/reviews/${r.id}`} className="block py-3 hover:bg-surface">
-                <span className="block break-words text-sm font-medium">{r.title}</span>
-                <span className="mt-0.5 block break-words text-xs text-muted tabular-nums">{itemMeta(r, c, kst)}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <table className={`${tableClass} table-fixed`}>
+          <thead>
+            <tr>
+              <th className={thClass}>{c("제목", "Title")}</th>
+              <th className={`${thClass} hidden w-[18%] sm:table-cell`}>{c("버전", "Version")}</th>
+              <th className={`${thClass} hidden w-[20%] md:table-cell`}>{c("발행", "Published by")}</th>
+              <th className={`${thClass} w-[16%]`}>{c("상태", "State")}</th>
+              <th className={`${thClass} w-10`}><span className="sr-only">{c("열기", "Open")}</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.reviews.map((r) => (
+              <tr
+                key={r.id}
+                className={rowClass}
+                onClick={(e) => {
+                  if (!(e.target as HTMLElement).closest("a")) router.push(`${base}/reviews/${r.id}`);
+                }}
+              >
+                <td className={tdClass}>
+                  <Link href={`${base}/reviews/${r.id}`} className="flex min-w-0 items-center gap-3 outline-none focus-visible:underline">
+                    <span className="grid size-8 shrink-0 place-items-center rounded-md bg-surface-secondary text-muted">
+                      <Clapperboard size={15} strokeWidth={1.75} aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium">{r.title}</span>
+                      {r.commentCount > 0 && (
+                        <span className="block text-xs text-muted tabular-nums">
+                          {c(`코멘트 ${r.commentCount}`, `${r.commentCount} comments`)}
+                        </span>
+                      )}
+                    </span>
+                  </Link>
+                </td>
+                <td className={`${tdClass} hidden whitespace-nowrap text-muted sm:table-cell`}>
+                  V{r.ordinal}
+                  {r.previousRounds > 0 && ` · ${c("이전", "prev")} ${r.previousRounds}`}
+                </td>
+                <td className={`${tdClass} hidden truncate text-muted md:table-cell`}>
+                  {r.publisher?.name ?? (r.publisher ? c("이름 없음", "Unnamed") : "—")}
+                </td>
+                <td className={tdClass}>
+                  <Badge>{c(...approvalCopy[r.approval])}</Badge>
+                </td>
+                <td className={`${tdClass} text-right text-muted`}>
+                  <ChevronRight size={16} strokeWidth={1.75} aria-hidden="true" className="ml-auto" />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {(cursor || list.nextCursor) && (
+        <div className="flex gap-2">
+          {cursor && (
+            <button type="button" className={secondaryClass} onClick={() => setCursor(undefined)}>
+              {c("처음으로", "First page")}
+            </button>
+          )}
+          {list.nextCursor && (
+            <button type="button" className={secondaryClass} onClick={() => setCursor(list.nextCursor!)}>
+              {c("다음", "Next")}
+            </button>
+          )}
+        </div>
       )}
     </section>
   );
 }
+

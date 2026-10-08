@@ -285,10 +285,10 @@ test("F13 requests by role: exact-version submission after a lost response, conf
   const base = `/dashboard/workspaces/${team}/projects/${project}`;
   const root = `${api}/v2/workspaces/${team}/b2b/projects/${project}`;
 
-  // Lead registers a required request from the project overview.
-  const leadView = await open(browser, lead, base);
+  // Requests have no folder tab since the 2026-10-08 cleanup; the page
+  // itself is unchanged and reached by its address.
+  const leadView = await open(browser, lead, `${base}/requests`);
   const L = leadView.page;
-  await L.getByRole("link", { name: "요청사항", exact: true }).click();
   await expect(
     L.getByRole("heading", { name: "요청사항", exact: true }),
   ).toBeVisible();
@@ -906,7 +906,9 @@ test("F13 requests by role: exact-version submission after a lost response, conf
   }
 });
 
-test("F03 request work on team home and project overview: live counts, paging, failures and revoked participation", async ({
+// 2026-10-08 cleanup: request work panels left the team home and the folder
+// page (no team uses requests). Kept, skipped, until they come back.
+test.skip("F03 request work on team home and project overview: live counts, paging, failures and revoked participation", async ({
   browser,
   request,
 }) => {

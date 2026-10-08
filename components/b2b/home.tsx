@@ -34,7 +34,6 @@ import {
   roleLabels,
   useCopy,
 } from "./shared";
-import { RequestWorkPanel } from "./request-work";
 import { ReviewWorkPanel } from "./review-work";
 const date = (value: string) =>
   new Intl.DateTimeFormat("ko-KR", {
@@ -49,11 +48,11 @@ const periods = {
   ended: ["종료된 기간", "Ended period"],
 } as const;
 const licences = {
-  active: ["편집 이용권 배정 중", "Editing licence assigned"],
-  scheduled: ["다음 기간 편집 예정", "Editing scheduled"],
-  revoking: ["편집 이용권 회수 대기", "Licence revocation pending"],
-  released: ["편집 이용권 회수 완료", "Licence released"],
-  expired: ["편집 이용권 종료", "Licence expired"],
+  active: ["편집 좌석 있음", "Editing seat"],
+  scheduled: ["다음 기간 좌석 예정", "Seat next period"],
+  revoking: ["좌석 해제 중", "Seat being released"],
+  released: ["좌석 해제됨", "Seat released"],
+  expired: ["좌석 종료", "Seat ended"],
 } as const;
 const transfers: Record<string, [string, string]> = {
   preparing: ["전송 준비", "Preparing"],
@@ -62,12 +61,6 @@ const transfers: Record<string, [string, string]> = {
   quarantined: ["검증 문제 · 확인 필요", "Verification needs attention"],
   expired: ["전송 만료 · 확인 필요", "Transfer expired"],
 };
-const deliveries = {
-  prepare: ["납품 준비", "Prepare delivery"],
-  check: ["납품 조건 확인", "Check delivery conditions"],
-  confirm: ["내 열기 확인 대기", "My opening confirmation pending"],
-  confirmed: ["내 열기 확인 기록 있음", "My opening receipt recorded"],
-} as const;
 export function B2bHome({
   status,
   workspace,
@@ -163,8 +156,8 @@ function ScopedHome({
     readable = !!data && ["active", "read_only"].includes(state);
   const projectLink = (id: string, suffix = "") =>
     `${base}/projects/${id}${suffix}`;
-  const listClass = "divide-y divide-border rounded-lg border border-border";
-  const rowClass = "block min-h-14 px-4 py-3 transition-colors hover:bg-surface";
+  const listClass = "divide-y divide-border border-y border-border";
+  const rowClass = "block min-h-14 py-3 transition-colors hover:bg-surface";
   const empty = (text: string) => <p className="text-[13px] text-muted">{text}</p>;
   return (
     <TeamShell title={workspace.name}>
@@ -285,61 +278,27 @@ function ScopedHome({
           </Section>
         </>
       )}
-      {status.allowedActions.projects && (
-        <>
-          <RequestWorkPanel />
-          <ReviewWorkPanel />
-        </>
-      )}
-      {data && readable && (
-        <Section title={c("전송·납품 업무", "Transfer and delivery work")}>
-          {!data.transfers.items.length && !data.deliveries.items.length &&
-            empty(
-              c(
-                "진행 중인 전송이나 납품 업무가 없습니다.",
-                "No transfer or delivery work right now.",
-              ),
-            )}
-          {data.transfers.items.length > 0 && (
-            <WorkList title={c("내 원본 전송", "My source transfers")}>
-              {data.transfers.items.map((t) => (
-                <li key={t.id}>
-                  <Link href={projectLink(t.projectId, "/files")} className={rowClass}>
-                    <p className="break-words text-sm font-medium">{t.name}</p>
-                    <p className="mt-0.5 break-words text-xs text-muted">
-                      {t.projectName} ·{" "}
-                      {transfers[t.state] ? c(...transfers[t.state]) : t.state}
-                    </p>
-                  </Link>
-                </li>
-              ))}
-            </WorkList>
-          )}
-          {data.deliveries.items.length > 0 && (
-            <WorkList title={c("납품 업무", "Delivery work")}>
-              {data.deliveries.items.map((d) => (
-                <li key={d.projectId}>
-                  <Link href={projectLink(d.projectId, "/delivery")} className={rowClass}>
-                    <p className="break-words text-sm font-medium">{d.projectName}</p>
-                    <p className="mt-0.5 text-xs text-muted">
-                      {c(deliveries[d.state][0], deliveries[d.state][1])}
-                    </p>
-                  </Link>
-                </li>
-              ))}
-            </WorkList>
-          )}
+      {status.allowedActions.projects && <ReviewWorkPanel />}
+      {/* Only when something is moving: an idle transfer list is noise. */}
+      {data && readable && data.transfers.items.length > 0 && (
+        <Section title={c("내 원본 전송", "My source transfers")}>
+          <ul className={listClass}>
+            {data.transfers.items.map((t) => (
+              <li key={t.id}>
+                <Link href={projectLink(t.projectId, "/files")} className={rowClass}>
+                  <p className="break-words text-sm font-medium">{t.name}</p>
+                  <p className="mt-0.5 break-words text-xs text-muted">
+                    {t.projectName} ·{" "}
+                    {transfers[t.state] ? c(...transfers[t.state]) : t.state}
+                  </p>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </Section>
       )}
       {data && (
-        <Section
-          title={c("내 이용기간", "My periods")}
-          action={
-            <Link href={`${base}/licences`} className={linkClass}>
-              {c("내 편집 이용권 확인", "View my editing licence")}
-            </Link>
-          }
-        >
+        <Section title={c("내 좌석", "My seat")}>
           {!data.period &&
             empty(
               c(
@@ -357,7 +316,7 @@ function ScopedHome({
               {data.periods.map((p) => (
                 <li
                   key={p.id}
-                  className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+                  className="flex flex-wrap items-center justify-between gap-3 py-3"
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-medium">
@@ -372,7 +331,7 @@ function ScopedHome({
                   <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs">
                     {p.licence
                       ? c(licences[p.licence.state][0], licences[p.licence.state][1])
-                      : c("내 편집 이용권 미배정", "No editing licence assigned to me")}
+                      : c("편집 좌석 없음 · 보기만", "No editing seat · view only")}
                   </span>
                 </li>
               ))}
@@ -407,21 +366,5 @@ function Section({
       </div>
       {children}
     </section>
-  );
-}
-function WorkList({
-  title,
-  children,
-}: {
-  title: string;
-  children: React.ReactNode[];
-}) {
-  return (
-    <div className="space-y-2">
-      <h3 className="text-[13px] font-medium">{title}</h3>
-      <ul className="divide-y divide-border rounded-lg border border-border">
-        {children}
-      </ul>
-    </div>
   );
 }

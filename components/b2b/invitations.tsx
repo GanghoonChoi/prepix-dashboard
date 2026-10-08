@@ -394,14 +394,10 @@ export function InvitationPanel({
                 {c("좌석 대기", "Waiting for a seat")}
               </h3>
               <p className="text-xs text-muted">
-                {c("좌석을 추가한 뒤 ", "Add a seat, then assign it on ")}
-                <Link
-                  className="underline"
-                  href={`/dashboard/workspaces/${id}/licences`}
-                >
-                  {c("이용권 화면", "the licences page")}
-                </Link>
-                {c("에서 배정하세요.", ".")}
+                {c(
+                  "좌석을 추가하면 멤버 화면에서 바로 배정할 수 있습니다.",
+                  "Add a seat, then give it to them from People.",
+                )}
               </p>
               <ul className="divide-y divide-border">
                 {waiting.map((row) => (

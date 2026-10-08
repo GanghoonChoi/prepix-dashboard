@@ -4,16 +4,13 @@ import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Activity,
   Archive,
   ChevronsUpDown,
   CreditCard,
   Folder,
   House,
-  Library,
   LogOut,
   Settings,
-  Ticket,
   UserRound,
   Users,
   X,
@@ -34,10 +31,7 @@ export const NAV_ICONS: Record<NavIcon, LucideIcon> = {
   home: House,
   archive: Archive,
   folder: Folder,
-  library: Library,
   members: Users,
-  licence: Ticket,
-  status: Activity,
   plan: CreditCard,
   settings: Settings,
 };

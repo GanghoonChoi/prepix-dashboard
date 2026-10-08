@@ -20,10 +20,7 @@ export type NavIcon =
   | "home"
   | "archive"
   | "folder"
-  | "library"
   | "members"
-  | "licence"
-  | "status"
   | "plan"
   | "settings";
 export type NavLink = {
@@ -114,6 +111,9 @@ export function workspaceLinks(
     const status = options.b2b;
     return [
       { href: base, ko: "홈", en: "Home", group: "work", icon: "home" },
+      // 2026-10-08 cleanup: folders are the one place for team work. 보관함,
+      // 편집 이용권 and 이용 상태 keep their routes but leave the nav: seats are
+      // handed out on 멤버, and home links the status page when it matters.
       ...(status.allowedActions.projects
         ? ([
             {
@@ -122,13 +122,6 @@ export function workspaceLinks(
               en: "Folders",
               group: "work",
               icon: "folder",
-            },
-            {
-              href: `${base}/library`,
-              ko: "보관함",
-              en: "Library",
-              group: "work",
-              icon: "library",
             },
           ] as const)
         : []),
@@ -156,23 +149,6 @@ export function workspaceLinks(
             },
           ] as const)
         : []),
-      ...(!["preparing", "deleting", "deleted"].includes(
-        status.team.currentState,
-      )
-        ? ([
-            {
-              href: `${base}/licences`,
-              ko: status.allowedActions.manage
-                ? "편집 이용권"
-                : "내 편집 이용권",
-              en: status.allowedActions.manage
-                ? "Editing licences"
-                : "My editing licence",
-              group: "team",
-              icon: "licence",
-            },
-          ] as const)
-        : []),
       ...(status.allowedActions.billing
         ? ([
             {
@@ -184,15 +160,6 @@ export function workspaceLinks(
             },
           ] as const)
         : []),
-      // S25: monthly statements are billing documents, not project content —
-      // a tab of 플랜과 결제, under the same billing permission.
-      {
-        href: `${base}/status`,
-        ko: "이용 상태",
-        en: "Team status",
-        group: "team",
-        icon: "status",
-      },
       ...(status.allowedActions.manage
         ? ([
             {

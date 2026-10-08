@@ -1,6 +1,5 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useOverlayState } from "@heroui/react";
 import { ArrowDown, ArrowUp, ChevronRight, Eye, PenLine, Plus } from "lucide-react";
 import {
@@ -99,6 +98,7 @@ export function TeamMembers() {
   }, [load]);
 
   // Who holds an editing seat in the period running now.
+  const current = licences?.periods.find((p) => p.state === "active");
   const editors = useMemo(() => {
     const period = licences?.periods.find((p) => p.state === "active");
     return new Set(
@@ -147,8 +147,11 @@ export function TeamMembers() {
         roster && (
           <div className="flex items-center gap-4">
             <span className="hidden items-center gap-3 text-[13px] sm:flex">
-              <span className="inline-flex items-center gap-1.5" title={c("편집 이용권", "Editing seats")}>
-                <span className="tabular-nums">{editors.size}</span>
+              <span className="inline-flex items-center gap-1.5" title={c("편집 좌석 · 사용/구매", "Editing seats · used/bought")}>
+                <span className="tabular-nums">
+                  {editors.size}
+                  {current && <span className="text-muted">/{current.capacity}</span>}
+                </span>
                 <PenLine size={15} strokeWidth={1.75} className="text-muted" aria-label={c("편집", "Edit")} />
               </span>
               <span className="inline-flex items-center gap-1.5" title={c("보기·검토만", "View and review only")}>
@@ -332,6 +335,7 @@ export function TeamMembers() {
           person={selected}
           roster={roster}
           seat={editors.has(selected.userId)}
+          licences={editable ? licences : null}
           onSaved={load}
           onClose={() => setOpen(null)}
         />
@@ -359,12 +363,14 @@ function MemberSheet({
   person,
   roster,
   seat,
+  licences,
   onSaved,
   onClose,
 }: {
   person: TeamPerson;
   roster: TeamPeople;
   seat: boolean;
+  licences: LicenceOverview | null;
   onSaved: () => Promise<void>;
   onClose: () => void;
 }) {
@@ -404,11 +410,9 @@ function MemberSheet({
             : []),
           [
             c("좌석", "Seat"),
-            <span key="seat" className="inline-flex flex-wrap items-center gap-x-2">
-              {seat ? c("편집 이용권 사용 중", "Holds an editing seat") : c("보기·검토만", "View and review only")}
-              <Link className="text-muted underline underline-offset-2 hover:text-foreground" href={`/dashboard/workspaces/${data.workspace.id}/licences`}>
-                {c("이용권 관리", "Manage seats")}
-              </Link>
+            <span key="seat" className="inline-flex flex-wrap items-center gap-x-3">
+              {seat ? c("편집 좌석", "Editing seat") : c("보기·검토만", "View and review only")}
+              {licences && <SeatToggle key={person.revision} person={person} licences={licences} onSaved={onSaved} />}
             </span>,
           ],
           [c("최근 활동", "Last active"), ago(person.lastActiveAt, lang)],
@@ -417,6 +421,81 @@ function MemberSheet({
       {manage && <MemberActionEditor key={`a:${person.revision}:${person.suspendedAt}`} person={person} onSaved={onSaved} />}
       {affiliation && <AffiliationEditor key={`b:${person.revision}`} person={person} onSaved={onSaved} />}
     </Sheet>
+  );
+}
+
+const occupying = ["active", "scheduled", "revoking"];
+/**
+ * A seat is one switch on the person (2026-10-08): 배정 takes a free seat in
+ * every purchased period still to run, 해제 releases each one they hold. The
+ * per-period, scheduled and device-wait detail stays on /licences, which no
+ * longer has a nav entry.
+ */
+function SeatToggle({
+  person,
+  licences,
+  onSaved,
+}: {
+  person: TeamPerson;
+  licences: LicenceOverview;
+  onSaved: () => Promise<void>;
+}) {
+  const { data } = useWorkspace()!;
+  const c = useCopy();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const now = Date.parse(licences.serverTime);
+  const periods = licences.periods.filter(
+    (p) => ["active", "future"].includes(p.state) && Date.parse(p.endsAt) > now,
+  );
+  const mine = licences.assignments.filter(
+    (a) => a.userId === person.userId && periods.some((p) => p.id === a.periodId),
+  );
+  const held = mine.filter((a) => a.state === "active" || a.state === "scheduled");
+  const open = periods.filter(
+    (p) =>
+      !mine.some((a) => a.periodId === p.id && occupying.includes(a.state)) &&
+      licences.assignments.filter((a) => a.periodId === p.id && occupying.includes(a.state)).length < p.capacity,
+  );
+  const releasing = !held.length && mine.some((a) => a.state === "revoking");
+  if (releasing) return <span className="text-muted">{c("해제 중", "Releasing")}</span>;
+  const assign = !held.length;
+  if (assign && (!open.length || person.suspendedAt || person.accountUnavailable))
+    return !periods.length || person.suspendedAt || person.accountUnavailable ? null : (
+      <span className="text-muted">{c("남은 좌석 없음", "No free seat")}</span>
+    );
+  const run = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      // One request per period; a refresh shows whatever landed.
+      for (const p of assign ? open : [])
+        await b2bService.assignLicence(data.workspace.id, { requestKey: crypto.randomUUID(), periodId: p.id, userId: person.userId });
+      for (const a of assign ? [] : held)
+        await b2bService.revokeLicence(data.workspace.id, a.id, {
+          requestKey: crypto.randomUUID(),
+          revision: a.revision,
+          reason: "멤버 화면에서 좌석 해제",
+        });
+    } catch (e) {
+      setError(errorCode(e));
+    } finally {
+      setBusy(false);
+      await onSaved();
+    }
+  };
+  return (
+    <>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => void run()}
+        className="text-muted underline underline-offset-2 hover:text-foreground disabled:opacity-60"
+      >
+        {assign ? c("좌석 배정", "Give a seat") : c("좌석 해제", "Release seat")}
+      </button>
+      {error && <B2bError code={error} />}
+    </>
   );
 }
 

@@ -1,10 +1,6 @@
 "use client";
 import { InvitationPanel } from "./invitations";
-import { RequestWorkPanel } from "./request-work";
-import { ReviewWorkPanel } from "./review-work";
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { ChevronRight } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import { buildTeamProjectOpenUrl } from "@/lib/workspaces/app-link";
 import {
@@ -29,7 +25,7 @@ import {
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
-import { PublishedItems, useRun } from "./reviews";
+import { ReviewList, useRun } from "./reviews";
 import {
   folderTabs,
   B2bError,
@@ -43,9 +39,6 @@ import {
 
 // ponytail: folder model (2026-10-07) — teammates don't open someone's work in the app; delete after merge
 const APP_ENTRY = false;
-// Secondary links under the published items: present, not competing.
-const moreLink =
-  "text-muted underline underline-offset-4 hover:text-foreground";
 
 function useProject(projectId: string) {
   const context = useWorkspace()!;
@@ -113,7 +106,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
   );
 }
 function ScopedProjectOverview({ projectId }: { projectId: string }) {
-  const { id, project, error, reload, deny } = useProject(projectId);
+  const { id, project, error, reload } = useProject(projectId);
   const c = useCopy();
   const [editing, setEditing] = useState(false);
   if (error && !project)
@@ -174,27 +167,15 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
         />
       ) : (
         <>
-          <PublishedItems projectId={projectId} />
-          {/* The brief and the delivery rules are what 개요 수정 edits, so
-              they read as one block. */}
+          {/* 2026-10-08: a folder opens on its videos. Requests, delivery
+              and registered results keep their routes, not a place here. */}
+          <ReviewList projectId={projectId} />
           <Block title={c("작업 개요", "Brief")}>
             <p className="max-w-3xl whitespace-pre-wrap break-words text-sm leading-6 text-muted">
               {project.brief || c("등록된 개요가 없습니다.", "No brief yet.")}
             </p>
             <KeyValues
               items={[
-                [
-                  c("납품 조건", "Delivery"),
-                  project.requiresWorkingFiles
-                    ? c(
-                        "최종 영상 승인 · 필수 요청 확인 · 작업 파일 열기 확인",
-                        "Final video approval · required requests · verified working files",
-                      )
-                    : c(
-                        "최종 영상 승인 · 필수 요청 확인",
-                        "Final video approval · required requests",
-                      ),
-                ],
                 [
                   c("원본 공유", "Original sharing"),
                   project.shareOriginals
@@ -208,38 +189,6 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
             />
           </Block>
           <VisibilitySection project={project} onChanged={reload} />
-          {/* P (2026-10-07): request and review work stay reachable below
-              the published items, folded away. Registered results stay a
-              link — a log, not a place to work. */}
-          <section className="space-y-2 text-sm">
-            {surfaces.publications && (
-              <p>
-                <Link
-                  className={moreLink}
-                  href={`/dashboard/workspaces/${id}/projects/${projectId}/publications`}
-                >
-                  {c("등록된 결과", "Registered results")}
-                </Link>
-              </p>
-            )}
-            <details className="group">
-              <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 text-sm text-muted transition-colors hover:text-foreground sm:min-h-9 [&::-webkit-details-marker]:hidden">
-                <ChevronRight
-                  size={16}
-                  strokeWidth={1.75}
-                  aria-hidden="true"
-                  className="transition-transform group-open:rotate-90"
-                />
-                {c("더 보기", "More")}
-              </summary>
-              <div className="mt-4 space-y-8">
-                {surfaces.requestWork && (
-                  <RequestWorkPanel projectId={projectId} onDenied={deny} />
-                )}
-                <ReviewWorkPanel projectId={projectId} onDenied={deny} />
-              </div>
-            </details>
-          </section>
         </>
       )}
     </TeamShell>

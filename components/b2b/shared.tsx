@@ -35,13 +35,18 @@ export const visibilityLabels: Record<ProjectVisibility, [string, string]> = {
 /** The folder tab row for a page of `project` (see `projectTabs`). */
 export function folderTabs(
   workspaceId: string,
-  project: { id: string; role: Parameters<typeof projectTabs>[1] },
+  project: {
+    id: string;
+    role: Parameters<typeof projectTabs>[1];
+    visibility: Parameters<typeof projectTabs>[2];
+  },
   c: (ko: string, en: string) => string,
 ) {
   return projectTabs(
     `/dashboard/workspaces/${workspaceId}/projects/${project.id}`,
     project.role,
-  ).map((t) => ({ href: t.href, label: c(t.ko, t.en) }));
+    project.visibility,
+  ).map((t) => ({ href: t.href, label: c(t.ko, t.en), match: "match" in t ? t.match : undefined }));
 }
 
 export function useCopy() {
