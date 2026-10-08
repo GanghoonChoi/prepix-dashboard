@@ -225,8 +225,11 @@ export function NameStep({
     if (!next || busy) return;
     if (team) {
       await creation.submit(next, async (workspace) => {
-        if (size)
-          await userService.updateProfile({ teamSize: size }).catch(() => undefined);
+        // Whoever makes a team starts on it from now on (lib/home.ts), even
+        // if they answered "just me" before.
+        await userService
+          .updateProfile({ useType: "team", ...(size ? { teamSize: size } : {}) })
+          .catch(() => undefined);
         await onTeam(workspace.id);
       });
       return;
@@ -376,6 +379,18 @@ export function InviteStep({
   const { emails, invalid } = parseEmails(text, self, taken);
   const people = taken.length + emails.length;
   const plan = product ? seatPlan(product, people) : null;
+  async function remove(row: Invitation) {
+    setBusy(true);
+    await b2bService
+      .changeInvitation(workspaceId, row.id, "revoke", {
+        requestKey: crypto.randomUUID(),
+        revision: row.revision,
+        reason: "Removed before payment",
+      })
+      .catch(() => undefined);
+    await reload();
+    setBusy(false);
+  }
   async function next() {
     setBusy(true);
     const refused: string[] = [];
@@ -404,10 +419,18 @@ export function InviteStep({
       {held && held.length > 0 && (
         <ul className="divide-y divide-border border-y border-border text-sm">
           {held.map((row) => (
-            <li key={row.id} className="flex justify-between gap-3 py-2">
+            <li key={row.id} className="flex items-center justify-between gap-3 py-2">
               <span className="break-all">{row.email}</span>
-              <span className="shrink-0 text-muted">
+              <span className="flex shrink-0 items-center gap-3 text-muted">
                 {copy("Sent after payment", "결제 후 발송")}
+                <button
+                  type="button"
+                  className="text-foreground underline underline-offset-4"
+                  disabled={busy}
+                  onClick={() => void remove(row)}
+                >
+                  {copy("Remove", "취소")}
+                </button>
               </span>
             </li>
           ))}
@@ -481,11 +504,30 @@ export function PayStep({
 }) {
   const copy = useCopy();
   const { product, held } = useTeam(workspaceId);
-  if (!product || !held)
+  const later = (
+    <button className={secondaryClass} onClick={onLater}>
+      {copy("Pay later", "나중에 결제")}
+    </button>
+  );
+  // `held` arrives with the catalogue; a team that has it but no product is
+  // one whose catalogue could not be read or is not on sale — never a trap.
+  if (!held)
     return (
       <p role="status" className="text-sm text-muted">
         {copy("Loading…", "불러오는 중…")}
       </p>
+    );
+  if (!product)
+    return (
+      <section className="space-y-5 rounded-lg border border-border p-6">
+        <p role="alert" className="text-sm leading-6">
+          {copy(
+            "We could not load the team plan. You can pay later from the team's plan page.",
+            "팀 플랜 정보를 불러오지 못했습니다. 나중에 팀의 플랜 화면에서 결제할 수 있습니다.",
+          )}
+        </p>
+        <div className="flex flex-wrap gap-3">{later}</div>
+      </section>
     );
   const plan = seatPlan(product, held.length);
   return (
@@ -519,9 +561,7 @@ export function PayStep({
         >
           {copy("Pay", "결제하기")}
         </Link>
-        <button className={secondaryClass} onClick={onLater}>
-          {copy("Pay later", "나중에 결제")}
-        </button>
+        {later}
       </div>
     </section>
   );

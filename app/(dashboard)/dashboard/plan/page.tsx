@@ -630,6 +630,7 @@ export default function PlanPage() {
             })}
             {/* Business is a team plan: it is bought for the team, on the
                 team's plan page, after /start has made the team. */}
+            {process.env.NEXT_PUBLIC_START_ONBOARDING === "1" && (
             <div className={`${cardClass} flex flex-col gap-3 p-5`}>
               <div>
                 <p className="font-medium">Business</p>
@@ -651,6 +652,7 @@ export default function PlanPage() {
                 {lang === "ko" ? "팀으로 시작하기" : "Start with your team"}
               </Link>
             </div>
+            )}
           </div>
 
           {/* Paddle requires the buyer to accept the terms and the refund policy

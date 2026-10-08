@@ -215,9 +215,19 @@ function ScopedHome({
             </span>
             {state === "preparing" ? (
               status.allowedActions.billing && (
-                <Link className="text-foreground underline underline-offset-4" href={`${base}/plan`}>
-                  {held > 0 ? c("결제하기", "Pay") : c("플랜과 결제", "Plan and billing")}
-                </Link>
+                <>
+                  <Link className="text-foreground underline underline-offset-4" href={`${base}/plan`}>
+                    {held > 0 ? c("결제하기", "Pay") : c("플랜과 결제", "Plan and billing")}
+                  </Link>
+                  {held > 0 && (
+                    <Link
+                      className="text-foreground underline underline-offset-4"
+                      href={`/start?step=invite&intent=team&workspace=${workspace.id}`}
+                    >
+                      {c("초대 명단 보기", "See who is invited")}
+                    </Link>
+                  )}
+                </>
               )
             ) : (
               <Link className="text-foreground underline underline-offset-4" href={`${base}/status`}>

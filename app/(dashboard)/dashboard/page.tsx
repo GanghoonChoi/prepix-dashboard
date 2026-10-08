@@ -24,6 +24,7 @@ import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useI18n } from "@/lib/i18n/context";
 import { downloadUrl } from "@/lib/i18n/config";
 import { useCurrentSpace } from "@/components/dashboard/current-space";
+import { isPersonal } from "@/lib/workspaces/kind";
 import { PageHeader, Stat, Meter, cardClass } from "@/components/ui";
 
 type Usage = {
@@ -42,7 +43,9 @@ type Usage = {
 export default function DashboardPage() {
   const { t, lang } = useI18n();
   usePageTitle(t("dashboard.title"));
-  const { teams, current, links } = useCurrentSpace();
+  // Someone already in a team (joined by invitation, or made one) has
+  // nothing to set up here.
+  const { teams, current, links, rows } = useCurrentSpace();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [profile, setProfile] = useState<Record<string, string> | null>(null);
@@ -175,7 +178,9 @@ export default function DashboardPage() {
       />
 
       {/* Only for accounts that never answered /start's first question. */}
-      {process.env.NEXT_PUBLIC_START_ONBOARDING === "1" && unanswered && (
+      {process.env.NEXT_PUBLIC_START_ONBOARDING === "1" &&
+        unanswered &&
+        !rows?.some((row) => !isPersonal(row)) && (
         <Link href={`/start?locale=${lang}`} className={`${cardClass} block p-4 text-sm`}>
           <span className="font-medium">{lang === "ko" ? "시작 설정 마치기" : "Finish setting up"}</span>
           <span className="ml-2 text-muted">{lang === "ko" ? "1분이면 끝나요" : "Takes a minute"}</span>

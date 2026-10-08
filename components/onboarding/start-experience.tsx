@@ -149,11 +149,20 @@ export function StartExperience() {
   // account's own space, which sorts first.
   const workspace: Row | undefined =
     rows.find((row) => row.id === state.workspace) ?? rows[0];
-  const team: Row | undefined =
-    workspace && !isPersonal(workspace) ? workspace : undefined;
   const pending = list?.pendingInvitationCount ?? list?.invitations.length ?? 0;
   const intent: Intent | null =
     state.intent ?? (profile?.useType as Intent | null | undefined) ?? null;
+  // "With my team" for someone who already runs one means that team, never a
+  // second create form.
+  const team: Row | undefined =
+    workspace && !isPersonal(workspace)
+      ? workspace
+      : intent === "team"
+        ? rows.find(
+            (row) =>
+              !isPersonal(row) && (row.role === "owner" || row.role === "admin"),
+          )
+        : undefined;
   // "No workspace yet" is a server still catching up, never a prompt to make
   // one. It is a waiting state with a retry, never a dead end.
   const provisioning = status === "ready" && !workspace;
@@ -164,6 +173,9 @@ export function StartExperience() {
   if (step === "join" && pending === 0) step = intent ? "profile" : "use";
   if (step === "use" && intent) step = "profile";
   if ((step === "invite" || step === "pay") && !team) step = "workspace";
+  // Seats and held invitations are B2B team things; an older team has neither.
+  if ((step === "invite" || step === "pay") && team?.b2bEnrolled === false)
+    step = "app";
   const sequence: StartStep[] = [
     ...(pending > 0 ? (["join"] as StartStep[]) : []),
     ...(arrivedWithIntent.current ? [] : (["use"] as StartStep[])),
