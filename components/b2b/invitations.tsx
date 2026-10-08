@@ -23,9 +23,12 @@ export function InvitationPanel({
   projectId,
   editable,
   dialog,
+  onCount,
 }: {
   projectId?: string;
   editable: boolean;
+  /** Team members page: the 초대 tab shows how many are pending. */
+  onCount?: (pending: number) => void;
   /** Team invitations: the form opens in this dialog (the page header owns
    *  the trigger). Without it the form sits inline, as on a folder's page. */
   dialog?: UseOverlayStateReturn;
@@ -83,6 +86,9 @@ export function InvitationPanel({
   }, [load]);
   const live = rows.filter((row) => !row.acceptedAt && !row.revokedAt);
   const waiting = rows.filter((row) => row.acceptedAt && row.seat === "waiting");
+  useEffect(() => {
+    onCount?.(live.length);
+  }, [live.length, onCount]);
   async function change(
     row: Pick<Invitation, "id" | "revision">,
     action: "resend" | "revoke",
@@ -333,71 +339,7 @@ export function InvitationPanel({
       </button>
     </form>
   );
-  // A team with nothing pending shows no section, only the dialog.
-  const empty = !live.length && !waiting.length && !(error && !dialog?.isOpen);
-  return (
-    <>
-      {dialog && (
-        <Dialog state={dialog} title={c("참여자 초대", "Invite participants")}>
-          {form}
-        </Dialog>
-      )}
-      {!(dialog && empty) && (
-        <Block
-          title={
-            projectId
-              ? c("폴더 초대", "Folder invitations")
-              : c("대기 중인 초대", "Pending invitations")
-          }
-        >
-          {!dialog && form}
-          {!dialog?.isOpen && errorView}
-          {live.length > 0 && (
-            <ul className="divide-y divide-border">
-              {live.map((row) => (
-                <li
-                  key={row.id}
-                  className="flex flex-wrap items-center justify-between gap-3 py-3"
-                >
-                  <div className="min-w-0">
-                    <p className="break-all text-sm font-medium">{row.email}</p>
-                    <p className="mt-0.5 text-xs text-muted">
-                      {new Date(row.expiresAt).getTime() <= Date.now()
-                        ? c("초대 만료", "Expired")
-                        : row.deliveryState === "sent"
-                          ? c(
-                              "메일 발송 완료 · 수락 대기",
-                              "Email sent · Awaiting acceptance",
-                            )
-                          : row.deliveryState === "failed"
-                            ? c(
-                                "메일 발송 실패 · 재전송 가능",
-                                "Email failed · Can resend",
-                              )
-                            : c("메일 발송 대기", "Email queued")}
-                      {row.assignSeat &&
-                        c(" · 수락하면 좌석 배정", " · Seat on acceptance")}
-                    </p>
-                  </div>
-                  {editable && (
-                    <div className="flex gap-2">
-                      {(["resend", "revoke"] as const).map((action) => (
-                        <button
-                          key={action}
-                          className={secondaryClass}
-                          disabled={locked(row, action)}
-                          onClick={() => setAsking({ row, action })}
-                        >
-                          {actionLabel(action)}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-          {asking && (
+  const confirm = asking && (
             <ConfirmDialog
               label={actionLabel(asking.action)}
               onClose={() => {
@@ -443,7 +385,9 @@ export function InvitationPanel({
                 </button>
               </div>
             </ConfirmDialog>
-          )}
+  );
+  const waitingList = (
+    <>
           {waiting.length > 0 && (
             <div className="space-y-2" data-testid="invite-seat-waiting">
               <h3 className="text-[13px] font-medium">
@@ -468,6 +412,141 @@ export function InvitationPanel({
               </ul>
             </div>
           )}
+    </>
+  );
+  const status = (row: Invitation) =>
+    new Date(row.expiresAt).getTime() <= Date.now()
+      ? c("초대 만료", "Expired")
+      : row.deliveryState === "sent"
+        ? c("메일 발송 완료 · 수락 대기", "Email sent · Awaiting acceptance")
+        : row.deliveryState === "failed"
+          ? c("메일 발송 실패 · 재전송 가능", "Email failed · Can resend")
+          : c("메일 발송 대기", "Email queued");
+  if (dialog)
+    // Team members page, 초대 tab: the tab is the section, rows are a table.
+    return (
+      <>
+        <Dialog state={dialog} title={c("참여자 초대", "Invite participants")}>
+          {form}
+        </Dialog>
+        <div className="space-y-4">
+          {!dialog.isOpen && errorView}
+          {live.length === 0 && !waiting.length ? (
+            <p className="py-10 text-center text-[13px] text-muted">
+              {c("대기 중인 초대가 없습니다.", "No pending invitations.")}
+            </p>
+          ) : (
+            live.length > 0 && (
+              <table className="w-full border-collapse text-left text-[13px]">
+                <thead>
+                  <tr className="border-b border-border text-xs text-muted">
+                    <th className="h-11 pr-3 font-medium">{c("이메일", "Email")}</th>
+                    <th className="hidden h-11 px-3 font-medium sm:table-cell">{c("상태", "Status")}</th>
+                    <th className="hidden h-11 px-3 font-medium md:table-cell">{c("만료", "Expires")}</th>
+                    <th className="h-11 pl-3"><span className="sr-only">{c("작업", "Actions")}</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {live.map((row) => (
+                    <tr key={row.id} className="border-b border-border">
+                      <td className="break-all py-3 pr-3 font-medium">
+                        {row.email}
+                        <span className="block text-xs font-normal text-muted sm:hidden">{status(row)}</span>
+                      </td>
+                      <td className="hidden px-3 py-3 text-muted sm:table-cell">
+                        {status(row)}
+                        {row.assignSeat && c(" · 수락하면 좌석 배정", " · Seat on acceptance")}
+                      </td>
+                      <td className="hidden px-3 py-3 text-muted md:table-cell">
+                        {new Date(row.expiresAt).toLocaleDateString()}
+                      </td>
+                      <td className="py-3 pl-3 text-right">
+                        {editable && (
+                          <span className="inline-flex gap-3">
+                            {(["resend", "revoke"] as const).map((action) => (
+                              <button
+                                key={action}
+                                className="text-xs text-muted transition-colors hover:text-foreground disabled:opacity-50"
+                                disabled={locked(row, action)}
+                                onClick={() => setAsking({ row, action })}
+                              >
+                                {actionLabel(action)}
+                              </button>
+                            ))}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )
+          )}
+          {asking && confirm}
+          {waitingList}
+        </div>
+      </>
+    );
+  // A folder's page: the form sits inline, the rows under it.
+  return (
+    <>
+      {(
+        <Block
+          title={
+            projectId
+              ? c("폴더 초대", "Folder invitations")
+              : c("대기 중인 초대", "Pending invitations")
+          }
+        >
+          {form}
+          {errorView}
+          {live.length > 0 && (
+            <ul className="divide-y divide-border">
+              {live.map((row) => (
+                <li
+                  key={row.id}
+                  className="flex flex-wrap items-center justify-between gap-3 py-3"
+                >
+                  <div className="min-w-0">
+                    <p className="break-all text-sm font-medium">{row.email}</p>
+                    <p className="mt-0.5 text-xs text-muted">
+                      {new Date(row.expiresAt).getTime() <= Date.now()
+                        ? c("초대 만료", "Expired")
+                        : row.deliveryState === "sent"
+                          ? c(
+                              "메일 발송 완료 · 수락 대기",
+                              "Email sent · Awaiting acceptance",
+                            )
+                          : row.deliveryState === "failed"
+                            ? c(
+                                "메일 발송 실패 · 재전송 가능",
+                                "Email failed · Can resend",
+                              )
+                            : c("메일 발송 대기", "Email queued")}
+                      {row.assignSeat &&
+                        c(" · 수락하면 좌석 배정", " · Seat on acceptance")}
+                    </p>
+                  </div>
+                  {editable && (
+                    <div className="flex gap-2">
+                      {(["resend", "revoke"] as const).map((action) => (
+                        <button
+                          key={action}
+                          className={secondaryClass}
+                          disabled={locked(row, action)}
+                          onClick={() => setAsking({ row, action })}
+                        >
+                          {actionLabel(action)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {asking && confirm}
+          {waitingList}
         </Block>
       )}
     </>

@@ -341,11 +341,12 @@ test("B2B external invitation proves mailbox and preserves billing mutation on l
       0,
     );
     await page.goto(`${base}/members`);
-    const row = page.getByRole("listitem").filter({ hasText: guest.email });
+    // People table (2026-10-08): a person's settings open from their row.
+    await page.getByRole("row").filter({ hasText: guest.email }).click();
+    const row = page.getByRole("dialog");
     await expect(
       row.getByText("결제 권한 없음", { exact: false }),
     ).toBeVisible();
-    await row.getByText("참여 구분·결제 권한 변경", { exact: true }).click();
     await row.getByLabel("결제 권한 위임").check();
     await row
       .getByLabel("변경 사유", { exact: true })
@@ -388,7 +389,6 @@ test("B2B external invitation proves mailbox and preserves billing mutation on l
       roster.people.find((p: { userId: string }) => p.userId === guest.id)
         .revision,
     ).toBe(1);
-    await row.getByText("팀 역할·참여 관리", { exact: true }).click();
     await row.getByLabel("참여 변경", { exact: true }).selectOption("suspend");
     await row
       .getByLabel("참여 변경 사유", { exact: true })
@@ -396,9 +396,7 @@ test("B2B external invitation proves mailbox and preserves billing mutation on l
     await row
       .getByRole("button", { name: "참여 변경 확인", exact: true })
       .click();
-    await expect(
-      row.locator("p").filter({ hasText: "참여 정지" }),
-    ).toBeVisible();
+    await expect(row.getByText("참여 정지", { exact: true })).toBeVisible();
     await guestPage.goto(`${base}/projects/${project.id}`);
     await expect(guestPage.locator("main [role=alert]")).toBeVisible();
     await expect(
@@ -416,9 +414,7 @@ test("B2B external invitation proves mailbox and preserves billing mutation on l
     await row
       .getByRole("button", { name: "참여 변경 확인", exact: true })
       .click();
-    await expect(row.locator("p").filter({ hasText: "참여 정지" })).toHaveCount(
-      0,
-    );
+    await expect(row.getByText("참여 정지", { exact: true })).toHaveCount(0);
     await expect(
       row.getByText("결제 권한 없음", { exact: false }),
     ).toBeVisible();
@@ -516,6 +512,7 @@ test("B2B owner restores vacant lead without gaining private project content", a
   await signIn(page, owner.email);
   const base = `/dashboard/workspaces/${team.id}`;
   await page.goto(`${base}/members`);
+  await page.getByRole("tab", { name: "복구", exact: true }).click();
   await page
     .getByLabel("복구할 폴더 주소", { exact: true })
     .fill(`http://localhost:3001${base}/projects/${project.id}`);
@@ -525,8 +522,9 @@ test("B2B owner restores vacant lead without gaining private project content", a
   await expect(page.locator("main [role=alert]")).toContainText(
     "현재 담당자가 유효한 폴더",
   );
-  const row = page.getByRole("listitem").filter({ hasText: lead.email });
-  await row.getByText("팀 역할·참여 관리", { exact: true }).click();
+  await page.getByRole("tab", { name: "멤버", exact: true }).click();
+  await page.getByRole("row").filter({ hasText: lead.email }).click();
+  const row = page.getByRole("dialog");
   await row.getByLabel("참여 변경", { exact: true }).selectOption("suspend");
   await row
     .getByLabel("참여 변경 사유", { exact: true })
@@ -534,7 +532,9 @@ test("B2B owner restores vacant lead without gaining private project content", a
   await row
     .getByRole("button", { name: "참여 변경 확인", exact: true })
     .click();
-  await expect(row.locator("p").filter({ hasText: "참여 정지" })).toBeVisible();
+  await expect(row.getByText("참여 정지", { exact: true })).toBeVisible();
+  await row.getByRole("button", { name: "닫기", exact: true }).click();
+  await page.getByRole("tab", { name: "복구", exact: true }).click();
   await page
     .getByRole("button", { name: "담당자 공백 확인", exact: true })
     .click();

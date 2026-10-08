@@ -1602,10 +1602,9 @@ test("steward handoff and separate recovery acceptance preserve exact-version pr
   ).toHaveCount(0);
 
   await loginSteward(page, owner, membersPath);
-  const producerMember = page
-    .getByRole("listitem")
-    .filter({ hasText: producer.email });
-  await producerMember.getByText("팀 역할·참여 관리", { exact: true }).click();
+  // People table (2026-10-08): a person's settings open from their row.
+  await page.getByRole("row").filter({ hasText: producer.email }).click();
+  const producerMember = page.getByRole("dialog");
   await producerMember
     .getByLabel("참여 변경", { exact: true })
     .selectOption("suspend");
@@ -1616,8 +1615,10 @@ test("steward handoff and separate recovery acceptance preserve exact-version pr
     .getByRole("button", { name: "참여 변경 확인", exact: true })
     .click();
   await expect(
-    producerMember.locator("p").filter({ hasText: "참여 정지" }),
+    producerMember.getByText("참여 정지", { exact: true }),
   ).toBeVisible();
+  await producerMember.getByRole("button", { name: "닫기", exact: true }).click();
+  await page.getByRole("tab", { name: "복구", exact: true }).click();
   const eligibility = (
     await (
       await request.get(`${stewards}/recovery/${recovery.versionId}`, {
