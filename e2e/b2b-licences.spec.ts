@@ -414,19 +414,52 @@ test("멤버 = 좌석: joining takes a seat, the fourth waits, turning one off h
 
   await signIn(page, owner.email, `/dashboard/workspaces/${team.id}/members`);
   const row = (email: string) => page.getByRole("row").filter({ hasText: email });
-  await expect(page.getByText("대기 1", { exact: true })).toBeVisible();
-  await expect(row(c.email).getByText("대기", { exact: true })).toBeVisible();
-  await expect(row(a.email).getByText("편집", { exact: true })).toBeVisible();
+  // 멤버 = 결제 (2026-10-08): no seat column; who waits says so, and the
+  // shortage is offered for payment right on this page.
+  const shortage = page.getByTestId("seat-shortage");
+  await expect(shortage).toContainText("1명이 좌석을 기다리고");
+  await expect(row(c.email).getByText("좌석 대기", { exact: true })).toBeVisible();
+  await expect(row(a.email).getByText("좌석 대기", { exact: true })).toHaveCount(0);
   // The seat follows the role (2026-10-08): making a a viewer hands their
   // seat to c, who was waiting.
   await row(a.email).getByLabel(/역할$/).selectOption("reviewer");
-  await expect(row(c.email).getByText("편집", { exact: true })).toBeVisible();
-  await expect(row(a.email).getByText("보기", { exact: true })).toBeVisible();
-  await expect(page.getByText("대기 1", { exact: true })).toHaveCount(0);
+  await expect(row(c.email).getByText("좌석 대기", { exact: true })).toHaveCount(0);
+  await expect(shortage).toHaveCount(0);
   expect((await roster()).seats).toEqual({ capacity: 3, assigned: 3, waiting: 0 });
-  // Back to editor with every seat taken: a waits for the next free one.
+  // Back to editor with every seat taken: a waits, and the owner is offered
+  // the seat at once. No card is on automatic renewal here, so it points to
+  // the plan instead of charging.
   await row(a.email).getByLabel(/역할$/).selectOption("editor");
-  await expect(row(a.email).getByText("대기", { exact: true })).toBeVisible();
+  await expect(row(a.email).getByText("좌석 대기", { exact: true })).toBeVisible();
+  const dialog = page.getByRole("dialog", { name: "좌석 1개 추가" });
+  await expect(dialog).toContainText("자동 결제에 등록된 카드가 없어");
+  await expect(dialog.getByRole("link", { name: "플랜으로 이동" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  // With a card on renewal: the real quote for the rest of the month, one
+  // charge, then the dialog waits for the seats to be applied.
+  const methodId = randomUUID();
+  await page.route(/\/b2b\/billing$/, async (route) => {
+    const body = await (await route.fetch()).json();
+    body.data.renewal = { ...body.data.renewal, mode: "automatic", methodId };
+    body.data.methods = [{ id: methodId, state: "active", cardNumberMasked: "4330****1234****" }];
+    await route.fulfill({ json: body });
+  });
+  let charged: { quoteId?: string } = {};
+  const orderId = randomUUID();
+  await page.route(/\/b2b\/billing\/seats$/, async (route) => {
+    charged = route.request().postDataJSON();
+    await route.fulfill({ json: { data: { order: { id: orderId, state: "received" } } } });
+  });
+  await page.route(new RegExp(`/commerce/orders/${orderId}$`), (route) =>
+    route.fulfill({ json: { data: { order: { id: orderId, state: "applied" } } } }),
+  );
+  await shortage.getByRole("button", { name: "좌석 1개 추가" }).click();
+  await expect(dialog).toContainText("4330****1234****");
+  const pay = dialog.getByRole("button", { name: /원 결제$/ });
+  await expect(pay).toBeVisible();
+  await pay.click();
+  await expect(dialog).toHaveCount(0);
+  expect(charged.quoteId).toMatch(/^[0-9a-f-]{36}$/);
   // A viewer has no seat to turn on.
   await expect(row(r.email).getByRole("button", { name: "좌석 켜기", exact: true })).toHaveCount(0);
   expect(

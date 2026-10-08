@@ -552,17 +552,24 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
             </select>
           </label>
           <label className="block space-y-2 text-sm">
-            <span>{c("다음 기간 추가 이용권", "Next-period extra licences")}</span>
+            <span>{c("다음 기간 추가 좌석 (최대)", "Next-period extra seats (at most)")}</span>
             <input
               className={inputClass}
               type="number"
               min={0}
               max={10000}
+              aria-label={c("다음 기간 추가 좌석 (최대)", "Next-period extra seats (at most)")}
               placeholder={c("미지정", "Not specified")}
               value={plan.extraSeats ?? ""}
               disabled={!!lockedPlan || !!busy}
               onChange={(e) => setPlan({ ...plan, extraSeats: e.target.value === "" ? null : Number(e.target.value) })}
             />
+            <span className="block text-xs leading-5 text-muted">
+              {c(
+                "자동결제는 뷰어를 뺀 멤버 수만큼 청구하고, 이 수를 넘지 않습니다.",
+                "Automatic payment bills every member but viewers, never more than this.",
+              )}
+            </span>
           </label>
           {/* No AI packs: a seat carries AI limits like a personal plan (always 0). */}
           <label className="block space-y-2 text-sm">
