@@ -41,6 +41,8 @@ test.beforeAll(async () => {
       'export function useI18n(){return {lang:"ko"}}export function readLang(){return "ko"}',
     "./request-work": "export function RequestWorkPanel(){return null}",
     "./review-work": "export function ReviewWorkPanel(){return null}",
+    "./ownership": "export function OwnershipControls(){return null}",
+    "./leave-team": "export function LeaveTeam(){return null}",
   };
   const result = await esbuild.build({
     stdin: {
@@ -70,7 +72,7 @@ test.beforeAll(async () => {
           build.onResolve(
             {
               filter:
-                /^(next\/(link|navigation)|@\/components\/workspaces\/(workspace-context|shared)|@\/lib\/i18n\/context|\.\/(request-work|review-work))$/,
+                /^(next\/(link|navigation)|@\/components\/workspaces\/(workspace-context|shared)|@\/lib\/i18n\/context|\.\/(request-work|review-work|ownership|leave-team))$/,
             },
             (args) => ({ path: args.path, namespace: "stub" }),
           );

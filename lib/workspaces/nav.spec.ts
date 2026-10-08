@@ -7,7 +7,7 @@ const hrefs = (options: Parameters<typeof workspaceLinks>[1]) =>
   workspaceLinks(team, options).map((link) => link.href);
 
 test("every team entry belongs to the workspace it names", () => {
-  const links = hrefs({ cloudEnabled: true, managementEnabled: true });
+  const links = hrefs({ cloudEnabled: true, managementEnabled: true, role: "owner" });
   assert.deepEqual(links, [
     "/dashboard/workspaces/w1",
     "/dashboard/workspaces/w1/media",
@@ -110,6 +110,35 @@ test("a team's nav is folders, people, billing and settings", () => {
     `${base}/members`,
     `${base}/plan`,
     `${base}/settings`,
+  ]);
+});
+
+test("plan and settings are for owners and admins only", () => {
+  const base = "/dashboard/workspaces/w1";
+  for (const role of ["editor", "reviewer"])
+    assert.deepEqual(
+      hrefs({ cloudEnabled: false, managementEnabled: true, role }),
+      [base, `${base}/members`],
+    );
+  const b2b = {
+    enabled: true,
+    enrolled: true,
+    team: {
+      workspaceId: "w1",
+      policyVersion: "v1",
+      currentState: "active",
+      state: "active",
+      periodStartsAt: null,
+      periodEndsAt: null,
+      legacyArchive: false,
+      revision: 0,
+    },
+    member: { kind: "internal", billingAllowed: false, revision: 0 },
+    allowedActions: { projects: true, createProject: true, manage: false, billing: false },
+  } as const;
+  assert.deepEqual(hrefs({ cloudEnabled: true, managementEnabled: true, b2b }), [
+    base,
+    `${base}/projects`,
   ]);
 });
 

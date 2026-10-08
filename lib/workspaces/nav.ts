@@ -162,17 +162,22 @@ export function workspaceLinks(
             },
           ] as const)
         : []),
-      // Everyone: non-managers leave the team and accept an ownership offer
-      // there; the page itself shows them only what they may change.
-      {
-        href: `${base}/settings`,
-        ko: "설정",
-        en: "Settings",
-        group: "manage",
-        icon: "settings",
-      },
+      // Owners and admins only. Everyone else leaves the team, or answers an
+      // ownership offer, from the team home.
+      ...(status.allowedActions.manage
+        ? ([
+            {
+              href: `${base}/settings`,
+              ko: "설정",
+              en: "Settings",
+              group: "manage",
+              icon: "settings",
+            },
+          ] as const)
+        : []),
     ];
   }
+  const manager = options.role === "owner" || options.role === "admin";
   return [
     { href: base, ko: "홈", en: "Home", group: "work", icon: "home" },
     ...(options.cloudEnabled && options.role !== "reviewer"
@@ -193,17 +198,22 @@ export function workspaceLinks(
       group: "team",
       icon: "members",
     },
-    {
-      href: `${base}/plan`,
-      ko: "플랜과 결제",
-      en: "Plan & billing",
-      group: "manage",
-      icon: "plan",
-    },
     // No activity entry. The audit trail is still recorded and the page is
     // still at `${base}/activity`, but nobody was going there on purpose and a
     // nav is worth what its least-used row costs the rows above it.
-    ...(options.managementEnabled
+    // Plan and settings: owners and admins only, like a B2B team.
+    ...(manager
+      ? ([
+          {
+            href: `${base}/plan`,
+            ko: "플랜과 결제",
+            en: "Plan & billing",
+            group: "manage",
+            icon: "plan",
+          },
+        ] as const)
+      : []),
+    ...(manager && options.managementEnabled
       ? ([
           {
             href: `${base}/settings`,

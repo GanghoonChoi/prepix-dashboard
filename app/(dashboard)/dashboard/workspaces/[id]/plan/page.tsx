@@ -10,6 +10,7 @@ import {
   secondaryClass,
 } from "@/components/workspaces/shared";
 import { B2bPlan } from "@/components/b2b/plan";
+import { AccessDenied } from "@/components/b2b/shared";
 import { isPersonal } from "@/lib/workspaces/kind";
 import {
   cloudService,
@@ -31,9 +32,10 @@ import {
  * three of the four roles clicked 플랜과 결제 and got a single sentence saying
  * they may not look.
  *
- * Nothing here is refused now, because there is nothing to refuse: no balance,
- * no payment method, no invoices. The one figure that is real — storage — is
- * the one cost this actually incurs, and seats stay four separate numbers.
+ * Owners and admins only (2026-10-08), like the B2B plan page: anyone else
+ * gets the one access-denied screen, not a read-only copy. The one figure that
+ * is real — storage — is the one cost this actually incurs, and seats stay
+ * four separate numbers.
  */
 export default function Page() {
   const { data, cloudEnabled, b2b } = useWorkspace()!;
@@ -44,7 +46,7 @@ export default function Page() {
   const [error, setError] = useState("");
   useEffect(() => {
     let live = true;
-    if (cloudEnabled && data.role !== "reviewer")
+    if (cloudEnabled && data.canManage)
       void cloudService
         .archive(data.workspace.id)
         .then((r) => {
@@ -56,8 +58,10 @@ export default function Page() {
     return () => {
       live = false;
     };
-  }, [cloudEnabled, data.workspace.id, data.role]);
+  }, [cloudEnabled, data.workspace.id, data.canManage]);
   if (b2b?.enrolled) return <B2bPlan status={b2b} workspace={data.workspace} />;
+  if (!personal && !data.canManage)
+    return <AccessDenied code="B2B_TEAM_MANAGER_REQUIRED" />;
   const myPlan = (
     <Link href="/dashboard/plan" className={secondaryClass}>
       {c("내 플랜 보기", "View my plan")}
