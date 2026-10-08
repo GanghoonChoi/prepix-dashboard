@@ -42,15 +42,15 @@ test("personal: one answer, a name for your own workspace, then the app", async 
 
   await expect(page.getByRole("heading", { name: "어떤 일을 하시나요?" })).toBeVisible();
   await page.getByRole("button", { name: "편집자", exact: true }).click();
-  await page.getByRole("button", { name: "계속하기", exact: true }).click();
+  await page.getByRole("button", { name: "다음", exact: true }).click();
 
-  await expect(page.getByRole("heading", { name: "워크스페이스 이름을 정하세요" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "워크스페이스 이름을 정해 주세요" })).toBeVisible();
   const name = page.getByLabel("워크스페이스 이름", { exact: true });
   await expect(name).toHaveValue(/의 워크스페이스$/);
   await name.fill("내 작업실");
-  await page.getByRole("button", { name: "계속하기", exact: true }).click();
+  await page.getByRole("button", { name: "다음", exact: true }).click();
 
-  await expect(page.getByRole("heading", { name: "컴퓨터에서 Prepix를 여세요" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "데스크톱 앱을 설치해 주세요" })).toBeVisible();
   // No team steps on this path.
   await expect(page.getByText("결제")).toHaveCount(0);
 
@@ -69,7 +69,7 @@ test("personal: one answer, a name for your own workspace, then the app", async 
   await page.getByRole("link", { name: "팀으로 시작하기", exact: true }).click();
   await page.getByLabel("회사 또는 팀 이름", { exact: true }).fill(`Later team ${Date.now()}`);
   await page.getByRole("button", { name: "팀 만들기", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "함께할 팀원을 초대하세요" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "팀원을 초대해 주세요" })).toBeVisible();
   expect((await get<{ useType: string }>(page, "/users/profile")).useType).toBe("team");
   expect(errors).toEqual([]);
 });
@@ -89,17 +89,17 @@ test("business: team name, invitations held until payment, pay later lands on th
   await expect(page.getByRole("heading", { name: "어떤 일을 하시나요?" })).toBeVisible();
   await page.getByRole("button", { name: "건너뛰기", exact: true }).click();
 
-  await expect(page.getByRole("heading", { name: "팀 워크스페이스를 만드세요" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "팀 워크스페이스를 만들어요" })).toBeVisible();
   await page.getByLabel("회사 또는 팀 이름", { exact: true }).fill(`Studio ${suffix}`);
   await page.getByRole("button", { name: "6–20명", exact: true }).click();
   await page.getByRole("button", { name: "팀 만들기", exact: true }).click();
 
-  await expect(page.getByRole("heading", { name: "함께할 팀원을 초대하세요" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "팀원을 초대해 주세요" })).toBeVisible();
   // Your own address is dropped; one teammate + you is still the 3-seat floor.
-  await page.getByLabel("팀원 이메일", { exact: true }).fill(`${hire}\n${typo}\n${email}`);
+  await page.getByLabel("팀원 이메일", { exact: true }).fill(`${hire}, ${typo}, ${email}`);
   await expect(page.getByText(/나 포함 3명 → 3석/)).toBeVisible();
   await page.getByRole("button", { name: "다음", exact: true }).click();
-  await expect(page.getByText("결제가 끝나면 2명에게 초대가 발송됩니다.")).toBeVisible();
+  await expect(page.getByText("결제가 끝나면 2명에게 초대 메일을 보내 드릴게요.")).toBeVisible();
   // A mistyped address is taken back before it costs a seat or gets mailed.
   await page.goBack();
   await page.getByRole("listitem").filter({ hasText: typo }).getByRole("button", { name: "취소" }).click();
@@ -107,10 +107,10 @@ test("business: team name, invitations held until payment, pay later lands on th
   await expect(page.getByText(/나 포함 2명 → 3석/)).toBeVisible();
   await page.getByRole("button", { name: "다음", exact: true }).click();
 
-  await expect(page.getByRole("heading", { name: "좌석을 확인하고 결제하세요" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "결제 내용을 확인해 주세요" })).toBeVisible();
   await expect(page.getByText("3석", { exact: true })).toBeVisible();
-  await expect(page.getByText("결제가 끝나면 1명에게 초대가 발송됩니다.")).toBeVisible();
-  await page.getByRole("button", { name: "나중에 결제", exact: true }).click();
+  await expect(page.getByText("결제가 끝나면 1명에게 초대 메일을 보내 드릴게요.")).toBeVisible();
+  await page.getByRole("button", { name: "나중에 결제할게요", exact: true }).click();
 
   await expect(page).toHaveURL(/\/dashboard\/workspaces\/[0-9a-f-]{36}/);
   await expect(page.getByText("결제하면 1명에게 초대가 발송됩니다.")).toBeVisible();
@@ -131,7 +131,7 @@ test("business: team name, invitations held until payment, pay later lands on th
   await expect(page.getByLabel("추가 편집 이용권", { exact: true })).toHaveValue("2");
   // Coming back to "create your team" never offers a second team.
   await page.goto("/start?intent=team&step=workspace&locale=ko");
-  await expect(page.getByText(`Studio ${suffix}`)).toBeVisible();
+  await expect(page.locator("section").getByText(`Studio ${suffix}`)).toBeVisible();
   await expect(page.getByLabel("회사 또는 팀 이름", { exact: true })).toHaveCount(0);
   expect(errors).toEqual([]);
 });
@@ -155,7 +155,7 @@ test("an account that never answered is offered setup, and the plan page starts 
   );
   await page.goto("/dashboard/plan?locale=ko");
   await page.getByRole("link", { name: "팀으로 시작하기", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "팀 워크스페이스를 만드세요" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "팀 워크스페이스를 만들어요" })).toBeVisible();
 });
 
 test("someone already in a team is not asked to set up", async ({ page }) => {
@@ -179,11 +179,11 @@ test("the pay step always has a way out", async ({ page }) => {
   await page.getByRole("button", { name: "건너뛰기", exact: true }).click();
   await page.getByLabel("회사 또는 팀 이름", { exact: true }).fill(`Stuck ${suffix}`);
   await page.getByRole("button", { name: "팀 만들기", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "함께할 팀원을 초대하세요" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "팀원을 초대해 주세요" })).toBeVisible();
   // The team catalogue cannot be read (outage, product not on sale yet).
   await page.route(/\/b2b\/commerce$/, (route) => route.fulfill({ status: 503, json: {} }));
-  await page.getByRole("button", { name: "나중에 초대할게요", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "좌석을 확인하고 결제하세요" })).toBeVisible();
-  await page.getByRole("button", { name: "나중에 결제", exact: true }).click();
+  await page.getByRole("button", { name: "나중에 할게요", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "결제 내용을 확인해 주세요" })).toBeVisible();
+  await page.getByRole("button", { name: "나중에 결제할게요", exact: true }).click();
   await expect(page).toHaveURL(/\/dashboard\/workspaces\/[0-9a-f-]{36}/);
 });

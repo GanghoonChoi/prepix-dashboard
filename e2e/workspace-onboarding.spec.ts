@@ -549,7 +549,7 @@ test("first run offers a waiting invitation and skipping it goes on to the first
   await login(page, email);
   await expect(page).toHaveURL(/\/start\b/);
   await expect(
-    page.getByRole("heading", { name: "초대를 받았습니다" })
+    page.getByRole("heading", { name: "초대가 도착했어요" })
   ).toBeVisible();
   // Skippable, visibly — never a silent completion.
   await page.getByRole("button", { name: "나중에 하기", exact: true }).click();
