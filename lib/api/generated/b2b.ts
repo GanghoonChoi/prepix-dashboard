@@ -180,6 +180,8 @@ export type TeamPerson = {
   revision: number;
   billingAllowed?: boolean;
   accountUnavailable?: boolean;
+  /** When this person last used Prepix (newest session refresh); null if never. */
+  lastActiveAt?: string | null;
 };
 export type TeamPeople = { people: TeamPerson[]; canDelegateBilling: boolean };
 

@@ -33,7 +33,7 @@ import {
 import { fileApi } from "@/lib/b2b-files/api";
 import { bytes } from "@/lib/workspaces/upload";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
-import { cardClass } from "@/components/ui";
+import { cardClass, rowClass, tableClass, Tag, tdClass, thClass } from "@/components/ui";
 import {
   BackLink,
   Block,
@@ -656,14 +656,14 @@ function ProjectRequestsInner({ projectId }: { projectId: string }) {
           <div
             role="group"
             aria-label={c("보기", "View")}
-            className="inline-flex flex-wrap rounded-md border border-border p-0.5"
+            className="flex flex-wrap gap-1"
           >
             {tabs.map(([key, label]) => (
               <button
                 key={key}
                 type="button"
                 aria-pressed={tab === key}
-                className="rounded px-3 py-1.5 text-[13px] text-muted transition-colors hover:text-foreground aria-pressed:bg-surface-secondary aria-pressed:font-medium aria-pressed:text-foreground"
+                className="h-8 rounded-md px-3 text-[13px] text-muted transition-colors hover:text-foreground aria-pressed:bg-surface-secondary aria-pressed:font-medium aria-pressed:text-foreground"
                 onClick={() => {
                   setTab(key);
                   setCursor(undefined);
@@ -693,46 +693,67 @@ function ProjectRequestsInner({ projectId }: { projectId: string }) {
             }
           />
         ) : (
-          <ul className="divide-y divide-border border-y border-border">
-            {filtered.map((r) => (
-              <li
-                key={r.id}
-                className="flex items-center justify-between gap-3 py-3"
-              >
-                <div className="min-w-0">
-                  <Link
-                    href={`${base}/requests/${r.id}`}
-                    className="break-words text-sm font-medium underline-offset-4 hover:underline"
-                  >
-                    {r.title}
-                  </Link>
-                  <p className="mt-0.5 text-xs text-muted">
-                    {r.required && `${c("필수", "Required")} · `}
-                    {r.state === "proposed"
-                      ? `${c("제안", "Proposed by")} ${person(r.createdBy)}`
-                      : person(r.assignee)}
-                    {" · "}
-                    {r.dueAt ? kst(r.dueAt) : c("기한 없음", "No due date")}
-                  </p>
-                  {((r.assignee && !r.assignmentCurrent.assignee) ||
-                    (r.confirmer && !r.assignmentCurrent.confirmer)) && (
-                    <p className="mt-0.5 text-xs">
-                      {c("업무 재지정 필요", "Duty reassignment needed")}
-                    </p>
-                  )}
-                  {r.evidenceMissing && (
-                    <p className="mt-0.5 text-xs">
-                      {c(
-                        "제출 근거 사용 불가 · 완료 조건 미충족",
-                        "Submission evidence unavailable · completion requirement unmet",
+          <table className={`${tableClass} table-fixed`}>
+            <thead>
+              <tr>
+                <th className={thClass}>{c("제목", "Title")}</th>
+                <th className={`${thClass} hidden w-[18%] sm:table-cell`}>{c("담당", "Assignee")}</th>
+                <th className={`${thClass} hidden w-[22%] md:table-cell`}>{c("기한", "Due")}</th>
+                <th className={`${thClass} w-[14%]`}>{c("상태", "State")}</th>
+                <th className={`${thClass} w-10`}><span className="sr-only">{c("열기", "Open")}</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((r) => (
+                <tr
+                  key={r.id}
+                  className={rowClass}
+                  onClick={(e) => {
+                    if (!(e.target as HTMLElement).closest("a")) router.push(`${base}/requests/${r.id}`);
+                  }}
+                >
+                  <td className={tdClass}>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Link
+                        href={`${base}/requests/${r.id}`}
+                        className="truncate font-medium outline-none focus-visible:underline"
+                      >
+                        {r.title}
+                      </Link>
+                      {r.required && <Tag>{c("필수", "Required")}</Tag>}
+                      {((r.assignee && !r.assignmentCurrent.assignee) ||
+                        (r.confirmer && !r.assignmentCurrent.confirmer)) && (
+                        <Tag tone="danger">{c("업무 재지정 필요", "Duty reassignment needed")}</Tag>
                       )}
+                    </div>
+                    {r.evidenceMissing && (
+                      <p className="mt-0.5 text-xs text-muted">
+                        {c(
+                          "제출 근거 사용 불가 · 완료 조건 미충족",
+                          "Submission evidence unavailable · completion requirement unmet",
+                        )}
+                      </p>
+                    )}
+                    <p className="mt-0.5 truncate text-xs text-muted sm:hidden">
+                      {r.state === "proposed" ? `${c("제안", "Proposed by")} ${person(r.createdBy)}` : person(r.assignee)}
                     </p>
-                  )}
-                </div>
-                <Badge>{c(...stateCopy[r.state])}</Badge>
-              </li>
-            ))}
-          </ul>
+                  </td>
+                  <td className={`${tdClass} hidden truncate text-muted sm:table-cell`}>
+                    {r.state === "proposed" ? `${c("제안", "Proposed by")} ${person(r.createdBy)}` : person(r.assignee)}
+                  </td>
+                  <td className={`${tdClass} hidden truncate text-muted md:table-cell`}>
+                    {r.dueAt ? kst(r.dueAt) : c("기한 없음", "No due date")}
+                  </td>
+                  <td className={tdClass}>
+                    <Badge>{c(...stateCopy[r.state])}</Badge>
+                  </td>
+                  <td className={`${tdClass} text-right text-muted`}>
+                    <ChevronRight size={16} strokeWidth={1.75} aria-hidden="true" className="ml-auto" />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
         {(cursor || list.nextCursor) && (
           <div className="flex flex-wrap gap-2">

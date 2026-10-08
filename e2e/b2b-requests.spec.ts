@@ -314,7 +314,8 @@ test("F13 requests by role: exact-version submission after a lost response, conf
     `${root}/requests`,
     () => L.getByRole("button", { name: "요청 저장", exact: true }).click(),
     async () => {
-      await L.getByRole("button", { name: "로그아웃", exact: true }).click();
+      await L.getByRole("button", { name: /^계정 메뉴/ }).click();
+      await L.getByRole("menuitem", { name: "로그아웃", exact: true }).click();
       await loginOnPage(L, external, `${base}/requests`);
       await expect(
         L.getByRole("heading", { name: "요청사항", exact: true }),
@@ -327,7 +328,8 @@ test("F13 requests by role: exact-version submission after a lost response, conf
       await expect(
         L.getByRole("link", { name: "확인한 요청 열기", exact: true }),
       ).toHaveCount(0);
-      await L.getByRole("button", { name: "로그아웃", exact: true }).click();
+      await L.getByRole("button", { name: /^계정 메뉴/ }).click();
+      await L.getByRole("menuitem", { name: "로그아웃", exact: true }).click();
       await loginOnPage(L, lead, `${base}/requests`);
       await expect(
         L.getByText("응답을 확인하지 못한 요청 변경이 있습니다.", {
@@ -1121,13 +1123,15 @@ test("F03 request work on team home and project overview: live counts, paging, f
   await X.unroute(workRoute);
 
   // Same browser switches accounts: the team-only account cannot inherit cards.
-  await X.getByRole("button", { name: "로그아웃", exact: true }).click();
+  await X.getByRole("button", { name: /^계정 메뉴/ }).click();
+      await X.getByRole("menuitem", { name: "로그아웃", exact: true }).click();
   await loginOnPage(X, member, home);
   await expect(
     queue.getByRole("button", { name: "내 담당 요청 0", exact: true }),
   ).toBeVisible();
   await expect(queue.getByRole("listitem")).toHaveCount(0);
-  await X.getByRole("button", { name: "로그아웃", exact: true }).click();
+  await X.getByRole("button", { name: /^계정 메뉴/ }).click();
+      await X.getByRole("menuitem", { name: "로그아웃", exact: true }).click();
   await loginOnPage(X, external, overview);
   // P (2026-10-07): a folder folds its request work under "더 보기".
   await X.locator("summary", { hasText: "더 보기" }).click();
