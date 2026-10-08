@@ -104,9 +104,6 @@ test("B2B preparing gate, private projects, lost-response retry, role handoff an
     await editorPage
       .getByLabel("작업 개요", { exact: true })
       .fill("Only invited people may see this brief");
-    await editorPage
-      .getByLabel("납품에 편집 가능한 작업 파일과 소스 확인 필요")
-      .check();
     // V: the owner-must-not-see assertions below are the private (v1) rule.
     await editorPage.getByRole("radio", { name: /^비공개\(참여자만\)/ }).check();
     const endpoint = `${api}/v2/workspaces/${team.id}/b2b/projects`;
@@ -191,15 +188,16 @@ test("B2B preparing gate, private projects, lost-response retry, role handoff an
     await expect(
       editorPage.locator("main").getByText(owner.email, { exact: true }),
     ).toBeVisible();
+    // Figma-like people list (2026-10-08): the row's menu makes a lead.
     await editorPage
-      .getByLabel("변경·종료·이전 사유")
-      .fill("Transfer accepted lead role");
-    await editorPage
-      .getByRole("button", { name: "담당자 이전", exact: true })
+      .locator(`[data-person="${owner.email}"]`)
+      .getByRole("button", { name: /작업$/ })
       .click();
-    await expect(
-      editorPage.getByRole("button", { name: "참여 범위 저장", exact: true }),
-    ).toHaveCount(0);
+    await editorPage
+      .getByRole("menuitem", { name: "담당자로 지정", exact: true })
+      .click();
+    // No longer the lead: nobody's role can be changed from this page.
+    await expect(editorPage.getByLabel(/ 역할$/)).toHaveCount(0);
     await page.reload();
     await expect(
       page.getByRole("heading", { name: "Private B2B project", exact: true }),
@@ -341,16 +339,9 @@ test("B2B external invitation proves mailbox and preserves billing mutation on l
       0,
     );
     await page.goto(`${base}/members`);
-    // People table (2026-10-08): a person's settings open from their row.
-    await page.getByRole("row").filter({ hasText: guest.email }).click();
-    const row = page.getByRole("dialog");
-    await expect(
-      row.getByText("결제 권한 없음", { exact: false }),
-    ).toBeVisible();
-    await row.getByLabel("결제 권한 위임").check();
-    await row
-      .getByLabel("변경 사유", { exact: true })
-      .fill("Delegate purchase administration");
+    // Figma-like people list (2026-10-08): the row's menu holds the rest.
+    const guestRow = page.locator(`[data-person="${guest.email}"]`);
+    await expect(guestRow.getByText("결제 권한", { exact: true })).toHaveCount(0);
     let lost = true;
     await page.route(`${endpoint}/members/${guest.id}`, async (route) => {
       if (lost) {
@@ -359,19 +350,15 @@ test("B2B external invitation proves mailbox and preserves billing mutation on l
         await route.abort();
       } else await route.continue();
     });
-    await row
-      .getByRole("button", { name: "권한 변경 저장", exact: true })
+    await guestRow.getByRole("button", { name: /작업$/ }).click();
+    await page
+      .getByRole("menuitem", { name: "결제 권한 주기", exact: true })
       .click();
-    await expect(row.getByRole("alert")).toContainText(
+    // The answer was lost, but the change landed: the reread shows it.
+    await expect(page.locator("main [role=alert]")).toContainText(
       "요청을 완료하지 못했습니다",
     );
-    await expect(row.getByLabel("변경 사유", { exact: true })).toBeDisabled();
-    await row
-      .getByRole("button", { name: "권한 변경 저장", exact: true })
-      .click();
-    await expect(
-      row.getByText("결제 권한 있음", { exact: false }),
-    ).toBeVisible();
+    await expect(guestRow.getByText("결제 권한", { exact: true })).toBeVisible();
     const status = (
       await (
         await request.get(`${endpoint}/status`, { headers: guest.headers })
@@ -380,23 +367,30 @@ test("B2B external invitation proves mailbox and preserves billing mutation on l
     expect(status.member.kind).toBe("external");
     expect(status.allowedActions.billing).toBe(true);
     expect(status.allowedActions.manage).toBe(false);
-    const roster = (
-      await (
-        await request.get(`${endpoint}/members`, { headers: owner.headers })
-      ).json()
-    ).data;
+    const guestRevision = async () =>
+      (
+        await (
+          await request.get(`${endpoint}/members`, { headers: owner.headers })
+        ).json()
+      ).data.people.find((p: { userId: string }) => p.userId === guest.id)
+        .revision as number;
+    expect(await guestRevision()).toBe(1);
+    // Suspension left the people table (2026-10-08); the server keeps it.
     expect(
-      roster.people.find((p: { userId: string }) => p.userId === guest.id)
-        .revision,
-    ).toBe(1);
-    await row.getByLabel("참여 변경", { exact: true }).selectOption("suspend");
-    await row
-      .getByLabel("참여 변경 사유", { exact: true })
-      .fill("Immediately suspend external access");
-    await row
-      .getByRole("button", { name: "참여 변경 확인", exact: true })
-      .click();
-    await expect(row.getByText("참여 정지", { exact: true })).toBeVisible();
+      (
+        await request.post(`${endpoint}/members/${guest.id}/action`, {
+          headers: owner.headers,
+          data: {
+            requestKey: crypto.randomUUID(),
+            revision: await guestRevision(),
+            action: "suspend",
+            reason: "Immediately suspend external access",
+          },
+        })
+      ).status(),
+    ).toBe(201);
+    await page.reload();
+    await expect(guestRow.getByText("정지됨", { exact: true })).toBeVisible();
     await guestPage.goto(`${base}/projects/${project.id}`);
     await expect(guestPage.locator("main [role=alert]")).toBeVisible();
     await expect(
@@ -405,19 +399,11 @@ test("B2B external invitation proves mailbox and preserves billing mutation on l
         exact: true,
       }),
     ).toHaveCount(0);
-    await row
-      .getByLabel("참여 변경", { exact: true })
-      .selectOption("reactivate");
-    await row
-      .getByLabel("참여 변경 사유", { exact: true })
-      .fill("Reactivate membership without old grants");
-    await row
-      .getByRole("button", { name: "참여 변경 확인", exact: true })
-      .click();
-    await expect(row.getByText("참여 정지", { exact: true })).toHaveCount(0);
-    await expect(
-      row.getByText("결제 권한 없음", { exact: false }),
-    ).toBeVisible();
+    await guestRow.getByRole("button", { name: /작업$/ }).click();
+    await page.getByRole("menuitem", { name: "다시 활성화", exact: true }).click();
+    await expect(guestRow.getByText("정지됨", { exact: true })).toHaveCount(0);
+    // Reactivation does not bring billing back.
+    await expect(guestRow.getByText("결제 권한", { exact: true })).toHaveCount(0);
     await guestPage.goto(`${base}/projects/${project.id}`);
     await expect(guestPage.locator("main [role=alert]")).toContainText(
       "접근 권한이 없습니다",
@@ -431,9 +417,6 @@ test("B2B external invitation proves mailbox and preserves billing mutation on l
     }
     await guestPage.goto(base);
     await guestPage.getByRole("button", { name: "팀 나가기", exact: true }).click();
-    await guestPage
-      .getByLabel("탈퇴 사유", { exact: true })
-      .fill("End external participation");
     await guestPage
       .getByRole("button", { name: "팀 탈퇴 확인", exact: true })
       .click();
@@ -520,7 +503,8 @@ test("B2B owner restores vacant lead without gaining private project content", a
   await signIn(page, owner.email);
   const base = `/dashboard/workspaces/${team.id}`;
   await page.goto(`${base}/members`);
-  await page.getByRole("tab", { name: "복구", exact: true }).click();
+  // Repairs fold at the bottom of the people page (2026-10-08).
+  await page.getByText("담당자 복구", { exact: true }).click();
   await page
     .getByLabel("복구할 프로젝트 주소", { exact: true })
     .fill(`http://localhost:3001${base}/projects/${project.id}`);
@@ -530,19 +514,25 @@ test("B2B owner restores vacant lead without gaining private project content", a
   await expect(page.locator("main [role=alert]")).toContainText(
     "현재 담당자가 유효한 프로젝트",
   );
-  await page.getByRole("tab", { name: "멤버", exact: true }).click();
-  await page.getByRole("row").filter({ hasText: lead.email }).click();
-  const row = page.getByRole("dialog");
-  await row.getByLabel("참여 변경", { exact: true }).selectOption("suspend");
-  await row
-    .getByLabel("참여 변경 사유", { exact: true })
-    .fill("Immediate revoke before handover");
-  await row
-    .getByRole("button", { name: "참여 변경 확인", exact: true })
-    .click();
-  await expect(row.getByText("참여 정지", { exact: true })).toBeVisible();
-  await row.getByRole("button", { name: "닫기", exact: true }).click();
-  await page.getByRole("tab", { name: "복구", exact: true }).click();
+  // Suspension left the people table (2026-10-08); the server keeps it.
+  const leadRevision = (
+    await (
+      await request.get(`${endpoint}/members`, { headers: owner.headers })
+    ).json()
+  ).data.people.find((p: { userId: string }) => p.userId === lead.id).revision;
+  expect(
+    (
+      await request.post(`${endpoint}/members/${lead.id}/action`, {
+        headers: owner.headers,
+        data: {
+          requestKey: crypto.randomUUID(),
+          revision: leadRevision,
+          action: "suspend",
+          reason: "Immediate revoke before handover",
+        },
+      })
+    ).status(),
+  ).toBe(201);
   await page
     .getByRole("button", { name: "담당자 공백 확인", exact: true })
     .click();
@@ -658,9 +648,6 @@ test("B2B ownership uses consent and verification, retries lost responses and re
     .getByLabel("내부 소유권 후임", { exact: true })
     .selectOption(successor.id);
   await page
-    .getByLabel("소유권 변경 사유", { exact: true })
-    .fill("Transfer to accepted internal successor");
-  await page
     .getByRole("button", { name: "소유권 이전 본인 확인", exact: true })
     .click();
   await page.getByLabel("현재 비밀번호", { exact: true }).fill(password);
@@ -676,7 +663,7 @@ test("B2B ownership uses consent and verification, retries lost responses and re
     .getByRole("button", { name: "본인 확인 후 이전 요청", exact: true })
     .click();
   await expect(
-    page.getByLabel("소유권 변경 사유", { exact: true }),
+    page.getByLabel("내부 소유권 후임", { exact: true }),
   ).toBeDisabled();
   await page
     .getByRole("button", { name: "본인 확인 다시 시작", exact: true })
@@ -703,9 +690,6 @@ test("B2B ownership uses consent and verification, retries lost responses and re
     await signIn(successorPage, successor.email);
     // A reviewer has no settings page; the offer waits on the team home.
     await successorPage.goto(base);
-    await successorPage
-      .getByLabel("소유권 변경 사유", { exact: true })
-      .fill("Accept ownership responsibility");
     await successorPage
       .getByRole("button", { name: "소유권 수락 본인 확인", exact: true })
       .click();
@@ -772,9 +756,6 @@ test("B2B ownership uses consent and verification, retries lost responses and re
     expect(currentOwner.team.periodEndsAt).toBe(before.team.periodEndsAt);
     await page.goto(`${base}/settings`);
     await page.getByRole("button", { name: "팀 나가기", exact: true }).click();
-    await page
-      .getByLabel("탈퇴 사유", { exact: true })
-      .fill("Leave after successor acceptance");
     await page
       .getByRole("button", { name: "팀 탈퇴 확인", exact: true })
       .click();

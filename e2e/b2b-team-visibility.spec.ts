@@ -158,7 +158,6 @@ test("V: team-wide project, publish → review on team home, private stays hidde
   await L.page.getByRole("button", { name: "비공개로 바꾸기", exact: true }).click();
   const narrow = L.page.getByRole("alertdialog", { name: "비공개로 바꾸기" });
   await expect(narrow).toContainText("그동안 남긴 코멘트는 기록에 남습니다");
-  await narrow.getByLabel("사유(선택)", { exact: true }).fill("외주 계약 보안");
   await shot(L.page, "s07-narrow-dialog");
   await narrow.getByRole("button", { name: "비공개로 바꾸기", exact: true }).click();
   await expect(narrow).toHaveCount(0);
@@ -183,15 +182,12 @@ test("V: team-wide project, publish → review on team home, private stays hidde
   expect((await request.get(`${root}/reviews/${reviewId}`, { headers: producer.headers })).status()).toBe(200);
   expect((await request.get(`${root}/reviews/${reviewId}`, { headers: client.headers })).status()).toBe(404);
 
-  // S07: widening again needs the confirmation and a reason.
+  // S07: widening again is one confirm click (2026-10-08).
   await L.page.getByRole("button", { name: "팀 전체 공개로 바꾸기", exact: true }).click();
   const widen = L.page.getByRole("alertdialog", { name: "팀 전체 공개로 바꾸기" });
   await expect(widen).toContainText("팀의 모든 내부 멤버가 이 프로젝트, 발행된 영상과 그 코멘트를 보고 코멘트할 수 있게 됩니다");
   const confirm = widen.getByRole("button", { name: "팀 전체 공개로 바꾸기", exact: true });
-  await expect(confirm).toBeDisabled();
-  await widen.getByLabel("모든 팀원에게 공개되는 범위를 확인했습니다", { exact: true }).check();
-  await expect(confirm).toBeDisabled();
-  await widen.getByLabel("공개 사유(필수)", { exact: true }).fill("팀 전체 공유 재개");
+  await expect(confirm).toBeEnabled();
   await shot(L.page, "s07-widen-dialog");
   await confirm.click();
   await expect(widen).toHaveCount(0);

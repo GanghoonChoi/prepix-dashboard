@@ -13,16 +13,14 @@ test("a team viewer loads no work surface; participants keep their v1 surfaces",
     assert.ok(Object.values(projectSurfaces(role)).every(Boolean));
 });
 
-test("narrowing to private sends an optional reason and no confirmation", () => {
-  assert.deepEqual(visibilityChange({ visibility: "team", revision: 4 }, { reason: "  ", confirmed: false }), { visibility: "private", revision: 4 });
-  assert.deepEqual(visibilityChange({ visibility: "team", revision: 4 }, { reason: " 외주 계약 ", confirmed: false }), { visibility: "private", revision: 4, reason: "외주 계약" });
-});
-
-test("widening to team needs the confirmation and a reason before anything is sent", () => {
-  const project = { visibility: "private" as const, revision: 7 };
-  assert.throws(() => visibilityChange(project, { reason: "공유", confirmed: false }), { message: "B2B_PROJECT_VISIBILITY_CONFIRMATION_REQUIRED" });
-  assert.throws(() => visibilityChange(project, { reason: " ", confirmed: true }), { message: "B2B_REASON_REQUIRED" });
-  assert.deepEqual(visibilityChange(project, { reason: " 팀 공유 ", confirmed: true }), { visibility: "team", revision: 7, confirmTeamWide: true, reason: "팀 공유" });
+test("one confirm click changes visibility; the reason names the change", () => {
+  assert.deepEqual(visibilityChange({ visibility: "team", revision: 4 }), { visibility: "private", revision: 4, reason: "비공개로 변경" });
+  assert.deepEqual(visibilityChange({ visibility: "private", revision: 7 }), {
+    visibility: "team",
+    revision: 7,
+    confirmTeamWide: true,
+    reason: "팀 전체 공개로 변경",
+  });
 });
 
 test("a folder is its videos and files; 멤버 only where a roster matters", () => {

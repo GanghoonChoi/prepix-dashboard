@@ -21,7 +21,7 @@ test("the owner invites a viewer from the members page; the viewer gets projects
   const form = O.page.getByRole("dialog");
   await form.getByLabel("초대 이메일", { exact: true }).fill(viewer.email);
   await form.getByLabel("초대 역할", { exact: true }).selectOption("reviewer");
-  await expect(form.getByText("수락하면 편집 좌석 배정", { exact: true })).toHaveCount(0);
+  await expect(form.getByTestId("invite-seat-info")).toContainText("좌석이 필요 없어 무료");
   const known = new Set((await allMail(request)).map((m: { inviteUrl?: string }) => m.inviteUrl));
   await form.getByRole("button", { name: "초대 보내기", exact: true }).click();
   let inviteUrl = "";

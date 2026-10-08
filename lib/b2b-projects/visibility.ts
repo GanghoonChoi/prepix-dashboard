@@ -43,12 +43,10 @@ export function projectTabs(
  * optional reason. */
 export function visibilityChange(
   project: Pick<Project, "visibility" | "revision">,
-  input: { reason: string; confirmed: boolean },
 ): Omit<ChangeProjectVisibility, "requestKey"> {
-  const reason = input.reason.trim();
+  // One confirm click is the consent (2026-10-08); the audit trail names the
+  // change, so nobody types a reason.
   if (project.visibility === "team")
-    return { visibility: "private", revision: project.revision, ...(reason ? { reason } : {}) };
-  if (!input.confirmed) throw new Error("B2B_PROJECT_VISIBILITY_CONFIRMATION_REQUIRED");
-  if (!reason) throw new Error("B2B_REASON_REQUIRED");
-  return { visibility: "team", revision: project.revision, confirmTeamWide: true, reason };
+    return { visibility: "private", revision: project.revision, reason: "비공개로 변경" };
+  return { visibility: "team", revision: project.revision, confirmTeamWide: true, reason: "팀 전체 공개로 변경" };
 }

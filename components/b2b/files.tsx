@@ -221,9 +221,12 @@ function FilesView({ scope }: { scope: FileScope }) {
                     )
                   }
                 />
+                {/* The row is the file and its download; everything else a
+                    file can do is folded here (2026-10-08). */}
+                <Details summary={c("관리·상세", "Manage & details")}>
                 {(version.allowedActions.manage ||
                   version.allowedActions.unlink) && (
-                  <div className="flex flex-wrap items-center gap-x-4">
+                  <div className="flex flex-wrap items-center gap-x-4 text-foreground">
                     {version.allowedActions.manage && (
                       <>
                         <button
@@ -273,7 +276,6 @@ function FilesView({ scope }: { scope: FileScope }) {
                     )}
                   </div>
                 )}
-                <Details summary={c("버전 상세", "Version details")}>
                   <KeyValues items={versionFacts(version, c)} />
                   <VersionAddress scope={scope} versionId={version.id} />
                 </Details>

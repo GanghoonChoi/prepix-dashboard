@@ -28,12 +28,11 @@ test("P08: selected audience only, explicit publication, lost audience receipt, 
     await L.page.getByLabel("검토 제목", { exact: true }).fill("지정 대상 검토");
     await L.page.getByRole("radio", { name: /cut-v1\.mp4 · V1/ }).check();
     const publish = L.page.getByRole("button", { name: "이 버전으로 검토 시작", exact: true });
-    await expect(publish).toBeDisabled();
-    await expect(L.page.getByLabel("선택한 검토본 재생을 확인했습니다", { exact: true })).toBeDisabled();
+    // Playing first is optional (2026-10-08): the default audience can start.
+    await expect(publish).toBeEnabled();
     await L.page.getByRole("button", { name: "공개 전 재생", exact: true }).click();
     await videoReady(L.page);
     await L.page.locator("video").evaluate((video: HTMLVideoElement) => video.play());
-    await L.page.getByLabel("선택한 검토본 재생을 확인했습니다", { exact: true }).check();
     await L.page.getByRole("radio", { name: "선택한 사람만", exact: true }).check();
     await L.page.getByRole("checkbox", { name: "aud-client · 뷰어", exact: true }).check();
     await expect(publish).toBeDisabled();
@@ -68,8 +67,8 @@ test("P08: selected audience only, explicit publication, lost audience receipt, 
     await audience.getByRole("checkbox", { name: "aud-producer · 편집자", exact: true }).check();
     await audience.getByRole("combobox", { name: "승인자 선택", exact: true }).selectOption(producer.id);
     const confirm = audience.getByRole("button", { name: "대상을 확정하고 새 회차 공개", exact: true });
-    await expect(confirm).toBeDisabled();
-    await audience.getByLabel("대상 변경 사유(필수)", { exact: true }).fill("내부 재검토로 전환");
+    // No reason to type (2026-10-08): a valid audience is enough.
+    await expect(confirm).toBeEnabled();
     let sends = 0, lost = false;
     await L.page.route(`${root}/review-operations/audience/**`, (route) => lost ? route.abort() : route.continue());
     await L.page.route(`${root}/reviews/${id}/audience`, async (route) => {

@@ -5,7 +5,6 @@ import { b2bService } from "@/lib/api/services/b2b.service";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
   Block,
-  inputClass,
   primaryClass,
   secondaryClass,
 } from "@/components/workspaces/shared";
@@ -14,10 +13,8 @@ export function LeaveTeam() {
   const { data, b2b } = useWorkspace()!;
   const c = useCopy();
   const router = useRouter();
-  // Folded behind one button: on the team home this is the last row, and an
-  // open "why are you leaving" box is not something to scroll past daily.
+  // Two clicks: 팀 나가기, then 팀 탈퇴 확인. No reason to type.
   const [open, setOpen] = useState(false);
-  const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const pending = useRef<{
@@ -58,7 +55,7 @@ export function LeaveTeam() {
             pending.current ??= {
               requestKey: crypto.randomUUID(),
               revision: b2b.member.revision,
-              reason: reason.trim(),
+              reason: "팀 나가기",
             };
             setBusy(true);
             setError("");
@@ -74,21 +71,9 @@ export function LeaveTeam() {
             }
           }}
         >
-          <label className="block space-y-1.5 text-[13px]">
-            <span>{c("탈퇴 사유", "Reason for leaving")}</span>
-            <textarea
-              aria-label={c("탈퇴 사유", "Reason for leaving")}
-              className={inputClass}
-              required
-              maxLength={1000}
-              value={reason}
-              disabled={busy || !!pending.current}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </label>
           {error && <B2bError code={error} />}
           <div className="flex flex-wrap gap-2">
-            <button className={primaryClass} disabled={busy || !reason.trim()}>
+            <button className={primaryClass} disabled={busy}>
               {busy
                 ? c("탈퇴 처리 중…", "Leaving…")
                 : c("팀 탈퇴 확인", "Confirm leaving team")}

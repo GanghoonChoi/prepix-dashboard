@@ -107,11 +107,9 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   await L.page.getByLabel("검토 제목", { exact: true }).fill("1차 편집 검토");
   await L.page.getByRole("radio", { name: /cut-v1\.mp4 · V1/ }).check();
   await expect(L.page.getByText("검토본 준비됨", { exact: true })).toBeVisible();
-  await expect(L.page.getByRole("button", { name: "이 버전으로 검토 시작", exact: true })).toBeDisabled();
   await L.page.getByRole("button", { name: "공개 전 재생", exact: true }).click();
   await videoReady(L.page);
   await L.page.locator("video").evaluate((v: HTMLVideoElement) => v.play());
-  await L.page.getByLabel("선택한 검토본 재생을 확인했습니다", { exact: true }).check();
   await L.page.getByRole("radio", { name: "선택한 사람만", exact: true }).check();
   await L.page.getByRole("checkbox", { name: "producer · 편집자", exact: true }).check();
   await L.page.getByRole("checkbox", { name: "client · 뷰어", exact: true }).check();
@@ -320,9 +318,8 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   // Revocation: no new playback URL afterwards.
   await L.page.reload();
   await L.page.getByRole("button", { name: "공유", exact: true }).click();
-  await L.page.getByLabel("회수 사유", { exact: true }).fill("잘못 보낸 공유");
   await L.page.getByRole("button", { name: "공유 회수", exact: true }).click();
-  await expect(L.page.getByText("회수 사유: 잘못 보낸 공유", { exact: false })).toBeVisible();
+  await expect(L.page.getByText(/회수됨/).first()).toBeVisible();
   expect(
     (
       await request.post(`${api}/v2/b2b/review-shares/${share.id}/playback`, {
@@ -370,13 +367,11 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   const beforePublish = L.page.getByLabel("공개 전 검토본 재생", { exact: true });
   await expect.poll(() => beforePublish.evaluate((v: HTMLVideoElement) => v.readyState), { timeout: 120_000 }).toBeGreaterThanOrEqual(2);
   await beforePublish.evaluate((v: HTMLVideoElement) => v.play());
-  await L.page.getByLabel("선택한 검토본 재생을 확인했습니다", { exact: true }).check();
   const replacing = L.page.getByRole("heading", { name: "새 영상 버전으로 교체", exact: true }).locator("..");
   await replacing.getByRole("radio", { name: "선택한 사람만", exact: true }).check();
   await replacing.getByRole("checkbox", { name: "producer · 편집자", exact: true }).check();
   await replacing.getByRole("checkbox", { name: "client · 뷰어", exact: true }).check();
   await replacing.getByRole("combobox", { name: "승인자 선택", exact: true }).selectOption(client.id);
-  await replacing.getByLabel("영상 교체 사유(필수)", { exact: true }).fill("Feedback applied to version 2");
   await L.page.getByRole("button", { name: "이 버전으로 교체", exact: true }).click();
   await expect(L.page.getByText(/V2 · 회차 2/)).toBeVisible();
   await videoReady(L.page);
