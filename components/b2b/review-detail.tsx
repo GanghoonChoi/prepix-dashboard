@@ -57,6 +57,7 @@ import {
   VideoVersionPicker,
 } from "./reviews";
 import { ReviewPending } from "./review-pending";
+import { notificationApi } from "@/lib/b2b-notifications/notifications";
 
 // SOT: prepix-backend backend/docs/b2b-reviews.md (S14/S15)
 //
@@ -185,6 +186,12 @@ function ReviewScreen({
   useEffect(() => {
     if (data) onReview?.(data.review.id);
   }, [data, onReview]);
+  // Watching it is reading it: the review leaves 확인할 영상 and the bell.
+  const opened = data && scope.kind === "project" ? data.review.id : null;
+  const account = scope.userId;
+  useEffect(() => {
+    if (opened) void notificationApi(account).readReview(opened).catch(() => undefined);
+  }, [opened, account]);
 
   const video = useRef<HTMLVideoElement>(null);
   const composer = useRef<ComposerHandle>(null);

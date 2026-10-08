@@ -126,8 +126,10 @@ test("V: team-wide project, publish → review on team home, private stays hidde
 
   // The owner (not participating) sees the team project, never the private one.
   const O = await open(browser, owner, home);
-  await expect(O.page.getByRole("region", { name: "내 프로젝트", exact: true }).getByText(teamName, { exact: true })).toBeVisible({ timeout: 30_000 });
-  await expect(O.page.getByRole("region", { name: "최근 발행", exact: true }).getByRole("link", { name: /첫 발행 결과/ })).toBeVisible();
+  // The home grid (2026-10-08): the project's card counts its video.
+  const card = O.page.getByRole("region", { name: "프로젝트", exact: true }).getByRole("link", { name: new RegExp(teamName) });
+  await expect(card).toBeVisible({ timeout: 30_000 });
+  await expect(card).toContainText("영상 1");
   const hidden = async (page: Page) => expect(page.locator("body")).not.toContainText(secretName);
   await hidden(O.page);
   await O.page.goto(`${home}/projects`);

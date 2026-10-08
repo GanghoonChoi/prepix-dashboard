@@ -744,7 +744,7 @@ function ReviewListInner({ projectId }: { projectId: string }) {
 
 /** A video's thumbnail (its review poster), or a quiet placeholder while
  * there is none yet. Decorative: the title beside it names the video. */
-function Poster({ url, className }: { url?: string | null; className: string }) {
+export function Poster({ url, className }: { url?: string | null; className: string }) {
   const [broken, setBroken] = useState(false);
   return (
     <span className={`relative grid place-items-center overflow-hidden bg-surface-secondary text-muted ${className}`}>
