@@ -89,12 +89,15 @@ export function seatPlan(product: SeatProduct, invitees: number) {
   return { seats, extraSeats, supplyKrw, vatKrw, totalKrw: supplyKrw + vatKrw };
 }
 
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// One dot-separated domain with a real TLD — the shape the server's isEmail
+// accepts; anything looser inflates the seat count and then fails to invite.
+const EMAIL = /^[^\s@<>()"',;]+@([a-z0-9-]+\.)+[a-z]{2,}$/i;
 
 /**
- * A pasted list: commas, semicolons, spaces or lines. Yourself, repeats and
- * people already invited are dropped quietly; malformed entries come back so
- * the screen can point at them.
+ * A pasted list: commas, semicolons, spaces or lines, including what mail
+ * clients copy ("Kim <kim@co.kr>"). Words without an @ are display names and
+ * are skipped; yourself, repeats and people already invited are dropped
+ * quietly; malformed addresses come back so the screen can point at them.
  */
 export function parseEmails(
   text: string,
@@ -105,8 +108,10 @@ export function parseEmails(
   const emails: string[] = [];
   const invalid: string[] = [];
   for (const raw of text.split(/[\s,;]+/)) {
-    const value = raw.trim().toLowerCase();
-    if (!value) continue;
+    const value = raw
+      .replace(/^[<("']+|[>)"'.]+$/g, "")
+      .toLowerCase();
+    if (!value.includes("@")) continue;
     if (!EMAIL.test(value)) invalid.push(raw.trim());
     else if (!skip.has(value)) {
       skip.add(value);

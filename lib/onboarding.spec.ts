@@ -48,8 +48,19 @@ test("seats are you plus invitees, never below the base bundle", () => {
 
 test("pasted addresses: split on commas, spaces and lines; drop yourself, repeats and people already invited", () => {
   assert.deepEqual(
-    parseEmails("a@x.io, B@x.io\nme@x.io  a@x.io;nope c@x.io", "ME@x.io", ["c@x.io"]),
-    { emails: ["a@x.io", "b@x.io"], invalid: ["nope"] },
+    parseEmails("a@x.io, B@x.io\nme@x.io  a@x.io;nope@ c@x.io", "ME@x.io", ["c@x.io"]),
+    { emails: ["a@x.io", "b@x.io"], invalid: ["nope@"] },
   );
   assert.deepEqual(parseEmails("   ", "me@x.io", []), { emails: [], invalid: [] });
+});
+
+test("addresses pasted from a mail client keep only the address", () => {
+  assert.deepEqual(
+    parseEmails('Kim <kim@co.kr>, "Lee" <lee@co.kr>; park@co.kr. (choi@co.kr)', "me@x.io", []),
+    { emails: ["kim@co.kr", "lee@co.kr", "park@co.kr", "choi@co.kr"], invalid: [] },
+  );
+  assert.deepEqual(parseEmails("a@b..kr x@y", "me@x.io", []), {
+    emails: [],
+    invalid: ["a@b..kr", "x@y"],
+  });
 });
