@@ -1,28 +1,17 @@
 import type { ChangeProjectVisibility, Project } from "../api/generated/b2b";
 
 // SOT: prepix-backend backend/docs/b2b-team-visibility.md
-/** Which project surfaces this role may load. A team viewer (an internal
- * member who sees a team project without taking part) reads the overview, the
- * files list and reviews; every work surface answers 403 for them, and a 4xx
- * on a read clears the page as "access ended", so a viewer never asks. */
+/** Which project surfaces this role may load. Only a working participant
+ * (lead or editor) sees the project's people; a viewer of either kind
+ * (team viewer or project viewer) watches the videos and the files. */
 export function projectSurfaces(role: Project["role"]) {
-  const participant = role !== "viewer";
-  const worker = participant && role !== "reviewer";
-  return {
-    requests: participant,
-    requestWork: participant,
-    delivery: participant,
-    publications: participant,
-    people: worker,
-    app: worker,
-  };
+  return { people: role !== "viewer" && role !== "reviewer" };
 }
 
 /** A folder is its videos and its files (2026-10-08 cleanup). 멤버 shows
  * only where a roster means something: a private folder, or the lead of a
- * team folder (who adds external people). Requests, delivery and registered
- * results keep their routes but no tab. `match` keeps 영상 lit on the review
- * pages under it. */
+ * team folder (who adds external people). `match` keeps 영상 lit on the
+ * review pages under it. */
 export function projectTabs(
   base: string,
   role: Project["role"],

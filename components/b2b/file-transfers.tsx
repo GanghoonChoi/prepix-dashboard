@@ -458,8 +458,8 @@ export function FileTransfers({
           <Details>
             <p>
               {c(
-                "처음에는 올린 사람과 내부 자료 담당자만 접근합니다. 이름이 같은 파일도 덮어쓰지 않으며, 실제 형식은 서버에서 검사합니다.",
-                "At first only the uploader and the internal asset steward have access. Matching names never overwrite files; the actual format is checked on the server.",
+                "이 프로젝트에 참여한 사람이 보고, 편집자는 내려받을 수 있습니다. 이름이 같은 파일도 덮어쓰지 않으며, 실제 형식은 서버에서 검사합니다.",
+                "Everyone in this project sees it, and editors can download it. Matching names never overwrite files; the actual format is checked on the server.",
               )}
             </p>
             {kind === "working" && (

@@ -118,14 +118,15 @@ test("every mutation path classifies outcomes through the one shared policy", ()
   assert.deepEqual(synthetic, [], "raise synthetic 4xx with localRefusal(code, status)");
   // Mutation flows (anything that frees a pending key) never read a status inline.
   const mutating = files.filter((f) => /rejectFirst|releaseRejected|pending\.current = null|freeIntent/.test(readFileSync(f, "utf8")));
-  // licences.tsx reads (access ended); delivery's `missing` is a receipt lookup answer.
-  const lookups = ["components/b2b/licences.tsx", "lib/b2b-delivery/operations.ts"];
+  const lookups: string[] = [];
   const inlineStatus = mutating.filter((f) => !lookups.includes(f) && /status\)?\s*(===|!==|>=|<=|<|>)\s*4\d\d/.test(readFileSync(f, "utf8")));
   assert.deepEqual(inlineStatus, [], "mutation outcome comes from the shared policy, not an inline status check");
   // Component mutations (members, invitations, licences, ...) share this alias.
   assert.match(readFileSync("components/b2b/shared.tsx", "utf8"), /serverRejected as definitivelyRejected/);
   const guarded = files.filter((f) => /releaseRejected\(/.test(readFileSync(f, "utf8")));
-  assert.ok(guarded.length >= 9, guarded.join());
+  // Billing, reviews and statements (requests, delivery, publications and
+  // file stewardship left the web on 2026-10-08).
+  assert.ok(guarded.length >= 3, guarded.join());
   // A bare rejectFirst on any error would free a key regardless of attempt.
   const bare = files.filter((f) => /await store\.rejectFirst/.test(readFileSync(f, "utf8")));
   assert.deepEqual(bare, [], "free pending keys through releaseRejected()");

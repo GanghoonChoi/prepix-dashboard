@@ -42,8 +42,10 @@ export function append(
 export function href(d: UserNotificationDestination): string {
   const team = `/dashboard/workspaces/${encodeURIComponent(d.workspaceId)}`;
   switch (d.kind) {
+    // Requests and the library left the web (2026-10-08): their notices open
+    // the project, or the team's projects.
     case "request":
-      return `${team}/projects/${encodeURIComponent(d.projectId)}/requests/${encodeURIComponent(d.requestId)}`;
+      return `${team}/projects/${encodeURIComponent(d.projectId)}`;
     case "review":
       // The exact round and its version: a newer round never replaces it.
       return `${team}/projects/${encodeURIComponent(d.projectId)}/reviews/${encodeURIComponent(d.reviewId)}?${new URLSearchParams({ round: String(d.round), versionId: d.versionId })}`;
@@ -52,7 +54,7 @@ export function href(d: UserNotificationDestination): string {
     case "project_files":
       return `${team}/projects/${encodeURIComponent(d.projectId)}/files`;
     case "library":
-      return `${team}/library`;
+      return `${team}/projects`;
     case "billing":
       return `${team}/plan`;
     case "team_status":

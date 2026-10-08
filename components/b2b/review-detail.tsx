@@ -1021,14 +1021,13 @@ function CommentItem({
 }) {
   const c = useCopy();
   const ago = useAgo();
-  const [mode, setMode] = useState<"" | "edit" | "convert" | "reply">("");
+  const [mode, setMode] = useState<"" | "edit" | "reply">("");
   const [history, setHistory] = useState(false);
   const mutation = useRun();
   const row = useRef<HTMLLIElement>(null);
   useEffect(() => {
     if (focused) row.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [focused]);
-  const base = scope.kind === "project" ? `/dashboard/workspaces/${scope.workspaceId}/projects/${scope.projectId}` : "";
   const canAct = detail.allowedActions.comment;
   const resolve = async () => {
     const input = { resolved: !m.resolved };
@@ -1085,20 +1084,6 @@ function CommentItem({
               {c(`${m.resolved.by.name ?? "이름 없음"} 님이 완료로 표시`, `Marked done by ${m.resolved.by.name ?? "someone"}`)}
             </p>
           )}
-          {m.request && (
-            <p className="text-xs">
-              {c("요청으로 전환됨", "Converted to a request")}
-              {m.request.title && (
-                <>
-                  {" · "}
-                  <Link className="underline underline-offset-2" href={`${base}/requests/${m.request.requestId}`}>
-                    {m.request.title}
-                  </Link>
-                  {` · ${m.request.state}`}
-                </>
-              )}
-            </p>
-          )}
           {history && (
             <ol className="space-y-1 text-xs text-muted">
               {m.history.map((h) => (
@@ -1127,11 +1112,6 @@ function CommentItem({
                   {c("수정", "Edit")}
                 </button>
               )}
-              {m.canConvert && mode !== "convert" && (
-                <button type="button" className={textButton} onClick={() => setMode("convert")}>
-                  {c("요청으로 전환", "Convert to request")}
-                </button>
-              )}
               {m.revision > 1 && (
                 <button type="button" className={textButton} onClick={() => setHistory((v) => !v)}>
                   {c("수정 이력", "Edit history")}
@@ -1140,7 +1120,6 @@ function CommentItem({
             </div>
           )}
           {mode === "reply" && <ReplyForm scope={scope} token={token} detail={detail} parent={m} onDone={() => setMode("")} reload={reload} />}
-          {mode === "convert" && <ConvertForm scope={scope} comment={m} base={base} onDone={() => setMode("")} reload={reload} />}
           {mutation.error && <ReviewError code={mutation.error} />}
         </div>
       </div>
@@ -1255,57 +1234,6 @@ function ReplyForm({ scope, token, detail, parent, onDone, reload }: { scope: Re
   );
 }
 
-function ConvertForm({ scope, comment: m, base, onDone, reload }: { scope: ReviewScope; comment: ReviewComment; base: string; onDone: () => void; reload: () => Promise<void> }) {
-  const c = useCopy();
-  const [title, setTitle] = useState(m.body.slice(0, 60));
-  const mutation = useRun();
-  return (
-    <form
-      className="space-y-2 pt-1"
-      onSubmit={async (e) => {
-        e.preventDefault();
-        const input = { revision: m.revision, title };
-        const done = await mutation.run(input, (requestKey) =>
-          reviewsService.mutate(scope, "convert", { requestKey, ...input }, m.id),
-        );
-        if (done) onDone();
-        await reload();
-      }}
-    >
-      <p className="text-xs text-muted">
-        {c(
-          "원래 코멘트는 그대로 남고, 코멘트 원문과 영상 버전·시각이 요청 내용에 기록됩니다. 담당자가 아니면 요청 제안으로 등록됩니다.",
-          "The comment stays. Its text, version and time go into the request; non-leads create a proposal.",
-        )}
-      </p>
-      <label className="block space-y-1 text-[13px]">
-        <span>{c("요청 제목", "Request title")}</span>
-        <input className={inputClass} value={title} maxLength={100} onChange={(e) => setTitle(e.target.value)} />
-      </label>
-      <div className="flex gap-2">
-        <button type="submit" className={primaryClass} disabled={mutation.busy || !title.trim()}>
-          {c("요청 만들기", "Create request")}
-        </button>
-        <button type="button" className={secondaryClass} onClick={onDone}>
-          {c("취소", "Cancel")}
-        </button>
-      </div>
-      {mutation.error && <ReviewError code={mutation.error} />}
-      {mutation.error === "B2B_REVIEW_COMMENT_CONVERTED" && (
-        <p className="text-xs">
-          {c(
-            "요청이 이미 만들어졌을 수 있습니다. 중복으로 만들기 전에 ",
-            "A request may already have been created. Check the ",
-          )}
-          <Link className="underline" href={`${base}/requests`}>
-            {c("요청 목록", "requests list")}
-          </Link>
-          {c("을 확인하세요.", " before creating another.")}
-        </p>
-      )}
-    </form>
-  );
-}
 
 /**
  * 승인 (2026-10-08): one box, one question — "is this version good?". The

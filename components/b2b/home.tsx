@@ -37,6 +37,7 @@ import {
 import { ReviewWorkPanel } from "./review-work";
 import { OwnershipOffer } from "./ownership";
 import { LeaveTeam } from "./leave-team";
+import { MyDevices } from "./devices";
 const date = (value: string) =>
   new Intl.DateTimeFormat("ko-KR", {
     timeZone: "Asia/Seoul",
@@ -388,6 +389,7 @@ function ScopedHome({
           )}
         </Section>
       )}
+      {data && readable && <MyDevices />}
       {!status.allowedActions.manage && <LeaveTeam />}
     </TeamShell>
   );

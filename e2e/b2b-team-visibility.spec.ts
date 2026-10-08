@@ -58,9 +58,11 @@ test("V: team-wide project, publish → review on team home, private stays hidde
   await expect.poll(async () => (await json(request.get(`${root}/reviews`, { headers: member.headers }))).reviews.length, { timeout: 120_000 }).toBe(1);
   const reviewId = (await json(request.get(`${root}/reviews`, { headers: member.headers }))).reviews[0].id as string;
   expect((await request.get(`${root}/requests`, { headers: member.headers })).status()).toBe(403);
+  // The 등록된 결과 page retired (2026-10-08): its address, which older apps
+  // still open after a share, lands on the project's videos.
   await P.page.goto(`${base}/publications`);
-  await expect(P.page.getByRole("link", { name: "공개한 검토 보기", exact: true })).toBeVisible();
-  await expect(P.page.getByRole("button", { name: "지금 공개", exact: true })).toHaveCount(0);
+  await P.page.waitForURL((url) => url.pathname === base);
+  await expect(P.page.getByRole("link", { name: /첫 발행 결과/ }).first()).toBeVisible({ timeout: 30_000 });
   await shot(P.page, "publications-auto-published");
 
   // S04: a viewer (team role "reviewer") has no team home (2026-10-08): it

@@ -2,15 +2,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { projectSurfaces, projectTabs, visibilityChange } from "./visibility";
 
-test("a team viewer loads no work surface; participants keep their v1 surfaces", () => {
-  assert.deepEqual(projectSurfaces("viewer"), {
-    requests: false, requestWork: false, delivery: false, publications: false, people: false, app: false,
-  });
-  assert.deepEqual(projectSurfaces("reviewer"), {
-    requests: true, requestWork: true, delivery: true, publications: true, people: false, app: false,
-  });
+test("only working participants see a project's people", () => {
+  for (const role of ["viewer", "reviewer"] as const)
+    assert.deepEqual(projectSurfaces(role), { people: false });
   for (const role of ["lead", "producer"] as const)
-    assert.ok(Object.values(projectSurfaces(role)).every(Boolean));
+    assert.deepEqual(projectSurfaces(role), { people: true });
 });
 
 test("one confirm click changes visibility; the reason names the change", () => {

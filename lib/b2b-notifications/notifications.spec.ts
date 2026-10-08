@@ -85,7 +85,7 @@ test("destinations map to the screens that recheck access themselves", () => {
     r = randomUUID();
   assert.equal(
     href({ kind: "request", workspaceId: w, projectId: p, requestId: r }),
-    `/dashboard/workspaces/${w}/projects/${p}/requests/${r}`,
+    `/dashboard/workspaces/${w}/projects/${p}`,
   );
   assert.equal(
     href({ kind: "project_files", workspaceId: w, projectId: p }),
@@ -101,7 +101,7 @@ test("destinations map to the screens that recheck access themselves", () => {
   );
   assert.equal(
     href({ kind: "library", workspaceId: w }),
-    `/dashboard/workspaces/${w}/library`,
+    `/dashboard/workspaces/${w}/projects`,
   );
   // A review notice opens the exact round and version the exact-entry check pins.
   const v = randomUUID();

@@ -1,21 +1,7 @@
-import { TeamLibrary } from "@/components/b2b/library";
-export default async function Page({
-  searchParams,
-}: {
-  searchParams: Promise<{
-    version?: string | string[];
-    sourceProject?: string | string[];
-  }>;
-}) {
-  const query = await searchParams;
-  return (
-    <TeamLibrary
-      versionId={typeof query.version === "string" ? query.version : undefined}
-      sourceProjectId={
-        typeof query.sourceProject === "string"
-          ? query.sourceProject
-          : undefined
-      }
-    />
-  );
+import { redirect } from "next/navigation";
+
+// Retired 2026-10-08 (Figma-simple): files live in their projects.
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  redirect(`/dashboard/workspaces/${id}/projects`);
 }
