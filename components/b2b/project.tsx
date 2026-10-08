@@ -18,7 +18,6 @@ import {
   ConfirmDialog,
   Details,
   inputClass,
-  KeyValues,
   Notice,
   primaryClass,
   secondaryClass,
@@ -116,9 +115,12 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
     projectId: project.id,
   });
   const surfaces = projectSurfaces(project.role);
+  const settable = project.allowedActions.edit || project.allowedActions.changeVisibility;
   return (
     <TeamShell
       title={project.name}
+      // The brief, when there is one, is a line under the name — not a block.
+      description={project.brief || undefined}
       tabs={folderTabs(id, project, c)}
       actions={
         <>
@@ -132,14 +134,13 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
               {c("앱에서 작업하기", "Work in app")}
             </a>
           )}
-          {project.allowedActions.edit && (
+          {settable && (
             <button
               className={secondaryClass}
+              aria-pressed={editing}
               onClick={() => setEditing(!editing)}
             >
-              {editing
-                ? c("개요 보기", "View overview")
-                : c("개요 수정", "Edit overview")}
+              {editing ? c("영상 보기", "Back to videos") : c("설정", "Settings")}
             </button>
           )}
         </>
@@ -154,41 +155,25 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
           )}
         </Notice>
       )}
-      {editing && project.allowedActions.edit ? (
-        <ProjectEditor
-          key={project.id}
-          project={project}
-          onSaved={async () => {
-            setEditing(false);
-            await reload();
-          }}
-          onRefresh={reload}
-        />
-      ) : (
+      {/* 2026-10-08: a project is its videos. Name, brief, original
+          sharing and who sees it are settings, one button away. */}
+      {editing && settable ? (
         <>
-          {/* 2026-10-08: a folder opens on its videos. Requests, delivery
-              and registered results keep their routes, not a place here. */}
-          <ReviewList projectId={projectId} />
-          <Block title={c("작업 개요", "Brief")}>
-            <p className="max-w-3xl whitespace-pre-wrap break-words text-sm leading-6 text-muted">
-              {project.brief || c("등록된 개요가 없습니다.", "No brief yet.")}
-            </p>
-            <KeyValues
-              items={[
-                [
-                  c("원본 공유", "Original sharing"),
-                  project.shareOriginals
-                    ? c(
-                        "허용 · 다운로드는 참여자별 권한",
-                        "On · download per participant",
-                      )
-                    : c("허용 안 함", "Off"),
-                ],
-              ]}
+          {project.allowedActions.edit && (
+            <ProjectEditor
+              key={project.id}
+              project={project}
+              onSaved={async () => {
+                setEditing(false);
+                await reload();
+              }}
+              onRefresh={reload}
             />
-          </Block>
+          )}
           <VisibilitySection project={project} onChanged={reload} />
         </>
+      ) : (
+        <ReviewList projectId={projectId} />
       )}
     </TeamShell>
   );

@@ -34,7 +34,7 @@ export function CloudEntry({ workspaceId }: { workspaceId: string }) {
         <h2 className="text-sm font-medium">
           {enabled
             ? lang === "ko"
-              ? "팀 아카이브"
+              ? "콘텐츠 아카이브"
               : "Team archive"
             : t("team.cloudTitle")}
         </h2>
@@ -49,7 +49,7 @@ export function CloudEntry({ workspaceId }: { workspaceId: string }) {
             className={primaryClass}
             href={`/dashboard/workspaces/${workspaceId}/media`}
           >
-            {lang === "ko" ? "아카이브 열기" : "Open the archive"}
+            {lang === "ko" ? "콘텐츠 아카이브 열기" : "Open the content archive"}
           </Link>
         )}
       </div>

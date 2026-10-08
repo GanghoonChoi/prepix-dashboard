@@ -262,7 +262,9 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   await expect(O.page.getByText("1차 편집 검토", { exact: false })).toHaveCount(0);
   await O.close();
 
-  // Restricted share to an outsider: 7-day default, download off.
+  // Restricted share to an outsider: 7-day default, download off. Sharing
+  // opens from the review's 공유 button (2026-10-08).
+  await L.page.getByRole("button", { name: "공유", exact: true }).click();
   await L.page.getByLabel("공유받을 사람 이메일(쉼표·줄바꿈 구분, 최대 20명)", { exact: true }).fill(viewer.email);
   await L.page.getByRole("button", { name: "공유하기", exact: true }).click();
   const linkBox = L.page.getByLabel("공유 링크", { exact: true });
@@ -317,6 +319,7 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   ).toBe(403);
   // Revocation: no new playback URL afterwards.
   await L.page.reload();
+  await L.page.getByRole("button", { name: "공유", exact: true }).click();
   await L.page.getByLabel("회수 사유", { exact: true }).fill("잘못 보낸 공유");
   await L.page.getByRole("button", { name: "공유 회수", exact: true }).click();
   await expect(L.page.getByText("회수 사유: 잘못 보낸 공유", { exact: false })).toBeVisible();

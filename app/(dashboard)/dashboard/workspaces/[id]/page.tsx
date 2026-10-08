@@ -121,7 +121,7 @@ export default function Page() {
           [
             c("원본", "Originals"),
             archive ? String(files.length) : null,
-            c("아카이브 안", "in the archive"),
+            c("콘텐츠 아카이브 안", "in the content archive"),
           ] as [string, string | null, string],
         ]
       : []),
@@ -208,7 +208,7 @@ export default function Page() {
               href={`${base}/media`}
               className="text-[13px] text-muted underline-offset-4 hover:text-foreground hover:underline"
             >
-              {c("아카이브 열기", "Open archive")}
+              {c("콘텐츠 아카이브 열기", "Open content archive")}
             </Link>
           </div>
           {!archive ? (

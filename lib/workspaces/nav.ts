@@ -67,8 +67,8 @@ export function workspaceLinks(
         ? ([
             {
               href: `${base}/media`,
-              ko: "아카이브",
-              en: "Archive",
+              ko: "콘텐츠 아카이브",
+              en: "Content archive",
               group: "work",
               icon: "archive",
             },
@@ -131,8 +131,8 @@ export function workspaceLinks(
         ? ([
             {
               href: `${base}/media`,
-              ko: "기존 아카이브",
-              en: "Legacy archive",
+              ko: "콘텐츠 아카이브",
+              en: "Content archive",
               group: "work",
               icon: "archive",
             },
@@ -179,8 +179,8 @@ export function workspaceLinks(
       ? ([
           {
             href: `${base}/media`,
-            ko: "아카이브",
-            en: "Archive",
+            ko: "콘텐츠 아카이브",
+            en: "Content archive",
             group: "work",
             icon: "archive",
           },

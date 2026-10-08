@@ -204,7 +204,7 @@ test("B2B preparing gate, private projects, lost-response retry, role handoff an
     await expect(
       page.getByRole("heading", { name: "Private B2B project", exact: true }),
     ).toBeVisible();
-    await page.getByRole("button", { name: "개요 수정", exact: true }).click();
+    await page.getByRole("button", { name: "설정", exact: true }).click();
     await page
       .getByLabel("작업 개요", { exact: true })
       .fill("Changed after handoff");
@@ -225,7 +225,7 @@ test("B2B preparing gate, private projects, lost-response retry, role handoff an
     fixture({ workspaceId: team.id, action: "expire" });
     await page.reload();
     await expect(
-      page.getByRole("button", { name: "개요 수정", exact: true }),
+      page.getByRole("button", { name: "설정", exact: true }),
     ).toHaveCount(0);
     await expect(
       page.getByText("Changed after handoff", { exact: true }),
