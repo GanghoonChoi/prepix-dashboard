@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   Check,
   ChevronRight,
+  Share2,
   Download,
   Maximize,
   Pause,
@@ -14,6 +15,7 @@ import {
   VolumeX,
   X,
 } from "lucide-react";
+import { Sheet } from "@/components/ui";
 import { assertExactReviewEntry, checkExactReviewTarget, parseExactReviewTarget, type ExactReviewTarget } from "@/lib/b2b-reviews/exact-target";
 import { homeEnvironment } from "@/lib/b2b-home/home";
 import { useI18n } from "@/lib/i18n/context";
@@ -189,6 +191,9 @@ function ReviewScreen({
   const now = useRef(0);
   const [time, setTime] = useState(0);
   const [focused, setFocused] = useState<string | null>(null);
+  // 공유 (2026-10-08): showing this version to someone outside the team is
+  // one button at the top, like a review tool's Share, not a card below.
+  const [sharing, setSharing] = useState(false);
   const seek = useCallback((ms: number, commentId?: string) => {
     // Paused on the frame the feedback is about, not playing past it.
     const v = video.current;
@@ -224,7 +229,8 @@ function ReviewScreen({
           )}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <h1 className="min-w-0 break-words text-xl font-semibold tracking-tight">{data.review.title}</h1>
-            <StatusPill state={data.approval} c={c} />
+            {/* No approval asked is the normal case, not a status to show. */}
+            {data.approval !== "no_approver" && <StatusPill state={data.approval} c={c} />}
           </div>
           <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[13px] text-muted">
             <span>{`V${selected.ordinal} · ${c("회차", "Round")} ${selected.round}${current ? "" : ` · ${c("이전 검토(읽기 전용)", "Previous round (read-only)")}`}`}</span>
@@ -234,7 +240,9 @@ function ReviewScreen({
                 {data.approver.person.userId === data.currentUserId && c(" (나)", " (you)")}
               </span>
             )}
-            {data.audience && (
+            {/* Who sees it is worth a line only when it is not everyone in
+                the project: a chosen few, or outsiders added. */}
+            {data.audience && (data.review.audienceScope !== "project" || data.audience.length > 0) && (
               <span>{c("현재 검토 대상", "Current review audience")}: {data.review.audienceScope === "project"
                 ? c("프로젝트 내부 전체 공개", "Everyone internal on the project") + (data.audience.length ? c(" · 외부 ", " · external ") + data.audience.map((p) => p.name ?? unnamed).join(", ") : "")
                 : data.audience.map((p) => p.name ?? unnamed).join(", ")}</span>
@@ -259,6 +267,12 @@ function ReviewScreen({
             </nav>
           )}
           {scope.kind === "project" && <VersionDownload key={selected.versionId} scope={scope} versionId={selected.versionId} />}
+          {scope.kind === "project" && !exactTarget && (data.allowedActions.share || data.allowedActions.setAudience) && (
+            <button type="button" className={secondaryClass} onClick={() => setSharing(true)}>
+              <Share2 size={14} strokeWidth={1.75} aria-hidden="true" />
+              {c("공유", "Share")}
+            </button>
+          )}
           {scope.kind === "share" && data.allowedActions.download && <SharedDownload scope={scope} token={token ?? null} />}
         </div>
       </header>
@@ -309,12 +323,19 @@ function ReviewScreen({
           />
         </aside>
         {/* P (2026-10-07): the publisher of this item shares it outside the team too (allowedActions.share). */}
-        {!exactTarget && scope.kind === "project" && (data.allowedActions.setAudience || data.allowedActions.setApprover || data.allowedActions.replaceVersion || data.allowedActions.share) && (
+        {!exactTarget && scope.kind === "project" && (data.allowedActions.setAudience || data.allowedActions.replaceVersion) && (
           <div className="min-w-0 pt-2 lg:col-start-1">
             <LeadTools scope={scope} detail={data} reload={load} />
           </div>
         )}
       </div>
+      {sharing && scope.kind === "project" && (
+        <Sheet title={c("공유", "Share")} onClose={() => setSharing(false)}>
+          <div className="p-5">
+            <Shares scope={scope} detail={data} c={c} />
+          </div>
+        </Sheet>
+      )}
     </div>
   );
 }
@@ -1572,7 +1593,6 @@ function LeadTools({
   const rare = detail.allowedActions.setAudience || detail.allowedActions.replaceVersion;
   return (
     <section className="space-y-3" aria-label={c("검토 관리", "Review tools")}>
-      <Shares scope={scope} detail={detail} c={c} />
       {/* Who sees this version and swapping the video: rare, so folded. */}
       {rare && (
         <details className="group">
@@ -1704,12 +1724,11 @@ function Shares({
   const mutation = useRun();
   const emails = recipients.split(/[\s,;]+/).map((e) => e.trim()).filter(Boolean);
   return (
-    <section className={`${card} min-w-0 space-y-3 p-4`} aria-label={c("검토 공유", "Review sharing")}>
-      <h2 className="text-[13px] font-medium">{c("검토 공유", "Review sharing")}</h2>
-      <p className="-mt-2 text-xs leading-5 text-muted">
+    <section className="min-w-0 space-y-4" aria-label={c("검토 공유", "Review sharing")}>
+      <p className="text-[13px] leading-6 text-muted">
         {c(
-          `현재 회차 V${detail.rounds.find((r) => r.current)?.ordinal}에 고정되며, 지정한 이메일 계정만 열 수 있습니다.`,
-          "Shares the current round's version with the signed-in invited accounts only.",
+          `팀 밖의 사람에게 이 영상(V${detail.rounds.find((r) => r.current)?.ordinal})을 보여줍니다. 받는 사람은 그 이메일로 로그인해서 보고 코멘트할 수 있습니다.`,
+          `Show this video (V${detail.rounds.find((r) => r.current)?.ordinal}) to people outside the team. They sign in with that email to watch and comment.`,
         )}
       </p>
       {detail.allowedActions.share ? (

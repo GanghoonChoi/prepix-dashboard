@@ -1,6 +1,7 @@
 "use client";
 import { OwnershipControls } from "@/components/b2b/ownership";
 import { LeaveTeam } from "@/components/b2b/leave-team";
+import { AccessDenied } from "@/components/b2b/shared";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n/context";
@@ -80,6 +81,9 @@ export default function Page() {
       setBusy(false);
     }
   }
+  // Owners and admins only. Everyone else leaves the team, or answers an
+  // ownership offer, from the team home.
+  if (!data.canManage) return <AccessDenied code="B2B_TEAM_MANAGER_REQUIRED" />;
   if (!data.managementEnabled)
     return (
       <TeamShell title={c("워크스페이스 설정", "Workspace settings")}>
@@ -107,96 +111,78 @@ export default function Page() {
               : c("팀 정보", "Team details")
           }
         >
-          {!data.canManage ? (
-            <KeyValues
-              items={[
-                [c("워크스페이스 이름", "Workspace name"), data.workspace.name],
-                ...(data.workspace.description
-                  ? [
-                      [
-                        c("소개", "Description"),
-                        <span key="description" className="whitespace-pre-wrap">
-                          {data.workspace.description}
-                        </span>,
-                      ] as [string, React.ReactNode],
-                    ]
-                  : []),
-              ]}
-            />
-          ) : (
-            <form
-              className="max-w-xl space-y-4"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                await run(
-                  async () => {
-                    await workspaceService.settings(id, form);
-                    setDraft(null);
-                  },
-                  c("팀 정보를 저장했습니다.", "Team details saved."),
-                );
-              }}
-            >
-              <label className="block space-y-1.5 text-[13px]">
-                <span>{c("워크스페이스 이름", "Workspace name")}</span>
-                <input
-                  className={inputClass}
-                  maxLength={b2b?.enrolled ? 100 : 80}
-                  required
-                  disabled={!data.canManage || busy}
-                  value={form.name}
-                  onChange={(e) => setDraft({ ...form, name: e.target.value })}
-                />
-              </label>
-              <label className="block space-y-1.5 text-[13px]">
-                <span>{c("소개", "Description")}</span>
-                <textarea
-                  className={`${inputClass} min-h-24 resize-y`}
-                  maxLength={500}
-                  disabled={!data.canManage || busy}
-                  value={form.description}
-                  onChange={(e) =>
-                    setDraft({ ...form, description: e.target.value })
-                  }
-                />
-              </label>
-              {conflicted && (
-                <p role="status" className="text-sm text-muted">
-                  {c(
-                    "다른 관리자가 설정을 변경했습니다. 최신 정보 불러오기로 다시 시작하세요.",
-                    "Another administrator updated the settings. Load the latest details before editing again.",
-                  )}
-                </p>
-              )}
-              {/* The save button appears when there is something to save. A
+          <form
+            className="max-w-xl space-y-4"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              await run(
+                async () => {
+                  await workspaceService.settings(id, form);
+                  setDraft(null);
+                },
+                c("팀 정보를 저장했습니다.", "Team details saved."),
+              );
+            }}
+          >
+            <label className="block space-y-1.5 text-[13px]">
+              <span>{c("워크스페이스 이름", "Workspace name")}</span>
+              <input
+                className={inputClass}
+                maxLength={b2b?.enrolled ? 100 : 80}
+                required
+                disabled={busy}
+                value={form.name}
+                onChange={(e) => setDraft({ ...form, name: e.target.value })}
+              />
+            </label>
+            <label className="block space-y-1.5 text-[13px]">
+              <span>{c("소개", "Description")}</span>
+              <textarea
+                className={`${inputClass} min-h-24 resize-y`}
+                maxLength={500}
+                disabled={busy}
+                value={form.description}
+                onChange={(e) =>
+                  setDraft({ ...form, description: e.target.value })
+                }
+              />
+            </label>
+            {conflicted && (
+              <p role="status" className="text-sm text-muted">
+                {c(
+                  "다른 관리자가 설정을 변경했습니다. 최신 정보 불러오기로 다시 시작하세요.",
+                  "Another administrator updated the settings. Load the latest details before editing again.",
+                )}
+              </p>
+            )}
+            {/* The save button appears when there is something to save. A
               permanently greyed-out button is a control that has never once
               been usable in the reader's experience of the page. */}
-              {data.canManage && (draft || conflicted) && (
-                <div className="flex flex-wrap gap-2">
+            {(draft || conflicted) && (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className={primaryClass}
+                  disabled={busy || !draft || !form.name.trim() || conflicted}
+                >
+                  {c("변경 저장", "Save changes")}
+                </button>
+                {(draft || conflicted) && (
                   <button
-                    className={primaryClass}
-                    disabled={busy || !draft || !form.name.trim() || conflicted}
+                    type="button"
+                    className={secondaryClass}
+                    disabled={busy}
+                    onClick={async () => {
+                      await reload();
+                      setDraft(null);
+                      setError("");
+                    }}
                   >
-                    {c("변경 저장", "Save changes")}
+                    {c("최신 정보 불러오기", "Load latest details")}
                   </button>
-                  {(draft || conflicted) && (
-                    <button
-                      type="button"
-                      className={secondaryClass}
-                      disabled={busy}
-                      onClick={async () => {
-                        await reload();
-                        setDraft(null);
-                        setError("");
-                      }}
-                    >
-                      {c("최신 정보 불러오기", "Load latest details")}
-                    </button>
-                  )}
-                </div>
-              )}
-            </form>
-          )}
+                )}
+              </div>
+            )}
+          </form>
         </Block>
         {!personal && b2b?.enrolled && <OwnershipControls />}
         {!personal && !b2b?.enrolled && (
@@ -237,7 +223,10 @@ export default function Page() {
                       disabled={busy || !!confirming}
                       onClick={() => setConfirm("accept")}
                     >
-                      {c("이전 내용 확인 후 수락", "Review and accept ownership")}
+                      {c(
+                        "이전 내용 확인 후 수락",
+                        "Review and accept ownership",
+                      )}
                     </button>
                     <button
                       className={secondaryClass}

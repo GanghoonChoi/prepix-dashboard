@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Clapperboard } from "lucide-react";
+import { ChevronRight, Clapperboard, LayoutGrid, List } from "lucide-react";
 import { rowClass, tableClass, tdClass, thClass } from "@/components/ui";
 import type {
   ReviewApprovalState,
@@ -584,6 +584,7 @@ function ReviewListInner({ projectId }: { projectId: string }) {
   const mutation = useRun();
   const [audience, setAudience] = useState<AudienceSelection>(projectAudience);
   const [audienceReady, setAudienceReady] = useState(false);
+  const [view, setView] = useVideoView();
   if (!list) return error ? <ReviewError code={error} retry={() => void load()} /> : <TeamLoading />;
   const base = `/dashboard/workspaces/${team}/projects/${projectId}`;
   return (
@@ -611,11 +612,14 @@ function ReviewListInner({ projectId }: { projectId: string }) {
             {c("검색", "Search")}
           </button>
         </form>
-        {list.allowedActions.create && (
-          <button type="button" className={secondaryClass} onClick={() => setCreating((v) => !v)}>
-            {c("새 검토", "New review")}
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          <ViewToggle view={view} onChange={setView} />
+          {list.allowedActions.create && (
+            <button type="button" className={secondaryClass} onClick={() => setCreating((v) => !v)}>
+              {c("새 검토", "New review")}
+            </button>
+          )}
+        </div>
       </div>
       {creating && list.allowedActions.create && (
         <section className="max-w-3xl space-y-4 rounded-lg border border-border p-5" aria-label={c("새 검토", "New review")}>
@@ -651,6 +655,27 @@ function ReviewListInner({ projectId }: { projectId: string }) {
           title={query ? c("검색 결과가 없습니다.", "No matching videos.") : c("아직 발행된 영상이 없습니다.", "Nothing published yet.")}
           description={query ? undefined : c("앱에서 발행한 영상이 여기에 모입니다.", "Videos you publish from the app gather here.")}
         />
+      ) : view === "grid" ? (
+        <ul className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 xl:grid-cols-4" aria-label={c("영상 목록", "Videos")}>
+          {list.reviews.map((r) => (
+            <li key={r.id}>
+              <Link href={`${base}/reviews/${r.id}`} className="group block outline-none">
+                <Poster url={r.posterUrl} className="aspect-video w-full rounded-lg ring-offset-2 ring-offset-background transition-shadow group-hover:shadow-md group-focus-visible:ring-2 group-focus-visible:ring-foreground" />
+                <span className="mt-2 flex items-start justify-between gap-2">
+                  <span className="min-w-0">
+                    <span className="block truncate text-[13px] font-medium">{r.title}</span>
+                    <span className="block truncate text-xs text-muted tabular-nums">
+                      V{r.ordinal}
+                      {r.commentCount > 0 && ` · ${c(`코멘트 ${r.commentCount}`, `${r.commentCount} comments`)}`}
+                    </span>
+                  </span>
+                  {/* No approval asked is the normal case, not a status. */}
+                  {r.approval !== "no_approver" && <Badge>{c(...approvalCopy[r.approval])}</Badge>}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
       ) : (
         <table className={`${tableClass} table-fixed`}>
           <thead>
@@ -673,9 +698,7 @@ function ReviewListInner({ projectId }: { projectId: string }) {
               >
                 <td className={tdClass}>
                   <Link href={`${base}/reviews/${r.id}`} className="flex min-w-0 items-center gap-3 outline-none focus-visible:underline">
-                    <span className="grid size-8 shrink-0 place-items-center rounded-md bg-surface-secondary text-muted">
-                      <Clapperboard size={15} strokeWidth={1.75} aria-hidden="true" />
-                    </span>
+                    <Poster url={r.posterUrl} className="h-9 w-16 shrink-0 rounded-md" />
                     <span className="min-w-0">
                       <span className="block truncate font-medium">{r.title}</span>
                       {r.commentCount > 0 && (
@@ -694,7 +717,11 @@ function ReviewListInner({ projectId }: { projectId: string }) {
                   {r.publisher?.name ?? (r.publisher ? c("이름 없음", "Unnamed") : "—")}
                 </td>
                 <td className={tdClass}>
-                  <Badge>{c(...approvalCopy[r.approval])}</Badge>
+                  {r.approval === "no_approver" ? (
+                    <span className="text-muted">—</span>
+                  ) : (
+                    <Badge>{c(...approvalCopy[r.approval])}</Badge>
+                  )}
                 </td>
                 <td className={`${tdClass} text-right text-muted`}>
                   <ChevronRight size={16} strokeWidth={1.75} aria-hidden="true" className="ml-auto" />
@@ -722,3 +749,66 @@ function ReviewListInner({ projectId }: { projectId: string }) {
   );
 }
 
+/** A video's thumbnail (its review poster), or a quiet placeholder while
+ * there is none yet. Decorative: the title beside it names the video. */
+function Poster({ url, className }: { url?: string | null; className: string }) {
+  const [broken, setBroken] = useState(false);
+  return (
+    <span className={`relative grid place-items-center overflow-hidden bg-surface-secondary text-muted ${className}`}>
+      {url && !broken ? (
+        // eslint-disable-next-line @next/next/no-img-element -- signed, short-lived storage URL
+        <img src={url} alt="" loading="lazy" className="absolute inset-0 size-full object-cover" onError={() => setBroken(true)} />
+      ) : (
+        <Clapperboard size={16} strokeWidth={1.5} aria-hidden="true" />
+      )}
+    </span>
+  );
+}
+
+type VideoView = "grid" | "list";
+/** Grid or list, remembered per browser (a convenience, never required). */
+function useVideoView(): [VideoView, (v: VideoView) => void] {
+  const [view, setView] = useState<VideoView>(() => {
+    try {
+      return typeof window !== "undefined" && window.localStorage.getItem("prepix.videos.view") === "list" ? "list" : "grid";
+    } catch {
+      return "grid";
+    }
+  });
+  return [
+    view,
+    (next) => {
+      setView(next);
+      try {
+        window.localStorage.setItem("prepix.videos.view", next);
+      } catch {
+        /* private mode: the choice lasts this page */
+      }
+    },
+  ];
+}
+function ViewToggle({ view, onChange }: { view: VideoView; onChange: (v: VideoView) => void }) {
+  const c = useCopy();
+  return (
+    <span className="inline-flex rounded-md border border-border p-0.5" role="group" aria-label={c("보기 방식", "View")}>
+      {(
+        [
+          ["grid", LayoutGrid, c("격자", "Grid")],
+          ["list", List, c("리스트", "List")],
+        ] as const
+      ).map(([value, Icon, label]) => (
+        <button
+          key={value}
+          type="button"
+          aria-pressed={view === value}
+          aria-label={label}
+          title={label}
+          onClick={() => onChange(value)}
+          className="grid size-7 place-items-center rounded text-muted transition-colors hover:text-foreground aria-pressed:bg-surface-secondary aria-pressed:text-foreground"
+        >
+          <Icon size={14} strokeWidth={1.75} aria-hidden="true" />
+        </button>
+      ))}
+    </span>
+  );
+}

@@ -19,10 +19,8 @@ import {
   type WorkspaceDetail,
 } from "@/lib/api/services/workspace.service";
 import { useI18n } from "@/lib/i18n/context";
-import { useWorkspace } from "@/components/workspaces/workspace-context";
 import { bytes } from "@/lib/workspaces/upload";
 import { contentGone } from "@/lib/workspaces/errors";
-import { isPersonal } from "@/lib/workspaces/kind";
 import { type Transfer } from "@/lib/workspaces/queue";
 import { useUploadQueue } from "@/lib/workspaces/use-upload-queue";
 import {
@@ -33,6 +31,7 @@ import {
   type ArchiveView,
 } from "@/lib/workspaces/archive-view";
 import { posterKey, readPosters } from "@/lib/workspaces/poster-cache";
+import { useAutoPosters } from "@/lib/workspaces/auto-poster";
 import { buildAppOpenUrl } from "@/lib/workspaces/app-link";
 import {
   TeamShell,
@@ -84,7 +83,6 @@ export default function MediaPage({
 
 function Content({ id }: { id: string }) {
   const { lang } = useI18n();
-  const legacy = !!useWorkspace()?.b2b?.enrolled;
   const c = (ko: string, en: string) => (lang === "ko" ? ko : en);
   const [data, setData] = useState<ArchiveDetail | null>(null);
   const [team, setTeam] = useState<WorkspaceDetail | null>(null);
@@ -289,7 +287,6 @@ function Content({ id }: { id: string }) {
     setConfirm({ label: cancelUploadLabel, run: () => queue.discard(entry) });
   }
 
-  const personal = !!team && isPersonal(team.workspace);
   // F06.2: the workspace id only — D14 removes the cloud project, so there is
   // nothing left to name but the archive's workspace. No token, no path, no
   // locale.
@@ -327,18 +324,29 @@ function Content({ id }: { id: string }) {
   const preview = useOverlayState();
   const [previewIndex, setPreviewIndex] = useState(0);
   const [posters, setPosters] = useState<Map<string, string>>(new Map());
-  // Posters only matter to the grid, so nothing is read from the store until
-  // somebody switches to it.
+  // Both views show thumbnails (2026-10-08). The ones this browser already
+  // has come first; only then are the missing ones made, so a cached poster
+  // is never fetched again.
+  const [postersRead, setPostersRead] = useState<Asset[] | null>(null);
   useEffect(() => {
-    if (view !== "grid" || !files.length) return;
+    if (!files.length) return;
     let live = true;
     void readPosters(files.map((asset) => posterKey(asset))).then((found) => {
-      if (live && found.size) setPosters((prev) => new Map([...prev, ...found]));
+      if (!live) return;
+      if (found.size) setPosters((prev) => new Map([...prev, ...found]));
+      setPostersRead(files);
     });
     return () => {
       live = false;
     };
-  }, [view, files]);
+  }, [files]);
+  useAutoPosters({
+    workspaceId: id,
+    assets: files,
+    posters,
+    enabled: !trash && !!data?.canDownload && postersRead === files,
+    onPoster: (key, dataUrl) => setPosters((prev) => new Map(prev).set(key, dataUrl)),
+  });
 
   function openPreview(asset: Asset) {
     const at = playable.findIndex((row) => row.id === asset.id);
@@ -382,14 +390,7 @@ function Content({ id }: { id: string }) {
 
   return (
     <TeamShell
-      title={
-        personal
-          ? c("내 아카이브", "Your archive")
-          : // A B2B team keeps its pre-B2B files here; the nav names it so.
-            legacy
-            ? c("기존 아카이브", "Legacy archive")
-            : c("팀 아카이브", "Team archive")
-      }
+      title={c("콘텐츠 아카이브", "Content archive")}
       actions={
         data && (
           <>
@@ -584,7 +585,7 @@ function Content({ id }: { id: string }) {
                 {/* Folders and the trash are a few times a week, not every
                     visit — one menu instead of two more buttons. */}
                 {data.canEdit && !trash && (
-                  <RowMenu label={c("아카이브 작업", "Archive actions")}>
+                  <RowMenu label={c("콘텐츠 아카이브 작업", "Content archive actions")}>
                     <RowMenuItem
                       disabled={queue.busy}
                       onClick={() => setShowFolder(true)}
@@ -741,7 +742,7 @@ function Content({ id }: { id: string }) {
                           "Drop files here or choose Upload originals.",
                         )
                       : c(
-                          "아카이브에 원본이 추가되면 여기에 표시됩니다.",
+                          "콘텐츠 아카이브에 원본이 추가되면 여기에 표시됩니다.",
                           "Originals added to this archive will appear here.",
                         )
                 }
@@ -759,6 +760,7 @@ function Content({ id }: { id: string }) {
               <AssetList
                 folders={trash ? [] : subfolders}
                 assets={files}
+                posters={posters}
                 sort={sort}
                 onSort={(key) => setSort((prev) => nextSort(prev, key))}
                 onOpenFolder={(folder) => setPath([...path, folder])}
