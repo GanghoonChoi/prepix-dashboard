@@ -482,6 +482,7 @@ function useTeam(workspaceId: string) {
   }, [reload]);
   return {
     product: commerce?.configured ? commerce.product : null,
+    paid: !!(commerce?.configured && commerce.currentPeriod),
     held,
     reload,
   };
@@ -514,8 +515,9 @@ export function InviteStep({
   const [failed, setFailed] = useState<string[]>([]);
   const taken = (held ?? []).map((row) => row.email);
   const { emails, invalid } = parseEmails(text, self, taken);
-  const people = taken.length + emails.length;
-  const plan = product ? seatPlan(product, people) : null;
+  // Every address typed here asks for a seat; a held one may not.
+  const seated = (held ?? []).filter((row) => row.assignSeat).length + emails.length;
+  const plan = product ? seatPlan(product, seated) : null;
   // `onPreview` is a state setter, so it is stable; the strings keep the
   // effect from firing on every render.
   const everyone = [...taken, ...emails].join(",");
@@ -644,8 +646,8 @@ export function InviteStep({
         <p className="flex flex-wrap items-baseline gap-x-2 text-sm tabular-nums">
           <span>
             {copy(
-              `You + ${people} → ${plan.seats} seats · ${won(plan.supplyKrw)}/month (excl. VAT)`,
-              `나 포함 ${1 + people}명 → ${plan.seats}석 · 월 ${won(plan.supplyKrw)} (VAT 별도)`,
+              `You + ${seated} → ${plan.seats} seats · ${won(plan.supplyKrw)}/month (excl. VAT)`,
+              `나 포함 ${1 + seated}명 → ${plan.seats}석 · 월 ${won(plan.supplyKrw)} (VAT 별도)`,
             )}
           </span>
           {plan.seats === product.base.seats && (
@@ -670,15 +672,20 @@ export function InviteStep({
 export function PayStep({
   workspaceId,
   onLater,
+  onPaid,
   onPreview,
 }: {
   workspaceId: string;
   onLater: () => void;
+  onPaid: () => void;
   onPreview: (update: PreviewUpdate) => void;
 }) {
   const copy = useCopy();
-  const { product, held } = useTeam(workspaceId);
-  const plan = product && held ? seatPlan(product, held.length) : null;
+  const { product, paid, held } = useTeam(workspaceId);
+  const plan =
+    product && held
+      ? seatPlan(product, held.filter((row) => row.assignSeat).length)
+      : null;
   const people = (held ?? []).map((row) => row.email).join(",");
   const loaded = held !== null;
   const seatCount = plan?.seats ?? 0;
@@ -703,6 +710,25 @@ export function PayStep({
         {[0, 1, 2, 3].map((i) => (
           <div key={i} className="h-5 animate-pulse rounded-md bg-surface-secondary" />
         ))}
+      </div>
+    );
+  // Coming back here after paying must never offer to pay again.
+  if (paid)
+    return (
+      <div className="space-y-6">
+        <p role="status" className="text-sm leading-6">
+          {copy(
+            "This team is already paid for. Invitations go out by email.",
+            "이미 결제한 팀이에요. 초대한 팀원에게는 메일이 발송돼요.",
+          )}
+        </p>
+        <StepActions
+          primary={
+            <button type="button" className={primaryButton} onClick={onPaid}>
+              {copy("Next", "다음")}
+            </button>
+          }
+        />
       </div>
     );
   if (!product || !plan)

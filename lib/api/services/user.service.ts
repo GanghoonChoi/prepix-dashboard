@@ -30,6 +30,20 @@ export const userService = {
 
   updateProfile: async (data: Record<string, unknown>) => {
     const response = await apiClient.patch("/users/profile", data);
+    // The sign-in redirect reads useType from the cached account
+    // (lib/home.ts landing); keep it in step with what was just saved.
+    if (typeof data.useType === "string") {
+      try {
+        const cached = JSON.parse(localStorage.getItem("userInfo") ?? "null");
+        if (cached)
+          localStorage.setItem(
+            "userInfo",
+            JSON.stringify({ ...cached, useType: data.useType }),
+          );
+      } catch {
+        // A cache, nothing more.
+      }
+    }
     return response.data.data;
   },
 

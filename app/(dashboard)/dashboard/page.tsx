@@ -52,6 +52,7 @@ export default function DashboardPage() {
   // The cached userInfo predates the answer; ask the server once.
   const [unanswered, setUnanswered] = useState(false);
   useEffect(() => {
+    if (process.env.NEXT_PUBLIC_START_ONBOARDING !== "1") return;
     void userService
       .getProfile()
       .then((value) => setUnanswered(!value.useType))

@@ -206,7 +206,7 @@ function ScopedHome({
                 ? held > 0
                   ? c(
                       `결제하면 ${held}명에게 초대가 발송됩니다.`,
-                      `Pay to send invitations to ${held} people.`,
+                      `Pay to send ${held === 1 ? "1 invitation" : `${held} invitations`}.`,
                     )
                   : c(
                       "첫 이용권 반영 전에는 이용기간이 시작되지 않습니다.",

@@ -56,6 +56,9 @@ export function StartExperience() {
   const [signedIn, setSignedIn] = useState(false);
   const [list, setList] = useState<WorkspaceList | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  // Until the profile answers, the step is unknown: a returning user would
+  // otherwise see the first question flash before it is skipped.
+  const [profileSettled, setProfileSettled] = useState(false);
   const [status, setStatus] = useState<"loading" | "ready" | "error">(
     "loading",
   );
@@ -132,7 +135,8 @@ export function StartExperience() {
     void userService
       .getProfile()
       .then((value) => active && setProfile(value))
-      .catch(() => undefined);
+      .catch(() => undefined)
+      .finally(() => active && setProfileSettled(true));
     return () => {
       active = false;
     };
@@ -164,6 +168,7 @@ export function StartExperience() {
   }, [signedIn, intent, list]);
 
   const site = `https://www.prepix.ai${ko ? "/ko" : ""}`;
+  const settling = signedIn && (status === "loading" || !profileSettled);
   if (!state)
     return (
       <main className="p-10" role="status">
@@ -308,7 +313,7 @@ export function StartExperience() {
         />
       </div>
     );
-  else if (status === "loading")
+  else if (settling)
     body = (
       <div className="space-y-3" role="status" aria-label={copy("Loading your workspace", "워크스페이스를 불러오는 중")}>
         {[0, 1, 2].map((i) => (
@@ -413,6 +418,7 @@ export function StartExperience() {
       <PayStep
         workspaceId={team.id}
         onPreview={setDraft}
+        onPaid={() => go({ step: "app" })}
         onLater={() => window.location.assign(`/dashboard/workspaces/${team.id}`)}
       />
     );
@@ -427,7 +433,7 @@ export function StartExperience() {
     );
   else if (step === "edit") body = <EditStep homeHref={home} helpHref={`${site}/contact`} />;
 
-  const canGoBack = signedIn && position > 0 && status === "ready";
+  const canGoBack = signedIn && position > 0 && !settling;
 
   return (
     <MotionConfig reducedMotion="user">
@@ -465,7 +471,7 @@ export function StartExperience() {
               </div>
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
-                  key={`${step}-${status}-${signedIn}`}
+                  key={`${step}-${status}-${signedIn}-${settling}`}
                   className="flex flex-1 flex-col py-6 lg:justify-center lg:py-8"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -473,6 +479,12 @@ export function StartExperience() {
                   transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
                 >
                   <div className="mx-auto w-full max-w-[440px] space-y-8">
+                    {settling ? (
+                      <div className="space-y-3" aria-hidden="true">
+                        <div className="h-8 w-3/4 animate-pulse rounded-lg bg-surface-secondary" />
+                        <div className="h-4 w-1/2 animate-pulse rounded bg-surface-secondary" />
+                      </div>
+                    ) : (
                     <div className="space-y-2">
                       <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-[28px] sm:leading-9">
                         {signedIn
@@ -485,6 +497,7 @@ export function StartExperience() {
                         </p>
                       )}
                     </div>
+                    )}
                     {body}
                   </div>
                 </motion.div>

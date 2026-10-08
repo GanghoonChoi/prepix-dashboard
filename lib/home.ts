@@ -7,10 +7,13 @@ import { workspaceService } from "./api/services/workspace.service";
  */
 export function pickHome(
   useType: string | null | undefined,
-  rows: readonly { id: string; type?: string }[],
+  rows: readonly { id: string; type?: string; suspendedAt?: string | null }[],
 ) {
+  // A suspended membership opens onto the access-denied screen; never land there.
   const team =
-    useType === "team" ? rows.find((row) => !isPersonal(row)) : undefined;
+    useType === "team"
+      ? rows.find((row) => !isPersonal(row) && !row.suspendedAt)
+      : undefined;
   return team ? `/dashboard/workspaces/${team.id}` : "/dashboard";
 }
 
