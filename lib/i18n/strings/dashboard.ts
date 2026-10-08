@@ -31,7 +31,7 @@ export const dashboard: Record<Lang, Record<string, string>> = {
     "dashboard.createTeam": "Create a team",
     "dashboard.createTeamHint": "Work together with colleagues",
     "dashboard.recentUploads": "Recent uploads",
-    "dashboard.openArchive": "Open archive",
+    "dashboard.openArchive": "Open content archive",
     "dashboard.noUploads": "Nothing uploaded yet. Upload from the desktop app and it shows up here.",
   },
   ko: {
@@ -63,7 +63,7 @@ export const dashboard: Record<Lang, Record<string, string>> = {
     "dashboard.createTeam": "팀 만들기",
     "dashboard.createTeamHint": "동료와 함께 작업",
     "dashboard.recentUploads": "최근 업로드",
-    "dashboard.openArchive": "아카이브 열기",
+    "dashboard.openArchive": "콘텐츠 아카이브 열기",
     "dashboard.noUploads": "아직 업로드한 영상이 없어요. 데스크톱 앱에서 올리면 여기에 보여요.",
   },
 };

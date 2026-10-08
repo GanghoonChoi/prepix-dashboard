@@ -62,7 +62,7 @@ test("a rejected file does not cancel the batch and the rest still upload", asyn
   // The archive is the workspace's whole surface now — no project to create
   // or open first.
   await expect(
-    page.getByRole("heading", { name: "팀 아카이브", level: 1 })
+    page.getByRole("heading", { name: "콘텐츠 아카이브", level: 1 })
   ).toBeVisible();
 
   await page.locator('input[type="file"]').setInputFiles([

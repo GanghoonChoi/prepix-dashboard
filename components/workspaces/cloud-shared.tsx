@@ -79,7 +79,7 @@ const messages: Record<string, [string, string]> = {
     "Only workspace owners and admins can change visibility. You can still rename and archive this project.",
   ],
   TEAM_ARCHIVE_DISABLED: [
-    "이 환경에서는 팀 아카이브를 아직 사용할 수 없습니다.",
+    "이 환경에서는 콘텐츠 아카이브를 아직 사용할 수 없습니다.",
     "The team archive is not enabled in this environment.",
   ],
   TEAM_UPLOADS_UNAVAILABLE: [

@@ -88,6 +88,9 @@ export type RevisionMutation = Mutation & { revision: number };
 /** The team's "기본" folder (P, 2026-10-07): created on first use by an
  * internal member (who becomes its lead), one per team, team-visible. */
 export type DefaultFolder = { projectId: string; name: string };
+/** The team project that mirrors one project in the desktop app (2026-10-08):
+ * the app's project id, and its current name. */
+export type AppProject = { appProjectId: string; name: string };
 export type CreateProject = Mutation & {
   name: string;
   brief?: string;
@@ -1804,6 +1807,8 @@ export type ReviewSummary = {
   publisher: ReviewPerson;
   /** Comments on the rounds this viewer can open. */
   commentCount: number;
+  /** The version's thumbnail (0095), short-lived; null until made or when this viewer cannot open it. */
+  posterUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 };

@@ -1,5 +1,5 @@
 "use client";
-import { ChevronDown, ChevronUp, FolderClosed, Play } from "lucide-react";
+import { ChevronDown, ChevronUp, FolderClosed, Play, Video } from "lucide-react";
 import type { Asset, Folder } from "@/lib/api/services/cloud.service";
 import { useI18n } from "@/lib/i18n/context";
 import { bytes } from "@/lib/workspaces/upload";
@@ -13,6 +13,7 @@ import {
   type ArchiveSort,
   type ArchiveSortKey,
 } from "@/lib/workspaces/archive-view";
+import { posterKey } from "@/lib/workspaces/poster-cache";
 import { AssetActions, type ArchiveHandlers } from "./asset-actions";
 
 /**
@@ -77,6 +78,7 @@ function SortHeader({
 export function AssetList({
   folders,
   assets,
+  posters,
   sort,
   onSort,
   onOpenFolder,
@@ -86,6 +88,8 @@ export function AssetList({
 }: {
   folders: Folder[];
   assets: Asset[];
+  /** Poster data URLs by `posterKey` (thumbnail beside the name). */
+  posters: Map<string, string>;
   sort: ArchiveSort;
   onSort: (key: ArchiveSortKey) => void;
   onOpenFolder: (folder: Folder) => void;
@@ -156,8 +160,16 @@ export function AssetList({
                 key={asset.id}
                 className="border-b border-border align-top transition-colors hover:bg-surface"
               >
-                <td className="py-3.5 pr-4">
-                  <div className="flex items-start gap-2">
+                <td className="py-3 pr-4">
+                  <div className="flex items-center gap-3">
+                    <span className="relative grid h-9 w-16 shrink-0 place-items-center overflow-hidden rounded-md bg-surface-secondary text-muted ring-1 ring-border">
+                      {posters.get(posterKey(asset)) ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- data URL from this browser's cache
+                        <img src={posters.get(posterKey(asset))} alt="" className="size-full object-cover" loading="lazy" decoding="async" />
+                      ) : (
+                        <Video size={15} strokeWidth={1.5} aria-hidden="true" />
+                      )}
+                    </span>
                     {playable ? (
                       <button
                         className="min-w-0 break-all text-left font-medium underline-offset-4 hover:underline"

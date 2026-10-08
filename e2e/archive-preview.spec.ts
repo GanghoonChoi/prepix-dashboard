@@ -64,7 +64,7 @@ test("a playable original opens in the player, an undecodable one says so", asyn
   await page.getByLabel("비밀번호", { exact: true }).fill(password);
   await page.getByRole("button", { name: "계속하기", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "팀 아카이브", level: 1 }),
+    page.getByRole("heading", { name: "콘텐츠 아카이브", level: 1 }),
   ).toBeVisible();
 
   // One real H.264 file and one that only claims to be video. The second is

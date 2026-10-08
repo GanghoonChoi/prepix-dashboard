@@ -74,7 +74,8 @@ test("V: team-wide project, publish → review on team home, private stays hidde
   await shot(M.page, "s04-member-recent-publications");
   await recent.getByRole("link", { name: /첫 발행 결과/ }).click();
   await M.page.waitForURL(new RegExp(`/reviews/${reviewId}\\?round=1&versionId=${version.id}$`));
-  await expect(M.page.getByText("현재 검토 대상: 프로젝트 내부 전체 공개", { exact: true })).toBeVisible();
+  // Everyone in the project is the default audience: no line says so (2026-10-08).
+  await expect(M.page.getByText(/현재 검토 대상/)).toHaveCount(0);
   await videoReady(M.page);
   await M.page.locator("video").evaluate((v: HTMLVideoElement) => { v.muted = true; return v.play(); });
   await expect.poll(() => M.page.locator("video").evaluate((v: HTMLVideoElement) => v.currentTime)).toBeGreaterThan(0.3);
@@ -151,6 +152,8 @@ test("V: team-wide project, publish → review on team home, private stays hidde
 
   // S07: the lead narrows to private with the confirmation dialog.
   await L.page.reload();
+  // Who sees a project is a setting (2026-10-08).
+  await L.page.getByRole("button", { name: "설정", exact: true }).click();
   await L.page.getByRole("button", { name: "비공개로 바꾸기", exact: true }).click();
   const narrow = L.page.getByRole("alertdialog", { name: "비공개로 바꾸기" });
   await expect(narrow).toContainText("그동안 남긴 코멘트는 기록에 남습니다");
