@@ -231,7 +231,8 @@ export function SearchField({
         <path d="m20 20-3.5-3.5" />
       </svg>
       <input
-        type="search"
+        type="text"
+        enterKeyHint="search"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}

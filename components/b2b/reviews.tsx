@@ -2,6 +2,8 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ChevronRight, Clapperboard } from "lucide-react";
+import { rowClass, tableClass, tdClass, thClass } from "@/components/ui";
 import type {
   ReviewApprovalState,
   ReviewAudienceCandidates,
@@ -635,23 +637,50 @@ function ProjectReviewsInner({ projectId }: { projectId: string }) {
         {list.reviews.length === 0 ? (
           <EmptyState title={query ? c("검색 결과가 없습니다.", "No matching reviews.") : c("아직 검토가 없습니다.", "No reviews yet.")} />
         ) : (
-          <ul className="divide-y divide-border border-y border-border">
-            {list.reviews.map((r) => (
-              <li key={r.id}>
-                <Link href={`${base}/reviews/${r.id}`} className="flex items-center justify-between gap-3 py-3 hover:bg-surface">
-                  <span className="min-w-0">
-                    <span className="block break-words text-sm font-medium">{r.title}</span>
-                    <span className="mt-0.5 block text-xs text-muted">
-                      {c("현재", "Current")} V{r.ordinal} · {c("회차", "Round")} {r.round}
-                      {r.previousRounds > 0 && ` · ${c("이전 검토", "Previous rounds")} ${r.previousRounds}`}
-                      {r.approver && ` · ${c("승인자", "Approver")} ${r.approver.name ?? c("이름 없음", "Unnamed")}`}
-                    </span>
-                  </span>
-                  <Badge>{c(...approvalCopy[r.approval])}</Badge>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <table className={`${tableClass} table-fixed`}>
+            <thead>
+              <tr>
+                <th className={thClass}>{c("제목", "Title")}</th>
+                <th className={`${thClass} hidden w-[18%] sm:table-cell`}>{c("버전", "Version")}</th>
+                <th className={`${thClass} hidden w-[20%] md:table-cell`}>{c("승인자", "Approver")}</th>
+                <th className={`${thClass} w-[16%]`}>{c("상태", "State")}</th>
+                <th className={`${thClass} w-10`}><span className="sr-only">{c("열기", "Open")}</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.reviews.map((r) => (
+                <tr
+                  key={r.id}
+                  className={rowClass}
+                  onClick={(e) => {
+                    if (!(e.target as HTMLElement).closest("a")) router.push(`${base}/reviews/${r.id}`);
+                  }}
+                >
+                  <td className={tdClass}>
+                    <Link href={`${base}/reviews/${r.id}`} className="flex min-w-0 items-center gap-3 outline-none focus-visible:underline">
+                      <span className="grid size-8 shrink-0 place-items-center rounded-md bg-surface-secondary text-muted">
+                        <Clapperboard size={15} strokeWidth={1.75} aria-hidden="true" />
+                      </span>
+                      <span className="truncate font-medium">{r.title}</span>
+                    </Link>
+                  </td>
+                  <td className={`${tdClass} hidden whitespace-nowrap text-muted sm:table-cell`}>
+                    V{r.ordinal}
+                    {r.previousRounds > 0 && ` · ${c("이전", "prev")} ${r.previousRounds}`}
+                  </td>
+                  <td className={`${tdClass} hidden truncate text-muted md:table-cell`}>
+                    {r.approver ? r.approver.name ?? c("이름 없음", "Unnamed") : "—"}
+                  </td>
+                  <td className={tdClass}>
+                    <Badge>{c(...approvalCopy[r.approval])}</Badge>
+                  </td>
+                  <td className={`${tdClass} text-right text-muted`}>
+                    <ChevronRight size={16} strokeWidth={1.75} aria-hidden="true" className="ml-auto" />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
         {(cursor || list.nextCursor) && (
           <div className="flex gap-2">

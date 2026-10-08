@@ -209,6 +209,7 @@ function AccountMenu({
         onClick={() => setOpen((was) => !was)}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label={`${ko ? "계정 메뉴" : "Account menu"} · ${name || profile?.email || ""}`}
         className="flex min-h-11 w-full items-center gap-2.5 rounded-md px-2 text-left transition-colors hover:bg-surface-secondary aria-expanded:bg-surface-secondary"
       >
         <span className="grid size-7 shrink-0 place-items-center rounded-full bg-foreground text-[12px] font-semibold uppercase text-background">

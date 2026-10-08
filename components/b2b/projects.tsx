@@ -1,6 +1,8 @@
 "use client";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { ChevronRight, Folder } from "lucide-react";
+import { FilterSelect, rowClass, SearchField, tableClass, tdClass, thClass } from "@/components/ui";
 import { apiClient } from "@/lib/api/client";
 import { homeEnvironment } from "@/lib/b2b-home/home";
 import {
@@ -51,6 +53,7 @@ export function Projects() {
 }
 function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
   const [scope] = useState(initialScope);
+  const router = useRouter();
   const context = useWorkspace()!;
   const c = useCopy();
   const id = scope.workspaceId;
@@ -70,6 +73,10 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
   const settings = useRef(initialNavigation());
   const restoring = useRef(true);
   const restoredScroll = useRef<number | null>(null);
+  // Only a list on screen has a scroll position worth keeping: while it is
+  // loading or hidden behind a detail view the page is shorter and the
+  // browser's clamped value would overwrite the real one.
+  const list = useRef<HTMLTableElement>(null);
   const persist = useCallback(() => {
     try { sessionStorage.setItem(projectListKey(scope), encodeNavigation(settings.current)); }
     catch { /* Storage unavailable: browsing remains usable. */ }
@@ -150,7 +157,8 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
       if (account() && document.visibilityState === "visible") void load();
     };
     const scroll = () => {
-      if (!restoring.current) settings.current = { ...settings.current, scroll: window.scrollY };
+      if (!restoring.current && list.current?.offsetParent)
+        settings.current = { ...settings.current, scroll: window.scrollY };
     };
     const save = () => persist();
     const timer = window.setInterval(refresh, 30_000);
@@ -199,42 +207,25 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
         )
       }
     >
-      {/* The harness that races this list stubs workspaces/shared down to a
-          few exports, so this file builds its rows from plain markup. */}
-      <div className="flex gap-2">
-        <label className="min-w-0 flex-1">
-          <span className="sr-only">{c("이름으로 검색", "Search by name")}</span>
-          <input
-            className={inputClass}
-            value={search}
-            maxLength={100}
-            placeholder={c("이름으로 검색", "Search by name")}
-            onChange={(e) => changeFilter({ search: e.target.value })}
-          />
-        </label>
-        <label className="w-36 shrink-0">
-          <span className="sr-only">{c("상태", "State")}</span>
-          <select
-            aria-label={c("상태", "State")}
-            className={inputClass}
-            value={state}
-            onChange={(e) => changeFilter({ state: e.target.value })}
-          >
-            <option value="">{c("모든 상태", "All states")}</option>
-            {(
-              [
-                "draft",
-                "in_progress",
-                "completed",
-                "archived",
-              ] as ProjectState[]
-            ).map((s) => (
-              <option key={s} value={s}>
-                {c(...stateLabels[s])}
-              </option>
-            ))}
-          </select>
-        </label>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <SearchField
+          value={search}
+          onChange={(value) => changeFilter({ search: value.slice(0, 100) })}
+          label={c("이름으로 검색", "Search by name")}
+          placeholder={c("폴더 검색…", "Search folders…")}
+        />
+        <FilterSelect
+          label={c("상태", "State")}
+          value={state}
+          onChange={(value) => changeFilter({ state: value })}
+          options={[
+            { value: "", label: c("전체", "All") },
+            ...(["draft", "in_progress", "completed", "archived"] as ProjectState[]).map((s) => ({
+              value: s as string,
+              label: c(...stateLabels[s]),
+            })),
+          ]}
+        />
       </div>
       {error === "B2B_PROJECT_LIST_SCOPE_CHANGED" ? (
         <div role="alert" className="space-y-3 text-sm">
@@ -257,26 +248,52 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
               )}
         </p>
       ) : (
-        <ul className="divide-y divide-border border-y border-border">
-          {rows?.map((p) => (
-            <li key={p.id}>
-              <Link
-                className="-mx-3 flex min-h-16 items-center justify-between gap-4 rounded-md px-3 py-3 hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2"
-                href={`${base}/${p.id}`}
-                onClick={persist}
+        <table ref={list} className={`${tableClass} table-fixed`}>
+          <thead>
+            <tr>
+              <th className={thClass}>{c("이름", "Name")}</th>
+              <th className={`${thClass} hidden w-[20%] sm:table-cell`}>{c("내 역할", "My role")}</th>
+              <th className={`${thClass} hidden w-[18%] md:table-cell`}>{c("공개 범위", "Visibility")}</th>
+              <th className={`${thClass} w-[16%]`}>{c("상태", "State")}</th>
+              <th className={`${thClass} w-10`}><span className="sr-only">{c("열기", "Open")}</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows?.map((p) => (
+              <tr
+                key={p.id}
+                className={rowClass}
+                onClick={(e) => {
+                  // The name is a real link; a click on it navigates by itself.
+                  if ((e.target as HTMLElement).closest("a")) return;
+                  persist();
+                  router.push(`${base}/${p.id}`);
+                }}
               >
-                <div className="min-w-0">
-                  <h2 className="truncate text-sm font-medium">{p.name}</h2>
-                  <p className="mt-0.5 text-[13px] text-muted">
-                    {c(...roleLabels[p.role])} ·{" "}
-                    {c(...visibilityLabels[p.visibility])}
-                  </p>
-                </div>
-                <StateBadge state={p.state} />
-              </Link>
-            </li>
-          ))}
-        </ul>
+                <td className={tdClass}>
+                  <Link
+                    className="flex min-w-0 items-center gap-3 outline-none focus-visible:underline"
+                    href={`${base}/${p.id}`}
+                    onClick={persist}
+                  >
+                    <span className="grid size-8 shrink-0 place-items-center rounded-md bg-surface-secondary text-muted">
+                      <Folder size={15} strokeWidth={1.75} aria-hidden="true" />
+                    </span>
+                    <h2 className="truncate text-[13px] font-medium">{p.name}</h2>
+                  </Link>
+                </td>
+                <td className={`${tdClass} hidden text-muted sm:table-cell`}>{c(...roleLabels[p.role])}</td>
+                <td className={`${tdClass} hidden text-muted md:table-cell`}>{c(...visibilityLabels[p.visibility])}</td>
+                <td className={tdClass}>
+                  <StateBadge state={p.state} />
+                </td>
+                <td className={`${tdClass} text-right text-muted`}>
+                  <ChevronRight size={16} strokeWidth={1.75} aria-hidden="true" className="ml-auto" />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
       {cursor && (
         <button
