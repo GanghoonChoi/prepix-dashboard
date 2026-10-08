@@ -30,7 +30,7 @@ import {
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
-import { B2bError, useCopy } from "./shared";
+import { B2bError, useCopy, projectsDenial } from "./shared";
 import { FileTransfers } from "./file-transfers";
 import { FileDownloads } from "./file-downloads";
 import { TransferSteward, VersionAddress, StewardInbox } from "./file-stewards";
@@ -71,7 +71,7 @@ export function TeamLibrary({
       sourceProjectId={sourceProjectId}
     />
   ) : (
-    <B2bError code="B2B_PROJECT_NOT_FOUND" />
+    <B2bError code={projectsDenial(context.b2b) ?? "B2B_PROJECT_NOT_FOUND"} />
   );
 }
 function LibraryView({
@@ -227,8 +227,8 @@ function LibraryView({
     <TeamShell
       title={c("보관함", "Library")}
       description={c(
-        "폴더 없이 자료를 보관하고, 필요한 폴더에 연결합니다.",
-        "Store files without a folder and link them where they're needed.",
+        "프로젝트 없이 자료를 보관하고, 필요한 프로젝트에 연결합니다.",
+        "Store files without a project and link them where they're needed.",
       )}
     >
       {error ? (
@@ -463,7 +463,7 @@ function LibraryGroup({
                         className={textAction}
                         onClick={() => setSelection(v.id)}
                       >
-                        {c("폴더에 연결", "Link to folder")}
+                        {c("프로젝트에 연결", "Link to project")}
                       </button>
                     )}
                     {v.allowedActions.manage && (
@@ -515,8 +515,8 @@ function LibraryGroup({
                           </ul>
                         ) : (
                           c(
-                            "현재 표시할 수 있는 폴더 연결이 없습니다.",
-                            "No folder links are currently visible.",
+                            "현재 표시할 수 있는 프로젝트 연결이 없습니다.",
+                            "No project links are currently visible.",
                           )
                         ),
                       ],

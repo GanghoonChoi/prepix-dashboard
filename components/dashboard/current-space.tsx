@@ -137,7 +137,8 @@ export function CurrentSpace({ children }: { children: React.ReactNode }) {
           if (alive) setB2b({ id: spaceId, status });
         })
         .catch(() => {
-          if (alive) setB2b(null);
+          // Keep the last answer: a failed probe is not proof the team left
+          // B2B, and flipping to the legacy menu offers pages that refuse.
         });
     };
     probe();
@@ -152,13 +153,18 @@ export function CurrentSpace({ children }: { children: React.ReactNode }) {
     };
   }, [spaceId, personalSpace]);
 
+  // A team's menu waits for its B2B answer: until then only 홈, never the
+  // legacy entries a B2B member would be refused on.
+  const known = !!current && (personalSpace || b2b?.id === spaceId);
   const links = current
-    ? workspaceLinks(current, {
-        cloudEnabled: !!cloud && cloud.id === spaceId && cloud.enabled,
-        managementEnabled: current.managementEnabled !== false,
-        role: current.role,
-        b2b: b2b && b2b.id === spaceId ? b2b.status : undefined,
-      })
+    ? known
+      ? workspaceLinks(current, {
+          cloudEnabled: !!cloud && cloud.id === spaceId && cloud.enabled,
+          managementEnabled: current.managementEnabled !== false,
+          role: current.role,
+          b2b: b2b && b2b.id === spaceId ? b2b.status : undefined,
+        })
+      : workspaceLinks(current, { cloudEnabled: false, managementEnabled: false }).slice(0, 1)
     : PERSONAL_FALLBACK;
   const base =
     current && !isPersonal(current)

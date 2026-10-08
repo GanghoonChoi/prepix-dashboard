@@ -206,11 +206,11 @@ function NotificationsView({
         setCursor(page.nextCursor);
         setUnread(page.unreadCount);
       }
-    } catch (error) {
+    } catch {
       setNotice(
         c(
-          `다음 알림을 불러오지 못했어요 (${errorCode(error)}). 다시 시도해 주세요.`,
-          `Could not load more (${errorCode(error)}). Try again.`,
+          "다음 알림을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.",
+          "Could not load more. Try again in a moment.",
         ),
       );
     } finally {
@@ -273,11 +273,11 @@ function NotificationsView({
           "This account can no longer open this. Access changed or the content is no longer available.",
         ),
       );
-    } catch (error) {
+    } catch {
       setNotice(
         c(
-          `알림을 열지 못했어요 (${errorCode(error)}). 다시 시도해 주세요.`,
-          `Could not open the notification (${errorCode(error)}). Try again.`,
+          "알림을 열지 못했어요. 잠시 후 다시 시도해 주세요.",
+          "Could not open the notification. Try again in a moment.",
         ),
       );
     } finally {

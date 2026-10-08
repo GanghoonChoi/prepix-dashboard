@@ -58,6 +58,7 @@ test("P08: selected audience only, explicit publication, lost audience receipt, 
     await C.page.getByRole("button", { name: "승인", exact: true }).click();
     await expect.poll(async () => (await json(request.get(`${root}/reviews/${id}`, { headers: lead.headers }))).approval).toBe("approved");
     await L.page.reload();
+    await L.page.getByText("고급 설정", { exact: true }).click();
     const audience = L.page.getByRole("heading", { name: "검토 대상 변경", exact: true }).locator("..");
     // M4: the form starts from the current selected round, never project-wide.
     await expect(audience.getByRole("radio", { name: "선택한 사람만", exact: true })).toBeChecked({ timeout: 30_000 });

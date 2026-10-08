@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import {
   Fragment,
   createContext,
@@ -17,7 +18,9 @@ import { b2bService, type B2bStatus } from "@/lib/api/services/b2b.service";
 import { isPersonal } from "@/lib/workspaces/kind";
 import { cloudService } from "@/lib/api/services/cloud.service";
 import { CloudError, cloudErrorCode } from "./cloud-shared";
-import { TeamLoading } from "./shared";
+import { secondaryClass, TeamLoading } from "./shared";
+import { SearchX } from "lucide-react";
+import { useI18n } from "@/lib/i18n/context";
 import { contentGone } from "@/lib/workspaces/errors";
 import { apiClient } from "@/lib/api/client";
 import {
@@ -41,6 +44,7 @@ export function WorkspaceProvider({
   id: string;
   children: ReactNode;
 }) {
+  const { lang } = useI18n();
   const [data, setData] = useState<WorkspaceDetail | null>(null);
   const [error, setError] = useState("");
   const [cloudEnabled, setCloudEnabled] = useState(false);
@@ -137,7 +141,28 @@ export function WorkspaceProvider({
     // page no longer has, so the screen rearranged itself on arrival.
     return (
       <div className="text-foreground">
-        {error ? <CloudError code={error} retry={reload} /> : <TeamLoading />}
+        {/* Not (or no longer) a member: the same "can't open this" screen as
+            every other refusal, with the way back instead of a retry. */}
+        {error === "WORKSPACE_NOT_FOUND" ? (
+          <div role="alert" data-testid="access-denied" className="mx-auto flex max-w-md flex-col items-center gap-3 py-16 text-center">
+            <span className="grid size-12 place-items-center rounded-full bg-surface-secondary text-muted">
+              <SearchX size={20} strokeWidth={1.75} aria-hidden="true" />
+            </span>
+            <h2 className="text-[17px] font-semibold tracking-tight">{lang === "ko" ? "열 수 없습니다" : "Can't open this"}</h2>
+            <p className="text-[13px] leading-6 text-muted">
+              {lang === "ko"
+                ? "이 워크스페이스의 멤버가 아니거나 참여가 끝났습니다."
+                : "You are not a member of this workspace, or your access ended."}
+            </p>
+            <Link className={`${secondaryClass} mt-2`} href="/dashboard/workspaces">
+              {lang === "ko" ? "워크스페이스 목록으로" : "All workspaces"}
+            </Link>
+          </div>
+        ) : error ? (
+          <CloudError code={error} retry={reload} />
+        ) : (
+          <TeamLoading />
+        )}
       </div>
     );
   return (

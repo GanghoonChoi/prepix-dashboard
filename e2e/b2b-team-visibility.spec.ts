@@ -22,10 +22,10 @@ test("V: team-wide project, publish → review on team home, private stays hidde
 
   // S06: the lead creates a team-wide project (the default) in the UI.
   const L = await open(browser, lead, `${home}/projects/new`);
-  await L.page.getByLabel("폴더명", { exact: true }).fill(teamName);
+  await L.page.getByLabel("프로젝트명", { exact: true }).fill(teamName);
   await expect(L.page.getByRole("radio", { name: /^팀 전체 공개/ })).toBeChecked();
   await shot(L.page, "s06-visibility-choice");
-  await L.page.getByRole("button", { name: "폴더 만들기", exact: true }).click();
+  await L.page.getByRole("button", { name: "프로젝트 만들기", exact: true }).click();
   await expect(L.page.getByRole("heading", { name: teamName, exact: true })).toBeVisible();
   const projectId = L.page.url().split("/").at(-1)!;
   await expect(L.page.getByText("팀 공개", { exact: true }).first()).toBeVisible();
@@ -68,13 +68,13 @@ test("V: team-wide project, publish → review on team home, private stays hidde
   const M = await open(browser, member, home);
   const recent = M.page.getByRole("region", { name: "최근 발행", exact: true });
   await expect(recent.getByRole("link", { name: /첫 발행 결과/ })).toBeVisible({ timeout: 30_000 });
-  const projects = M.page.getByRole("region", { name: "내 폴더", exact: true });
+  const projects = M.page.getByRole("region", { name: "내 프로젝트", exact: true });
   await expect(projects.getByRole("link", { name: new RegExp(teamName) })).toContainText("팀 열람");
   await expect(M.page.getByText(secretName, { exact: false })).toHaveCount(0);
   await shot(M.page, "s04-member-recent-publications");
   await recent.getByRole("link", { name: /첫 발행 결과/ }).click();
   await M.page.waitForURL(new RegExp(`/reviews/${reviewId}\\?round=1&versionId=${version.id}$`));
-  await expect(M.page.getByText("현재 검토 대상: 폴더 내부 전체 공개", { exact: true })).toBeVisible();
+  await expect(M.page.getByText("현재 검토 대상: 프로젝트 내부 전체 공개", { exact: true })).toBeVisible();
   await videoReady(M.page);
   await M.page.locator("video").evaluate((v: HTMLVideoElement) => { v.muted = true; return v.play(); });
   await expect.poll(() => M.page.locator("video").evaluate((v: HTMLVideoElement) => v.currentTime)).toBeGreaterThan(0.3);
@@ -98,13 +98,13 @@ test("V: team-wide project, publish → review on team home, private stays hidde
   M.page.on("request", (r) => { if (/\/(request-work|requests|people|publications|delivery)(\?|$)/.test(r.url())) work.push(r.url()); });
   await M.page.goto(base);
   await expect(M.page.getByRole("heading", { name: teamName, exact: true })).toBeVisible();
-  await expect(M.page.getByText("팀 공개 폴더를 열람 중입니다. 작업하려면 담당자에게 참여를 요청하세요.", { exact: true })).toBeVisible();
-  for (const name of ["요청사항", "납품·폴더 완료", "등록된 결과", "참여자", "AI 작업", "앱에서 작업하기"])
+  await expect(M.page.getByText("팀 공개 프로젝트를 열람 중입니다. 작업하려면 담당자에게 참여를 요청하세요.", { exact: true })).toBeVisible();
+  for (const name of ["요청사항", "납품·프로젝트 완료", "등록된 결과", "참여자", "AI 작업", "앱에서 작업하기"])
     await expect(M.page.getByRole("link", { name, exact: true })).toHaveCount(0);
   await expect(M.page.getByRole("button", { name: "비공개로 바꾸기", exact: true })).toHaveCount(0);
   await M.page.waitForTimeout(2_000);
   await expect(M.page.getByRole("heading", { name: teamName, exact: true })).toBeVisible();
-  await expect(M.page.getByText("폴더를 찾을 수 없거나 접근 권한이 없습니다.", { exact: true })).toHaveCount(0);
+  await expect(M.page.getByText("프로젝트를 찾을 수 없거나 접근 권한이 없습니다.", { exact: true })).toHaveCount(0);
   expect(work).toEqual([]);
   await shot(M.page, "s07-member-viewer");
   await M.page.getByRole("link", { name: "자료", exact: true }).click();
@@ -122,7 +122,7 @@ test("V: team-wide project, publish → review on team home, private stays hidde
 
   // The owner (not participating) sees the team project, never the private one.
   const O = await open(browser, owner, home);
-  await expect(O.page.getByRole("region", { name: "내 폴더", exact: true }).getByText(teamName, { exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(O.page.getByRole("region", { name: "내 프로젝트", exact: true }).getByText(teamName, { exact: true })).toBeVisible({ timeout: 30_000 });
   await expect(O.page.getByRole("region", { name: "최근 발행", exact: true }).getByRole("link", { name: /첫 발행 결과/ })).toBeVisible();
   const hidden = async (page: Page) => expect(page.locator("body")).not.toContainText(secretName);
   await hidden(O.page);
@@ -130,11 +130,11 @@ test("V: team-wide project, publish → review on team home, private stays hidde
   await expect(O.page.getByRole("link", { name: new RegExp(teamName) })).toBeVisible();
   await hidden(O.page);
   await O.page.getByLabel("이름으로 검색", { exact: true }).fill("비밀");
-  await expect(O.page.getByText("참여한 폴더가 없습니다.", { exact: false })).toBeVisible();
+  await expect(O.page.getByText("참여한 프로젝트가 없습니다.", { exact: false })).toBeVisible();
   await hidden(O.page);
   expect((await request.get(`${api}/v2/workspaces/${team}/b2b/projects/${secretId}`, { headers: owner.headers })).status()).toBe(404);
   await O.page.goto(`${home}/projects/${secretId}`);
-  await expect(O.page.getByText("폴더를 찾을 수 없거나 접근 권한이 없습니다.", { exact: true })).toBeVisible();
+  await expect(O.page.getByText("프로젝트를 찾을 수 없거나 접근 권한이 없습니다.", { exact: true })).toBeVisible();
   await hidden(O.page);
 
   // The external client sees only the invited project.
@@ -163,17 +163,17 @@ test("V: team-wide project, publish → review on team home, private stays hidde
 
   // The member's next action ends access and clears what was shown.
   await M.page.goto(base);
-  await expect(M.page.getByText("폴더를 찾을 수 없거나 접근 권한이 없습니다.", { exact: true })).toBeVisible();
+  await expect(M.page.getByText("프로젝트를 찾을 수 없거나 접근 권한이 없습니다.", { exact: true })).toBeVisible();
   await expect(M.page.getByRole("heading", { name: teamName, exact: true })).toHaveCount(0);
   await M.page.goto(`${base}/reviews/${reviewId}`);
-  await expect(M.page.getByText("폴더를 찾을 수 없거나 접근 권한이 없습니다.", { exact: true })).toBeVisible();
+  await expect(M.page.getByText("프로젝트를 찾을 수 없거나 접근 권한이 없습니다.", { exact: true })).toBeVisible();
   await expect(M.page.getByText("팀원 의견: 로고 전환이 빠릅니다", { exact: true })).toHaveCount(0);
   await M.page.goto(home);
   await expect(M.page.getByRole("region", { name: "최근 발행", exact: true }).getByText("지금 볼 수 있는 발행 영상이 없습니다.", { exact: false })).toBeVisible({ timeout: 30_000 });
   await expect(M.page.locator("body")).not.toContainText(teamName);
   await shot(M.page, "s04-member-after-private");
   await M.page.goto(`${home}/projects`);
-  await expect(M.page.getByText("참여한 폴더가 없습니다.", { exact: false })).toBeVisible({ timeout: 30_000 });
+  await expect(M.page.getByText("참여한 프로젝트가 없습니다.", { exact: false })).toBeVisible({ timeout: 30_000 });
   await expect(M.page.locator("body")).not.toContainText(teamName);
   // Internal participants keep it; the external client never had the
   // automatic round (2026-10-07: externals only when the lead opens one).
@@ -183,7 +183,7 @@ test("V: team-wide project, publish → review on team home, private stays hidde
   // S07: widening again needs the confirmation and a reason.
   await L.page.getByRole("button", { name: "팀 전체 공개로 바꾸기", exact: true }).click();
   const widen = L.page.getByRole("alertdialog", { name: "팀 전체 공개로 바꾸기" });
-  await expect(widen).toContainText("팀의 모든 내부 멤버가 이 폴더, 발행된 영상과 그 코멘트를 보고 코멘트할 수 있게 됩니다");
+  await expect(widen).toContainText("팀의 모든 내부 멤버가 이 프로젝트, 발행된 영상과 그 코멘트를 보고 코멘트할 수 있게 됩니다");
   const confirm = widen.getByRole("button", { name: "팀 전체 공개로 바꾸기", exact: true });
   await expect(confirm).toBeDisabled();
   await widen.getByLabel("모든 팀원에게 공개되는 범위를 확인했습니다", { exact: true }).check();

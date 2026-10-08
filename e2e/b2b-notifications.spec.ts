@@ -185,8 +185,9 @@ test("S27 notifications: current access, late and lost responses, reconnect, acc
   });
   await login(page, ext, "/dashboard/notifications");
   await expect(page.getByRole("heading", { name: "알림", exact: true })).toBeVisible();
-  const entry = page.locator('aside a[href="/dashboard/notifications"]').first();
-  await expect(entry.getByLabel("읽지 않은 알림 1개")).toBeVisible();
+  // The bell lives in the page header since the 2026-10-07 redesign.
+  const entry = page.locator('header a[href="/dashboard/notifications"]').first();
+  await expect(entry).toHaveAttribute("aria-label", "알림 · 읽지 않음 1개");
   const row = page.getByRole("button", { name: /요청 담당자로 지정됐어요/ });
   const view = page.getByRole("group", { name: "보기" });
   await expect(row).toHaveCount(1);
@@ -207,7 +208,7 @@ test("S27 notifications: current access, late and lost responses, reconnect, acc
   // Late answer for an older view is dropped: a slow "all" list must not
   // overwrite the newer "unread" view.
   await page.getByRole("button", { name: "읽음으로" }).click();
-  await expect(entry.getByLabel(/읽지 않은 알림/)).toHaveCount(0);
+  await expect(entry).toHaveAttribute("aria-label", "알림");
   await page.route("**/v2/b2b/notifications?filter=all*", async (route) => {
     await new Promise((r) => setTimeout(r, 2500));
     await route.continue().catch(() => {});
@@ -229,7 +230,7 @@ test("S27 notifications: current access, late and lost responses, reconnect, acc
   await expect.poll(() => unread(request, ext), { timeout: 30_000 }).toBe(1);
   await context.setOffline(false);
   await expect(row).toHaveCount(2);
-  await expect(entry.getByLabel("읽지 않은 알림 1개")).toBeVisible();
+  await expect(entry).toHaveAttribute("aria-label", "알림 · 읽지 않음 1개");
 
   // Lost reply to "open": the server marked it read, the UI says it failed,
   // and a refresh shows the server's state with no duplicate.
@@ -285,7 +286,7 @@ test("S27 notifications: current access, late and lost responses, reconnect, acc
     lostRows.getByRole("button", { name: /^(읽음으로|읽지 않음으로)$/ }),
   ).toHaveCount(0);
   await expect(lostRows.filter({ hasText: "읽지 않음" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /한 폴더의 참여가 끝났어요/ })).toHaveCount(1);
+  await expect(page.getByRole("button", { name: /한 프로젝트의 참여가 끝났어요/ })).toHaveCount(1);
   expect(await page.locator("main").innerText()).not.toContain("Secret campaign");
   await lost.first().click();
   await expect(page.getByText("현재 계정으로 이 내용을 열 수 없어요", { exact: false })).toBeVisible();
@@ -315,7 +316,7 @@ test("S27 notifications: current access, late and lost responses, reconnect, acc
   expect(navigations).toBeLessThanOrEqual(2);
   await page.goto("/dashboard/notifications");
 
-  // 390px: one column, no horizontal scroll, the entry is in the mobile menu.
+  // 390px: one column, no horizontal scroll, the bell stays in the header.
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/dashboard/notifications");
   await expect(lost.first()).toBeVisible();
@@ -323,16 +324,15 @@ test("S27 notifications: current access, late and lost responses, reconnect, acc
     await page.evaluate(() => document.documentElement.scrollWidth),
   ).toBeLessThanOrEqual(390);
   if (shots) await page.screenshot({ path: `${shots}/s27-390.png`, fullPage: true });
-  await page.getByRole("button", { name: "메뉴 열기" }).click();
   await expect(
-    page.locator('#mobile-navigation a[href="/dashboard/notifications"]'),
+    page.locator('header a[href="/dashboard/notifications"]').first(),
   ).toBeVisible();
   await page.setViewportSize({ width: 1360, height: 1100 });
 
   // Account switch in another tab: this tab drops ext's list and shows only
   // what the owner (billing, not a participant) may see.
   await page.goto("/dashboard/notifications");
-  await expect(page.getByRole("button", { name: /한 폴더의 참여가 끝났어요/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /한 프로젝트의 참여가 끝났어요/ })).toBeVisible();
   // The other tab performs the login page's exact writes for a real owner
   // session (the login form itself redirects while a session exists).
   const other = await context.newPage();
@@ -349,7 +349,7 @@ test("S27 notifications: current access, late and lost responses, reconnect, acc
     localStorage.setItem("refreshToken", s.refreshToken);
     localStorage.setItem("userInfo", JSON.stringify(s.user));
   }, fresh);
-  await expect(page.getByRole("button", { name: /한 폴더의 참여가 끝났어요/ })).toHaveCount(0, { timeout: 15_000 });
+  await expect(page.getByRole("button", { name: /한 프로젝트의 참여가 끝났어요/ })).toHaveCount(0, { timeout: 15_000 });
   await expect(page.getByRole("button", { name: /결제가 확인됐어요/ })).toBeVisible();
   const ownerView = await page.locator("main").innerText();
   expect(ownerView).not.toContain("Secret campaign");

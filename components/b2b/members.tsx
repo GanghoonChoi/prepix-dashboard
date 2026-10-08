@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useOverlayState } from "@heroui/react";
 import { ArrowDown, ArrowUp, ChevronRight, Eye, PenLine, Plus } from "lucide-react";
 import {
@@ -56,7 +57,20 @@ export function TeamMembers() {
   // "Last active" filters compare against when the roster was read.
   const [readAt, setReadAt] = useState(0);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState<Tab>("people");
+  // The tab lives in the address (?tab=), so a refresh or a shared link
+  // lands on the same view.
+  const params = useSearchParams();
+  const asked = params.get("tab");
+  const [tab, setTabState] = useState<Tab>(
+    asked === "invites" || asked === "recovery" ? asked : "people",
+  );
+  const setTab = (next: Tab) => {
+    setTabState(next);
+    const url = new URL(window.location.href);
+    if (next === "people") url.searchParams.delete("tab");
+    else url.searchParams.set("tab", next);
+    window.history.replaceState(window.history.state, "", url);
+  };
   const [invites, setInvites] = useState(0);
   const [query, setQuery] = useState("");
   const [role, setRole] = useState<RoleFilter>("all");
@@ -67,7 +81,10 @@ export function TeamMembers() {
   const inviteDialog = useOverlayState();
   const sequence = useRef(0);
   const id = data.workspace.id;
+  const manager = !!b2b?.enrolled && b2b.allowedActions.manage;
   const load = useCallback(async () => {
+    // A refused page sends nothing: no roster read, no 30s poll of 403s.
+    if (!manager) return;
     const request = ++sequence.current;
     try {
       const result = await b2bService.members(id);
@@ -80,7 +97,7 @@ export function TeamMembers() {
       setRoster(null);
       setError(errorCode(e));
     }
-  }, [id]);
+  }, [id, manager]);
   useEffect(() => {
     const requests = sequence;
     const initial = window.setTimeout(() => void load(), 0);
@@ -642,8 +659,8 @@ function MemberActionEditor({
       </label>
       <p className="text-xs leading-5 text-muted">
         {c(
-          "정지·제거는 즉시 접근을 회수하며, 다시 활성화해도 이전 폴더·결제 권한은 복구되지 않습니다.",
-          "Suspension and removal revoke access at once; reactivation does not restore folder or billing grants.",
+          "정지·제거는 즉시 접근을 회수하며, 다시 활성화해도 이전 프로젝트·결제 권한은 복구되지 않습니다.",
+          "Suspension and removal revoke access at once; reactivation does not restore project or billing grants.",
         )}
       </p>
       {error && <B2bError code={error} />}

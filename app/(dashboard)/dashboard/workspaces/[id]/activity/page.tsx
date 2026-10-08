@@ -1,4 +1,5 @@
 "use client";
+import { AccessDenied } from "@/components/b2b/shared";
 import { useCallback, useEffect, useState } from "react";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import { useI18n } from "@/lib/i18n/context";
@@ -69,8 +70,10 @@ export default function Page() {
         )
       }
     >
-      {!allowed ? (
-        <CloudError code="WORKSPACE_ADMIN_REQUIRED" />
+      {!data.managementEnabled ? (
+        <CloudError code="WORKSPACE_MANAGEMENT_DISABLED" />
+      ) : !allowed ? (
+        <AccessDenied code="B2B_TEAM_MANAGER_REQUIRED" />
       ) : (
         <>
           {error && <CloudError code={error} retry={() => load()} />}

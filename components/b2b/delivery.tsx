@@ -10,7 +10,7 @@ import { externalDeliveryItems, inspectDeliveryFiles, nativeDeliveryItems, verif
 import { fileApi } from "@/lib/b2b-files/api";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import { Block, inputClass, primaryClass, secondaryClass, TeamLoading, TeamShell } from "@/components/workspaces/shared";
-import { folderTabs, B2bError, useCopy } from "./shared";
+import { folderTabs, B2bError, useCopy, projectsDenial } from "./shared";
 import { kst, useLoader } from "./reviews";
 
 type Copy = (ko: string, en: string) => string;
@@ -33,7 +33,7 @@ const messages: Record<string, [string, string]> = {
   B2B_DELIVERY_NATIVE_TOO_LARGE: ["작업 파일이 서버에 설정된 허용 크기보다 큽니다.", "The working file exceeds the configured size limit."],
   B2B_DELIVERY_OPERATION_PENDING: ["이전 전송의 결과가 확정되지 않았습니다. 아래에서 원래 내용으로 확인하거나 재시도해 주세요.", "An earlier change is unconfirmed. Check or retry its original intent below."],
   B2B_DELIVERY_STORAGE_UNAVAILABLE: ["이 브라우저에서 전송 내용을 안전하게 저장할 수 없습니다. 저장을 허용한 뒤 다시 시도해 주세요.", "This browser cannot preserve the submission. Enable storage and try again."],
-  B2B_DELIVERY_SCOPE_CHANGED: ["계정 또는 팀·폴더가 바뀌었습니다. 현재 공간에서 다시 열어 주세요.", "The account, team or folder changed. Reopen from the current space."],
+  B2B_DELIVERY_SCOPE_CHANGED: ["계정 또는 팀·프로젝트가 바뀌었습니다. 현재 공간에서 다시 열어 주세요.", "The account, team or folder changed. Reopen from the current space."],
   B2B_DELIVERY_VIDEO_RECONFIRM_REQUIRED: ["재개 시 다시 확인하기로 한 영상에 새 승인이 필요합니다.", "The reopened video needs a fresh approval."],
   B2B_DELIVERY_REQUEST_RECONFIRM_REQUIRED: ["재개 시 선택한 요청을 새 기준과 확인 기록으로 다시 확인해 주세요.", "Reconfirm the reopened requests with current criteria and records."],
   B2B_DELIVERY_RECONFIRM_REQUIRED: ["다시 확인하기로 한 납품물을 새 목록과 열기 기록으로 제출해 주세요.", "Resubmit the reopened delivery with a new package and open records."],
@@ -61,7 +61,7 @@ export function ProjectDelivery({ projectId }: { projectId: string }) {
   const ctx = useWorkspace()!;
   const me = ctx.data.currentUserId ?? "", workspaceId = ctx.data.workspace.id;
   const origin = new URL(apiClient.defaults.baseURL!).origin;
-  if (!me || !ctx.b2b?.enrolled || !ctx.b2b.allowedActions.projects) return <B2bError code="B2B_PROJECT_NOT_FOUND" />;
+  if (!me || !ctx.b2b?.enrolled || !ctx.b2b.allowedActions.projects) return <B2bError code={projectsDenial(ctx.b2b) ?? "B2B_PROJECT_NOT_FOUND"} />;
   return <DeliveryScreen key={`${origin}:${me}:${workspaceId}:${projectId}`} scope={{ origin, userId: me, workspaceId, projectId }} />;
 }
 function DeliveryScreen({ scope }: { scope: DeliveryScope }) {
@@ -111,10 +111,10 @@ function DeliveryScreen({ scope }: { scope: DeliveryScope }) {
       disabled={disabled || conditions.stale || !!conditions.error || !conditions.data?.satisfied || conditions.data.evidence?.videoVersionId !== selected || conditions.data.revision !== detail.revision}
       onClick={() => void mutation("complete", { videoVersionId: selected, ...(detail.package ? { packageId: detail.package.id } : {}) })}
     >
-      {c("폴더 완료", "Complete folder")}
+      {c("프로젝트 완료", "Complete project")}
     </button>
   );
-  return <TeamShell title={c("납품 확인과 폴더 완료", "Delivery and folder completion")} description={project.name} tabs={folderTabs(scope.workspaceId, project, c)}>
+  return <TeamShell title={c("납품 확인과 프로젝트 완료", "Delivery and project completion")} description={project.name} tabs={folderTabs(scope.workspaceId, project, c)}>
     {stale && <DeliveryError value={error} retry={() => void load()} />}
     {mutationError && <DeliveryError value={mutationError} />}
     <DeliveryPending scope={stable} onConfirmed={load} />
@@ -131,10 +131,10 @@ function DeliveryScreen({ scope }: { scope: DeliveryScope }) {
     {detail.allowedActions.reopen && <ReopenForm key={`reopen:${detail.revision}`} detail={detail} disabled={disabled} mutate={mutation} />}
     {(detail.allowedActions.archive || detail.allowedActions.unarchive) && (
       <Block
-        title={c("폴더 보관", "Archive")}
+        title={c("프로젝트 보관", "Archive")}
         description={c("보관해도 파일은 저장 공간을 계속 사용합니다.", "Archived files still use storage.")}
         actions={<>
-          {detail.allowedActions.archive && <button type="button" className={secondaryClass} disabled={disabled} onClick={() => void mutation("archive", {})}>{c("완료한 폴더 보관", "Archive completed folder")}</button>}
+          {detail.allowedActions.archive && <button type="button" className={secondaryClass} disabled={disabled} onClick={() => void mutation("archive", {})}>{c("완료한 프로젝트 보관", "Archive completed project")}</button>}
           {detail.allowedActions.unarchive && <button type="button" className={secondaryClass} disabled={disabled} onClick={() => void mutation("unarchive", {})}>{c("보관 해제(완료 상태로)", "Unarchive to completed")}</button>}
         </>}
       />
@@ -146,7 +146,7 @@ function ConditionTable({ value, base, c }: { value: DeliveryCheck; base: string
   const rows = [
     { label: c("최종 영상 승인", "Final video approval"), result: value.conditions.approval, href: `${base}/reviews`, info: value.conditions.approval.evidence?.approvals.map((a) => `${c("회차", "Round")} ${a.round} · ${kst(a.decidedAt)}`).join(", ") },
     { label: c("필수 요청", "Required requests"), result: value.conditions.requests, href: `${base}/requests`, info: value.conditions.requests.evidence ? c(`확인 근거 ${value.conditions.requests.evidence.requests.length}건`, `${value.conditions.requests.evidence.requests.length} request records`) : "" },
-    { label: c("편집 자료 전달", "Working-file delivery"), result: value.conditions.delivery, href: "#delivery-package", info: !value.conditions.delivery.required ? c("이 폴더는 최종 영상만 제출합니다", "This folder requires only the final video") : value.conditions.delivery.evidence ? c(`수신자 열기 확인 ${value.conditions.delivery.evidence.receipts.length}건`, `${value.conditions.delivery.evidence.receipts.length} recipient open receipts`) : "" },
+    { label: c("편집 자료 전달", "Working-file delivery"), result: value.conditions.delivery, href: "#delivery-package", info: !value.conditions.delivery.required ? c("이 프로젝트는 최종 영상만 제출합니다", "This project requires only the final video") : value.conditions.delivery.evidence ? c(`수신자 열기 확인 ${value.conditions.delivery.evidence.receipts.length}건`, `${value.conditions.delivery.evidence.receipts.length} recipient open receipts`) : "" },
   ];
   return <div className="space-y-3">
     <div className="overflow-x-auto">
@@ -176,7 +176,7 @@ function DeliveryPending({ scope, onConfirmed }: { scope: DeliveryScope; onConfi
   }, [scope, onConfirmed]);
   useEffect(() => { const start = setTimeout(() => void read(), 0), interval = setInterval(() => void read(), 15000); window.addEventListener(deliveryEvents, read); return () => { clearTimeout(start); clearInterval(interval); window.removeEventListener(deliveryEvents, read); }; }, [read]);
   if (!rows.length && !error) return null;
-  const labels: Record<DeliveryAction, string> = { propose: c("납품 목록 제출", "Submit delivery package"), confirm: c("열기 확인", "Confirm open"), withdraw: c("확인 회수", "Withdraw confirmation"), complete: c("폴더 완료", "Complete folder"), reopen: c("작업 재개", "Reopen"), archive: c("보관", "Archive"), unarchive: c("보관 해제", "Unarchive") };
+  const labels: Record<DeliveryAction, string> = { propose: c("납품 목록 제출", "Submit delivery package"), confirm: c("열기 확인", "Confirm open"), withdraw: c("확인 회수", "Withdraw confirmation"), complete: c("프로젝트 완료", "Complete project"), reopen: c("작업 재개", "Reopen"), archive: c("보관", "Archive"), unarchive: c("보관 해제", "Unarchive") };
   return <section className="space-y-3 rounded-lg border border-border px-4 py-3 text-sm" aria-label={c("결과 확인이 필요한 납품 변경", "Unconfirmed delivery changes")}><div><h2 className="font-medium">{c("결과 확인이 필요한 납품 변경", "Unconfirmed delivery changes")}</h2><p className="mt-0.5 text-[13px] text-muted">{c("응답을 받지 못했습니다. 다시 보내도 두 번 적용되지 않습니다.", "No response arrived. Retrying never applies a change twice.")}</p></div>{error && <DeliveryError value={error} />}<ul className="divide-y divide-border">{rows.map((r) => <li key={`${r.action}:${r.packageId ?? ""}`} className="flex flex-wrap items-center justify-between gap-3 py-2 first:pt-0 last:pb-0"><span>{labels[r.action]}</span><div className="flex flex-wrap gap-2"><button type="button" className={secondaryClass} disabled={busy} onClick={() => void read()}>{c("결과 확인", "Check result")}</button><button type="button" className={secondaryClass} disabled={busy} onClick={async () => { setBusy(true); try { await runDelivery(r, deliveryApi(scope), deliveryStore); } catch (e) { setError(code(e)); } finally { setBusy(false); void read(); } }}>{c("원래 내용으로 다시 보내기", "Retry original intent")}</button></div></li>)}</ul></section>;
 }
 function ProposePackage({ scope, versions, people, nativeMaxBytes, videoVersionId, disabled, mutate }: { scope: DeliveryScope; versions: TeamFileVersion[]; people: { userId: string; name: string | null; email: string }[]; nativeMaxBytes?: number; videoVersionId: string; disabled: boolean; mutate: Mutate }) {

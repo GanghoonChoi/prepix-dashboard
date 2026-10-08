@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   Check,
+  ChevronRight,
   Download,
   Maximize,
   Pause,
@@ -94,7 +95,7 @@ export function ProjectReviewView({ projectId, reviewId }: { projectId: string; 
       key={JSON.stringify([scope, target.value])}
       scope={scope}
       exactTarget={target.value}
-      back={`/dashboard/workspaces/${team}/projects/${projectId}/reviews`}
+      back={`/dashboard/workspaces/${team}/projects/${projectId}`}
     />
   );
 }
@@ -129,8 +130,8 @@ export function SharedReview({ shareId }: { shareId: string }) {
       token={state.token}
       onReview={(id) => id !== reviewId && setReviewId(id)}
       notice={c(
-        "공유받은 검토만 볼 수 있습니다. 이 링크로 폴더의 다른 자료·요청·검토에는 들어갈 수 없습니다.",
-        "You can see only this shared review. This link does not open the folder's other files, requests or reviews.",
+        "공유받은 검토만 볼 수 있습니다. 이 링크로 프로젝트의 다른 자료·요청·검토에는 들어갈 수 없습니다.",
+        "You can see only this shared review. This link does not open the project's other files, requests or reviews.",
       )}
     />
   );
@@ -218,7 +219,7 @@ function ReviewScreen({
           {back && (
             <Link href={back} className="inline-flex items-center gap-1 text-[13px] text-muted transition-colors hover:text-foreground">
               <ArrowLeft size={14} strokeWidth={1.75} aria-hidden="true" />
-              {c("검토 목록", "Reviews")}
+              {c("영상 목록", "All videos")}
             </Link>
           )}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -235,7 +236,7 @@ function ReviewScreen({
             )}
             {data.audience && (
               <span>{c("현재 검토 대상", "Current review audience")}: {data.review.audienceScope === "project"
-                ? c("폴더 내부 전체 공개", "Everyone internal on the folder") + (data.audience.length ? c(" · 외부 ", " · external ") + data.audience.map((p) => p.name ?? unnamed).join(", ") : "")
+                ? c("프로젝트 내부 전체 공개", "Everyone internal on the project") + (data.audience.length ? c(" · 외부 ", " · external ") + data.audience.map((p) => p.name ?? unnamed).join(", ") : "")
                 : data.audience.map((p) => p.name ?? unnamed).join(", ")}</span>
             )}
           </div>
@@ -1285,6 +1286,12 @@ function ConvertForm({ scope, comment: m, base, onDone, reload }: { scope: Revie
   );
 }
 
+/**
+ * 승인 (2026-10-08): one box, one question — "is this version good?". The
+ * person asked sees 승인 / 수정 요청; the lead picks who is asked; the record
+ * folds away. Reasons the server keeps are asked only where they say
+ * something (what to change), and filled in for the rest.
+ */
 function Approval({
   scope,
   token,
@@ -1297,13 +1304,14 @@ function Approval({
   reload: () => Promise<void>;
 }) {
   const c = useCopy();
+  const [asking, setAsking] = useState(false);
   const [reason, setReason] = useState("");
   const [cancelReason, setCancelReason] = useState("");
   const mutation = useRun();
   const current = detail.decisions.find((d) => d.current);
   const canCancel = !!current && detail.allowedActions.cancelDecision;
-  // Nothing to decide and nothing decided: the status pill in the header says it all.
-  if (!detail.allowedActions.decide && !canCancel && !detail.decisions.length && detail.approval !== "approver_inactive")
+  const assign = scope.kind === "project" && detail.allowedActions.setApprover;
+  if (!detail.allowedActions.decide && !assign && !detail.decisions.length && detail.approval !== "approver_inactive")
     return null;
   const decide = async (decision: "approved" | "changes_requested") => {
     // Pinned to what this screen shows; a newer version rejects it.
@@ -1312,73 +1320,169 @@ function Approval({
       round: detail.review.round,
       versionId: detail.review.versionId,
       decision,
-      reason,
+      reason: decision === "approved" ? "" : reason.trim(),
     };
     const done = await mutation.run(input, (requestKey) =>
       reviewsService.mutate(scope, "decide", { requestKey, ...input }, undefined, token),
     );
-    if (done) setReason("");
+    if (done) {
+      setReason("");
+      setAsking(false);
+    }
+    await reload();
+  };
+  const unnamed = c("이름 없음", "Unnamed");
+  return (
+    <section className="max-h-[45%] shrink-0 space-y-3 overflow-y-auto border-b border-border p-4 text-[13px]" aria-label={c("영상 승인", "Video approval")}>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="font-medium">{c("승인", "Approval")}</h2>
+        <span className="truncate text-xs text-muted">
+          {detail.approver
+            ? `${detail.approver.person.name ?? unnamed}${detail.approver.person.userId === detail.currentUserId ? c(" (나)", " (you)") : ""}`
+            : c("승인자 없음", "No approver")}
+        </span>
+      </div>
+      {detail.approval === "approver_inactive" && (
+        <p className="text-muted">{c("승인자가 더 이상 이 프로젝트에 없습니다. 다시 지정해 주세요.", "The approver no longer has access. Choose someone else.")}</p>
+      )}
+      {detail.allowedActions.decide && !asking && (
+        <div className="grid grid-cols-2 gap-2">
+          <button type="button" className={secondaryClass} disabled={mutation.busy} onClick={() => setAsking(true)}>
+            {c("수정 요청", "Request changes")}
+          </button>
+          <button type="button" className={primaryClass} disabled={mutation.busy} onClick={() => void decide("approved")}>
+            {c("승인", "Approve")}
+          </button>
+        </div>
+      )}
+      {detail.allowedActions.decide && asking && (
+        <form
+          className="space-y-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void decide("changes_requested");
+          }}
+        >
+          <textarea
+            className={`${inputClass} min-h-16 resize-none text-[13px]`}
+            rows={3}
+            autoFocus
+            value={reason}
+            maxLength={2000}
+            placeholder={c("무엇을 고치면 될까요?", "What should change?")}
+            aria-label={c("수정 요청 내용", "What to change")}
+            onChange={(e) => setReason(e.target.value)}
+          />
+          <div className="flex justify-end gap-2">
+            <button type="button" className={secondaryClass} onClick={() => setAsking(false)}>
+              {c("취소", "Cancel")}
+            </button>
+            <button type="submit" className={primaryClass} disabled={mutation.busy || !reason.trim()}>
+              {c("수정 요청 보내기", "Send")}
+            </button>
+          </div>
+        </form>
+      )}
+      {assign && scope.kind === "project" && <ApproverPicker scope={scope} detail={detail} reload={reload} />}
+      {mutation.error && <ReviewError code={mutation.error} retry={() => void reload()} />}
+      {detail.decisions.length > 0 && (
+        <details className="group">
+          <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-xs text-muted hover:text-foreground [&::-webkit-details-marker]:hidden">
+            <ChevronRight size={13} aria-hidden="true" className="transition-transform group-open:rotate-90" />
+            {c(`결정 기록 ${detail.decisions.length}`, `History (${detail.decisions.length})`)}
+          </summary>
+          <ol className="mt-2 space-y-1.5 text-xs">
+            {detail.decisions.map((d) => (
+              <li key={d.id} className={d.current ? "" : "text-muted"}>
+                {d.decision === "approved" ? c("승인", "Approved") : c("수정 요청", "Changes requested")} ·{" "}
+                {d.approver.name ?? unnamed} · {kst(d.decidedAt)}
+                {d.reason && ` · ${d.reason}`}
+                {d.cancelled && ` · ${c("취소됨", "Cancelled")}: ${d.cancelled.reason}`}
+              </li>
+            ))}
+          </ol>
+          {canCancel && (
+            <form
+              className="mt-2 flex items-end gap-2"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const input = { revision: detail.review.revision, reason: cancelReason };
+                const done = await mutation.run(input, (requestKey) =>
+                  reviewsService.mutate(scope, "cancel", { requestKey, ...input }, current!.id, token),
+                );
+                if (done) setCancelReason("");
+                await reload();
+              }}
+            >
+              <input
+                className={`${inputClass} min-w-0 flex-1`}
+                value={cancelReason}
+                maxLength={1000}
+                placeholder={c("결정을 취소하는 이유", "Why cancel the decision")}
+                aria-label={c("결정 취소 사유", "Reason to cancel the decision")}
+                onChange={(e) => setCancelReason(e.target.value)}
+              />
+              <button type="submit" className={secondaryClass} disabled={mutation.busy || !cancelReason.trim()}>
+                {c("결정 취소", "Cancel decision")}
+              </button>
+            </form>
+          )}
+        </details>
+      )}
+    </section>
+  );
+}
+
+/** The lead picks who approves, in place; changing it later needs no form. */
+function ApproverPicker({
+  scope,
+  detail,
+  reload,
+}: {
+  scope: ReviewScope & { kind: "project" };
+  detail: ReviewDetail;
+  reload: () => Promise<void>;
+}) {
+  const c = useCopy();
+  const read = useCallback(() => reviewsService.candidates(scope), [scope]);
+  const { data, error } = useLoader(read, 0);
+  const [userId, setUserId] = useState("");
+  const mutation = useRun();
+  const replacing = !!detail.approver;
+  const save = async (next: string) => {
+    setUserId(next);
+    if (!next) return;
+    const input = {
+      revision: detail.review.revision,
+      userId: next === CLEAR ? null : next,
+      // The record keeps a reason for a change of approver; this is it.
+      reason: replacing ? c("승인자 변경", "Approver changed") : "",
+    };
+    await mutation.run(input, (requestKey) => reviewsService.mutate(scope, "approver", { requestKey, ...input }));
+    setUserId("");
     await reload();
   };
   return (
-    <section className="max-h-[45%] shrink-0 space-y-3 overflow-y-auto border-b border-border p-4 text-[13px]" aria-label={c("영상 승인", "Video approval")}>
-      <h2 className="font-medium">{c("영상 승인", "Video approval")}</h2>
-      {detail.approval === "approver_inactive" && (
-        <p className="text-muted">{c("지정된 승인자의 접근이 끝났습니다. 담당자가 다시 지정해야 합니다.", "The designated approver lost access; the lead must reassign.")}</p>
-      )}
-      {detail.allowedActions.decide && (
-        <div className="space-y-2">
-          <label className="block space-y-1">
-            <span className="text-xs text-muted">{c("사유(수정 요청 시 필수)", "Reason (required for changes)")}</span>
-            <textarea className={`${inputClass} min-h-14 resize-none text-[13px]`} rows={2} value={reason} maxLength={2000} onChange={(e) => setReason(e.target.value)} />
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            <button type="button" className={secondaryClass} disabled={mutation.busy || !reason.trim()} onClick={() => void decide("changes_requested")}>
-              {c("수정 요청", "Request changes")}
-            </button>
-            <button type="button" className={primaryClass} disabled={mutation.busy} onClick={() => void decide("approved")}>
-              {c("승인", "Approve")}
-            </button>
-          </div>
-        </div>
-      )}
-      {canCancel && (
-        <form
-          className="flex items-end gap-2"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            const input = { revision: detail.review.revision, reason: cancelReason };
-            const done = await mutation.run(input, (requestKey) =>
-              reviewsService.mutate(scope, "cancel", { requestKey, ...input }, current!.id, token),
-            );
-            if (done) setCancelReason("");
-            await reload();
-          }}
-        >
-          <label className="block min-w-0 flex-1 space-y-1">
-            <span className="text-xs text-muted">{c("결정 취소 사유", "Reason to cancel the decision")}</span>
-            <input className={inputClass} value={cancelReason} maxLength={1000} onChange={(e) => setCancelReason(e.target.value)} />
-          </label>
-          <button type="submit" className={secondaryClass} disabled={mutation.busy || !cancelReason.trim()}>
-            {c("결정 취소", "Cancel decision")}
-          </button>
-        </form>
-      )}
-      {mutation.error && <ReviewError code={mutation.error} retry={() => void reload()} />}
-      {detail.decisions.length > 0 && (
-        <ol className="space-y-1.5 text-xs">
-          {detail.decisions.map((d) => (
-            <li key={d.id} className={d.current ? "" : "text-muted"}>
-              {d.decision === "approved" ? c("승인", "Approved") : c("수정 요청", "Changes requested")} ·{" "}
-              {d.approver.name ?? c("이름 없음", "Unnamed")} · {kst(d.decidedAt)}
-              {d.reason && ` · ${d.reason}`}
-              {d.cancelled && ` · ${c("취소됨", "Cancelled")}: ${d.cancelled.reason}`}
-              {!d.current && !d.cancelled && ` · ${c("현재 결정 아님", "Not current")}`}
-            </li>
-          ))}
-        </ol>
-      )}
-    </section>
+    <div className="space-y-1">
+      <select
+        className={inputClass}
+        value={userId}
+        disabled={mutation.busy}
+        onChange={(e) => void save(e.target.value)}
+        aria-label={c("승인자 선택", "Choose approver")}
+      >
+        <option value="">{replacing ? c("승인자 바꾸기…", "Change approver…") : c("승인자 지정…", "Choose an approver…")}</option>
+        {replacing && <option value={CLEAR}>{c("승인자 없이 진행", "No approver")}</option>}
+        {data?.candidates.map((p) => (
+          <option key={`${p.basis}:${p.userId}`} value={p.userId}>
+            {p.label}
+            {p.basis === "share" ? c(" · 공유 수신자", " · share recipient") : ""}
+          </option>
+        ))}
+      </select>
+      {error && <ReviewError code={error} />}
+      {mutation.error && <ReviewError code={mutation.error} />}
+    </div>
   );
 }
 
@@ -1465,15 +1569,23 @@ function LeadTools({
   reload: () => Promise<void>;
 }) {
   const c = useCopy();
+  const rare = detail.allowedActions.setAudience || detail.allowedActions.replaceVersion;
   return (
     <section className="space-y-3" aria-label={c("검토 관리", "Review tools")}>
-      <h2 className="text-[13px] font-medium text-muted">{c("검토 관리", "Review tools")}</h2>
-      <div className="grid gap-3 xl:grid-cols-2 xl:items-start">
-        <Shares scope={scope} detail={detail} c={c} />
-        {detail.allowedActions.setApprover && <ApproverForm scope={scope} detail={detail} reload={reload} />}
-        {detail.allowedActions.setAudience && <AudienceForm key={`audience:${detail.review.revision}`} scope={scope} detail={detail} reload={reload} />}
-        {detail.allowedActions.replaceVersion && <ReplaceVersion key={`replace:${detail.review.revision}`} scope={scope} detail={detail} reload={reload} />}
-      </div>
+      <Shares scope={scope} detail={detail} c={c} />
+      {/* Who sees this version and swapping the video: rare, so folded. */}
+      {rare && (
+        <details className="group">
+          <summary className="inline-flex min-h-9 cursor-pointer list-none items-center gap-1 text-[13px] text-muted hover:text-foreground [&::-webkit-details-marker]:hidden">
+            <ChevronRight size={14} aria-hidden="true" className="transition-transform group-open:rotate-90" />
+            {c("고급 설정", "Advanced")}
+          </summary>
+          <div className="mt-3 grid gap-3 xl:grid-cols-2 xl:items-start">
+            {detail.allowedActions.setAudience && <AudienceForm key={`audience:${detail.review.revision}`} scope={scope} detail={detail} reload={reload} />}
+            {detail.allowedActions.replaceVersion && <ReplaceVersion key={`replace:${detail.review.revision}`} scope={scope} detail={detail} reload={reload} />}
+          </div>
+        </details>
+      )}
     </section>
   );
 }
@@ -1500,71 +1612,6 @@ function AudienceForm({ scope, detail, reload }: { scope: ReviewScope & { kind: 
 }
 
 const CLEAR = "clear";
-function ApproverForm({
-  scope,
-  detail,
-  reload,
-}: {
-  scope: ReviewScope & { kind: "project" };
-  detail: ReviewDetail;
-  reload: () => Promise<void>;
-}) {
-  const c = useCopy();
-  const read = useCallback(() => reviewsService.candidates(scope), [scope]);
-  const { data, error } = useLoader(read, 0);
-  const [userId, setUserId] = useState(""),
-    [reason, setReason] = useState("");
-  const mutation = useRun();
-  const replacing = !!detail.approver;
-  return (
-    <form
-      className={`${card} min-w-0 space-y-3 p-4`}
-      onSubmit={async (e) => {
-        e.preventDefault();
-        const input = {
-          revision: detail.review.revision,
-          userId: userId === CLEAR ? null : userId,
-          reason,
-        };
-        const done = await mutation.run(input, (requestKey) =>
-          reviewsService.mutate(scope, "approver", { requestKey, ...input }),
-        );
-        if (done) setReason("");
-        await reload();
-      }}
-    >
-      <h2 className="text-[13px] font-medium">{c("최종 승인자", "Final approver")}</h2>
-      {replacing && (
-        <p className="-mt-2 text-xs leading-5 text-muted">
-          {c("바꾸면 이전 결정은 이어지지 않습니다.", "Earlier decisions do not carry over to a new approver.")}
-        </p>
-      )}
-      {error && <ReviewError code={error} />}
-      <select className={inputClass} value={userId} onChange={(e) => setUserId(e.target.value)} aria-label={c("승인자 선택", "Choose approver")}>
-        <option value="">{c("선택", "Choose")}</option>
-        {replacing && <option value={CLEAR}>{c("승인자 해제", "Clear approver")}</option>}
-        {data?.candidates.map((p) => (
-          <option key={`${p.basis}:${p.userId}`} value={p.userId}>
-            {p.label} · {p.basis === "share" ? c("공유 수신자", "share recipient") : c("참여자", "participant")}
-          </option>
-        ))}
-      </select>
-      <label className="block space-y-1 text-sm">
-        <span>{replacing ? c("변경 사유(필수)", "Reason (required)") : c("메모(선택)", "Note (optional)")}</span>
-        <input className={inputClass} value={reason} maxLength={1000} onChange={(e) => setReason(e.target.value)} />
-      </label>
-      {mutation.error && <ReviewError code={mutation.error} />}
-      <button
-        type="submit"
-        className={primaryClass}
-        disabled={mutation.busy || !userId || (replacing && !reason.trim())}
-      >
-        {c("승인자 저장", "Save approver")}
-      </button>
-    </form>
-  );
-}
-
 function ReplaceVersion({
   scope,
   detail,

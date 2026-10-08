@@ -348,8 +348,8 @@ export function TrashPanel({
           {!!data.entries.length && (
             <Details>
               {c(
-                "현재 접근이 허용된 버전만 표시합니다. 복원해도 해제된 폴더 연결이나 회수된 권한은 되살리지 않습니다.",
-                "Only currently accessible versions are listed. Restoring does not revive removed folder links or permissions.",
+                "현재 접근이 허용된 버전만 표시합니다. 복원해도 해제된 프로젝트 연결이나 회수된 권한은 되살리지 않습니다.",
+                "Only currently accessible versions are listed. Restoring does not revive removed project links or permissions.",
               )}
             </Details>
           )}

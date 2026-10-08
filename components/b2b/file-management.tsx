@@ -65,8 +65,8 @@ export function PendingFileOperations({
                     {r.kind === "permission"
                       ? c("자료 권한 변경", "File permission change")
                       : r.kind === "link"
-                        ? c("폴더에 버전 연결", "Link version to folder")
-                        : c("폴더 연결 제외", "Unlink version from folder")}
+                        ? c("프로젝트에 버전 연결", "Link version to project")
+                        : c("프로젝트 연결 제외", "Unlink version from project")}
                     {" · "}
                     {c("처리 결과 확인 필요", "Result unconfirmed")}
                   </span>
@@ -202,8 +202,8 @@ export function FileManager({
     mode === "permission"
       ? c("자료 권한 관리", "Manage file permissions")
       : mode === "link"
-        ? c("다른 폴더에 연결", "Link to another folder")
-        : c("폴더 연결 제외", "Unlink from folder");
+        ? c("다른 프로젝트에 연결", "Link to another project")
+        : c("프로젝트 연결 제외", "Unlink from project");
   return (
     <ConfirmDialog label={title} onClose={close}>
       <h2 className="font-medium">{title}</h2>
@@ -283,8 +283,8 @@ export function FileManager({
             <>
               <p className="text-sm text-muted">
                 {c(
-                  "이 자료의 모든 버전에 적용되며, 다운로드에는 폴더 다운로드 허용도 필요합니다.",
-                  "Applies to every version of this file. Download also needs folder download permission.",
+                  "이 자료의 모든 버전에 적용되며, 다운로드에는 프로젝트 다운로드 허용도 필요합니다.",
+                  "Applies to every version of this file. Download also needs project download permission.",
                 )}
               </p>
               <label className="block space-y-2">
@@ -377,12 +377,12 @@ export function FileManager({
             <>
               <p className="text-sm text-muted">
                 {c(
-                  "이 버전만 연결합니다. 그 폴더 참여자의 권한은 따로 허용해야 합니다.",
-                  "Links this exact version. Grant access to that folder's participants separately.",
+                  "이 버전만 연결합니다. 그 프로젝트 참여자의 권한은 따로 허용해야 합니다.",
+                  "Links this exact version. Grant access to that project's participants separately.",
                 )}
               </p>
               <label className="block space-y-2">
-                <span>{c("연결할 폴더", "Target folder")}</span>
+                <span>{c("연결할 프로젝트", "Target project")}</span>
                 <select
                   className={inputClass}
                   value={
@@ -391,7 +391,7 @@ export function FileManager({
                   disabled={operations.busy}
                   onChange={(e) => setTarget(e.target.value)}
                 >
-                  <option value="">{c("폴더 선택", "Select folder")}</option>
+                  <option value="">{c("프로젝트 선택", "Select project")}</option>
                   {data.projects?.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
@@ -439,7 +439,7 @@ export function FileManager({
                     }
                   }}
                 >
-                  {c("다음 폴더 보기", "Load more folders")}
+                  {c("다음 프로젝트 보기", "Load more projects")}
                 </button>
               )}
             </>
@@ -447,8 +447,8 @@ export function FileManager({
           {mode === "unlink" && (
             <p className="text-sm text-muted">
               {c(
-                "이 폴더에서만 빠지며, 보관된 파일은 그대로 남습니다.",
-                "It leaves this folder only; the stored file remains.",
+                "이 프로젝트에서만 빠지며, 보관된 파일은 그대로 남습니다.",
+                "It leaves this project only; the stored file remains.",
               )}
             </p>
           )}

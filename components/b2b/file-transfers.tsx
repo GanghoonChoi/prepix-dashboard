@@ -335,8 +335,8 @@ export function FileTransfers({
                 "You can't add files to the library right now.",
               )
             : c(
-                "지금은 이 폴더에 자료를 추가할 수 없습니다.",
-                "You can't add files to this folder right now.",
+                "지금은 이 프로젝트에 자료를 추가할 수 없습니다.",
+                "You can't add files to this project right now.",
               )
       }
     >

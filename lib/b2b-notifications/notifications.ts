@@ -144,14 +144,14 @@ export function describe(n: UserNotification, ko: boolean): string {
         ? t("내 코멘트에 답글이 달렸어요", "Someone replied to your comment")
         : t("검토에 새 코멘트가 있어요", "New feedback on a review");
     case "participation.changed":
-      return t("폴더 역할이 바뀌었어요", "Your folder role changed");
+      return t("프로젝트 역할이 바뀌었어요", "Your folder role changed");
     case "participation.ended":
       return t(
-        "한 폴더의 참여가 끝났어요",
+        "한 프로젝트의 참여가 끝났어요",
         "Your participation in a folder ended",
       );
     case "project.lead_assigned":
-      return t("폴더 담당자로 지정됐어요", "You now lead a folder");
+      return t("프로젝트 담당자로 지정됐어요", "You now lead a folder");
     case "membership.changed":
       return p.action === "reactivate"
         ? t("팀 접근이 다시 열렸어요", "Your team access was restored")

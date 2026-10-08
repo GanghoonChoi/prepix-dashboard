@@ -1,20 +1,23 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import type { ReviewWorkList, ReviewWorkQuery } from "@/lib/api/generated/b2b";
+import { ChevronRight, Clapperboard } from "lucide-react";
+import type { ReviewWorkList } from "@/lib/api/generated/b2b";
 import { origin, reviewEvents, reviewsService } from "@/lib/api/services/b2b-reviews.service";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
-import { EmptyState, inputClass, secondaryClass } from "@/components/workspaces/shared";
-import { B2bError, accessEnded, errorCode, useCopy } from "./shared";
-import { approvalCopy } from "./reviews";
+import { Tag } from "@/components/ui";
+import { useCopy } from "./shared";
 
-// SOT: prepix-backend backend/docs/b2b-reviews.md "업무 API". Independent of
-// request work: its own counts, cards and failures.
-type Scope = { origin: string; userId: string; workspaceId: string; projectId?: string };
-type View = NonNullable<ReviewWorkQuery["view"]>;
-type Filters = { view: View; search: string; cursor?: string };
+// SOT: prepix-backend backend/docs/b2b-reviews.md "업무 API".
+type Scope = { origin: string; userId: string; workspaceId: string };
+type Card = ReviewWorkList["cards"][number];
 
-export function ReviewWorkPanel({ projectId, onDenied }: { projectId?: string; onDenied?: () => Promise<void> }) {
+/**
+ * 확인할 영상 (2026-10-08): only what waits on me — videos I approve that
+ * have no decision yet, and videos sent back with changes. No tabs, counts
+ * or search; nothing to do means no section at all.
+ */
+export function ReviewWorkPanel() {
   const context = useWorkspace();
   if (!context?.b2b?.enrolled || !context.b2b.allowedActions.projects || !context.data.currentUserId)
     return null;
@@ -22,50 +25,41 @@ export function ReviewWorkPanel({ projectId, onDenied }: { projectId?: string; o
     origin: origin(),
     workspaceId: context.data.workspace.id,
     userId: context.data.currentUserId,
-    projectId,
   };
-  return <ScopedPanel key={JSON.stringify(scope)} scope={scope} onDenied={onDenied} />;
+  return <Inbox key={JSON.stringify(scope)} scope={scope} />;
 }
 
-function ScopedPanel({ scope, onDenied }: { scope: Scope; onDenied?: () => Promise<void> }) {
+function Inbox({ scope }: { scope: Scope }) {
   const c = useCopy();
-  const [filters, setFilters] = useState<Filters>({ view: "all", search: "" });
-  const [search, setSearch] = useState("");
-  const [data, setData] = useState<ReviewWorkList | null>(null);
-  const [error, setError] = useState("");
-  const serial = useRef(0),
-    mounted = useRef(false);
+  const [cards, setCards] = useState<Card[] | null>(null);
+  const serial = useRef(0);
   const load = useCallback(async () => {
     const ticket = ++serial.current;
     try {
-      const value = await reviewsService.work(scope, filters);
-      if (!mounted.current || ticket !== serial.current) return;
-      setData(value);
-      setError("");
-    } catch (e) {
-      if (!mounted.current || ticket !== serial.current) return;
-      // Transient failures keep the last answer with a retry; a definitive
-      // refusal clears counts and cards together.
-      if (accessEnded(e) || (e instanceof Error && e.message === "B2B_FILE_ACCOUNT_CHANGED")) {
-        setData(null);
-        const status = (e as { response?: { status?: number } })?.response?.status;
-        if (status === 403 || status === 404) void onDenied?.();
-      }
-      setError(errorCode(e));
+      const [mine, changes] = await Promise.all([
+        reviewsService.work(scope, { view: "approvals", search: "" }),
+        reviewsService.work(scope, { view: "changes", search: "" }),
+      ]);
+      if (ticket !== serial.current) return;
+      const seen = new Set<string>();
+      setCards(
+        [...mine.cards, ...changes.cards].filter((card) => !seen.has(card.id) && !!seen.add(card.id)),
+      );
+    } catch {
+      // A to-do list that cannot load says nothing rather than "all clear".
+      if (ticket === serial.current) setCards(null);
     }
-  }, [scope, filters, onDenied]);
+  }, [scope]);
   useEffect(() => {
     const counter = serial;
-    mounted.current = true;
     const start = window.setTimeout(() => void load(), 0);
     const refresh = () => {
       if (document.visibilityState === "visible") void load();
     };
-    const timer = window.setInterval(refresh, 15000);
+    const timer = window.setInterval(refresh, 30000);
     window.addEventListener("focus", refresh);
     window.addEventListener(reviewEvents, refresh);
     return () => {
-      mounted.current = false;
       counter.current++;
       clearTimeout(start);
       clearInterval(timer);
@@ -73,102 +67,36 @@ function ScopedPanel({ scope, onDenied }: { scope: Scope; onDenied?: () => Promi
       window.removeEventListener(reviewEvents, refresh);
     };
   }, [load]);
-  const views: [View, string, number | undefined][] = [
-    ["all", c("진행 중 검토 전체", "All open reviews"), undefined],
-    ["approvals", c("내 승인 대기", "My approvals"), data?.counts.approvals],
-    ["changes", c("수정 요청", "Changes requested"), data?.counts.changes],
-  ];
+  if (!cards?.length) return null;
   return (
-    <section className="space-y-4 border-b border-border pb-8 last:border-b-0 last:pb-0" aria-label={c("검토·승인 업무", "Review and approval work")}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-[15px] font-medium">{c("검토·승인 업무", "Review and approval work")}</h2>
-        <form
-          className="flex w-full min-w-0 gap-2 sm:w-auto"
-          onSubmit={(e) => {
-            e.preventDefault();
-            setFilters({ view: filters.view, search: search.trim() });
-          }}
-        >
-          <input
-            className={`${inputClass} min-w-0 max-w-64`}
-            aria-label={c("검토 업무 검색", "Search review work")}
-            placeholder={c("검토·폴더 검색", "Search reviews and folders")}
-            maxLength={100}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <button type="submit" className={`${secondaryClass} shrink-0`}>
-            {c("검색", "Search")}
-          </button>
-        </form>
-      </div>
-      {error && <B2bError code={error} retry={() => void load()} />}
-      {!data && !error && (
-        <p role="status" className="text-[13px] text-muted">
-          {c("검토 업무를 불러오는 중입니다.", "Loading review work.")}
-        </p>
-      )}
-      {data && (
-        <>
-          <div className="flex flex-wrap items-center gap-2">
-            {views.map(([view, label, count]) => (
-              <button
-                key={view}
-                type="button"
-                className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-border px-3 text-[13px] text-muted transition-colors hover:text-foreground aria-pressed:border-foreground aria-pressed:text-foreground"
-                aria-pressed={filters.view === view}
-                onClick={() => setFilters({ view, search: filters.search })}
-              >
-                {label}
-                {count !== undefined && <>{" "}<span className="font-medium tabular-nums text-foreground">{count}</span></>}
-              </button>
-            ))}
-            <span className="ml-auto flex min-h-9 items-center gap-3 text-[13px] text-muted tabular-nums">
-              <span>{c("승인 대기", "Awaiting approval")} {data.counts.awaiting} · {c("승인자 지정 필요", "Need an approver")} {data.counts.unassigned}</span>
-              {scope.projectId && (
-                <Link className="underline-offset-4 hover:text-foreground hover:underline" href={`/dashboard/workspaces/${scope.workspaceId}/projects/${scope.projectId}/reviews`}>
-                  {c("폴더 검토 전체", "All folder reviews")}
-                </Link>
+    <section className="space-y-3 border-b border-border pb-8 last:border-b-0 last:pb-0" aria-label={c("확인할 영상", "Videos to check")}>
+      <h2 className="text-[15px] font-medium">
+        {c("확인할 영상", "Videos to check")} <span className="tabular-nums text-muted">{cards.length}</span>
+      </h2>
+      <ul className="divide-y divide-border border-y border-border">
+        {cards.map((card) => (
+          <li key={card.id}>
+            <Link
+              className="flex items-center gap-3 py-3 transition-colors hover:bg-surface"
+              href={`/dashboard/workspaces/${scope.workspaceId}/projects/${card.projectId}/reviews/${card.id}`}
+            >
+              <span className="grid size-8 shrink-0 place-items-center rounded-md bg-surface-secondary text-muted">
+                <Clapperboard size={15} strokeWidth={1.75} aria-hidden="true" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[13px] font-medium">{card.title}</span>
+                <span className="block truncate text-xs text-muted">{card.projectName}</span>
+              </span>
+              {card.approval === "changes_requested" ? (
+                <Tag tone="danger">{c("수정 요청", "Changes requested")}</Tag>
+              ) : (
+                <Tag>{c("승인 필요", "Needs your approval")}</Tag>
               )}
-            </span>
-          </div>
-          {data.cards.length ? (
-            <ul className="divide-y divide-border border-y border-border">
-              {data.cards.map((card) => (
-                <li key={card.id}>
-                  <Link
-                    className="block py-3 hover:bg-surface"
-                    href={`/dashboard/workspaces/${scope.workspaceId}/projects/${card.projectId}/reviews/${card.id}`}
-                  >
-                    <p className="break-words text-sm font-medium">{card.title}</p>
-                    <p className="mt-0.5 break-words text-xs text-muted">
-                      {!scope.projectId && `${card.projectName} · `}
-                      {c(...approvalCopy[card.approval])} · {c("회차", "Round")} {card.round}
-                      {card.myApproval && ` · ${c("내가 승인자", "You approve")}`}
-                    </p>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <EmptyState title={c("현재 조건에 해당하는 검토 업무가 없습니다.", "No review work in this view.")} />
-          )}
-          {(filters.cursor || data.nextCursor) && (
-            <div className="flex flex-wrap gap-2">
-              {filters.cursor && (
-                <button className={secondaryClass} onClick={() => setFilters({ view: filters.view, search: filters.search })}>
-                  {c("처음 페이지", "First page")}
-                </button>
-              )}
-              {data.nextCursor && (
-                <button className={secondaryClass} onClick={() => setFilters({ ...filters, cursor: data.nextCursor! })}>
-                  {c("다음 업무", "Next work")}
-                </button>
-              )}
-            </div>
-          )}
-        </>
-      )}
+              <ChevronRight size={16} strokeWidth={1.75} aria-hidden="true" className="text-muted" />
+            </Link>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

@@ -33,7 +33,7 @@ import {
   TeamShell,
 } from "@/components/workspaces/shared";
 import { FileTransfers } from "./file-transfers";
-import { folderTabs, B2bError, useCopy, previewStateCopy } from "./shared";
+import { folderTabs, B2bError, useCopy, previewStateCopy, projectsDenial } from "./shared";
 import { useFileOperations } from "@/lib/b2b-files/use-operations";
 import {
   FileManager,
@@ -60,7 +60,7 @@ export function ProjectFiles({ projectId }: { projectId: string }) {
   return permitted && userId ? (
     <FilesView key={scopeKey(scope)} scope={scope} />
   ) : (
-    <B2bError code="B2B_PROJECT_NOT_FOUND" />
+    <B2bError code={projectsDenial(context.b2b) ?? "B2B_PROJECT_NOT_FOUND"} />
   );
 }
 function FilesView({ scope }: { scope: FileScope }) {
@@ -130,7 +130,7 @@ function FilesView({ scope }: { scope: FileScope }) {
   );
   return (
     <TeamShell
-      title={c("폴더 자료", "Folder files")}
+      title={c("프로젝트 자료", "Project files")}
       description={project.name}
       tabs={folderTabs(scope.workspaceId, project, c)}
     >
@@ -248,7 +248,7 @@ function FilesView({ scope }: { scope: FileScope }) {
                             })
                           }
                         >
-                          {c("다른 폴더에 연결", "Link to another folder")}
+                          {c("다른 프로젝트에 연결", "Link to another project")}
                         </button>
                         <TransferSteward
                           scope={scope}
@@ -268,7 +268,7 @@ function FilesView({ scope }: { scope: FileScope }) {
                           })
                         }
                       >
-                        {c("폴더 연결 제외", "Unlink from folder")}
+                        {c("프로젝트 연결 제외", "Unlink from project")}
                       </button>
                     )}
                   </div>
@@ -315,7 +315,7 @@ const kinds: Record<TeamFileVersion["kind"], [string, string]> = {
 };
 
 /**
- * The head of a stored version's row, shared by 폴더 자료 and 보관함 so the
+ * The head of a stored version's row, shared by 프로젝트 자료 and 보관함 so the
  * same version reads the same in both: its series name as the heading, one
  * meta line, the preview state as the pill and the one primary action.
  */

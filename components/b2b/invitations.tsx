@@ -33,9 +33,10 @@ export function InvitationPanel({
    *  the trigger). Without it the form sits inline, as on a folder's page. */
   dialog?: UseOverlayStateReturn;
 }) {
-  const { data } = useWorkspace()!;
+  const { data, b2b } = useWorkspace()!;
   const c = useCopy();
   const id = data.workspace.id;
+  const canBill = !!b2b?.enrolled && b2b.allowedActions.billing;
   const [rows, setRows] = useState<Invitation[]>([]);
   const [error, setError] = useState("");
   const [email, setEmail] = useState("");
@@ -315,7 +316,7 @@ export function InvitationPanel({
                   ` 추가 좌석은 월 ${seats.extraKrw.toLocaleString("ko-KR")}원(부가세 별도)입니다.`,
                   ` An extra seat is ₩${seats.extraKrw.toLocaleString("en-US")}/month before VAT.`,
                 )}{" "}
-              {seats.free === 0 && (
+              {seats.free === 0 && canBill && (
                 <Link
                   className="underline"
                   href={`/dashboard/workspaces/${id}/plan`}
@@ -464,7 +465,7 @@ export function InvitationPanel({
         <Block
           title={
             projectId
-              ? c("폴더 초대", "Folder invitations")
+              ? c("프로젝트 초대", "Project invitations")
               : c("대기 중인 초대", "Pending invitations")
           }
         >

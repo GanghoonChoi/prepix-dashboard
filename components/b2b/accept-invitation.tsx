@@ -63,8 +63,8 @@ export function AcceptInvitation({ token }: { token: string }) {
         invite
           ? invite.kind === "external"
             ? c(
-                "외부 참여자로 이 폴더에만 참여합니다.",
-                "You join this folder only, as an external collaborator.",
+                "외부 참여자로 이 프로젝트에만 참여합니다.",
+                "You join this project only, as an external collaborator.",
               )
             : c(
                 "내부 참여자로 초대되었습니다.",
@@ -109,14 +109,14 @@ export function AcceptInvitation({ token }: { token: string }) {
             items={[
               [c("팀", "Team"), invite.workspaceName],
               ...(invite.projectName
-                ? [[c("초대 폴더", "Invited folder"), invite.projectName] as [string, string]]
+                ? [[c("초대 프로젝트", "Invited project"), invite.projectName] as [string, string]]
                 : []),
               [
                 c("초대 역할", "Invitation role"),
                 invite.projectRole === "producer"
-                  ? c("폴더 제작자", "Folder producer")
+                  ? c("프로젝트 제작자", "Project producer")
                   : invite.projectRole === "reviewer"
-                    ? c("폴더 검토자", "Folder reviewer")
+                    ? c("프로젝트 검토자", "Project reviewer")
                     : invite.teamRole === "admin"
                       ? c("팀 관리자", "Team administrator")
                       : c("팀 참여자", "Team participant"),

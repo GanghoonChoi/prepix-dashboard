@@ -33,8 +33,7 @@ import {
   stateLabels,
   visibilityLabels,
   useCopy,
-  freeIntent,
-} from "./shared";
+  freeIntent, projectsDenial } from "./shared";
 
 export function Projects() {
   const context = useWorkspace()!;
@@ -189,20 +188,18 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
     return (
       <B2bError
         code={
-          status.enrolled
-            ? `B2B_TEAM_${status.team.currentState.toUpperCase()}`
-            : "B2B_PROJECT_NOT_FOUND"
+          projectsDenial(status) ?? "B2B_PROJECT_NOT_FOUND"
         }
       />
     );
   return (
     <TeamShell
-      title={c("폴더", "Folders")}
+      title={c("프로젝트", "Projects")}
       actions={
         status.enrolled &&
         status.allowedActions.createProject && (
           <Link className={primaryClass} href={`${base}/new`}>
-            {c("폴더 만들기", "Create folder")}
+            {c("프로젝트 만들기", "Create project")}
           </Link>
         )
       }
@@ -212,7 +209,7 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
           value={search}
           onChange={(value) => changeFilter({ search: value.slice(0, 100) })}
           label={c("이름으로 검색", "Search by name")}
-          placeholder={c("폴더 검색…", "Search folders…")}
+          placeholder={c("프로젝트 검색…", "Search projects…")}
         />
         <FilterSelect
           label={c("상태", "State")}
@@ -239,12 +236,12 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
         <p className="py-8 text-center text-sm text-muted">
           {status.enrolled && status.member.kind === "internal"
             ? c(
-                "참여한 폴더가 없습니다. 새 폴더를 만들 수 있습니다.",
-                "You have no folders yet. Create one to begin.",
+                "참여한 프로젝트가 없습니다. 새 프로젝트를 만들 수 있습니다.",
+                "You have no projects yet. Create one to begin.",
               )
             : c(
-                "초대된 폴더가 없습니다. 폴더 담당자에게 문의하세요.",
-                "There are no invited folders. Contact your folder lead.",
+                "초대된 프로젝트가 없습니다. 프로젝트 담당자에게 문의하세요.",
+                "There are no invited projects. Contact your project lead.",
               )}
         </p>
       ) : (
@@ -322,13 +319,22 @@ export function NewProject() {
   const pending = useRef<{ fingerprint: string; key: string } | null>(null);
   if (!b2b) return <TeamLoading />;
   if (!b2b.enrolled || !b2b.allowedActions.createProject)
-    return <B2bError code="B2B_PROJECT_NOT_FOUND" />;
+    return (
+      <B2bError
+        code={
+          projectsDenial(b2b) ??
+          (b2b.enrolled && b2b.team.currentState !== "active"
+            ? `B2B_TEAM_${b2b.team.currentState.toUpperCase()}`
+            : "B2B_INTERNAL_MEMBER_REQUIRED")
+        }
+      />
+    );
   return (
     <TeamShell
-      title={c("폴더 만들기", "Create folder")}
+      title={c("프로젝트 만들기", "Create project")}
       description={c(
-        "만든 사람이 폴더 담당자가 됩니다.",
-        "You become the folder lead.",
+        "만든 사람이 프로젝트 담당자가 됩니다.",
+        "You become the project lead.",
       )}
     >
       <form
@@ -370,7 +376,7 @@ export function NewProject() {
         }}
       >
         <label className="block space-y-2 text-sm">
-          <span>{c("폴더명", "Folder name")}</span>
+          <span>{c("프로젝트명", "Project name")}</span>
           <input
             className={inputClass}
             maxLength={100}
@@ -450,8 +456,8 @@ export function NewProject() {
               onChange={(e) => setOriginals(e.target.checked)}
             />
             {c(
-              "폴더에서 원본 공유 허용",
-              "Allow original sharing in the folder",
+              "프로젝트에서 원본 공유 허용",
+              "Allow original sharing in the project",
             )}
           </label>
         </fieldset>
@@ -460,7 +466,7 @@ export function NewProject() {
           <button className={primaryClass} disabled={busy || !name.trim()}>
             {busy
               ? c("만드는 중…", "Creating…")
-              : c("폴더 만들기", "Create folder")}
+              : c("프로젝트 만들기", "Create project")}
           </button>
           <SpaceBadge workspace={data.workspace} />
         </div>

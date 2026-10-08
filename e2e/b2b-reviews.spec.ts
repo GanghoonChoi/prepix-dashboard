@@ -293,7 +293,7 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   // Authentication returns directly to the share without reopening its URL.
   await V.page.waitForURL(/\/dashboard\/review-shares\//, { timeout: 30_000 });
   await expect(V.page.getByRole("heading", { name: "1차 편집 검토", exact: true })).toBeVisible({ timeout: 30_000 });
-  await expect(V.page.getByText("이 링크로 폴더의 다른 자료·요청·검토에는 들어갈 수 없습니다", { exact: false })).toBeVisible();
+  await expect(V.page.getByText("이 링크로 프로젝트의 다른 자료·요청·검토에는 들어갈 수 없습니다", { exact: false })).toBeVisible();
   expect(V.page.url()).not.toContain("#t=");
   await videoReady(V.page);
   await shot(V.page, "s14-share-viewer");
@@ -358,6 +358,8 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
     .toBe(3);
   // The lead's series grant from V1 already covers the new version.
   await L.page.goto(reviewUrl);
+  // Swapping the video is folded under 고급 설정 (2026-10-08).
+  await L.page.getByText("고급 설정", { exact: true }).click();
   await L.page.getByRole("button", { name: "버전 선택", exact: true }).click();
   await L.page.getByRole("radio", { name: /· V2$/ }).check();
   await expect(L.page.getByText("검토본 준비됨", { exact: true })).toBeVisible({ timeout: 120_000 });
@@ -415,7 +417,7 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   );
   expect(clientWork.counts.approvals).toBe(1);
   await C.page.goto(`/dashboard/workspaces/${team}`);
-  await expect(C.page.getByRole("heading", { name: "검토·승인 업무", exact: true })).toBeVisible();
+  await expect(C.page.getByRole("heading", { name: /^확인할 영상/ })).toBeVisible();
   await expect(C.page.getByText("1차 편집 검토", { exact: true })).toBeVisible();
   await shot(C.page, "team-home-review-work");
   await C.page.setViewportSize({ width: 390, height: 844 });

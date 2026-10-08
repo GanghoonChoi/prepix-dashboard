@@ -369,7 +369,7 @@ test("F13 requests by role: exact-version submission after a lost response, conf
   const externalView = await open(browser, external, `${base}/files`);
   const X = externalView.page;
   await expect(
-    X.getByRole("heading", { name: "폴더 자료", exact: true }),
+    X.getByRole("heading", { name: "프로젝트 자료", exact: true }),
   ).toBeVisible();
   await X.getByLabel("보관할 파일", { exact: true }).setInputFiles({
     name: "edit.wav",
@@ -440,7 +440,7 @@ test("F13 requests by role: exact-version submission after a lost response, conf
     `${base}/requests/${requestId}`,
   );
   await expect(memberView.page.locator("main [role=alert]")).toContainText(
-    "폴더를 찾을 수 없거나",
+    "프로젝트를 찾을 수 없거나",
   );
   await expect(memberView.page.getByText("편집 파일 전달")).toHaveCount(0);
 
@@ -1249,7 +1249,7 @@ test.skip("F03 request work on team home and project overview: live counts, pagi
     .getByRole("button", { name: "업무 새로고침", exact: true })
     .click();
   await expect(
-    X.getByText("폴더를 찾을 수 없거나 접근 권한이 없습니다.", {
+    X.getByText("프로젝트를 찾을 수 없거나 접근 권한이 없습니다.", {
       exact: true,
     }),
   ).toBeVisible();
