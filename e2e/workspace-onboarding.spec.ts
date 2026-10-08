@@ -440,82 +440,7 @@ test("HTTP routes enforce authentication, DTO constraints and tenant access", as
  * between things that are now two persistent objects: the personal space is
  * simply there, and a team is a separate, explicit action taken later.
  */
-test("a new account lands in its own personal space, and a team is an explicit extra step", async ({
-  page,
-}) => {
-  const suffix = Date.now();
-  const email = `firstrun-${suffix}@example.test`;
-  const username = `firstrun-${suffix}`;
-  const browserErrors: string[] = [];
-  page.on("pageerror", (error) => browserErrors.push(error.message));
-
-  await page.goto("/signup?locale=ko");
-  await page.getByLabel("이메일", { exact: true }).fill(email);
-  await page.getByRole("button", { name: "계속하기", exact: true }).click();
-  await page.getByLabel("사용자 이름", { exact: true }).fill(username);
-  await page.getByRole("button", { name: "계속하기", exact: true }).click();
-  await page.getByLabel("비밀번호", { exact: true }).fill(password);
-  await page.locator("#confirmPassword").fill(password);
-  await page.getByRole("button", { name: "계속하기", exact: true }).click();
-  await page.getByRole("checkbox").check();
-  await page.getByRole("button", { name: "계정 만들기", exact: true }).click();
-
-  // First run, not the dashboard and not a create form — and the space it
-  // lands in is named for what it is, never "<account>의 워크스페이스".
-  await expect(page).toHaveURL(/\/start\b/);
-  await expect(
-    page.getByRole("heading", { name: "개인 공간이 준비되었습니다" })
-  ).toBeVisible();
-  await expect(page.getByText(username)).toHaveCount(0);
-  // The empty state is gone, and so is every route to it from here.
-  await expect(
-    page.getByRole("link", { name: "워크스페이스 만들기", exact: true })
-  ).toHaveCount(0);
-  await expect(page.getByText("아직 참여한 워크스페이스가 없습니다")).toHaveCount(
-    0
-  );
-  // Nothing here invites anyone into the personal space, and nothing offers to
-  // convert it — the backend blocks conversion outright, so the UI must not
-  // hint at one.
-  await expect(page.getByLabel("이메일 주소", { exact: true })).toHaveCount(0);
-  await expect(page.getByText(/팀으로 전환|Convert to a team/)).toHaveCount(0);
-
-  // Continuing without making a team is a perfectly good answer, and the invite
-  // step says so instead of showing a form with nobody to put in it.
-  await page.getByRole("button", { name: "계속하기", exact: true }).click();
-  await expect(page.getByText(/아직 팀이 없어서 초대할 사람도 없습니다/)).toBeVisible();
-  await expect(page.getByLabel("이메일 주소", { exact: true })).toHaveCount(0);
-
-  // Back to step 2 to take the other branch: a team, made deliberately.
-  await page.goBack();
-  await page.getByRole("button", { name: "팀 만들기", exact: true }).click();
-  const teamName = `First run team ${suffix}`;
-  await page.getByLabel("팀 이름", { exact: true }).fill(teamName);
-  await page.getByRole("button", { name: "팀 만들기", exact: true }).click();
-
-  // Now there IS somebody to invite, and the form says which space they join.
-  await expect(
-    page.getByRole("heading", { name: "함께할 팀원을 초대하세요" })
-  ).toBeVisible();
-  await expect(page.locator('form [data-space="team"]')).toContainText(teamName);
-  await expect(page.getByLabel("이메일 주소", { exact: true })).toBeVisible();
-
-  // Skipping is visible and explicit, never a silent completion.
-  await page.getByRole("button", { name: "나중에 하기", exact: true }).click();
-  await expect(
-    page.getByRole("heading", { name: "컴퓨터에서 Prepix를 여세요" })
-  ).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: /다운로드와 설치 안내/ })
-  ).toBeVisible();
-
-  // The workspace list agrees: two entries, two kinds, personal first.
-  await page.goto("/dashboard/workspaces?locale=ko");
-  const main = page.locator("main");
-  await expect(main.locator('[data-space="personal"]')).toHaveCount(1);
-  await expect(main.locator('[data-space="team"]')).toContainText(teamName);
-  expect(browserErrors).toEqual([]);
-});
+// The personal and Business first-run paths live in onboarding-first-run.spec.ts.
 
 /**
  * The Linear trap: deleting your last workspace put you in a redirect loop
@@ -576,7 +501,7 @@ test("account pages stay reachable for an account with no workspace", async ({
  * it must appear when `pendingInvitationCount` says there is something to
  * join, and skipping it must land on the workspace the account already has.
  */
-test("first run offers a waiting invitation and skipping it lands on your own workspace", async ({
+test("first run offers a waiting invitation and skipping it goes on to the first question", async ({
   page,
   request,
 }) => {
@@ -629,7 +554,7 @@ test("first run offers a waiting invitation and skipping it lands on your own wo
   // Skippable, visibly — never a silent completion.
   await page.getByRole("button", { name: "나중에 하기", exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "개인 공간이 준비되었습니다" })
+    page.getByRole("heading", { name: "Prepix를 어떻게 쓰실 건가요?" })
   ).toBeVisible();
   // Landing on your OWN space, not on the team that invited you — and titled
   // by what it is rather than by the account that owns it.
