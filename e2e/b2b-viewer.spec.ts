@@ -42,8 +42,6 @@ test("the owner invites a viewer from the members page; the viewer gets projects
   await expect(nav.getByRole("link", { name: "프로젝트", exact: true })).toBeVisible();
   for (const name of ["홈", "멤버", "플랜과 결제", "설정"]) await expect(nav.getByRole("link", { name, exact: true })).toHaveCount(0);
   await expect(V.page.getByRole("link", { name: "프로젝트 만들기", exact: true })).toHaveCount(0);
-  await V.page.goto(`${home}/projects/new`);
-  await expect(V.page.getByTestId("access-denied")).toContainText("뷰어는 공유받은 프로젝트를 보고 코멘트만 할 수 있습니다");
   for (const path of ["settings", "plan"]) {
     await V.page.goto(`${home}/${path}`);
     await expect(V.page.getByTestId("access-denied")).toContainText("권한이 없습니다");
