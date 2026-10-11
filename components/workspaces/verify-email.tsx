@@ -6,7 +6,8 @@ import { authService } from "@/lib/api/services/auth.service";
 import { workspaceService } from "@/lib/api/services/workspace.service";
 import { workspaceError } from "@/lib/workspaces/onboarding";
 import { useWorkspaceCapabilities } from "./capabilities";
-import { TeamError, secondaryClass } from "./shared";
+import { TeamError } from "./shared";
+import { Button } from "@/components/ui";
 
 /**
  * "Verify your email", for a signed-in account that has not.
@@ -48,46 +49,51 @@ export function VerifyEmailNotice() {
       // Named, so it is a real landmark a screen reader can jump to rather than
       // an anonymous <section> that exposes no role at all.
       aria-labelledby="verify-email-heading"
-      className="space-y-3 rounded-lg border border-border bg-surface p-5"
+      className="flex gap-3 rounded-lg border border-border bg-surface p-5"
     >
-      <h2
-        id="verify-email-heading"
-        className="flex items-center gap-2 text-sm font-medium"
-      >
-        <MailCheck size={18} strokeWidth={1.5} aria-hidden="true" />
-        {t("team.verifyTitle")}
-      </h2>
-      <p className="text-sm leading-6 text-muted">{t("team.verifyBody")}</p>
-      {pending > 0 && (
-        <p className="text-sm leading-6">
-          {t("team.verifyPending", { count: pending })}
-        </p>
-      )}
-      {error && <TeamError code={error} />}
-      {state === "sent" && (
-        <p role="status" className="text-sm">
-          {t("team.verifySent")}
-        </p>
-      )}
-      <button
-        className={secondaryClass}
-        disabled={state === "sending"}
-        onClick={async () => {
-          setState("sending");
-          setError("");
-          try {
-            await authService.requestEmailVerification();
-            setState("sent");
-          } catch (e) {
-            // A 429 is the expected answer to an impatient second click, and
-            // says "wait", not "failed".
-            setError(workspaceError(e));
-            setState("idle");
-          }
-        }}
-      >
-        {t(state === "sending" ? "team.verifySending" : "team.verifyResend")}
-      </button>
+      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-surface-secondary text-muted">
+        <MailCheck size={16} strokeWidth={1.75} aria-hidden="true" />
+      </span>
+      <div className="min-w-0 flex-1 space-y-3">
+        <div>
+          <h2 id="verify-email-heading" className="text-sm font-semibold">
+            {t("team.verifyTitle")}
+          </h2>
+          <p className="mt-1 text-[13px] leading-5 text-muted">{t("team.verifyBody")}</p>
+        </div>
+        {pending > 0 && (
+          <p className="text-[13px] leading-5">
+            {t("team.verifyPending", { count: pending })}
+          </p>
+        )}
+        {error && <TeamError code={error} />}
+        {state === "sent" && (
+          <p role="status" className="text-[13px]">
+            {t("team.verifySent")}
+          </p>
+        )}
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={state === "sending"}
+          aria-busy={state === "sending"}
+          onClick={async () => {
+            setState("sending");
+            setError("");
+            try {
+              await authService.requestEmailVerification();
+              setState("sent");
+            } catch (e) {
+              // A 429 is the expected answer to an impatient second click, and
+              // says "wait", not "failed".
+              setError(workspaceError(e));
+              setState("idle");
+            }
+          }}
+        >
+          {t(state === "sending" ? "team.verifySending" : "team.verifyResend")}
+        </Button>
+      </div>
     </section>
   );
 }

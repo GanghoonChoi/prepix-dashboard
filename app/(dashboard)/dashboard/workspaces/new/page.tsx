@@ -9,10 +9,8 @@ import {
   TeamShell,
   TeamError,
   TeamLoading,
-  inputClass,
-  primaryClass,
-  secondaryClass,
 } from "@/components/workspaces/shared";
+import { Button, buttonClass, Field, inputClass } from "@/components/ui";
 
 export default function NewWorkspacePage() {
   const { t } = useI18n();
@@ -47,13 +45,7 @@ export default function NewWorkspacePage() {
         <TeamError code="WORKSPACE_CREATION_UNAVAILABLE" />
       ) : (
         <form onSubmit={create} className="max-w-xl space-y-5">
-          <div className="space-y-2">
-            <label
-              htmlFor="workspace-name"
-              className="block text-sm font-medium"
-            >
-              {t("team.name")}
-            </label>
+          <Field label={t("team.name")} htmlFor="workspace-name">
             <input
               id="workspace-name"
               className={inputClass}
@@ -65,7 +57,7 @@ export default function NewWorkspacePage() {
               placeholder={t("team.placeholder")}
               disabled={busy || pending}
             />
-          </div>
+          </Field>
           <p className="text-xs leading-5 text-muted">
             {b2b
               ? t("team.b2bCreationTerms")
@@ -79,11 +71,11 @@ export default function NewWorkspacePage() {
               {t("team.creationRetryHint")}
             </p>
           )}
-          <div className="flex flex-wrap gap-3">
-            <button
+          <div className="flex flex-wrap gap-2">
+            <Button
               type="submit"
-              className={primaryClass}
               disabled={busy || !name.trim()}
+              aria-busy={busy}
             >
               {t(
                 busy
@@ -92,8 +84,8 @@ export default function NewWorkspacePage() {
                     ? "team.creationRetry"
                     : "team.create",
               )}
-            </button>
-            <Link href="/dashboard" className={secondaryClass}>
+            </Button>
+            <Link href="/dashboard" className={buttonClass({ variant: "secondary" })}>
               {t("team.personal")}
             </Link>
           </div>

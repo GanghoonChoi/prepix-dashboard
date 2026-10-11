@@ -7,7 +7,7 @@ import {
   type Challenge,
   type Credential,
 } from "@/lib/api/services/workspace.service";
-import { inputClass, primaryClass, secondaryClass } from "./shared";
+import { Button, inputClass } from "@/components/ui";
 import { CloudError, cloudErrorCode } from "./cloud-shared";
 export function ReauthForm({
   workspaceId,
@@ -102,13 +102,13 @@ export function ReauthForm({
   }, [challenge, googleReady, lang, submit]);
   return (
     <div className="space-y-4 rounded-lg border border-border bg-surface p-5">
-      <p className="text-sm font-medium">
+      <p className="text-sm font-semibold">
         {c(
           "소유권 변경을 위한 본인 확인",
           "Verify your identity to change ownership",
         )}
       </p>
-      <p className="text-sm leading-6 text-muted">
+      <p className="text-[13px] leading-5 text-muted">
         {c(
           "현재 로그인한 계정으로 확인하세요. 확인은 이 요청에만 적용되며 5분 동안 유효합니다.",
           "Verify with your current account. This verification applies only to this request and expires in 5 minutes.",
@@ -116,9 +116,9 @@ export function ReauthForm({
       </p>
       {error && <CloudError code={error} />}
       {!challenge && (
-        <button className={secondaryClass} disabled={busy} onClick={prepare}>
+        <Button variant="secondary" size="sm" disabled={busy} onClick={prepare}>
           {c("본인 확인 다시 시작", "Restart verification")}
-        </button>
+        </Button>
       )}
       {challenge?.passwordAvailable && (
         <form
@@ -128,8 +128,8 @@ export function ReauthForm({
             void submit({ challengeId: challenge.id, password });
           }}
         >
-          <label className="block space-y-2 text-sm">
-            <span>{c("현재 비밀번호", "Current password")}</span>
+          <label className="block space-y-1.5">
+            <span className="text-[13px] font-medium">{c("현재 비밀번호", "Current password")}</span>
             <input
               className={inputClass}
               type="password"
@@ -141,9 +141,9 @@ export function ReauthForm({
               onChange={(e) => setPassword(e.target.value)}
             />
           </label>
-          <button className={primaryClass} disabled={busy || !password}>
+          <Button type="submit" disabled={busy || !password} aria-busy={busy}>
             {busy ? c("확인 중…", "Verifying…") : label}
-          </button>
+          </Button>
         </form>
       )}
       {challenge?.googleAvailable &&
@@ -171,20 +171,21 @@ export function ReauthForm({
         !(
           challenge.googleAvailable && process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID
         ) && (
-          <p role="alert" className="text-sm">
+          <p role="alert" className="text-[13px]">
             {c(
               "현재 환경에서 연결된 계정의 본인 확인을 사용할 수 없습니다.",
               "Verification for your linked account is unavailable in this environment.",
             )}
           </p>
         )}
-      <button
-        className={secondaryClass}
+      <Button
+        variant="secondary"
+        size="sm"
         disabled={busy || cancelDisabled}
         onClick={onCancel}
       >
         {c("취소", "Cancel")}
-      </button>
+      </Button>
     </div>
   );
 }
