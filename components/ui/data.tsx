@@ -28,23 +28,6 @@ export function StatStrip({ items, className = "" }: { items: StatItem[]; classN
   );
 }
 
-/** A single labelled figure — the old API; `children` goes under the value. */
-export function Stat({
-  label,
-  value,
-  unit,
-  className,
-  children,
-}: {
-  label: string;
-  value: ReactNode;
-  unit?: string;
-  className?: string;
-  children?: ReactNode;
-}) {
-  return <StatStrip className={className} items={[{ label, value, unit, foot: children }]} />;
-}
-
 /**
  * Thin progress bar, 0–100. `auto` turns amber from 90%, where a USED-up limit
  * starts to bite; a bar of what is LEFT should pass `neutral`, or a fresh

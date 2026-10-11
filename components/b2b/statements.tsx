@@ -12,7 +12,7 @@ import type {
 import { statementLabels } from "@/lib/api/generated/b2b";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 // Only what e2e/b2b-statements-races.spec.ts stubs for this module may be
-// imported here (no BackLink/Details/KeyValues until that stub grows them).
+// imported here (no Details until that stub grows it).
 // The kit (@/components/ui) is not stubbed, so it is safe to import.
 import { TeamLoading, TeamShell } from "@/components/workspaces/shared";
 import {

@@ -225,33 +225,3 @@ export function Segmented<T extends string>({
     </div>
   );
 }
-
-/** In-page tabs (state, not routes): "멤버 · 초대". Same track as Segmented. */
-export function SegmentTabs<T extends string>({
-  tabs,
-  value,
-  onChange,
-  label,
-}: {
-  tabs: { value: T; label: ReactNode }[];
-  value: T;
-  onChange: (value: T) => void;
-  label: string;
-}) {
-  return (
-    <div role="tablist" aria-label={label} className={trackClass}>
-      {tabs.map((t) => (
-        <button
-          key={t.value}
-          type="button"
-          role="tab"
-          aria-selected={value === t.value}
-          onClick={() => onChange(t.value)}
-          className={segmentClass(value === t.value, "sm")}
-        >
-          {t.label}
-        </button>
-      ))}
-    </div>
-  );
-}

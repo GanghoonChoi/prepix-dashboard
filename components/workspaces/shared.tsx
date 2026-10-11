@@ -1,15 +1,7 @@
 "use client";
-import { ArrowLeft, Building2, ChevronRight, UserRound } from "lucide-react";
-import Link from "next/link";
+import { Building2, ChevronRight, UserRound } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
-import {
-  Button,
-  buttonClass,
-  Notice,
-  Page,
-  PropertyList,
-  SettingsSection,
-} from "@/components/ui";
+import { Button, Notice, Page, SettingsSection } from "@/components/ui";
 import { useI18n } from "@/lib/i18n/context";
 import {
   isPersonal,
@@ -20,8 +12,6 @@ import type { WorkspaceDetail } from "@/lib/api/services/workspace.service";
 
 // The kit owns these now; the names stay for the pages that import them here.
 export { inputClass, EmptyState, Notice } from "@/components/ui";
-export const primaryClass = buttonClass();
-export const secondaryClass = buttonClass({ variant: "secondary" });
 
 /** A team page's frame — `Page` under the name the team pages already use. */
 export const TeamShell = Page;
@@ -75,28 +65,6 @@ export function Details({
         {children}
       </div>
     </details>
-  );
-}
-
-/** Label/value pairs: a muted label column and the value beside it. */
-export function KeyValues({
-  items,
-}: {
-  items: [ReactNode, ReactNode][];
-}) {
-  return <PropertyList items={items} />;
-}
-
-/** "← 요청 목록": the way back from a child page to its list. */
-export function BackLink({ href, children }: { href: string; children: ReactNode }) {
-  return (
-    <Link
-      href={href}
-      className="inline-flex items-center gap-1 text-[13px] text-muted transition-colors hover:text-foreground"
-    >
-      <ArrowLeft size={14} strokeWidth={1.75} aria-hidden="true" />
-      {children}
-    </Link>
   );
 }
 
