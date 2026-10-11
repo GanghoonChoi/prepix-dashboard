@@ -2,7 +2,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bell } from "lucide-react";
+import {
+  Bell,
+  CalendarClock,
+  ClipboardList,
+  CreditCard,
+  FolderClosed,
+  Lock,
+  MessageSquare,
+  Upload,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import type { UserNotification } from "@/lib/api/generated/b2b";
 import { userService } from "@/lib/api/services/user.service";
 import {
@@ -21,13 +32,9 @@ import {
   scopeKey,
   type NotificationScope,
 } from "@/lib/b2b-notifications/notifications";
-import {
-  EmptyState,
-  secondaryClass,
-  TeamLoading,
-  TeamShell,
-  inputClass,
-} from "@/components/workspaces/shared";
+import { TeamLoading, TeamShell } from "@/components/workspaces/shared";
+import { ago, Button, Card, EmptyState, Notice, Select } from "@/components/ui";
+import { formatDate, formatTime } from "@/lib/format";
 import { useCopy } from "./shared";
 
 /** The account this tab is signed in as. Another tab signing in as someone
@@ -73,15 +80,30 @@ function useAccount() {
   return { account, resync };
 }
 
-const when = (iso: string, ko: boolean) =>
-  new Intl.DateTimeFormat(ko ? "ko-KR" : "en-GB", {
-    timeZone: "Asia/Seoul",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).format(new Date(iso));
+/** The tile beside a row: what the notice is about, by its kind's family. */
+const KIND_ICONS: Record<string, LucideIcon> = {
+  request: ClipboardList,
+  review: MessageSquare,
+  participation: FolderClosed,
+  project: FolderClosed,
+  membership: Users,
+  transfer: Upload,
+  payment: CreditCard,
+  lifecycle: CalendarClock,
+  notice: CalendarClock,
+};
+const kindIcon = (n: UserNotification) =>
+  n.access === "lost" ? Lock : (KIND_ICONS[n.kind.split(".")[0]] ?? Bell);
+
+// The same 32px track as the kit's Segmented, but these stay toggle buttons
+// (aria-pressed in a named group): the notifications spec drives them that way.
+const filterTrack = "inline-flex shrink-0 rounded-md bg-surface-secondary p-0.5";
+const filterButton = (on: boolean) =>
+  `inline-flex h-8 items-center rounded-[5px] px-2.5 text-[13px] tabular-nums transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus ${
+    on
+      ? "bg-background font-medium text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
+      : "text-muted hover:text-foreground"
+  }`;
 
 export function Notifications() {
   const { account, resync } = useAccount();
@@ -285,64 +307,62 @@ function NotificationsView({
     }
   };
 
-  const alertClass =
-    "rounded-md bg-surface-secondary px-3 py-2 text-[13px] leading-5";
+  const lang = ko ? "ko" : "en";
   return (
     <TeamShell title={c("알림", "Notifications")}>
-      <div className="flex flex-wrap items-center gap-2">
-        <div
-          role="group"
-          aria-label={c("보기", "View")}
-          className="inline-flex rounded-md border border-border p-0.5"
-        >
-          {(["all", "unread"] as const).map((f) => (
-            <button
-              key={f}
-              aria-pressed={scope.filter === f}
-              className={`min-h-9 rounded px-3 text-[13px] transition-colors sm:min-h-8 ${
-                scope.filter === f
-                  ? "bg-surface-secondary font-medium text-foreground"
-                  : "text-muted hover:text-foreground"
-              }`}
-              onClick={() => setScope({ ...scope, filter: f })}
-            >
-              {f === "all" ? c("전체", "All") : c("읽지 않음", "Unread")}
-              {f === "unread" && unread !== null ? ` ${unread}` : ""}
-            </button>
-          ))}
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <div role="group" aria-label={c("보기", "View")} className={filterTrack}>
+            {(["all", "unread"] as const).map((f) => (
+              <button
+                key={f}
+                aria-pressed={scope.filter === f}
+                className={filterButton(scope.filter === f)}
+                onClick={() => setScope({ ...scope, filter: f })}
+              >
+                {f === "all" ? c("전체", "All") : c("읽지 않음", "Unread")}
+                {f === "unread" && unread !== null ? ` ${unread}` : ""}
+              </button>
+            ))}
+          </div>
+          {/* One option ("모든 팀") is not a choice; the filter appears once
+              there is a team to narrow to. */}
+          {(teams.length > 0 || scope.workspaceId) && (
+            <label className="w-full min-w-0 sm:w-56">
+              <span className="sr-only">{c("공간", "Space")}</span>
+              <Select
+                value={scope.workspaceId ?? ""}
+                onChange={(e) =>
+                  setScope({ ...scope, workspaceId: e.target.value || null })
+                }
+              >
+                <option value="">{c("모든 팀", "All teams")}</option>
+                {teams.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </Select>
+            </label>
+          )}
         </div>
-        {/* One option ("모든 팀") is not a choice; the filter appears once
-            there is a team to narrow to. */}
-        {(teams.length > 0 || scope.workspaceId) && (
-          <label className="min-w-0 sm:w-56">
-            <span className="sr-only">{c("공간", "Space")}</span>
-            <select
-              className={inputClass}
-              value={scope.workspaceId ?? ""}
-              onChange={(e) =>
-                setScope({ ...scope, workspaceId: e.target.value || null })
-              }
-            >
-              <option value="">{c("모든 팀", "All teams")}</option>
-              {teams.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-      </div>
-      {notice && (
-        <p role="alert" className={alertClass}>
-          {notice}
-        </p>
-      )}
-      {status === "loading" ? (
-        <TeamLoading />
-      ) : status === "error" ? (
-        <div role="alert" className={`${alertClass} space-y-2`}>
-          <p>
+        {notice && <Notice role="alert">{notice}</Notice>}
+        {status === "loading" ? (
+          <TeamLoading />
+        ) : status === "error" ? (
+          <Notice
+            tone="danger"
+            role="alert"
+            action={
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => void reload(live.current)}
+              >
+                {c("다시 시도", "Retry")}
+              </Button>
+            }
+          >
             {failure === "B2B_DISABLED"
               ? c(
                   "팀 알림을 사용할 수 없어요.",
@@ -352,84 +372,99 @@ function NotificationsView({
                   `알림을 불러오지 못했어요 (${failure}). 목록이 비어 있다는 뜻은 아니에요.`,
                   `Could not load notifications (${failure}). This does not mean there are none.`,
                 )}
-          </p>
-          <button
-            className={secondaryClass}
-            onClick={() => void reload(live.current)}
-          >
-            {c("다시 시도", "Retry")}
-          </button>
-        </div>
-      ) : items.length === 0 ? (
-        <EmptyState
-          title={
-            scope.filter === "unread"
-              ? c("읽지 않은 알림이 없어요.", "No unread notifications.")
-              : c("알림이 없어요.", "No notifications.")
-          }
-        />
-      ) : (
-        <ul className="divide-y divide-border border-y border-border">
-          {items.map((n) => (
-            <li
-              key={n.id}
-              className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:gap-4"
-            >
-              <button
-                className="min-w-0 flex-1 rounded-md text-left focus-visible:outline-2 focus-visible:outline-foreground disabled:opacity-60"
-                disabled={busy === n.id}
-                onClick={() => void open(n)}
-              >
-                <span className="flex items-start gap-2.5">
-                  <span
-                    aria-hidden
-                    className={`mt-2 h-1.5 w-1.5 shrink-0 rounded-full ${n.readAt || n.access === "lost" ? "bg-transparent" : "bg-accent"}`}
-                  />
-                  <span className="min-w-0">
-                    <span
-                      className={`block text-sm leading-6 ${n.access === "lost" ? "text-muted" : n.readAt ? "" : "font-medium"}`}
+          </Notice>
+        ) : items.length === 0 ? (
+          <EmptyState
+            icon={Bell}
+            title={
+              scope.filter === "unread"
+                ? c("읽지 않은 알림이 없어요.", "No unread notifications.")
+                : c("알림이 없어요.", "No notifications.")
+            }
+          />
+        ) : (
+          <Card as="div" padded={false} className="overflow-hidden">
+            <ul className="divide-y divide-border">
+              {items.map((n) => {
+                const fresh = !n.readAt && n.access !== "lost";
+                const Icon = kindIcon(n);
+                const where = [n.team?.name, n.project?.name]
+                  .filter(Boolean)
+                  .join(" · ");
+                return (
+                  <li
+                    key={n.id}
+                    className={`flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-3 ${fresh ? "bg-surface" : ""}`}
+                  >
+                    <button
+                      className="flex min-w-0 flex-1 items-start gap-3 rounded-md text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus disabled:opacity-60"
+                      disabled={busy === n.id}
+                      onClick={() => void open(n)}
                     >
-                      {describe(n, ko)}
-                    </span>
-                    <span className="block truncate text-xs text-muted">
-                      {[n.team?.name, n.project?.name, when(n.createdAt, ko)]
-                        .filter(Boolean)
-                        .join(" · ")}
-                      {/* The dot says it to the eye; this says it to a
-                          screen reader. */}
-                      {n.readAt || n.access === "lost" ? null : (
-                        <span className="sr-only">
-                          {c(" · 읽지 않음", " · Unread")}
+                      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-surface-secondary text-muted">
+                        <Icon size={16} strokeWidth={1.75} aria-hidden />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span
+                          className={`block text-sm leading-5 ${n.access === "lost" ? "text-muted" : fresh ? "font-medium" : ""}`}
+                        >
+                          {describe(n, ko)}
                         </span>
-                      )}
-                    </span>
-                  </span>
-                </span>
-              </button>
-              {n.access === "current" && (
-                <button
-                  className="min-h-9 self-start rounded-md px-2 text-[13px] text-muted transition-colors hover:bg-surface-secondary hover:text-foreground disabled:opacity-50 sm:self-auto"
-                  disabled={busy === n.id}
-                  onClick={() => void toggle(n)}
-                >
-                  {n.readAt
-                    ? c("읽지 않음으로", "Mark unread")
-                    : c("읽음으로", "Mark read")}
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-      {status === "ready" && cursor && (
-        <button
-          className={secondaryClass}
-          disabled={busy === "more"}
-          onClick={() => void more()}
-        >
-          {c("더 보기", "Load more")}
-        </button>
-      )}
+                        {where && (
+                          <span className="mt-0.5 block truncate text-xs text-muted">
+                            {where}
+                          </span>
+                        )}
+                        {/* The dot says it to the eye; this says it to a
+                            screen reader. */}
+                        {fresh && (
+                          <span className="sr-only">
+                            {c(" · 읽지 않음", " · Unread")}
+                          </span>
+                        )}
+                      </span>
+                      <span
+                        className="shrink-0 pt-0.5 text-xs text-muted tabular-nums"
+                        title={`${formatDate(n.createdAt, lang)} ${formatTime(n.createdAt, lang)}`}
+                      >
+                        {ago(n.createdAt, lang)}
+                      </span>
+                      <span
+                        aria-hidden
+                        className={`mt-1.5 size-1.5 shrink-0 rounded-full ${fresh ? "bg-foreground" : "bg-transparent"}`}
+                      />
+                    </button>
+                    {n.access === "current" && (
+                      <Button
+                        variant="ghost"
+                        size="xs"
+                        className="self-start sm:self-auto"
+                        disabled={busy === n.id}
+                        onClick={() => void toggle(n)}
+                      >
+                        {n.readAt
+                          ? c("읽지 않음으로", "Mark unread")
+                          : c("읽음으로", "Mark read")}
+                      </Button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
+        )}
+        {status === "ready" && cursor && (
+          <div className="flex justify-center">
+            <Button
+              variant="secondary"
+              disabled={busy === "more"}
+              onClick={() => void more()}
+            >
+              {c("더 보기", "Load more")}
+            </Button>
+          </div>
+        )}
+      </div>
     </TeamShell>
   );
 }
