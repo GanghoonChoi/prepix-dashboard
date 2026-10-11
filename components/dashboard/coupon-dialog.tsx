@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Button, type UseOverlayStateReturn } from "@heroui/react";
-import { BadgePercent, Check, Clock, Ticket } from "lucide-react";
+import { BadgePercent, Check, Clock, Lock, Ticket } from "lucide-react";
 import { Dialog } from "@/components/dialog";
 import { useI18n } from "@/lib/i18n/context";
 import {
@@ -10,6 +10,7 @@ import {
   refusalOf,
   type CouponBenefit,
 } from "@/lib/api/services/coupon.service";
+import { formatPrice } from "@/lib/constants/data";
 
 type Step = "enter" | "review" | "done";
 
@@ -30,7 +31,7 @@ export function CouponDialog({
   /** From a `/redeem?code=` link: filled in and checked as the dialog opens. */
   initialCode?: string | null;
   onApplied: (benefit: CouponBenefit) => void;
-  /** For a discount: go straight to checkout for the plan it is for. */
+  /** For a discount or a price lock: go straight to checkout for the plan it is for. */
   onSubscribe: (planId: string) => void;
 }) {
   const { t, lang } = useI18n();
@@ -50,6 +51,9 @@ export function CouponDialog({
       month: "long",
       day: "numeric",
     });
+
+  // A lock's `until` is exclusive; people read the last day it still covers.
+  const lastDay = (iso: string) => date(new Date(new Date(iso).getTime() - 1).toISOString());
 
   const reset = () => {
     setStep("enter");
@@ -164,7 +168,7 @@ export function CouponDialog({
 
       {step === "review" && benefit && (
         <>
-          <BenefitCard benefit={benefit} date={date} stacked={stacked} />
+          <BenefitCard benefit={benefit} date={date} lastDay={lastDay} stacked={stacked} />
           {error && (
             <p role="alert" className="mt-3 text-xs text-danger">
               {error}
@@ -192,11 +196,17 @@ export function CouponDialog({
                 ? t("coupon.donePass", { plan: benefit.planName, date: date(benefit.endsAt) })
                 : benefit.kind === "minutes"
                   ? t("coupon.doneMinutes", { minutes: String(benefit.minutes), date: date(benefit.expiresAt) })
-                  : t("coupon.doneDiscount", { percent: String(benefit.percent), date: date(benefit.expiresAt) })}
+                  : benefit.kind === "price_lock"
+                    ? t("coupon.doneLock", {
+                        plan: benefit.planName,
+                        price: formatPrice("KRW", benefit.amount),
+                        date: lastDay(benefit.until),
+                      })
+                    : t("coupon.doneDiscount", { percent: String(benefit.percent), date: date(benefit.expiresAt) })}
             </p>
           </div>
           <div className="mt-6 flex justify-end gap-3">
-            {benefit.kind === "discount" ? (
+            {benefit.kind === "discount" || (benefit.kind === "price_lock" && !benefit.subscribed) ? (
               <>
                 <Button variant="outline" size="sm" onPress={() => state.close()}>
                   {t("coupon.later")}
@@ -209,7 +219,7 @@ export function CouponDialog({
                     onSubscribe(benefit.plan);
                   }}
                 >
-                  {t("coupon.subscribeWithDiscount")}
+                  {t(benefit.kind === "price_lock" ? "coupon.subscribeWithLock" : "coupon.subscribeWithDiscount")}
                 </Button>
               </>
             ) : (
@@ -227,14 +237,17 @@ export function CouponDialog({
 function BenefitCard({
   benefit,
   date,
+  lastDay,
   stacked,
 }: {
   benefit: CouponBenefit;
   date: (iso: string) => string;
+  lastDay: (iso: string) => string;
   stacked: boolean;
 }) {
   const { t } = useI18n();
-  const Icon = benefit.kind === "plan_pass" ? Ticket : benefit.kind === "minutes" ? Clock : BadgePercent;
+  const Icon =
+    benefit.kind === "plan_pass" ? Ticket : benefit.kind === "minutes" ? Clock : benefit.kind === "price_lock" ? Lock : BadgePercent;
 
   let title: string;
   let lines: string[];
@@ -247,6 +260,21 @@ function BenefitCard({
   } else if (benefit.kind === "minutes") {
     title = t("coupon.minutesTitle", { minutes: String(benefit.minutes) });
     lines = [t("coupon.minutesLine1"), t("coupon.minutesLine2", { date: date(benefit.expiresAt) })];
+  } else if (benefit.kind === "price_lock") {
+    const price = formatPrice("KRW", benefit.amount);
+    const minutes = benefit.minutes ? String(benefit.minutes) : null;
+    title = minutes
+      ? t("coupon.lockTitleMinutes", { plan: benefit.planName, price, minutes })
+      : t("coupon.lockTitle", { plan: benefit.planName, price });
+    lines = [
+      benefit.subscribed
+        ? t("coupon.lockLineSubscribed", { date: lastDay(benefit.until) })
+        : t("coupon.lockLineNew", { date: lastDay(benefit.until), price }),
+      ...(minutes
+        ? [t(benefit.subscribed ? "coupon.lockLineMinutesNow" : "coupon.lockLineMinutes", { minutes })]
+        : []),
+      t("coupon.lockLineAfter"),
+    ];
   } else {
     title = t("coupon.discountTitle", { plan: benefit.planName, percent: String(benefit.percent) });
     lines = [t("coupon.discountLine1"), t("coupon.discountLine2", { date: date(benefit.expiresAt) })];

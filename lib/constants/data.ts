@@ -7,6 +7,7 @@ import type { Lang } from "@/lib/i18n/config";
 export const PLAN_NAMES: Record<string, string> = {
   free: "Free",
   student: "Student",
+  light: "Light",
   creator: "Creator",
   premium: "Premium",
   pro: "Pro",
@@ -54,10 +55,19 @@ export const PLAN_COPY: Record<Lang, Record<string, PlanCopy>> = {
         "Requires student verification",
       ],
     },
+    light: {
+      description: "For creators editing a few videos a month.",
+      features: [
+        "180 min of AI processing / month",
+        "Outputs up to 15 min · 1080p, no watermark",
+        "Conversational rough cut",
+        "5 projects / month",
+      ],
+    },
     creator: {
       description: "Everything you need to edit at full speed.",
       features: [
-        "600 min of AI processing / month",
+        "300 min of AI processing / month",
         "Outputs up to 2 hours · 4K, no watermark",
         "Multi-angle editing",
         "Natural language search",
@@ -86,10 +96,19 @@ export const PLAN_COPY: Record<Lang, Record<string, PlanCopy>> = {
         "학생 인증 필요",
       ],
     },
+    light: {
+      description: "한 달에 몇 편, 가볍게 편집하는 크리에이터.",
+      features: [
+        "월 180분 AI 처리",
+        "최대 15분 · 1080p 출력, 워터마크 없음",
+        "대화형 러프컷",
+        "월 프로젝트 5개",
+      ],
+    },
     creator: {
       description: "빠른 편집에 필요한 모든 것.",
       features: [
-        "월 600분 AI 처리",
+        "월 300분 AI 처리",
         "최대 2시간 · 4K 출력, 워터마크 없음",
         "멀티앵글 편집",
         "자연어 검색",

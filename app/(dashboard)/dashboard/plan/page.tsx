@@ -306,11 +306,15 @@ export default function PlanPage() {
       month: "long",
       day: "numeric",
     });
+  // A price lock's `until` is exclusive; people read the last day it covers.
+  const lastDay = (iso: string) => shortDate(new Date(new Date(iso).getTime() - 1).toISOString());
   const planName = (id: string) => plans.find((p) => p.id === id)?.displayName ?? PLAN_NAMES[id] ?? id;
   // A pass that holds the current plan is already the status line above it.
   const passBenefit = onPass ? null : (benefits?.pass ?? null);
+  const locks = benefits?.locks ?? [];
   const hasBenefits =
-    !!benefits && (!!passBenefit || benefits.credits.remainingSeconds > 0 || benefits.discounts.length > 0);
+    !!benefits &&
+    (!!passBenefit || benefits.credits.remainingSeconds > 0 || benefits.discounts.length > 0 || locks.length > 0);
   // Only what the name and status pill do not already say.
   const statusLine = showPeriodEnd
     ? t("plan.accessUntil", { date: periodEndLabel! })
@@ -366,6 +370,18 @@ export default function PlanPage() {
     } else {
       sub = pct ? t("plan.launchMonthly", { pct }) : null;
     }
+    // A price lock holds every payment until its date — and says when it
+    // stops and what comes after, so it never reads as the price for good.
+    const lock = price.interval === "month" ? price.couponLock : null;
+    if (lock) {
+      return {
+        big: `${formatPrice(price.currency, lock.amount)}${per}`,
+        strike: formatPrice(price.currency, net),
+        sub: t("coupon.priceUntilLock", { date: lastDay(lock.until), price: formatPrice(price.currency, net), per }),
+        chip: t("coupon.lockChip"),
+        note: lock.minutes ? t("coupon.lockMinutes", { minutes: String(lock.minutes) }) : null,
+      };
+    }
     // A coupon takes money off the first month only, on top of the launch
     // promo — exactly what checkout charges. The later price is said too, so
     // the first payment never reads as the monthly price.
@@ -378,7 +394,7 @@ export default function PlanPage() {
         big: `${formatPrice(price.currency, first)}${per}`,
         strike: formatPrice(price.currency, net),
         sub: t("coupon.priceAfterCoupon", { price: formatPrice(price.currency, net), per }),
-        coupon,
+        chip: t("coupon.chip", { percent: String(coupon) }),
       };
     }
     return { big: `${formatPrice(price.currency, net)}${per}`, strike, sub };
@@ -406,6 +422,12 @@ export default function PlanPage() {
       // A paid tier our processor has no price for. Offering it would start a
       // checkout the server refuses; saying it is free would be a lie.
       return { label: t("plan.priceUnavailable"), disabled: true, onPress: () => {} };
+    }
+    // One subscription per account, and switching between paid plans is not
+    // offered yet (Light joined Creator in 2026-10) — checkout would refuse it,
+    // so say so rather than offer it.
+    if (currentSub?.manageable && !isEnded) {
+      return { label: t("plan.switchAfterCancel"), disabled: true, onPress: () => {} };
     }
     return { label: t("plan.get", { name: plan.displayName }), disabled: false, onPress: () => handleUpgrade(plan.id) };
   };
@@ -518,6 +540,20 @@ export default function PlanPage() {
                     </span>
                   </li>
                 )}
+                {locks.map((l) => (
+                  <li key={`${l.plan}-${l.amount}-${l.until}`} className="flex flex-wrap justify-between gap-x-4">
+                    <span>
+                      {l.minutes
+                        ? t("coupon.benefitLockMinutes", {
+                            plan: planName(l.plan),
+                            price: formatPrice("KRW", l.amount),
+                            minutes: String(l.minutes),
+                          })
+                        : t("coupon.benefitLock", { plan: planName(l.plan), price: formatPrice("KRW", l.amount) })}
+                    </span>
+                    <span className="text-muted">{t("coupon.benefitLockUntil", { date: lastDay(l.until) })}</span>
+                  </li>
+                ))}
                 {benefits!.discounts.map((d) => (
                   <li key={`${d.plan}-${d.percent}-${d.expiresAt}`} className="flex flex-wrap justify-between gap-x-4">
                     <span>{t("coupon.benefitDiscount", { percent: String(d.percent), plan: planName(d.plan) })}</span>
@@ -581,16 +617,17 @@ export default function PlanPage() {
                         )}
                         <span className="whitespace-nowrap text-2xl font-semibold tracking-tight tabular-nums">{price.big}</span>
                       </div>
-                      {"coupon" in price && price.coupon ? (
+                      {"chip" in price && price.chip ? (
                         <p className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted">
                           <Chip size="sm" color="success" variant="soft">
-                            {t("coupon.chip", { percent: String(price.coupon) })}
+                            {price.chip}
                           </Chip>
                           {price.sub}
                         </p>
                       ) : (
                         price.sub && <p className="mt-1 text-xs text-muted">{price.sub}</p>
                       )}
+                      {"note" in price && price.note && <p className="mt-1 text-xs text-foreground">{price.note}</p>}
                     </div>
 
                     {copy && (

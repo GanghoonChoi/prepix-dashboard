@@ -10,6 +10,9 @@ export interface PlanPrice {
   launchDiscountPercent?: number | null;
   // A coupon this buyer holds for the plan: first payment only, on top of the launch promo.
   couponDiscountPercent?: number | null;
+  // A price-lock coupon: every payment before `until` (exclusive) is `amount`,
+  // `minutes` a month while it lasts (null = the plan's). Toss only.
+  couponLock?: { amount: number; minutes: number | null; until: string } | null;
 }
 
 export interface CatalogPlan {
