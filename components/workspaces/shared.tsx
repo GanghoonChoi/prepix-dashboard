@@ -2,7 +2,14 @@
 import { ArrowLeft, Building2, ChevronRight, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, type ReactNode } from "react";
-import { PageHeader, PageTabs } from "@/components/ui";
+import {
+  Button,
+  buttonClass,
+  Notice,
+  Page,
+  PropertyList,
+  SettingsSection,
+} from "@/components/ui";
 import { useI18n } from "@/lib/i18n/context";
 import {
   isPersonal,
@@ -11,40 +18,13 @@ import {
 } from "@/lib/workspaces/kind";
 import type { WorkspaceDetail } from "@/lib/api/services/workspace.service";
 
-// Controls are 36px on a pointer and keep the 44px touch target below `sm`.
-export const inputClass =
-  "w-full rounded-md border border-field-border bg-field-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted focus-visible:border-foreground/40 focus-visible:ring-2 focus-visible:ring-foreground/10";
-export const primaryClass =
-  "inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-accent px-3.5 py-1.5 text-[13px] font-medium text-accent-foreground transition-opacity hover:opacity-85 disabled:cursor-wait disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus sm:min-h-9";
-export const secondaryClass =
-  "inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-border bg-background px-3.5 py-1.5 text-[13px] font-medium text-foreground transition-colors hover:bg-surface-secondary disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus sm:min-h-9";
-export function TeamShell({
-  title,
-  description,
-  tabs,
-  actions,
-  children,
-}: {
-  /** Omit when the page's first section already carries its own heading. */
-  title?: string;
-  description?: ReactNode;
-  /** Sibling pages of one topic (e.g. 플랜과 결제 · 결제 정보 · 월 이용명세서). */
-  tabs?: { href: string; label: string; match?: string }[];
-  /** The page's own actions, beside the title. */
-  actions?: ReactNode;
-  children: ReactNode;
-}) {
-  return (
-    /* The sidebar switcher names the space and the sidebar nav lists its
-       pages, so a breadcrumb and a tab row here were the second and third
-       copies of the same navigation. */
-    <div className="text-foreground">
-      {title && <PageHeader title={title} description={description} actions={actions} />}
-      {tabs && <PageTabs tabs={tabs} />}
-      <div className="space-y-8">{children}</div>
-    </div>
-  );
-}
+// The kit owns these now; the names stay for the pages that import them here.
+export { inputClass, EmptyState, Notice } from "@/components/ui";
+export const primaryClass = buttonClass();
+export const secondaryClass = buttonClass({ variant: "secondary" });
+
+/** A team page's frame — `Page` under the name the team pages already use. */
+export const TeamShell = Page;
 /**
  * One settings section, the way the reference Console lays them out: the title
  * and its one-line description on the left, the controls for it on the right,
@@ -55,14 +35,7 @@ export function TeamShell({
  * sections spends it on none. Sections that hold a single sentence stop
  * looking like objects at all.
  */
-export function Block({
-  title,
-  description,
-  actions,
-  id,
-  label,
-  children,
-}: {
+export function Block(props: {
   title: string;
   description?: ReactNode;
   actions?: ReactNode;
@@ -71,26 +44,8 @@ export function Block({
   label?: string;
   children?: ReactNode;
 }) {
-  return (
-    <section
-      id={id}
-      aria-label={label}
-      className="space-y-4 border-b border-border pb-8 last:border-b-0 last:pb-0"
-    >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h2 className="text-[15px] font-medium">{title}</h2>
-          {description && (
-            <p className="mt-1 max-w-2xl text-[13px] leading-5 text-muted">
-              {description}
-            </p>
-          )}
-        </div>
-        {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
-      </div>
-      {children}
-    </section>
-  );
+  const { actions, ...rest } = props;
+  return <SettingsSection flush action={actions} {...rest} />;
 }
 /**
  * Detail most people never need — policy wording, edge cases, how a rule is
@@ -123,63 +78,13 @@ export function Details({
   );
 }
 
-/** Nothing here yet: one line, and the one thing to do about it. */
-export function EmptyState({
-  title,
-  description,
-  action,
-}: {
-  title: string;
-  description?: string;
-  action?: ReactNode;
-}) {
-  return (
-    <div className="rounded-lg border border-dashed border-border px-6 py-10 text-center">
-      <p className="text-sm font-medium">{title}</p>
-      {description && (
-        <p className="mx-auto mt-1 max-w-md text-[13px] leading-5 text-muted">
-          {description}
-        </p>
-      )}
-      {action && <div className="mt-4 flex justify-center">{action}</div>}
-    </div>
-  );
-}
-
-/** A one-line callout for a state worth noticing (not an error). */
-export function Notice({
-  children,
-  role,
-}: {
-  children: ReactNode;
-  role?: "status" | "note" | "alert";
-}) {
-  return (
-    <div
-      role={role}
-      className="rounded-md bg-surface-secondary px-3 py-2 text-[13px] leading-5"
-    >
-      {children}
-    </div>
-  );
-}
-
 /** Label/value pairs: a muted label column and the value beside it. */
 export function KeyValues({
   items,
 }: {
   items: [ReactNode, ReactNode][];
 }) {
-  return (
-    <dl className="grid gap-x-6 gap-y-2 text-[13px] sm:grid-cols-[minmax(8rem,auto)_1fr]">
-      {items.map(([label, value], i) => (
-        <div key={i} className="contents">
-          <dt className="text-muted">{label}</dt>
-          <dd className="min-w-0 break-words">{value}</dd>
-        </div>
-      ))}
-    </dl>
-  );
+  return <PropertyList items={items} />;
 }
 
 /** "← 요청 목록": the way back from a child page to its list. */
@@ -206,17 +111,19 @@ export function TeamError({
   const key = `team.error.${code}`;
   const message = t(key);
   return (
-    <div
+    <Notice
       role="alert"
-      className="rounded-lg border border-border bg-surface p-4 text-sm leading-6"
+      tone="danger"
+      action={
+        retry && (
+          <Button variant="secondary" size="sm" onClick={retry}>
+            {t("team.retry")}
+          </Button>
+        )
+      }
     >
-      <p>{message === key ? t("team.error.REQUEST_FAILED") : message}</p>
-      {retry && (
-        <button className={`${secondaryClass} mt-3`} onClick={retry}>
-          {t("team.retry")}
-        </button>
-      )}
-    </div>
+      {message === key ? t("team.error.REQUEST_FAILED") : message}
+    </Notice>
   );
 }
 /**
@@ -297,7 +204,7 @@ export function ConfirmDialog({
       role="alertdialog"
       aria-modal="true"
       aria-label={label}
-      className="space-y-4 rounded-lg border border-border bg-surface p-5"
+      className="space-y-4 rounded-lg border border-border bg-background p-5 shadow-sm"
     >
       {children}
     </div>
