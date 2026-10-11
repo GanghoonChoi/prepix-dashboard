@@ -89,21 +89,30 @@ export function SettingRow({
   );
 }
 
-/** Irreversible actions, set apart by a red-tinted rule — never a red fill. */
+/**
+ * Irreversible actions, set apart by a red-tinted rule — never a red fill.
+ * Without a title it is only the frame, for a section that brings its own
+ * heading (e.g. a shared "leave team" block).
+ */
 export function DangerZone({
   title,
   description,
+  id,
+  label,
   children,
 }: {
-  title: ReactNode;
+  title?: ReactNode;
   description?: ReactNode;
-  children: ReactNode;
+  id?: string;
+  /** Names the section as a landmark (role region) when given. */
+  label?: string;
+  children?: ReactNode;
 }) {
   return (
-    <section className="rounded-lg border border-danger/30 p-5">
-      <h2 className="text-base font-semibold text-danger-ink">{title}</h2>
+    <section id={id} aria-label={label} className="rounded-lg border border-danger/30 p-5">
+      {title && <h2 className="text-base font-semibold text-danger-ink">{title}</h2>}
       {description && <p className="mt-1 text-[13px] leading-5 text-muted">{description}</p>}
-      <div className="mt-5">{children}</div>
+      {children && <div className={title || description ? "mt-5" : ""}>{children}</div>}
     </section>
   );
 }
