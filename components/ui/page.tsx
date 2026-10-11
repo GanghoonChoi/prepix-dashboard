@@ -1,5 +1,5 @@
 "use client";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
@@ -89,11 +89,13 @@ export function PageHeader({
           )}
           {facts && facts.length > 0 && (
             <p className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-muted">
+              {/* The dot is a sibling, not inside the fact: a fact stays one
+                  text node, findable by its exact words. */}
               {facts.map((fact, i) => (
-                <span key={i} className="inline-flex items-center gap-1.5">
+                <Fragment key={i}>
                   {i > 0 && <span aria-hidden="true">·</span>}
-                  {fact}
-                </span>
+                  <span className="min-w-0 break-words">{fact}</span>
+                </Fragment>
               ))}
             </p>
           )}
