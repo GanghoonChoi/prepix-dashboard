@@ -57,20 +57,19 @@ export function Meter({
 }: {
   value: number;
   tone?: "auto" | "neutral";
-  /** Names the bar for assistive tech (role="progressbar"). */
+  /**
+   * Makes the bar a named progressbar. Without it the bar is decoration, for
+   * callers that wrap it in their own progressbar (bytes, not percent).
+   */
   label?: string;
 }) {
   const percent = Math.max(0, Math.min(100, value));
   const warn = tone === "auto" && percent >= 90;
+  const progress = label
+    ? { role: "progressbar", "aria-label": label, "aria-valuemin": 0, "aria-valuemax": 100, "aria-valuenow": Math.round(percent) }
+    : { "aria-hidden": true as const };
   return (
-    <div
-      role="progressbar"
-      aria-label={label}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={Math.round(percent)}
-      className="h-1.5 overflow-hidden rounded-full bg-surface-tertiary"
-    >
+    <div {...progress} className="h-1.5 overflow-hidden rounded-full bg-surface-tertiary">
       <div
         className={`h-full rounded-full transition-[width] ${warn ? "bg-warning" : "bg-foreground"}`}
         style={{ width: `${percent}%` }}
