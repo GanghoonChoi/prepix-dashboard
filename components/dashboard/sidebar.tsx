@@ -18,7 +18,12 @@ import {
 } from "lucide-react";
 import { WorkspaceSwitcher } from "@/components/workspaces/workspace-switcher";
 import { useCurrentSpace } from "@/components/dashboard/current-space";
-import { menuClass, menuItemClass, useDismiss } from "@/components/ui";
+import {
+  menuClass,
+  menuItemClass,
+  menuSeparatorClass,
+  useDismiss,
+} from "@/components/ui";
 import { useI18n } from "@/lib/i18n/context";
 import { legalUrl } from "@/lib/i18n/config";
 import { LanguageSwitcher } from "@/components/language-switcher";
@@ -98,7 +103,7 @@ export function Sidebar({
                         aria-current={active ? "page" : undefined}
                         className={`flex h-8 items-center gap-2.5 rounded-md px-2 text-[13px] transition-colors ${
                           active
-                            ? "bg-surface-tertiary font-medium text-foreground"
+                            ? "bg-surface-secondary font-medium text-foreground"
                             : "text-foreground/70 hover:bg-surface-secondary hover:text-foreground"
                         }`}
                       >
@@ -114,7 +119,7 @@ export function Sidebar({
         })}
       </nav>
 
-      <div className="border-t border-border p-2">
+      <div className="p-2">
         <AccountMenu profile={profile} onLogout={onLogout} onClose={onClose} />
       </div>
     </aside>
@@ -146,6 +151,16 @@ function AccountMenu({
           role="menu"
           className={`${menuClass} absolute inset-x-0 bottom-[calc(100%+4px)]`}
         >
+          {/* Who is signed in, before anything that acts on that account. */}
+          <div className="px-2 pb-1.5 pt-1">
+            <p className="truncate text-[13px] font-medium">
+              {name || (ko ? "내 계정" : "My account")}
+            </p>
+            {profile?.email && profile.email !== name && (
+              <p className="truncate text-xs text-muted">{profile.email}</p>
+            )}
+          </div>
+          <div className={menuSeparatorClass} />
           <Link
             href="/dashboard/settings"
             role="menuitem"
@@ -158,15 +173,16 @@ function AccountMenu({
             <UserRound size={16} strokeWidth={1.75} aria-hidden="true" />
             {ko ? "계정 설정" : "Account settings"}
           </Link>
-          <div className="flex items-center justify-between gap-2 px-2 py-1.5 text-[13px]">
+          <div className={menuSeparatorClass} />
+          <div className="flex items-center justify-between gap-2 px-2 py-1 text-[13px]">
             <span className="text-muted">{ko ? "언어" : "Language"}</span>
             <LanguageSwitcher />
           </div>
-          <div className="flex items-center justify-between gap-2 px-2 py-1.5 text-[13px]">
+          <div className="flex items-center justify-between gap-2 px-2 py-1 text-[13px]">
             <span className="text-muted">{ko ? "테마" : "Theme"}</span>
             <ThemeSwitcher />
           </div>
-          <div className="-mx-1 my-1 border-t border-border" />
+          <div className={menuSeparatorClass} />
           {/* Policy text lives on the marketing site, in the current language. */}
           <div className="flex flex-wrap gap-x-3 gap-y-1 px-2 py-1.5 text-[11px] text-muted">
             {(
@@ -187,6 +203,7 @@ function AccountMenu({
               </a>
             ))}
           </div>
+          <div className={menuSeparatorClass} />
           <button
             type="button"
             role="menuitem"

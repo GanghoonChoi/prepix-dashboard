@@ -13,6 +13,14 @@ import { userService, type Profile } from "@/lib/api/services/user.service";
 import { VerifyEmailNotice } from "@/components/workspaces/verify-email";
 import { clearSignedIn } from "@/lib/account-hint";
 import { loginHref, signupHref } from "@/lib/auth-entry";
+import { pageWidth, type PageWidth } from "@/lib/page-width";
+
+/** Content width + a 24px gutter each side (16 on phones). */
+const MAIN_WIDTH: Record<PageWidth, string> = {
+  full: "px-4 py-6 sm:px-6",
+  wide: "mx-auto max-w-[1248px] px-4 py-6 sm:px-6 lg:py-8",
+  narrow: "mx-auto max-w-[816px] px-4 py-6 sm:px-6 lg:py-8",
+};
 
 // Paddle's eventCallback is registered in the layout effect, which lives ABOVE
 // ToastProvider — so it can't call useToast directly. It dispatches a window
@@ -48,9 +56,7 @@ export default function DashboardLayout({
    */
   const pathname = usePathname() ?? "";
   const onInvitationPage = /^\/dashboard\/(?:b2b-)?invitations\//.test(pathname);
-  const wide =
-    /\/reviews\/[0-9a-f-]{36}$/.test(pathname) ||
-    pathname.startsWith("/dashboard/review-shares/");
+  const width = pageWidth(pathname);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   // "checking" until we've confirmed a token client-side. We render only a
@@ -218,12 +224,10 @@ export default function DashboardLayout({
                 the sidebar opens onto the same measure. */}
             <main
               className={
-                // The review screen is a workspace (video + feedback side by
-                // side) and takes the full width; everything else reads in
-                // one column.
-                wide
-                  ? "px-4 py-6 sm:px-6 lg:py-6"
-                  : "mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-10 lg:py-8"
+                // Lists and grids get the room, forms keep a reading measure,
+                // the review workspace (video + feedback) takes it all —
+                // lib/page-width.ts decides which, by route.
+                MAIN_WIDTH[width]
               }
             >
               {/*
