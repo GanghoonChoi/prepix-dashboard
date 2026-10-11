@@ -108,7 +108,7 @@ export function Dialog({
           {/* `pr-10` keeps a long title from running under the close button. */}
           <h3
             id={titleId}
-            className="pr-10 text-lg font-semibold text-foreground"
+            className="pr-10 text-base font-semibold text-foreground"
           >
             {title}
           </h3>

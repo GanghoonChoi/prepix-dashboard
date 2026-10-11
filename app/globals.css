@@ -10,6 +10,9 @@
     -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic",
     system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  --color-success-ink: var(--success-ink);
+  --color-warning-ink: var(--warning-ink);
+  --color-danger-ink: var(--danger-ink);
 }
 
 /*
@@ -54,6 +57,15 @@
   --link: #111111;
   --focus: #111111;
   --scrollbar: #dcdcdc;
+
+  /*
+   * Status text (docs/design/2026-10-12-design-system.md). HeroUI's
+   * success/warning/danger are fills; on a 10% tint of themselves they fall
+   * under 4.5:1, so badge and notice text uses these darker inks instead.
+   */
+  --success-ink: #15803d;
+  --warning-ink: #925f0a;
+  --danger-ink: #b91c1c;
 }
 
 .dark,
@@ -86,6 +98,10 @@
   --link: #ededed;
   --focus: #fafafa;
   --scrollbar: #333333;
+
+  --success-ink: #4ade80;
+  --warning-ink: #facc15;
+  --danger-ink: #f87171;
 }
 
 /* 6 for controls, 8 for cards and menus. */

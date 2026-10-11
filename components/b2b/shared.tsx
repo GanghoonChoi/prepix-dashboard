@@ -7,6 +7,7 @@ import type { ProjectRole, ProjectState, ProjectVisibility, TeamState } from "@/
 import Link from "next/link";
 import { Lock, SearchX } from "lucide-react";
 import { secondaryClass } from "@/components/workspaces/shared";
+import { Badge, Button, EmptyState, Notice, type Tone } from "@/components/ui";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import { accessNotice, kst } from "@/lib/b2b-lifecycle/view";
 
@@ -412,20 +413,24 @@ export function AccessDenied({ code }: { code: string }) {
   const c = useCopy();
   const context = useWorkspace();
   const denial = denials[code];
-  const Icon = denial.found ? Lock : SearchX;
   const home = context ? `/dashboard/workspaces/${context.data.workspace.id}` : "/dashboard";
   return (
-    <div role="alert" data-testid="access-denied" className="mx-auto flex max-w-md flex-col items-center gap-3 py-16 text-center">
-      <span className="grid size-12 place-items-center rounded-full bg-surface-secondary text-muted">
-        <Icon size={20} strokeWidth={1.75} aria-hidden="true" />
-      </span>
-      <h2 className="text-[17px] font-semibold tracking-tight">
-        {denial.found ? c("권한이 없습니다", "You don't have access") : c("열 수 없습니다", "Can't open this")}
-      </h2>
-      <p className="text-[13px] leading-6 text-muted">{c(...denial.reason)}</p>
-      <Link className={`${secondaryClass} mt-2`} href={home}>
-        {context ? c("팀 홈으로", "Back to team home") : c("대시보드로", "Back to dashboard")}
-      </Link>
+    <div role="alert" data-testid="access-denied" className="mx-auto max-w-md py-12">
+      <EmptyState
+        frame="none"
+        icon={denial.found ? Lock : SearchX}
+        title={
+          <span className="text-base font-semibold">
+            {denial.found ? c("권한이 없습니다", "You don't have access") : c("열 수 없습니다", "Can't open this")}
+          </span>
+        }
+        description={c(...denial.reason)}
+        action={
+          <Link className={secondaryClass} href={home}>
+            {context ? c("팀 홈으로", "Back to team home") : c("대시보드로", "Back to dashboard")}
+          </Link>
+        }
+      />
     </div>
   );
 }
@@ -446,37 +451,42 @@ export function B2bError({
       "The request could not be completed. Try again in a moment.",
     ];
   return (
-    <div
+    <Notice
       role="alert"
-      className="rounded-lg border border-border bg-surface p-4 text-sm leading-6"
+      tone="danger"
+      action={
+        retry && (
+          <Button variant="secondary" size="sm" onClick={retry}>
+            {c("다시 확인", "Check again")}
+          </Button>
+        )
+      }
     >
-      <p>{c(...message)}</p>
-      {retry && (
-        <button
-          type="button"
-          className={`${secondaryClass} mt-3`}
-          onClick={retry}
-        >
-          {c("다시 확인", "Check again")}
-        </button>
-      )}
-    </div>
+      {c(...message)}
+    </Notice>
   );
 }
 export function VisibilityBadge({ visibility }: { visibility: ProjectVisibility }) {
   const c = useCopy();
-  return (
-    <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs">
-      {c(...visibilityLabels[visibility])}
-    </span>
-  );
+  return <Badge>{c(...visibilityLabels[visibility])}</Badge>;
 }
+/** What a state means for the people in it: usable, winding down, or gone. */
+const stateTones: Partial<Record<TeamState | ProjectState, Tone>> = {
+  active: "success",
+  in_progress: "success",
+  read_only: "warning",
+  recovery: "warning",
+  deletion_due: "danger",
+  deleting: "danger",
+  deleted: "danger",
+};
 export function StateBadge({ state }: { state: TeamState | ProjectState }) {
   const c = useCopy();
+  const tone = stateTones[state] ?? "neutral";
   return (
-    <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs">
+    <Badge tone={tone} dot={tone !== "neutral"}>
       {c(...stateLabels[state])}
-    </span>
+    </Badge>
   );
 }
 

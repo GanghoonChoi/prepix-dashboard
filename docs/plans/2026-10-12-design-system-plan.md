@@ -80,7 +80,7 @@ app/kit/page.tsx                dev-only catalogue
 - Modify: `app/globals.css`
 
 - [ ] Add `--success-ink`, `--warning-ink` and `--danger-ink` to the light and dark blocks.
-  - Light: `#15803d`, `#a16207`, `#b91c1c`.
+  - Light: `#15803d`, `#925f0a`, `#b91c1c`.
   - Dark: `#4ade80`, `#facc15`, `#f87171`.
 - [ ] Expose them to Tailwind with `@theme inline { --color-success-ink: var(--success-ink); … }` so `text-success-ink` works.
 - [ ] Verify: `pnpm exec tsc --noEmit` is unaffected; `/kit` shows them (Task 1.6).
