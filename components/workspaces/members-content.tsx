@@ -19,9 +19,9 @@ import {
   TeamError,
   TeamLoading,
   SeatBreakdown,
-  primaryClass,
-  secondaryClass,
 } from "@/components/workspaces/shared";
+import { Button, buttonClass } from "@/components/ui";
+import { formatDate } from "@/lib/format";
 
 export function MembersContent({ id }: { id: string }) {
   const { t, lang } = useI18n();
@@ -112,11 +112,11 @@ export function MembersContent({ id }: { id: string }) {
       actions={
         setup && (
           <>
-            <Link href="/dashboard" className={secondaryClass}>
+            <Link href="/dashboard" className={buttonClass({ variant: "secondary" })}>
               {t("team.personal")}
             </Link>
-            <button
-              className={primaryClass}
+            <Button
+              aria-busy={busy === "complete"}
               disabled={!!busy}
               onClick={() =>
                 action("complete", () => workspaceService.complete(id))
@@ -129,7 +129,7 @@ export function MembersContent({ id }: { id: string }) {
                     ? "team.finish"
                     : "team.skip",
               )}
-            </button>
+            </Button>
           </>
         )
       }
@@ -260,9 +260,7 @@ export function MembersContent({ id }: { id: string }) {
                     status === "expired" || status === "revoked"
                       ? undefined
                       : t("team.expires", {
-                          date: new Date(invite.expiresAt).toLocaleDateString(
-                            lang,
-                          ),
+                          date: formatDate(invite.expiresAt, lang),
                         }),
                   locked: true,
                   menu:
@@ -315,8 +313,9 @@ export function MembersContent({ id }: { id: string }) {
             >
               <p className="text-sm">{t("team.revokeConfirm")}</p>
               <div className="flex flex-wrap gap-2">
-                <button
-                  className={primaryClass}
+                <Button
+                  variant="danger"
+                  aria-busy={!!busy}
                   disabled={!!busy}
                   onClick={() =>
                     void action(revokeId, async () => {
@@ -326,18 +325,15 @@ export function MembersContent({ id }: { id: string }) {
                   }
                 >
                   {t("team.revoke")}
-                </button>
-                <button
-                  className={secondaryClass}
-                  onClick={() => setRevokeId("")}
-                >
+                </Button>
+                <Button variant="secondary" onClick={() => setRevokeId("")}>
                   {t("team.cancel")}
-                </button>
+                </Button>
               </div>
             </ConfirmDialog>
           )}
           {notice && (
-            <p role="status" className="text-sm">
+            <p role="status" className="text-[13px]">
               {notice}
             </p>
           )}

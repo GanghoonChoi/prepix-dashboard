@@ -46,17 +46,17 @@ export function RoleTable() {
   return (
     <>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[30rem] border-collapse text-sm">
+        <table className="w-full min-w-[30rem] border-collapse text-[13px]">
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted">
-              <th scope="col" className="py-2 pr-3 font-normal">
+              <th scope="col" className="h-10 pr-3 font-medium">
                 {t("team.caps.can")}
               </th>
               {ROLES.map((role) => (
                 <th
                   key={role}
                   scope="col"
-                  className="whitespace-nowrap px-2 py-2 text-left font-medium text-foreground"
+                  className="h-10 whitespace-nowrap px-2 text-left font-medium text-foreground"
                 >
                   {t(`team.role.${role}`)}
                 </th>
@@ -117,7 +117,7 @@ export function RoleGuide() {
         onClick={guide.open}
         aria-label={title}
         title={title}
-        className="ml-1 inline-flex size-5 items-center justify-center rounded-full align-middle text-muted transition-colors hover:bg-surface-secondary hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground"
+        className="ml-1 inline-flex size-5 items-center justify-center rounded-md align-middle text-muted transition-colors hover:bg-surface-secondary hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
       >
         <HelpCircle size={14} strokeWidth={1.75} aria-hidden="true" />
       </button>

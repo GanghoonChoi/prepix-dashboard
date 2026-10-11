@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import {
   b2bService,
   type ProjectLeadRecovery,
@@ -11,9 +11,8 @@ import {
   Block,
   Details,
   inputClass,
-  primaryClass,
-  secondaryClass,
 } from "@/components/workspaces/shared";
+import { Button, Field, Select, textareaClass } from "@/components/ui";
 import { B2bError, freeIntent, errorCode, useCopy } from "./shared";
 export function RecoverLead({ people }: { people: TeamPerson[] }) {
   const { data } = useWorkspace()!;
@@ -29,6 +28,7 @@ export function RecoverLead({ people }: { people: TeamPerson[] }) {
     projectId: string;
     input: RecoverProjectLead;
   } | null>(null);
+  const field = useId();
   return (
     <Block
       title={c("담당자 지정 복구", "Restore project leadership")}
@@ -93,11 +93,12 @@ export function RecoverLead({ people }: { people: TeamPerson[] }) {
           }
         }}
       >
-        <label className="block space-y-1.5 text-[13px]">
-          <span>
-            {c("복구할 프로젝트 주소", "Project address for recovery")}
-          </span>
+        <Field
+          label={c("복구할 프로젝트 주소", "Project address for recovery")}
+          htmlFor={`${field}-url`}
+        >
           <input
+            id={`${field}-url`}
             type="url"
             required
             className={inputClass}
@@ -105,19 +106,19 @@ export function RecoverLead({ people }: { people: TeamPerson[] }) {
             disabled={busy || !!lookup || !!pending.current}
             onChange={(e) => setUrl(e.target.value)}
           />
-        </label>
+        </Field>
         {lookup && (
           <>
-            <label className="block space-y-1.5 text-[13px]">
-              <span>
-                {c("수락한 내부 후임", "Accepted internal successor")}
-              </span>
-              <select
+            <Field
+              label={c("수락한 내부 후임", "Accepted internal successor")}
+              htmlFor={`${field}-target`}
+            >
+              <Select
+                id={`${field}-target`}
                 aria-label={c(
                   "수락한 내부 후임",
                   "Accepted internal successor",
                 )}
-                className={inputClass}
                 required
                 value={target}
                 disabled={busy || !!pending.current}
@@ -138,39 +139,41 @@ export function RecoverLead({ people }: { people: TeamPerson[] }) {
                       {p.name || p.email}
                     </option>
                   ))}
-              </select>
-            </label>
-            <label className="block space-y-1.5 text-[13px]">
-              <span>
-                {c("담당자 복구 사유", "Reason for leadership recovery")}
-              </span>
+              </Select>
+            </Field>
+            <Field
+              label={c("담당자 복구 사유", "Reason for leadership recovery")}
+              htmlFor={`${field}-reason`}
+            >
               <textarea
+                id={`${field}-reason`}
                 aria-label={c(
                   "담당자 복구 사유",
                   "Reason for leadership recovery",
                 )}
                 required
                 maxLength={1000}
-                className={inputClass}
+                className={textareaClass}
                 value={reason}
                 disabled={busy || !!pending.current}
                 onChange={(e) => setReason(e.target.value)}
               />
-            </label>
+            </Field>
           </>
         )}
         {error && <B2bError code={error} />}
         {notice && (
-          <p role="status" className="text-sm">
+          <p role="status" className="text-[13px]">
             {c(
               "후임을 지정했습니다. 프로젝트 접근은 기존 참여 권한을 따릅니다.",
               "The successor is assigned. Project access follows existing participation rights.",
             )}
           </p>
         )}
-        <div className="flex flex-wrap gap-3">
-          <button
-            className={primaryClass}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="submit"
+            aria-busy={busy}
             disabled={
               busy || (lookup ? !target || !reason.trim() : !url.trim())
             }
@@ -180,16 +183,15 @@ export function RecoverLead({ people }: { people: TeamPerson[] }) {
               : lookup
                 ? c("후임 지정 확인", "Confirm successor")
                 : c("담당자 공백 확인", "Check leadership vacancy")}
-          </button>
+          </Button>
           {lookup && !pending.current && (
-            <button
-              type="button"
-              className={secondaryClass}
+            <Button
+              variant="secondary"
               disabled={busy}
               onClick={() => setLookup(null)}
             >
               {c("주소 다시 선택", "Choose another address")}
-            </button>
+            </Button>
           )}
         </div>
       </form>
