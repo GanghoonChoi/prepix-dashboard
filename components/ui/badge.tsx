@@ -36,17 +36,6 @@ export function Badge({
   );
 }
 
-/** "Small grey tag beside a name" — the old API, kept for its callers. */
-export function Tag({
-  children,
-  tone = "muted",
-}: {
-  children: ReactNode;
-  tone?: "muted" | "danger";
-}) {
-  return <Badge tone={tone === "danger" ? "danger" : "neutral"}>{children}</Badge>;
-}
-
 export function Kbd({ className = "", ...props }: HTMLAttributes<HTMLElement>) {
   return (
     <kbd
