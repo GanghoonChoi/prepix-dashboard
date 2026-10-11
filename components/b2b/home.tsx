@@ -10,7 +10,7 @@ import {
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import { apiClient } from "@/lib/api/client";
 import { useOverlayState } from "@heroui/react";
-import { Lock, UserPlus } from "lucide-react";
+import { FolderOpen, Lock, UserPlus } from "lucide-react";
 import {
   b2bService,
   type B2bStatus,
@@ -25,26 +25,30 @@ import {
 } from "@/lib/b2b-home/home";
 import {
   Details,
-  secondaryClass,
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
 import { Dialog } from "@/components/dialog";
-import { ago, Avatar } from "@/components/ui";
+import {
+  ago,
+  AvatarStack,
+  Badge,
+  Button,
+  CardHeader,
+  EmptyState,
+  Notice,
+  PropertyList,
+  type Tone,
+} from "@/components/ui";
 import { useI18n } from "@/lib/i18n/context";
+import { formatDay, formatPeriod, formatTime } from "@/lib/format";
 import { href as notificationHref } from "@/lib/b2b-notifications/notifications";
 import { B2bError, StateBadge, errorCode, useCopy } from "./shared";
 import { InviteForm } from "./invitations";
-import { Poster } from "./reviews";
+import { Poster, posterLinkClass } from "./reviews";
 import { OwnershipOffer } from "./ownership";
 import { LeaveTeam } from "./leave-team";
 import { MyDevices } from "./devices";
-const date = (value: string) =>
-  new Intl.DateTimeFormat("ko-KR", {
-    timeZone: "Asia/Seoul",
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
 const periods = {
   current: ["현재 이용기간", "Current period"],
   scheduled: ["다음 기간 예정", "Next period scheduled"],
@@ -58,6 +62,14 @@ const licences = {
   released: ["좌석 해제됨", "Seat released"],
   expired: ["좌석 종료", "Seat ended"],
 } as const;
+/** Holding a seat is the good state; a seat on its way out is worth a look. */
+const licenceTones: Record<keyof typeof licences, Tone> = {
+  active: "success",
+  scheduled: "neutral",
+  revoking: "warning",
+  released: "neutral",
+  expired: "neutral",
+};
 const transfers: Record<string, [string, string]> = {
   preparing: ["전송 준비", "Preparing"],
   uploading: ["전송 중", "Uploading"],
@@ -187,76 +199,88 @@ function ScopedHome({
   const rowClass = "block min-h-14 py-3 transition-colors hover:bg-surface";
   const watch = data?.toWatch?.items ?? [];
   const current = data?.periods.find((p) => p.state === "current");
+  const link = "font-medium text-foreground underline underline-offset-4";
+  const at = (iso: string) => `${formatDay(iso, lang)} ${formatTime(iso, lang)}`;
   return (
     <TeamShell
       title={workspace.name}
       actions={
-        <div className="flex items-center gap-3">
-          {status.allowedActions.manage && <Faces workspaceId={workspace.id} />}
-          {status.allowedActions.manage && state === "active" && (
-            <button type="button" className={secondaryClass} onClick={invite.open}>
-              <UserPlus size={16} strokeWidth={1.75} aria-hidden="true" />
-              {c("초대", "Invite")}
-            </button>
-          )}
-        </div>
+        status.allowedActions.manage && (
+          <>
+            <Faces workspaceId={workspace.id} />
+            {state === "active" && (
+              <Button variant="secondary" onClick={invite.open}>
+                <UserPlus size={16} strokeWidth={1.75} aria-hidden="true" />
+                {c("초대", "Invite")}
+              </Button>
+            )}
+          </>
+        )
       }
     >
       {/* An active team needs no sentence; any other state says what it
           means and links the one page it sends you to. */}
       {state !== "active" && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-border bg-surface px-4 py-3 text-[13px]">
-          <StateBadge state={state} />
-          <span className="text-muted">
-            {state === "preparing"
-              ? held > 0
-                ? c(
-                    `결제하면 ${held}명에게 초대가 발송됩니다.`,
-                    `Pay to send ${held === 1 ? "1 invitation" : `${held} invitations`}.`,
-                  )
-                : c(
-                    "첫 이용권 반영 전에는 이용기간이 시작되지 않습니다.",
-                    "The period starts when the first purchase is applied.",
-                  )
-              : state === "read_only"
-                ? c(
-                    "이용기간이 종료되어 열람과 다운로드만 가능합니다.",
-                    "The period has ended. Reading and downloading remain.",
-                  )
-                : c(
-                    "팀 자료 접근이 중지되었습니다.",
-                    "Access to team content is paused.",
-                  )}
-          </span>
-          {state === "preparing" ? (
-            status.allowedActions.billing && (
-              <>
-                <Link className="text-foreground underline underline-offset-4" href={`${base}/plan`}>
-                  {held > 0 ? c("결제하기", "Pay") : c("플랜과 결제", "Plan and billing")}
+        <Notice
+          tone={state === "preparing" ? "neutral" : "warning"}
+          action={
+            <span className="flex flex-wrap gap-x-3 gap-y-1">
+              {state === "preparing" ? (
+                status.allowedActions.billing && (
+                  <>
+                    <Link className={link} href={`${base}/plan`}>
+                      {held > 0 ? c("결제하기", "Pay") : c("플랜과 결제", "Plan and billing")}
+                    </Link>
+                    {held > 0 && (
+                      <Link
+                        className={link}
+                        href={`/start?step=invite&intent=team&workspace=${workspace.id}`}
+                      >
+                        {c("초대 명단 보기", "See who is invited")}
+                      </Link>
+                    )}
+                  </>
+                )
+              ) : (
+                <Link className={link} href={`${base}/status`}>
+                  {c("이용 상태", "Team status")}
                 </Link>
-                {held > 0 && (
-                  <Link
-                    className="text-foreground underline underline-offset-4"
-                    href={`/start?step=invite&intent=team&workspace=${workspace.id}`}
-                  >
-                    {c("초대 명단 보기", "See who is invited")}
-                  </Link>
-                )}
-              </>
-            )
-          ) : (
-            <Link className="text-foreground underline underline-offset-4" href={`${base}/status`}>
-              {c("이용 상태", "Team status")}
-            </Link>
-          )}
-        </div>
+              )}
+            </span>
+          }
+        >
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <StateBadge state={state} />
+            <span>
+              {state === "preparing"
+                ? held > 0
+                  ? c(
+                      `결제하면 ${held}명에게 초대가 발송됩니다.`,
+                      `Pay to send ${held === 1 ? "1 invitation" : `${held} invitations`}.`,
+                    )
+                  : c(
+                      "첫 이용권 반영 전에는 이용기간이 시작되지 않습니다.",
+                      "The period starts when the first purchase is applied.",
+                    )
+                : state === "read_only"
+                  ? c(
+                      "이용기간이 종료되어 열람과 다운로드만 가능합니다.",
+                      "The period has ended. Reading and downloading remain.",
+                    )
+                  : c(
+                      "팀 자료 접근이 중지되었습니다.",
+                      "Access to team content is paused.",
+                    )}
+            </span>
+          </span>
+        </Notice>
       )}
       <OwnershipOffer />
       {error && <B2bError code={error} retry={() => void load()} />}
       {!data && !error && <TeamLoading />}
       {data && readable && watch.length > 0 && (
         <Section title={c("확인할 영상", "To watch")} count={watch.length}>
-          <ul className="grid grid-cols-2 gap-x-4 gap-y-5 lg:grid-cols-4">
+          <ul className="grid grid-cols-2 gap-x-4 gap-y-6 lg:grid-cols-4">
             {watch.slice(0, 4).map((w) => (
               <li key={w.reviewId}>
                 <Link
@@ -270,22 +294,25 @@ function ScopedHome({
                   })}
                   className="group block outline-none"
                 >
-                  <span className="relative block">
-                    <Poster url={w.posterUrl} className={thumbClass} />
-                    <span
-                      className={`absolute left-2 top-2 rounded-md px-1.5 py-0.5 text-[11px] font-medium backdrop-blur ${
-                        w.reason === "approval" ? "bg-accent text-accent-foreground" : "bg-black/60 text-white"
-                      }`}
-                    >
-                      {w.reason === "approval"
-                        ? c("승인 요청", "Approve")
-                        : w.reason === "version"
-                          ? c(`새 버전 v${w.ordinal}`, `New v${w.ordinal}`)
-                          : w.reason === "comment"
-                            ? c(`코멘트 ${w.comments}`, `${w.comments} comment${w.comments > 1 ? "s" : ""}`)
-                            : c("결정됨", "Decided")}
-                    </span>
-                  </span>
+                  <Poster
+                    url={w.posterUrl}
+                    className={posterLinkClass}
+                    badge={
+                      w.reason === "approval" ? (
+                        <Badge tone="warning" dot>
+                          {c("승인 요청", "Approve")}
+                        </Badge>
+                      ) : (
+                        <Badge>
+                          {w.reason === "version"
+                            ? c(`새 버전 v${w.ordinal}`, `New v${w.ordinal}`)
+                            : w.reason === "comment"
+                              ? c(`코멘트 ${w.comments}`, `${w.comments} comment${w.comments > 1 ? "s" : ""}`)
+                              : c("결정됨", "Decided")}
+                        </Badge>
+                      )
+                    }
+                  />
                   <span className="mt-2 block truncate text-[13px] font-medium">{w.title}</span>
                   <span className="block truncate text-xs text-muted">
                     {w.projectName} · {ago(w.at, lang)}
@@ -309,23 +336,22 @@ function ScopedHome({
           }
         >
           {data.projects.items.length ? (
-            <ul className="grid grid-cols-2 gap-x-3 gap-y-5 sm:grid-cols-[repeat(auto-fill,minmax(200px,1fr))] sm:gap-x-4 sm:gap-y-6">
+            <ul className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-[repeat(auto-fill,minmax(200px,1fr))]">
               {data.projects.items.map((p) => (
                 <li key={p.id}>
                   <Link href={projectLink(p.id)} className="group block outline-none">
-                    <span className="relative block">
-                      <Poster url={p.posterUrl} className={thumbClass} />
+                    <Poster url={p.posterUrl} className={posterLinkClass}>
                       {!!p.unread && (
-                        <span className="absolute right-2 top-2 size-2.5 rounded-full bg-accent ring-2 ring-background">
+                        <span className="absolute right-2 top-2 size-2 rounded-full bg-accent ring-2 ring-background">
                           <span className="sr-only">{c("새 소식", "New")}</span>
                         </span>
                       )}
                       {p.visibility === "private" && (
-                        <span className="absolute bottom-2 left-2 grid size-6 place-items-center rounded-md bg-black/60 text-white backdrop-blur">
+                        <span className="absolute bottom-2 left-2 grid size-6 place-items-center rounded-md border border-border bg-background/90 text-foreground">
                           <Lock size={12} strokeWidth={2} aria-label={c("비공개", "Private")} />
                         </span>
                       )}
-                    </span>
+                    </Poster>
                     <span className="mt-2 block truncate text-[13px] font-medium">{p.name}</span>
                     <span className="block truncate text-xs text-muted">
                       {p.videos ? c(`영상 ${p.videos}`, `${p.videos} video${p.videos > 1 ? "s" : ""}`) : c("영상 없음", "No videos")}
@@ -337,12 +363,13 @@ function ScopedHome({
               ))}
             </ul>
           ) : (
-            <p className="text-[13px] text-muted">
-              {c(
+            <EmptyState
+              icon={FolderOpen}
+              title={c(
                 "참여한 프로젝트가 없습니다. 앱에서 공유하면 여기에 나타나요.",
                 "No projects yet. What you share from the app shows up here.",
               )}
-            </p>
+            />
           )}
         </Section>
       )}
@@ -366,7 +393,7 @@ function ScopedHome({
       )}
       {/* My seat and devices: one line, the details folded away. */}
       {data && (
-        <section aria-label={c("내 좌석", "My seat")} className="space-y-2 border-t border-border pt-5 text-[13px]">
+        <section aria-label={c("내 좌석", "My seat")} className="space-y-2 border-t border-border pt-6 text-[13px]">
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-muted">
             <span className="font-medium text-foreground">{c("내 좌석", "My seat")}</span>
             <span>
@@ -377,7 +404,7 @@ function ScopedHome({
                   : current?.licence
                     ? c(licences[current.licence.state][0], licences[current.licence.state][1])
                     : c("편집 좌석 없음 · 보기만", "No editing seat · view only")}
-              {current && c(` · ${shortDate(current.endsAt)}까지`, ` · until ${shortDate(current.endsAt)}`)}
+              {current && c(` · ${formatDay(current.endsAt, lang)}까지`, ` · until ${formatDay(current.endsAt, lang)}`)}
             </span>
           </p>
           {(data.periods.length > 0 || readable) && (
@@ -386,22 +413,32 @@ function ScopedHome({
                 {data.periods.length > 0 && (
                   <ul className={listClass}>
                     {data.periods.map((p) => (
-                      <li key={p.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium">{c(periods[p.state][0], periods[p.state][1])}</p>
-                          <p className="mt-0.5 text-xs tabular-nums text-muted">
-                            {date(p.startsAt)} — {date(p.endsAt)} KST
-                            {p.licence?.scheduledRevokeAt &&
-                              ` · ${c("회수 예정", "Revocation scheduled")} ${date(p.licence.scheduledRevokeAt)}`}
-                          </p>
-                        </div>
-                        <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs">
-                          {p.licence
-                            ? c(licences[p.licence.state][0], licences[p.licence.state][1])
-                            : p.state === "current" && data.seat === "waiting"
-                              ? c("좌석 대기", "Waiting for a seat")
-                              : c("편집 좌석 없음 · 보기만", "No editing seat · view only")}
-                        </span>
+                      <li key={p.id} className="py-2.5">
+                        <PropertyList
+                          items={[
+                            [
+                              c(periods[p.state][0], periods[p.state][1]),
+                              <span key="value" className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                                <span className="tabular-nums">
+                                  {formatPeriod(p.startsAt, p.endsAt, lang)}
+                                  {p.licence?.scheduledRevokeAt &&
+                                    ` · ${c("회수 예정", "Revocation scheduled")} ${at(p.licence.scheduledRevokeAt)}`}
+                                </span>
+                                {p.licence ? (
+                                  <Badge tone={licenceTones[p.licence.state]}>
+                                    {c(licences[p.licence.state][0], licences[p.licence.state][1])}
+                                  </Badge>
+                                ) : p.state === "current" && data.seat === "waiting" ? (
+                                  <Badge tone="warning" dot>
+                                    {c("좌석 대기", "Waiting for a seat")}
+                                  </Badge>
+                                ) : (
+                                  <Badge>{c("편집 좌석 없음 · 보기만", "No editing seat · view only")}</Badge>
+                                )}
+                              </span>,
+                            ],
+                          ]}
+                        />
                       </li>
                     ))}
                   </ul>
@@ -419,10 +456,6 @@ function ScopedHome({
     </TeamShell>
   );
 }
-const thumbClass =
-  "aspect-video w-full rounded-lg ring-1 ring-black/5 ring-offset-2 ring-offset-background transition-shadow group-hover:shadow-md group-focus-visible:ring-2 group-focus-visible:ring-foreground dark:ring-white/10";
-const shortDate = (value: string) =>
-  new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "long", day: "numeric" }).format(new Date(value));
 /** Who is on the team, at a glance; the stack links to People. */
 function Faces({ workspaceId }: { workspaceId: string }) {
   const c = useCopy();
@@ -441,19 +474,10 @@ function Faces({ workspaceId }: { workspaceId: string }) {
   return (
     <Link
       href={`/dashboard/workspaces/${workspaceId}/members`}
-      className="hidden items-center sm:flex"
+      className="hidden rounded-full outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-background sm:flex"
       aria-label={c(`멤버 ${people.length}명`, `${people.length} members`)}
     >
-      {people.slice(0, 4).map((p) => (
-        <span key={p.userId} className="-ml-2 rounded-full ring-2 ring-background first:ml-0">
-          <Avatar id={p.userId} name={p.name || p.email} size={28} />
-        </span>
-      ))}
-      {people.length > 4 && (
-        <span className="-ml-2 grid size-7 place-items-center rounded-full bg-surface-secondary text-[11px] font-medium text-muted ring-2 ring-background">
-          +{people.length - 4}
-        </span>
-      )}
+      <AvatarStack people={people.map((p) => ({ id: p.userId, name: p.name || p.email }))} max={4} size={28} />
     </Link>
   );
 }
@@ -473,14 +497,8 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-4" aria-label={title}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="flex items-baseline gap-2 text-[15px] font-medium">
-          {title}
-          {count !== undefined && <span className="text-[13px] font-normal tabular-nums text-muted">{count}</span>}
-        </h2>
-        {action}
-      </div>
+    <section aria-label={title}>
+      <CardHeader title={title} count={count} action={action} />
       {children}
     </section>
   );

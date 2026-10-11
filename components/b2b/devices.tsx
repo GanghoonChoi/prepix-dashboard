@@ -6,11 +6,10 @@ import {
   type EditingDeviceOverview,
 } from "@/lib/api/services/b2b.service";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
-import { secondaryClass } from "@/components/workspaces/shared";
+import { Badge, Button } from "@/components/ui";
+import { useI18n } from "@/lib/i18n/context";
+import { formatDate } from "@/lib/format";
 import { B2bError, errorCode, useCopy } from "./shared";
-
-const day = (value: string) =>
-  new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", dateStyle: "medium" }).format(new Date(value));
 
 /**
  * 내 등록 장치 (2026-10-08): the computers this seat edits on. Retiring one
@@ -21,6 +20,7 @@ const day = (value: string) =>
 export function MyDevices() {
   const { data } = useWorkspace()!;
   const c = useCopy();
+  const { lang } = useI18n();
   const id = data.workspace.id;
   const [overview, setOverview] = useState<EditingDeviceOverview | null>(null);
   const [busy, setBusy] = useState(false);
@@ -41,7 +41,7 @@ export function MyDevices() {
   return (
     <section className="space-y-3" aria-label={c("내 등록 장치", "My devices")}>
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="text-[15px] font-medium">{c("내 등록 장치", "My devices")}</h2>
+        <h2 className="text-base font-semibold">{c("내 등록 장치", "My devices")}</h2>
         {overview?.deviceLimit != null && (
           <span className="text-[13px] tabular-nums text-muted">
             {devices.length} / {overview.deviceLimit}
@@ -51,20 +51,24 @@ export function MyDevices() {
       <ul className="divide-y divide-border border-y border-border">
         {devices.map((device) => (
           <li key={device.id} className="flex flex-wrap items-center gap-3 py-3 text-[13px]">
-            <span className="grid size-8 shrink-0 place-items-center rounded-md bg-surface-secondary text-muted">
-              <Laptop size={15} strokeWidth={1.75} aria-hidden="true" />
+            <span className="grid size-9 shrink-0 place-items-center rounded-md bg-surface-secondary text-muted">
+              <Laptop size={16} strokeWidth={1.75} aria-hidden="true" />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="font-medium">{c(`장치 ${device.id.slice(0, 8)}`, `Device ${device.id.slice(0, 8)}`)}</p>
-              <p className="text-xs text-muted tabular-nums">
-                {day(device.createdAt)}
-                {device.state === "retiring" && ` · ${c("해제 중", "Retiring")}`}
+              <p className="flex flex-wrap items-center gap-2 font-medium">
+                {c(`장치 ${device.id.slice(0, 8)}`, `Device ${device.id.slice(0, 8)}`)}
+                {device.state === "retiring" && (
+                  <Badge tone="warning" dot>
+                    {c("해제 중", "Retiring")}
+                  </Badge>
+                )}
               </p>
+              <p className="text-xs text-muted tabular-nums">{formatDate(device.createdAt, lang)}</p>
             </div>
             {device.state === "active" && (
-              <button
-                type="button"
-                className={secondaryClass}
+              <Button
+                variant="secondary"
+                size="sm"
                 disabled={busy}
                 onClick={async () => {
                   setBusy(true);
@@ -84,7 +88,7 @@ export function MyDevices() {
                 }}
               >
                 {c("등록 해제", "Remove")}
-              </button>
+              </Button>
             )}
           </li>
         ))}

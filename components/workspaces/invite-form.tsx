@@ -9,12 +9,8 @@ import {
 } from "@/lib/api/services/workspace.service";
 import { parseInviteEmails, workspaceError } from "@/lib/workspaces/onboarding";
 import { RoleGuide } from "./role-guide";
-import {
-  SpaceBadge,
-  TeamError,
-  inputClass,
-  primaryClass,
-} from "./shared";
+import { SpaceBadge, TeamError } from "./shared";
+import { Button, Field, Notice, Select, textareaClass } from "@/components/ui";
 
 export function InviteForm({
   workspaceId,
@@ -97,31 +93,39 @@ export function InviteForm({
   return (
     <form onSubmit={send} className="space-y-4">
       <SpaceBadge workspace={workspace} />
-      <div className="space-y-2">
-        <label className="block text-sm font-medium" htmlFor="invite-emails">
-          {t("team.emails")}
-        </label>
+      <Field
+        label={t("team.emails")}
+        htmlFor="invite-emails"
+        help={<span id="invite-hint">{t("team.emailsHint")}</span>}
+      >
         <textarea
           id="invite-emails"
           rows={3}
-          className={inputClass}
+          className={textareaClass}
           value={raw}
           onChange={(e) => setRaw(e.target.value)}
           disabled={busy}
           aria-describedby="invite-hint"
           placeholder="name@company.com"
         />
-        <p id="invite-hint" className="text-xs leading-5 text-muted">
-          {t("team.emailsHint")}
-        </p>
-      </div>
-      <div className="space-y-2">
-        <label htmlFor="invite-role" className="block text-sm font-medium">
-          {t("team.role")}
-        </label>
-        <select
+      </Field>
+      {/* The full table is one click away, at the control that assigns the
+          role — "I made someone an admin by accident" is the failure this
+          prevents. Open by default it was six rows of reference between the
+          role picker and the submit button. */}
+      <Field
+        label={t("team.role")}
+        htmlFor="invite-role"
+        help={
+          <>
+            {t("team.roleHelp")}
+            <RoleGuide />
+          </>
+        }
+      >
+        <Select
           id="invite-role"
-          className={`${inputClass} max-w-xs`}
+          wrapperClassName="w-full max-w-xs"
           value={role}
           onChange={(e) => setRole(e.target.value as InviteRole)}
           disabled={busy}
@@ -129,16 +133,8 @@ export function InviteForm({
           <option value="editor">{t("team.role.editor")}</option>
           <option value="reviewer">{t("team.role.reviewer")}</option>
           {isOwner && <option value="admin">{t("team.role.admin")}</option>}
-        </select>
-        {/* The full table is one click away, at the control that assigns the
-            role — "I made someone an admin by accident" is the failure this
-            prevents. Open by default it was six rows of reference between the
-            role picker and the submit button. */}
-        <p className="text-xs leading-5 text-muted">
-          {t("team.roleHelp")}
-          <RoleGuide />
-        </p>
-      </div>
+        </Select>
+      </Field>
       {parsed.length > 0 && (
         <div className="space-y-1 text-xs" aria-live="polite">
           <p className="text-muted">
@@ -154,12 +150,12 @@ export function InviteForm({
         </div>
       )}
       {overLimit && (
-        <p role="alert" className="text-sm">
+        <Notice role="alert" tone="warning">
           {t("team.batchLimit")}
-        </p>
+        </Notice>
       )}
       {seatsExceeded && !overLimit && (
-        <div role="alert" className="space-y-2 text-sm">
+        <Notice role="alert" tone="warning">
           <p>{t("team.error.WORKSPACE_SEAT_LIMIT")}</p>
           {/*
             F02.5 asks for a way to ASK for seats, not just to be told who can
@@ -168,10 +164,10 @@ export function InviteForm({
             draft above is untouched either way.
           */}
           {!isOwner && ownerEmail && (
-            <p>
+            <p className="mt-1">
               {t("team.seatRequest", { email: ownerEmail })}{" "}
               <a
-                className="underline underline-offset-4"
+                className="font-medium underline underline-offset-4"
                 href={`mailto:${encodeURIComponent(ownerEmail)}?subject=${encodeURIComponent(
                   t("team.seatRequestAction"),
                 )}`}
@@ -180,16 +176,16 @@ export function InviteForm({
               </a>
             </p>
           )}
-        </div>
+        </Notice>
       )}
       {error && <TeamError code={error} />}
-      <button
+      <Button
         type="submit"
+        aria-busy={busy}
         disabled={busy || !ready.length || overLimit || seatsExceeded}
-        className={primaryClass}
       >
         {t(busy ? "team.sending" : "team.send")}
-      </button>
+      </Button>
       {results && (
         <ul
           aria-live="polite"

@@ -1,9 +1,27 @@
 "use client";
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Clapperboard, LayoutGrid, List } from "lucide-react";
-import { rowClass, tableClass, tdClass, thClass } from "@/components/ui";
+import { ChevronRight, Film, LayoutGrid, List } from "lucide-react";
+import {
+  ago,
+  Badge as UiBadge,
+  Button,
+  cardClass,
+  Field,
+  Notice,
+  Poster as KitPoster,
+  rowClass,
+  SearchField,
+  Segmented,
+  Select,
+  tableClass,
+  tdClass,
+  thClass,
+  Toolbar,
+  type Tone,
+} from "@/components/ui";
+import { useI18n } from "@/lib/i18n/context";
 import type {
   ReviewApprovalState,
   ReviewAudienceCandidates,
@@ -23,12 +41,10 @@ import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
   EmptyState,
   inputClass,
-  primaryClass,
-  secondaryClass,
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
-import { folderTabs, B2bError, accessEnded, freeIntent, errorCode, isDenial, useCopy, projectsDenial } from "./shared";
+import { B2bError, accessEnded, freeIntent, errorCode, isDenial, useCopy, projectsDenial, projectFrame } from "./shared";
 import { ReviewPending } from "./review-pending";
 
 // SOT: prepix-backend backend/docs/b2b-reviews.md (S34)
@@ -40,6 +56,22 @@ export const approvalCopy: Record<ReviewApprovalState, Copy> = {
   approved: ["승인", "Approved"],
   changes_requested: ["수정 요청", "Changes requested"],
 };
+/** Approved is done, a pending approval waits on someone, changes are asked. */
+const approvalTone: Record<ReviewApprovalState, Tone> = {
+  no_approver: "neutral",
+  approver_inactive: "neutral",
+  awaiting: "warning",
+  approved: "success",
+  changes_requested: "warning",
+};
+function ApprovalBadge({ state }: { state: ReviewApprovalState }) {
+  const c = useCopy();
+  return (
+    <UiBadge tone={approvalTone[state]} dot={state === "awaiting"}>
+      {c(...approvalCopy[state])}
+    </UiBadge>
+  );
+}
 const reviewErrors: Record<string, Copy> = {
   B2B_REVIEW_TARGET_CHANGED: [
     "선택한 영상 버전의 검토를 열 수 없습니다. 검토 목록에서 현재 접근 가능한 버전을 확인해 주세요.",
@@ -169,14 +201,19 @@ export function ReviewError({ code, retry }: { code: string; retry?: () => void 
   const message = reviewErrors[code];
   if (!message || isDenial(code)) return <B2bError code={code} retry={retry} />;
   return (
-    <div role="alert" className="rounded-lg border border-border bg-surface p-4 text-sm leading-6">
-      <p>{c(...message)}</p>
-      {retry && (
-        <button type="button" className={`${secondaryClass} mt-3`} onClick={retry}>
-          {c("다시 확인", "Check again")}
-        </button>
-      )}
-    </div>
+    <Notice
+      role="alert"
+      tone="danger"
+      action={
+        retry && (
+          <Button variant="secondary" size="sm" onClick={retry}>
+            {c("다시 확인", "Check again")}
+          </Button>
+        )
+      }
+    >
+      {c(...message)}
+    </Notice>
   );
 }
 export const previewCopy = (p: ReviewPreview, c: (ko: string, en: string) => string) =>
@@ -204,8 +241,9 @@ export const kst = (iso: string) =>
     dateStyle: "medium",
     timeStyle: "short",
   });
+/** A neutral tag — the kit's `Badge`, under the name this module exported. */
 export function Badge({ children }: { children: React.ReactNode }) {
-  return <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs">{children}</span>;
+  return <UiBadge>{children}</UiBadge>;
 }
 export function useTeamScope() {
   const context = useWorkspace()!;
@@ -349,10 +387,10 @@ export function ReviewAudiencePicker({ scope, value, onChange, disabled, onValid
       </div>}
       <label className="block space-y-2 text-sm">
         <span>{c("승인자 선택", "Choose approver")}</span>
-        <select className={inputClass} value={value.approverUserId} disabled={!data || !!error} onChange={(e) => onChange({ ...value, approverUserId: e.target.value })}>
+        <Select value={value.approverUserId} disabled={!data || !!error} onChange={(e) => onChange({ ...value, approverUserId: e.target.value })}>
           <option value="">{selected ? c("선택", "Choose") : c("지정 안 함", "None")}</option>
           {data?.candidates.filter((person) => fits(value.audienceScope, value.audienceUserIds, person.userId)).map((person) => <option key={person.userId} value={person.userId}>{person.label} · {roles[person.role]}</option>)}
-        </select>
+        </Select>
       </label>
     </fieldset>
   );
@@ -479,7 +517,7 @@ export function VideoVersionPicker({
         <div className="space-y-3 rounded-md bg-surface-secondary p-3 text-sm" aria-live="polite">
           <p>{previewCopy(preview, c)}</p>
           {preview.state === "ready" && <>
-            <button type="button" className={secondaryClass} disabled={disabled || busy} onClick={async () => {
+            <Button variant="secondary" disabled={disabled || busy} onClick={async () => {
               const id = selected.id;
               setBusy(true);
               try {
@@ -487,7 +525,7 @@ export function VideoVersionPicker({
                 if (selectedRef.current === id) { setPlayback(source); setError(""); }
               } catch (e) { setError(errorCode(e)); }
               finally { setBusy(false); }
-            }}>{c("공개 전 재생", "Play before publishing")}</button>
+            }}>{c("공개 전 재생", "Play before publishing")}</Button>
             {playback && <video key={`${selected.id}:${playback.url}`} src={playback.url} controls playsInline preload="metadata" aria-label={c("공개 전 검토본 재생", "Review copy before publishing")} className="w-full max-h-80 rounded-md bg-black" onError={() => setError("B2B_PREVIEW_NOT_READY")} />}
             {/* Playing it first is optional (2026-10-08): no "I watched it" box. */}
             {children}
@@ -496,9 +534,8 @@ export function VideoVersionPicker({
             (preview.state === "not_requested" ||
               (preview.state === "failed" &&
                 preview.failureCode !== "B2B_PREVIEW_SOURCE_REMOVED")) && (
-              <button
-                type="button"
-                className={secondaryClass}
+              <Button
+                variant="secondary"
                 disabled={disabled || busy}
                 onClick={async () => {
                   setBusy(true);
@@ -516,16 +553,14 @@ export function VideoVersionPicker({
                 {preview.state === "failed"
                   ? c("검토본 다시 만들기", "Retry review copy")
                   : c("검토본 만들기", "Prepare review copy")}
-              </button>
+              </Button>
             )}
-          <button
-            type="button"
-            className={primaryClass}
+          <Button
             disabled={disabled || busy || preview.state !== "ready" || actionDisabled}
             onClick={() => onPick(selected, preview)}
           >
             {action}
-          </button>
+          </Button>
         </div>
       )}
     </div>
@@ -540,13 +575,14 @@ export function ProjectReviews({ projectId }: { projectId: string }) {
 }
 function ProjectReviewsInner({ projectId }: { projectId: string }) {
   const c = useCopy();
+  const { lang } = useI18n();
   const { team } = useTeamScope();
   const read = useCallback(async () => (await b2bService.project(team, projectId)).project, [team, projectId]);
   const { data: project, error, load } = useLoader(read);
   if (!project) return error ? <ReviewError code={error} retry={() => void load()} /> : <TeamLoading />;
   return (
-    <TeamShell title={c("영상 검토", "Video reviews")} description={project.name} tabs={folderTabs(team, project, c)}>
-      <ReviewList projectId={projectId} />
+    <TeamShell {...projectFrame(team, project, c, lang)}>
+      <ReviewList projectId={projectId} heading={c("영상 검토", "Video reviews")} />
     </TeamShell>
   );
 }
@@ -554,15 +590,17 @@ function ProjectReviewsInner({ projectId }: { projectId: string }) {
 /** A folder's videos (2026-10-08): one row per review series — what
  * teammates published from the app, or a review started by hand — with
  * search, paging and 새 검토. The folder's first page and /reviews both
- * render it. */
-export function ReviewList({ projectId }: { projectId: string }) {
+ * render it; `heading` names the list (영상 by default). */
+export function ReviewList({ projectId, heading }: { projectId: string; heading?: string }) {
   const { team, me } = useTeamScope();
-  return <ReviewListInner key={`${origin()}:${team}:${me}:${projectId}`} projectId={projectId} />;
+  return <ReviewListInner key={`${origin()}:${team}:${me}:${projectId}`} projectId={projectId} heading={heading} />;
 }
-function ReviewListInner({ projectId }: { projectId: string }) {
+function ReviewListInner({ projectId, heading }: { projectId: string; heading?: string }) {
   const c = useCopy();
+  const { lang } = useI18n();
   const router = useRouter();
   const { team, me } = useTeamScope();
+  const titleId = useId();
   const [search, setSearch] = useState(""),
     [query, setQuery] = useState(""),
     [cursor, setCursor] = useState<string>(),
@@ -580,49 +618,52 @@ function ReviewListInner({ projectId }: { projectId: string }) {
   const [view, setView] = useVideoView();
   if (!list) return error ? <ReviewError code={error} retry={() => void load()} /> : <TeamLoading />;
   const base = `/dashboard/workspaces/${team}/projects/${projectId}`;
+  const comments = (n: number) => c(`코멘트 ${n}`, `${n} comments`);
   return (
-    <section className="space-y-3" aria-label={c("영상", "Videos")}>
+    <section className="space-y-4" aria-label={c("영상", "Videos")}>
       <ReviewPending scope={scope} />
       {stale && <ReviewError code={error} retry={() => void load()} />}
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <Toolbar title={heading ?? c("영상", "Videos")}>
+        {/* Enter searches; there is no separate button. */}
         <form
-          className="flex w-full min-w-0 gap-2 sm:max-w-sm"
+          className="w-full sm:w-auto"
           onSubmit={(e) => {
             e.preventDefault();
             setCursor(undefined);
             setQuery(search.trim());
           }}
         >
-          <input
-            className={`${inputClass} min-w-0`}
-            aria-label={c("검토 검색", "Search reviews")}
-            placeholder={c("영상 제목 검색", "Search videos")}
-            maxLength={100}
+          <SearchField
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(value) => setSearch(value.slice(0, 100))}
+            label={c("검토 검색", "Search reviews")}
+            placeholder={c("영상 제목 검색", "Search videos")}
           />
-          <button type="submit" className={`${secondaryClass} shrink-0`}>
-            {c("검색", "Search")}
-          </button>
         </form>
-        <div className="flex items-center gap-2">
-          <ViewToggle view={view} onChange={setView} />
-          {list.allowedActions.create && (
-            <button type="button" className={secondaryClass} onClick={() => setCreating((v) => !v)}>
-              {c("새 검토", "New review")}
-            </button>
-          )}
-        </div>
-      </div>
+        <Segmented
+          label={c("보기 방식", "View")}
+          iconOnly
+          value={view}
+          onChange={setView}
+          options={[
+            { value: "grid", label: c("격자", "Grid"), icon: LayoutGrid },
+            { value: "list", label: c("리스트", "List"), icon: List },
+          ]}
+        />
+        {list.allowedActions.create && (
+          <Button variant="secondary" size="sm" onClick={() => setCreating((v) => !v)}>
+            {c("새 검토", "New review")}
+          </Button>
+        )}
+      </Toolbar>
       {creating && list.allowedActions.create && (
-        <section className="max-w-3xl space-y-4 rounded-lg border border-border p-5" aria-label={c("새 검토", "New review")}>
-          <h2 className="text-[15px] font-medium">{c("새 검토", "New review")}</h2>
-          <label className="block space-y-2 text-sm">
-            <span>{c("검토 제목", "Review title")}</span>
-            <input className={inputClass} value={title} maxLength={100} disabled={mutation.busy} onChange={(e) => setTitle(e.target.value)} />
-          </label>
-          <div className="space-y-2">
-            <p className="text-sm">{c("영상 버전", "Video version")}</p>
+        <section className={`${cardClass} max-w-3xl space-y-4 p-5`} aria-label={c("새 검토", "New review")}>
+          <h2 className="text-base font-semibold">{c("새 검토", "New review")}</h2>
+          <Field label={c("검토 제목", "Review title")} htmlFor={titleId}>
+            <input id={titleId} className={inputClass} value={title} maxLength={100} disabled={mutation.busy} onChange={(e) => setTitle(e.target.value)} />
+          </Field>
+          <div className="space-y-1.5">
+            <p className="text-[13px] font-medium">{c("영상 버전", "Video version")}</p>
             <VideoVersionPicker
               scope={scope}
               canPrepare
@@ -645,6 +686,7 @@ function ReviewListInner({ projectId }: { projectId: string }) {
       )}
       {list.reviews.length === 0 ? (
         <EmptyState
+          icon={Film}
           title={query ? c("검색 결과가 없습니다.", "No matching videos.") : c("아직 발행된 영상이 없습니다.", "Nothing published yet.")}
           description={query ? undefined : c("앱에서 발행한 영상이 여기에 모입니다.", "Videos you publish from the app gather here.")}
         />
@@ -653,17 +695,17 @@ function ReviewListInner({ projectId }: { projectId: string }) {
           {list.reviews.map((r) => (
             <li key={r.id}>
               <Link href={`${base}/reviews/${r.id}`} className="group block outline-none">
-                <Poster url={r.posterUrl} className="aspect-video w-full rounded-lg ring-offset-2 ring-offset-background transition-shadow group-hover:shadow-md group-focus-visible:ring-2 group-focus-visible:ring-foreground" />
-                <span className="mt-2 flex items-start justify-between gap-2">
-                  <span className="min-w-0">
-                    <span className="block truncate text-[13px] font-medium">{r.title}</span>
-                    <span className="block truncate text-xs text-muted tabular-nums">
-                      V{r.ordinal}
-                      {r.commentCount > 0 && ` · ${c(`코멘트 ${r.commentCount}`, `${r.commentCount} comments`)}`}
-                    </span>
-                  </span>
-                  {/* No approval asked is the normal case, not a status. */}
-                  {r.approval !== "no_approver" && <Badge>{c(...approvalCopy[r.approval])}</Badge>}
+                {/* No approval asked is the normal case, not a status. */}
+                <Poster
+                  url={r.posterUrl}
+                  className={posterLinkClass}
+                  badge={r.approval !== "no_approver" && <ApprovalBadge state={r.approval} />}
+                />
+                <span className="mt-2 block truncate text-[13px] font-medium">{r.title}</span>
+                <span className="block truncate text-xs tabular-nums text-muted">
+                  V{r.ordinal}
+                  {r.commentCount > 0 && ` · ${comments(r.commentCount)}`}
+                  {` · ${ago(r.updatedAt, lang)}`}
                 </span>
               </Link>
             </li>
@@ -674,9 +716,10 @@ function ReviewListInner({ projectId }: { projectId: string }) {
           <thead>
             <tr>
               <th className={thClass}>{c("제목", "Title")}</th>
-              <th className={`${thClass} hidden w-[18%] sm:table-cell`}>{c("버전", "Version")}</th>
-              <th className={`${thClass} hidden w-[20%] md:table-cell`}>{c("발행", "Published by")}</th>
-              <th className={`${thClass} w-[16%]`}>{c("상태", "State")}</th>
+              <th className={`${thClass} hidden w-[14%] sm:table-cell`}>{c("버전", "Version")}</th>
+              <th className={`${thClass} hidden w-[18%] md:table-cell`}>{c("발행", "Published by")}</th>
+              <th className={`${thClass} w-32`}>{c("상태", "State")}</th>
+              <th className={`${thClass} hidden w-28 lg:table-cell`}>{c("업데이트", "Updated")}</th>
               <th className={`${thClass} w-10`}><span className="sr-only">{c("열기", "Open")}</span></th>
             </tr>
           </thead>
@@ -691,18 +734,16 @@ function ReviewListInner({ projectId }: { projectId: string }) {
               >
                 <td className={tdClass}>
                   <Link href={`${base}/reviews/${r.id}`} className="flex min-w-0 items-center gap-3 outline-none focus-visible:underline">
-                    <Poster url={r.posterUrl} className="h-9 w-16 shrink-0 rounded-md" />
+                    <Poster url={r.posterUrl} className="h-9 w-16 shrink-0" />
                     <span className="min-w-0">
                       <span className="block truncate font-medium">{r.title}</span>
                       {r.commentCount > 0 && (
-                        <span className="block text-xs text-muted tabular-nums">
-                          {c(`코멘트 ${r.commentCount}`, `${r.commentCount} comments`)}
-                        </span>
+                        <span className="block text-xs text-muted tabular-nums">{comments(r.commentCount)}</span>
                       )}
                     </span>
                   </Link>
                 </td>
-                <td className={`${tdClass} hidden whitespace-nowrap text-muted sm:table-cell`}>
+                <td className={`${tdClass} hidden whitespace-nowrap tabular-nums text-muted sm:table-cell`}>
                   V{r.ordinal}
                   {r.previousRounds > 0 && ` · ${c("이전", "prev")} ${r.previousRounds}`}
                 </td>
@@ -713,9 +754,10 @@ function ReviewListInner({ projectId }: { projectId: string }) {
                   {r.approval === "no_approver" ? (
                     <span className="text-muted">—</span>
                   ) : (
-                    <Badge>{c(...approvalCopy[r.approval])}</Badge>
+                    <ApprovalBadge state={r.approval} />
                   )}
                 </td>
+                <td className={`${tdClass} hidden whitespace-nowrap text-muted lg:table-cell`}>{ago(r.updatedAt, lang)}</td>
                 <td className={`${tdClass} text-right text-muted`}>
                   <ChevronRight size={16} strokeWidth={1.75} aria-hidden="true" className="ml-auto" />
                 </td>
@@ -727,14 +769,14 @@ function ReviewListInner({ projectId }: { projectId: string }) {
       {(cursor || list.nextCursor) && (
         <div className="flex gap-2">
           {cursor && (
-            <button type="button" className={secondaryClass} onClick={() => setCursor(undefined)}>
+            <Button variant="secondary" size="sm" onClick={() => setCursor(undefined)}>
               {c("처음으로", "First page")}
-            </button>
+            </Button>
           )}
           {list.nextCursor && (
-            <button type="button" className={secondaryClass} onClick={() => setCursor(list.nextCursor!)}>
+            <Button variant="secondary" size="sm" onClick={() => setCursor(list.nextCursor!)}>
               {c("다음", "Next")}
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -742,19 +784,34 @@ function ReviewListInner({ projectId }: { projectId: string }) {
   );
 }
 
-/** A video's thumbnail (its review poster), or a quiet placeholder while
- * there is none yet. Decorative: the title beside it names the video. */
-export function Poster({ url, className }: { url?: string | null; className: string }) {
+/** A poster that is the face of a link: the link's focus ring goes on it. */
+export const posterLinkClass =
+  "transition-colors group-hover:border-foreground/25 group-focus-visible:ring-2 group-focus-visible:ring-foreground group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-background";
+
+/** A video's thumbnail (its review poster) in the kit's frame, or the kit's
+ * placeholder while there is none or it fails to load. Decorative: the title
+ * beside it names the video. `badge` sits top-left; children overlay it. */
+export function Poster({
+  url,
+  className = "",
+  badge,
+  children,
+}: {
+  url?: string | null;
+  className?: string;
+  badge?: ReactNode;
+  children?: ReactNode;
+}) {
   const [broken, setBroken] = useState(false);
   return (
-    <span className={`relative grid place-items-center overflow-hidden bg-surface-secondary text-muted ${className}`}>
-      {url && !broken ? (
+    <KitPoster className={className}>
+      {url && !broken && (
         // eslint-disable-next-line @next/next/no-img-element -- signed, short-lived storage URL
         <img src={url} alt="" loading="lazy" className="absolute inset-0 size-full object-cover" onError={() => setBroken(true)} />
-      ) : (
-        <Clapperboard size={16} strokeWidth={1.5} aria-hidden="true" />
       )}
-    </span>
+      {badge && <span className="absolute left-2 top-2">{badge}</span>}
+      {children}
+    </KitPoster>
   );
 }
 
@@ -779,29 +836,4 @@ function useVideoView(): [VideoView, (v: VideoView) => void] {
       }
     },
   ];
-}
-function ViewToggle({ view, onChange }: { view: VideoView; onChange: (v: VideoView) => void }) {
-  const c = useCopy();
-  return (
-    <span className="inline-flex rounded-md border border-border p-0.5" role="group" aria-label={c("보기 방식", "View")}>
-      {(
-        [
-          ["grid", LayoutGrid, c("격자", "Grid")],
-          ["list", List, c("리스트", "List")],
-        ] as const
-      ).map(([value, Icon, label]) => (
-        <button
-          key={value}
-          type="button"
-          aria-pressed={view === value}
-          aria-label={label}
-          title={label}
-          onClick={() => onChange(value)}
-          className="grid size-7 place-items-center rounded text-muted transition-colors hover:text-foreground aria-pressed:bg-surface-secondary aria-pressed:text-foreground"
-        >
-          <Icon size={14} strokeWidth={1.75} aria-hidden="true" />
-        </button>
-      ))}
-    </span>
-  );
 }

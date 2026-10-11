@@ -1,8 +1,20 @@
 "use client";
 import { useMemo, useState, type ReactNode } from "react";
-import { Plus, Search } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { useI18n } from "@/lib/i18n/context";
-import { inputClass, primaryClass } from "./shared";
+import {
+  Badge,
+  Button,
+  EmptyState,
+  IconButton,
+  Notice,
+  SearchField,
+  Select,
+  tableClass,
+  tdClass,
+  thClass,
+  Toolbar,
+} from "@/components/ui";
 
 /**
  * One people table, used by the organisation and by a workspace.
@@ -106,97 +118,74 @@ export function MembersTable({
   }, [rows, query, filter]);
 
   return (
-    <section className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="flex items-center gap-2 text-xl font-semibold tracking-tight">
-            {title}
-            <span className="rounded-full bg-surface-secondary px-2 py-0.5 text-xs font-medium tabular-nums text-muted">
-              {count ?? rows.length}
-            </span>
-          </h2>
-          {description && (
-            <p className="mt-1 text-sm text-muted">{description}</p>
+    <section className="space-y-3">
+      <div>
+        <Toolbar title={title} count={count ?? rows.length}>
+          <SearchField
+            value={query}
+            onChange={setQuery}
+            label={c("검색", "Search")}
+            placeholder={c("이름 또는 이메일로 검색", "Search by name or email")}
+            className="sm:w-64"
+          />
+          <Select
+            size="sm"
+            wrapperClassName="w-full sm:w-36"
+            aria-label={c("역할", "Role")}
+            value={filter}
+            onChange={(event) => setFilter(event.target.value)}
+          >
+            <option value="all">{c("역할 전체", "All roles")}</option>
+            {roleFilters.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </Select>
+          {onInvite && (
+            <Button size="sm" onClick={onInvite}>
+              <Plus size={14} strokeWidth={2} aria-hidden="true" />
+              {inviteLabel ?? c("초대", "Invite")}
+            </Button>
           )}
-          {meta && <div className="mt-2">{meta}</div>}
-        </div>
-        {onInvite && (
-          <button className={primaryClass} onClick={onInvite}>
-            <Plus size={16} strokeWidth={2} aria-hidden="true" />
-            {inviteLabel ?? c("초대", "Invite")}
-          </button>
+        </Toolbar>
+        {description && (
+          <p className="mt-1 text-[13px] text-muted">{description}</p>
         )}
+        {meta && <div className="mt-2">{meta}</div>}
       </div>
 
       {notice && (
-        <div
+        <Notice
           role="status"
-          className="flex items-start justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3 text-sm leading-6"
+          action={
+            onDismissNotice && (
+              <IconButton label={c("닫기", "Dismiss")} size="xs" onClick={onDismissNotice}>
+                <X size={14} strokeWidth={1.75} aria-hidden="true" />
+              </IconButton>
+            )
+          }
         >
-          <p>{notice}</p>
-          {onDismissNotice && (
-            <button
-              type="button"
-              aria-label={c("닫기", "Dismiss")}
-              onClick={onDismissNotice}
-              className="shrink-0 rounded-md px-2 text-muted transition-colors hover:text-foreground"
-            >
-              ✕
-            </button>
-          )}
-        </div>
+          {notice}
+        </Notice>
       )}
 
-      <div className="flex flex-wrap gap-2">
-        <div className="relative">
-          <Search
-            size={15}
-            strokeWidth={1.5}
-            aria-hidden="true"
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
-          />
-          <input
-            className={`${inputClass.replace("w-full", "w-full sm:w-72")} pl-9`}
-            aria-label={c("검색", "Search")}
-            placeholder={c(
-              "이름 또는 이메일로 검색",
-              "Search by name or email",
-            )}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-        </div>
-        <select
-          className={inputClass.replace("w-full", "w-full sm:w-40")}
-          aria-label={c("역할", "Role")}
-          value={filter}
-          onChange={(event) => setFilter(event.target.value)}
-        >
-          <option value="all">{c("역할 전체", "All roles")}</option>
-          {roleFilters.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </div>
-
       {visible.length === 0 ? (
-        <p role="status" className="py-6 text-sm text-muted">
-          {c("해당하는 사람이 없습니다.", "Nobody matches.")}
-        </p>
+        <div role="status">
+          <EmptyState frame="none" title={c("해당하는 사람이 없습니다.", "Nobody matches.")} />
+        </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[34rem] text-sm">
+          <table className={`${tableClass} min-w-[34rem]`}>
             <thead>
-              <tr className="border-b border-border text-left text-xs text-muted">
-                <th scope="col" className="py-3 pr-4 font-normal">
+              <tr>
+                <th scope="col" className={thClass}>
                   {c("이름", "Name")}
                 </th>
-                <th scope="col" className="py-3 pr-4 font-normal">
+                <th scope="col" className={thClass}>
                   {c("이메일", "Email")}
                 </th>
-                <th scope="col" className="py-3 pr-4 font-normal">
+                <th scope="col" className={thClass}>
                   {c("역할", "Role")}
                   {roleGuide}
                 </th>
@@ -210,7 +199,7 @@ export function MembersTable({
                   scrolled sideways while the table scrolled correctly inside
                   its own box.
                 */}
-                <th scope="col" className="relative w-12 py-3">
+                <th scope="col" className={`${thClass} relative w-12`}>
                   <span className="sr-only">{c("작업", "Actions")}</span>
                 </th>
               </tr>
@@ -219,9 +208,9 @@ export function MembersTable({
               {visible.map((row) => (
                 <tr
                   key={row.id}
-                  className="border-b border-border transition-colors hover:bg-surface"
+                  className="transition-colors hover:bg-surface"
                 >
-                  <td className="py-3.5 pr-4">
+                  <td className={tdClass}>
                     {/* No name is no name. This used to print the email's
                       local part here, which is harmless for a member whose
                       address you can read in the next column and a small lie
@@ -229,9 +218,7 @@ export function MembersTable({
                       know what they are called, and "spa9ettimaker+test" sat
                       in the 이름 column looking like an answer. */}
                     {row.badge ? (
-                      <span className="inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs text-muted">
-                        {row.badge}
-                      </span>
+                      <Badge>{row.badge}</Badge>
                     ) : row.name ? (
                       <span className="font-medium">{row.name}</span>
                     ) : (
@@ -240,15 +227,16 @@ export function MembersTable({
                       </span>
                     )}
                   </td>
-                  <td className="break-all py-3.5 pr-4 text-muted">
+                  <td className={`${tdClass} break-all text-muted`}>
                     {row.email}
                   </td>
-                  <td className="py-3.5 pr-4">
+                  <td className={tdClass}>
                     {row.locked || !row.roleOptions || !row.onRole ? (
                       <span className="text-muted">{row.roleLabel}</span>
                     ) : (
-                      <select
-                        className="min-h-9 rounded-lg border border-border bg-transparent px-2.5 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-foreground/40"
+                      <Select
+                        size="sm"
+                        wrapperClassName="w-36"
                         aria-label={c("역할", "Role")}
                         value={row.role}
                         disabled={busy}
@@ -259,7 +247,7 @@ export function MembersTable({
                             {option.label}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     )}
                     {row.detail && (
                       <span className="mt-0.5 block text-xs tabular-nums text-muted">
@@ -267,7 +255,7 @@ export function MembersTable({
                       </span>
                     )}
                   </td>
-                  <td className="py-3.5 text-right">{row.menu}</td>
+                  <td className={`${tdClass} text-right`}>{row.menu}</td>
                 </tr>
               ))}
             </tbody>

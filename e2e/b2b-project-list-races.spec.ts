@@ -16,7 +16,7 @@ test.beforeAll(async () => {
     "next/navigation": "export function useRouter(){return {push:href=>window.navigate(href)}}export function usePathname(){return location.pathname}",
     "next/link": 'import React from "react";export default function Link({href,children,onClick,...props}){return <a href={href} {...props} onClick={event=>{onClick?.(event);event.preventDefault();window.navigate(href)}}>{children}</a>}',
     "@/components/workspaces/workspace-context": "export function useWorkspace(){return window.fixture}",
-    "@/components/workspaces/shared": 'import React from "react";export const primaryClass="",secondaryClass="",inputClass="";export function TeamLoading(){return <p>Loading</p>}export function TeamShell({title,children}){return <main><h1>{title}</h1>{children}</main>}export function SpaceBadge(){return null}export function Block({title,children}){return <section><h2>{title}</h2>{children}</section>}',
+    "@/components/workspaces/shared": 'import React from "react";export const primaryClass="",secondaryClass="",inputClass="";export function TeamLoading(){return <p>Loading</p>}export function TeamShell({title,children}){return <main><h1>{title}</h1>{children}</main>}export function SpaceBadge(){return null}export function Block({title,children}){return <section><h2>{title}</h2>{children}</section>}export function EmptyState({title}){return <p>{title}</p>}',
     "@/lib/i18n/context": 'export function useI18n(){return {lang:"ko"}}export function readLang(){return "ko"}',
   };
   const result = await esbuild.build({

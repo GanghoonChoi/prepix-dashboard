@@ -1,6 +1,6 @@
 "use client";
 import { InvitationPanel } from "./invitations";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { apiClient } from "@/lib/api/client";
 import {
   projectSurfaces,
@@ -13,27 +13,38 @@ import {
 } from "@/lib/api/services/b2b.service";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import { RowMenu, RowMenuItem } from "@/components/workspaces/row-menu";
-import { Avatar, Tag } from "@/components/ui";
+import {
+  Avatar,
+  Badge,
+  Button,
+  Field,
+  Select,
+  tableClass,
+  tdClass,
+  textareaClass,
+  thClass,
+  Toolbar,
+} from "@/components/ui";
 import {
   Block,
   ConfirmDialog,
   Details,
   inputClass,
   Notice,
-  primaryClass,
-  secondaryClass,
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
+import { useI18n } from "@/lib/i18n/context";
 import { ReviewList, useRun } from "./reviews";
 import {
-  folderTabs,
   B2bError,
   errorCode,
-  VisibilityBadge,
   useCopy,
   accessEnded,
-  freeIntent, projectsDenial } from "./shared";
+  freeIntent,
+  projectFrame,
+  projectsDenial,
+} from "./shared";
 
 function useProject(projectId: string) {
   const context = useWorkspace()!;
@@ -103,6 +114,7 @@ export function ProjectOverview({ projectId }: { projectId: string }) {
 function ScopedProjectOverview({ projectId }: { projectId: string }) {
   const { id, project, error, reload } = useProject(projectId);
   const c = useCopy();
+  const { lang } = useI18n();
   const [editing, setEditing] = useState(false);
   if (error && !project)
     return <B2bError code={error} retry={() => void reload()} />;
@@ -110,23 +122,19 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
   const settable = project.allowedActions.edit || project.allowedActions.changeVisibility;
   return (
     <TeamShell
-      title={project.name}
+      {...projectFrame(id, project, c, lang)}
       // The brief, when there is one, is a line under the name — not a block.
       description={project.brief || undefined}
-      tabs={folderTabs(id, project, c)}
       actions={
-        <>
-          <VisibilityBadge visibility={project.visibility} />
-          {settable && (
-            <button
-              className={secondaryClass}
-              aria-pressed={editing}
-              onClick={() => setEditing(!editing)}
-            >
-              {editing ? c("영상 보기", "Back to videos") : c("설정", "Settings")}
-            </button>
-          )}
-        </>
+        settable && (
+          <Button
+            variant="secondary"
+            aria-pressed={editing}
+            onClick={() => setEditing(!editing)}
+          >
+            {editing ? c("영상 보기", "Back to videos") : c("설정", "Settings")}
+          </Button>
+        )
       }
     >
       {error && <B2bError code={error} retry={() => void reload()} />}
@@ -205,15 +213,11 @@ function VisibilitySection({
       actions={
         project.allowedActions.changeVisibility &&
         !open && (
-          <button
-            type="button"
-            className={secondaryClass}
-            onClick={() => setOpen(true)}
-          >
+          <Button variant="secondary" onClick={() => setOpen(true)}>
             {widening
               ? c("팀 전체 공개로 바꾸기", "Make team-wide")
               : c("비공개로 바꾸기", "Make private")}
-          </button>
+          </Button>
         )
       }
     >
@@ -249,7 +253,7 @@ function VisibilitySection({
           }
           onClose={close}
         >
-          <h3 className="font-medium">
+          <h3 className="text-base font-semibold">
             {widening
               ? c("팀 전체 공개로 바꿀까요?", "Make this project team-wide?")
               : c("비공개로 바꿀까요?", "Make this project private?")}
@@ -266,25 +270,19 @@ function VisibilitySection({
                 )}
           </p>
           {mutation.error && <B2bError code={mutation.error} />}
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              className={primaryClass}
+          <div className="flex flex-wrap gap-2">
+            <Button
               disabled={mutation.busy}
+              aria-busy={mutation.busy}
               onClick={() => void submit()}
             >
               {widening
                 ? c("팀 전체 공개로 바꾸기", "Make team-wide")
                 : c("비공개로 바꾸기", "Make private")}
-            </button>
-            <button
-              type="button"
-              className={secondaryClass}
-              disabled={mutation.busy}
-              onClick={close}
-            >
+            </Button>
+            <Button variant="secondary" disabled={mutation.busy} onClick={close}>
               {c("취소", "Cancel")}
-            </button>
+            </Button>
           </div>
         </ConfirmDialog>
       )}
@@ -308,9 +306,11 @@ function ProjectEditor({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const pending = useRef<{ fingerprint: string; key: string } | null>(null);
+  const nameId = useId(),
+    briefId = useId();
   return (
     <form
-      className="max-w-xl space-y-6"
+      className="max-w-xl space-y-5"
       onSubmit={async (event) => {
         event.preventDefault();
         if (busy) return;
@@ -345,9 +345,9 @@ function ProjectEditor({
         }
       }}
     >
-      <label className="block space-y-2 text-sm">
-        <span>{c("프로젝트명", "Project name")}</span>
+      <Field label={c("프로젝트명", "Project name")} htmlFor={nameId}>
         <input
+          id={nameId}
           className={inputClass}
           required
           maxLength={100}
@@ -355,18 +355,19 @@ function ProjectEditor({
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
-      </label>
-      <label className="block space-y-2 text-sm">
-        <span>{c("작업 개요", "Brief")}</span>
+      </Field>
+      <Field label={c("작업 개요", "Brief")} htmlFor={briefId}>
         <textarea
+          id={briefId}
           aria-label={c("작업 개요", "Brief")}
-          className={`${inputClass} min-h-28`}
+          className={textareaClass}
+          rows={5}
           maxLength={5000}
           disabled={busy || !!pending.current}
           value={brief}
           onChange={(e) => setBrief(e.target.value)}
         />
-      </label>
+      </Field>
       {error && <B2bError code={error} />}
       {revision !== project.revision && (
         <Notice role="status">
@@ -375,9 +376,9 @@ function ProjectEditor({
               {c("최신 내용", "Current server version")}: {project.name}
             </p>
             <p className="whitespace-pre-wrap text-muted">{project.brief}</p>
-            <button
-              type="button"
-              className={secondaryClass}
+            <Button
+              variant="secondary"
+              size="sm"
               disabled={busy}
               onClick={() => {
                 pending.current = null;
@@ -389,25 +390,25 @@ function ProjectEditor({
                 "차이를 확인하고 내 입력으로 저장 준비",
                 "Keep my draft after reviewing changes",
               )}
-            </button>
+            </Button>
           </div>
         </Notice>
       )}
-      <div className="flex flex-wrap gap-3">
-        <button
-          className={primaryClass}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="submit"
+          aria-busy={busy}
           disabled={busy || !name.trim() || revision !== project.revision}
         >
           {busy ? c("저장 중…", "Saving…") : c("변경 저장", "Save changes")}
-        </button>
-        <button
-          type="button"
-          className={secondaryClass}
+        </Button>
+        <Button
+          variant="secondary"
           disabled={busy}
           onClick={() => void onRefresh()}
         >
           {c("최신 내용 확인", "Check current version")}
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -421,6 +422,7 @@ function ProjectEditor({
 export function ProjectParticipants({ projectId }: { projectId: string }) {
   const { id, project, error, reload } = useProject(projectId);
   const c = useCopy();
+  const { lang } = useI18n();
   const [roster, setRoster] = useState<ProjectPeople | null>(null);
   const [rosterError, setRosterError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -482,104 +484,117 @@ export function ProjectParticipants({ projectId }: { projectId: string }) {
         reason,
       }),
     );
+  const people = [...roster?.people ?? []].sort(
+    (a, b) => Number(b.role === "lead") - Number(a.role === "lead"),
+  );
   return (
-    <TeamShell
-      title={c("프로젝트 멤버", "Project people")}
-      description={project.name}
-      tabs={folderTabs(id, project, c)}
-    >
+    <TeamShell {...projectFrame(id, project, c, lang)}>
       {rosterError && (
         <B2bError code={rosterError} retry={() => void loadPeople()} />
       )}
       {!roster ? (
         !rosterError && <TeamLoading />
       ) : (
-        <ul className="divide-y divide-border border-y border-border">
-          {[...roster.people]
-            .sort((a, b) => Number(b.role === "lead") - Number(a.role === "lead"))
-            .map((person) => {
-            const name = person.name || person.email;
-            const lead = person.role === "lead";
-            return (
-              <li
-                className="flex items-center gap-3 py-3"
-                key={person.userId}
-                data-person={person.email}
-              >
-                <Avatar id={person.userId} name={name} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <p className="truncate text-sm font-medium">{name}</p>
-                    {person.kind === "external" && <Tag>{c("외부", "Guest")}</Tag>}
-                    {person.canDownload && !lead && <Tag>{c("다운로드", "Download")}</Tag>}
-                  </div>
-                  {person.name && (
-                    <p className="truncate text-[13px] text-muted">{person.email}</p>
-                  )}
-                </div>
-                {editable && !lead ? (
-                  <select
-                    aria-label={c(`${name} 역할`, `Role of ${name}`)}
-                    className="w-24 rounded-md border border-transparent bg-transparent py-1 text-[13px] hover:border-border focus-visible:border-foreground/40 disabled:opacity-60"
-                    value={person.role}
-                    disabled={busy}
-                    onChange={(e) => {
-                      const next = e.target.value as "producer" | "reviewer";
-                      // An editor works with the files; a viewer only watches.
-                      void change(person, { role: next, canDownload: next === "producer" }, "역할 변경");
-                    }}
-                  >
-                    <option value="producer">{c("편집자", "Editor")}</option>
-                    <option value="reviewer">{c("뷰어", "Viewer")}</option>
-                  </select>
-                ) : (
-                  <span className="w-24 text-[13px] text-muted">
-                    {lead ? c("담당자", "Lead") : person.role === "producer" ? c("편집자", "Editor") : c("뷰어", "Viewer")}
-                  </span>
-                )}
-                <span className="w-8 text-right">
-                  {editable && !lead && (
-                    <RowMenu label={c(`${name} 작업`, `Actions for ${name}`)}>
-                      {person.kind === "internal" && (
-                        <RowMenuItem
+        <section className="space-y-2">
+          <Toolbar title={c("프로젝트 멤버", "Project people")} count={people.length} />
+          <table className={`${tableClass} table-fixed`}>
+            <thead>
+              <tr>
+                <th className={thClass}>{c("이름", "Name")}</th>
+                <th className={`${thClass} w-32`}>{c("역할", "Role")}</th>
+                <th className={`${thClass} w-12`}>
+                  <span className="sr-only">{c("작업", "Actions")}</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {people.map((person) => {
+                const name = person.name || person.email;
+                const lead = person.role === "lead";
+                return (
+                  <tr key={person.userId} data-person={person.email}>
+                    <td className={tdClass}>
+                      <div className="flex min-w-0 items-center gap-3">
+                        <Avatar id={person.userId} name={name} />
+                        <div className="min-w-0">
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <span className="truncate font-medium">{name}</span>
+                            {person.kind === "external" && <Badge>{c("외부", "Guest")}</Badge>}
+                            {person.canDownload && !lead && <Badge>{c("다운로드", "Download")}</Badge>}
+                          </div>
+                          {person.name && (
+                            <p className="truncate text-xs text-muted">{person.email}</p>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className={tdClass}>
+                      {editable && !lead ? (
+                        <Select
+                          size="sm"
+                          aria-label={c(`${name} 역할`, `Role of ${name}`)}
+                          value={person.role}
                           disabled={busy}
-                          onClick={() =>
-                            void run((base) =>
-                              b2bService.transferLead(id, projectId, {
-                                ...base,
-                                targetId: person.userId,
-                                reason: "담당자 지정",
-                              }),
-                            )
-                          }
+                          onChange={(e) => {
+                            const next = e.target.value as "producer" | "reviewer";
+                            // An editor works with the files; a viewer only watches.
+                            void change(person, { role: next, canDownload: next === "producer" }, "역할 변경");
+                          }}
                         >
-                          {c("담당자로 지정", "Make lead")}
-                        </RowMenuItem>
+                          <option value="producer">{c("편집자", "Editor")}</option>
+                          <option value="reviewer">{c("뷰어", "Viewer")}</option>
+                        </Select>
+                      ) : (
+                        <span className="text-muted">
+                          {lead ? c("담당자", "Lead") : person.role === "producer" ? c("편집자", "Editor") : c("뷰어", "Viewer")}
+                        </span>
                       )}
-                      <RowMenuItem
-                        disabled={busy}
-                        onClick={() =>
-                          void change(person, { canDownload: !person.canDownload }, "다운로드 권한 변경")
-                        }
-                      >
-                        {person.canDownload
-                          ? c("다운로드 막기", "Block downloads")
-                          : c("다운로드 허용", "Allow downloads")}
-                      </RowMenuItem>
-                      <RowMenuItem
-                        tone="danger"
-                        disabled={busy}
-                        onClick={() => void change(person, { remove: true }, "프로젝트에서 제외")}
-                      >
-                        {c("프로젝트에서 제외", "Remove from project")}
-                      </RowMenuItem>
-                    </RowMenu>
-                  )}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
+                    </td>
+                    <td className={`${tdClass} text-right`}>
+                      {editable && !lead && (
+                        <RowMenu label={c(`${name} 작업`, `Actions for ${name}`)}>
+                          {person.kind === "internal" && (
+                            <RowMenuItem
+                              disabled={busy}
+                              onClick={() =>
+                                void run((base) =>
+                                  b2bService.transferLead(id, projectId, {
+                                    ...base,
+                                    targetId: person.userId,
+                                    reason: "담당자 지정",
+                                  }),
+                                )
+                              }
+                            >
+                              {c("담당자로 지정", "Make lead")}
+                            </RowMenuItem>
+                          )}
+                          <RowMenuItem
+                            disabled={busy}
+                            onClick={() =>
+                              void change(person, { canDownload: !person.canDownload }, "다운로드 권한 변경")
+                            }
+                          >
+                            {person.canDownload
+                              ? c("다운로드 막기", "Block downloads")
+                              : c("다운로드 허용", "Allow downloads")}
+                          </RowMenuItem>
+                          <RowMenuItem
+                            tone="danger"
+                            disabled={busy}
+                            onClick={() => void change(person, { remove: true }, "프로젝트에서 제외")}
+                          >
+                            {c("프로젝트에서 제외", "Remove from project")}
+                          </RowMenuItem>
+                        </RowMenu>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </section>
       )}
       {project.role === "lead" && (
         <InvitationPanel projectId={projectId} editable={editable} />

@@ -13,7 +13,7 @@ import {
 import { CloudError, cloudErrorCode } from "./cloud-shared";
 import { RoleTable } from "./role-guide";
 import { RowMenu, RowMenuItem } from "./row-menu";
-import { primaryClass, secondaryClass } from "./shared";
+import { Button } from "@/components/ui";
 
 type Action = InviteRole | "remove" | "suspend" | "reactivate";
 
@@ -153,7 +153,7 @@ export function MemberActions({
             )}
             {!offboard && action !== "reactivate" && <RoleTable />}
             {offboard && impact && impact.pendingUploads > 0 && (
-              <p className="text-sm tabular-nums">
+              <p className="text-[13px] tabular-nums">
                 {c(
                   `진행 중 업로드 ${impact.pendingUploads}개를 취소합니다.`,
                   `${impact.pendingUploads} pending uploads will be cancelled.`,
@@ -161,17 +161,16 @@ export function MemberActions({
               </p>
             )}
             <div className="flex flex-wrap justify-end gap-2">
-              <button
-                type="button"
-                className={secondaryClass}
+              <Button
+                variant="secondary"
                 disabled={busy}
                 onClick={() => confirm.close()}
               >
                 {c("취소", "Cancel")}
-              </button>
-              <button
-                type="button"
-                className={primaryClass}
+              </Button>
+              <Button
+                variant={offboard ? "danger" : "primary"}
+                aria-busy={busy}
                 disabled={busy}
                 onClick={async () => {
                   setBusy(true);
@@ -197,7 +196,7 @@ export function MemberActions({
                   : offboard
                     ? c("확인", "Confirm")
                     : c("변경", "Change")}
-              </button>
+              </Button>
             </div>
           </div>
         </Dialog>

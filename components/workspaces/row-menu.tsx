@@ -9,6 +9,7 @@ import {
 import { createPortal } from "react-dom";
 import { MoreVertical } from "lucide-react";
 import { useI18n } from "@/lib/i18n/context";
+import { buttonClass, menuClass, menuItemClass } from "@/components/ui";
 
 /**
  * The kebab at the end of a table row.
@@ -99,9 +100,9 @@ export function RowMenu({
           // same commit that renders it.
           const box = trigger.current?.getBoundingClientRect();
           if (box) {
-            // Not an estimate: every RowMenuItem is `min-h-10` with no gap
-            // between them, inside a panel with `p-1`.
-            const height = items * 40 + 8;
+            // Not an estimate: every RowMenuItem is `menuItemClass` (36px)
+            // with no gap between them, inside a panel with `p-1`.
+            const height = items * 36 + 8;
             const below = window.innerHeight - box.bottom;
             // Flip above the row when the panel would not fit beneath it, so a
             // kebab in the last rows does not open below the fold.
@@ -118,7 +119,7 @@ export function RowMenu({
           }
           setOpen((was) => !was);
         }}
-        className="grid size-9 place-items-center rounded-md text-muted transition-colors hover:bg-surface-secondary hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground aria-expanded:bg-surface-secondary"
+        className={`${buttonClass({ variant: "ghost", size: "sm", icon: true })} text-muted aria-expanded:bg-surface-secondary`}
       >
         <MoreVertical size={16} strokeWidth={1.5} aria-hidden="true" />
       </button>
@@ -131,7 +132,7 @@ export function RowMenu({
             role="menu"
             onClick={() => setOpen(false)}
             style={{ top: at.top, right: at.right }}
-            className="absolute z-50 min-w-40 rounded-lg border border-border bg-background p-1 shadow-lg"
+            className={`${menuClass.replace("z-30", "z-50")} absolute min-w-40`}
           >
             {children}
           </div>,
@@ -159,11 +160,13 @@ export function RowMenuItem({
       role="menuitem"
       disabled={disabled}
       onClick={onClick}
-      className={`flex min-h-10 w-full items-center rounded-md px-2 text-left text-[13px] transition-colors disabled:opacity-50 ${
+      className={`${
         tone === "danger"
-          ? "text-danger hover:bg-danger/[0.08]"
-          : "text-foreground/80 hover:bg-surface hover:text-foreground"
-      }`}
+          ? menuItemClass
+              .replace("text-foreground", "text-danger-ink")
+              .replace("hover:bg-surface-secondary", "hover:bg-danger/[0.08]")
+          : menuItemClass
+      } disabled:opacity-50`}
     >
       {children}
     </button>

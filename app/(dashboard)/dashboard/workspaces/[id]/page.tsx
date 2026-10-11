@@ -8,9 +8,9 @@ import {
   EmptyState,
   Notice,
   TeamShell,
-  primaryClass,
-  secondaryClass,
 } from "@/components/workspaces/shared";
+import { buttonClass, Card, CardHeader, StatStrip } from "@/components/ui";
+import { formatDate } from "@/lib/format";
 import { isPersonal, seatFigures } from "@/lib/workspaces/kind";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import { B2bHome } from "@/components/b2b/home";
@@ -148,7 +148,7 @@ export default function Page() {
       actions={
         // The only route from personal to team is an explicit, named one.
         personal && (
-          <Link className={secondaryClass} href="/dashboard/workspaces/new">
+          <Link className={buttonClass({ variant: "secondary" })} href="/dashboard/workspaces/new">
             {t("team.makeTeam")}
           </Link>
         )
@@ -183,45 +183,32 @@ export default function Page() {
         into them, rather than the grid growing a column at a time.
       */}
       {stats.length > 0 && (
-        <section
-          className="grid gap-px overflow-hidden rounded-lg border border-border bg-border"
-          style={{
-            gridTemplateColumns: `repeat(${stats.length}, minmax(0, 1fr))`,
-          }}
-        >
-          {stats.map(([label, value, detail]) => (
-            <div key={label} className="bg-background p-5">
-              <p className="text-xs leading-5 text-muted">{label}</p>
-              {value === null ? (
-                <div className="mt-3 h-6 w-20 animate-pulse rounded-md bg-surface-secondary" />
-              ) : (
-                <p className="mt-2 text-2xl font-semibold tabular-nums">
-                  {value}
-                </p>
-              )}
-              <p className="mt-1 text-xs leading-5 text-muted tabular-nums">
-                {/* Holds the line's height while the figure is in flight, so
-                    the cell does not grow under the reader. */}
-                {detail || "\u00a0"}
-              </p>
-            </div>
-          ))}
-        </section>
+        <StatStrip
+          items={stats.map(([label, value, detail]) => ({
+            label,
+            value: value ?? (
+              <span className="inline-block h-6 w-20 animate-pulse rounded-md bg-surface-secondary align-middle" />
+            ),
+            // Holds the line's height while the figure is in flight, so the
+            // cell does not grow under the reader.
+            foot: detail || "\u00a0",
+          }))}
+        />
       )}
 
       {archiveCells && (
-        <section className="space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-[15px] font-medium">
-              {c("최근 올린 원본", "Recently uploaded")}
-            </h2>
-            <Link
-              href={`${base}/media`}
-              className="text-[13px] text-muted underline-offset-4 hover:text-foreground hover:underline"
-            >
-              {c("콘텐츠 아카이브 열기", "Open content archive")}
-            </Link>
-          </div>
+        <section>
+          <CardHeader
+            title={c("최근 올린 원본", "Recently uploaded")}
+            action={
+              <Link
+                href={`${base}/media`}
+                className="text-[13px] text-muted underline-offset-4 hover:text-foreground hover:underline"
+              >
+                {c("콘텐츠 아카이브 열기", "Open content archive")}
+              </Link>
+            }
+          />
           {!archive ? (
             <div
               aria-hidden="true"
@@ -245,8 +232,7 @@ export default function Page() {
                       {asset.name}
                     </span>
                     <span className="shrink-0 text-xs tabular-nums text-muted">
-                      {bytes(asset.size)} ·{" "}
-                      {new Date(asset.createdAt).toLocaleDateString(lang)}
+                      {bytes(asset.size)} · {formatDate(asset.createdAt, lang)}
                     </span>
                   </Link>
                 </li>
@@ -261,9 +247,9 @@ export default function Page() {
       )}
 
       {process.env.NEXT_PUBLIC_START_ONBOARDING === "1" && (
-        <section className="flex flex-wrap items-center justify-between gap-5 rounded-lg border border-border p-5">
+        <Card className="flex flex-wrap items-center justify-between gap-5">
           <div>
-            <h2 className="text-[15px] font-medium">
+            <h2 className="text-base font-semibold">
               {c("앱에서 첫 편집 시작하기", "Start your first edit in the app")}
             </h2>
             <p className="mt-1 text-[13px] leading-5 text-muted">
@@ -274,12 +260,12 @@ export default function Page() {
             </p>
           </div>
           <Link
-            className={primaryClass}
+            className={buttonClass()}
             href={`/start?step=app&workspace=${workspace.id}&locale=${lang}`}
           >
             {c("앱 시작 안내", "Open app guide")}
           </Link>
-        </section>
+        </Card>
       )}
     </TeamShell>
   );

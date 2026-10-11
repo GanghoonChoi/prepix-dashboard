@@ -3,11 +3,8 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { b2bService } from "@/lib/api/services/b2b.service";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
-import {
-  Block,
-  primaryClass,
-  secondaryClass,
-} from "@/components/workspaces/shared";
+import { Block } from "@/components/workspaces/shared";
+import { Button } from "@/components/ui";
 import { B2bError, freeIntent, errorCode, useCopy } from "./shared";
 export function LeaveTeam() {
   const { data, b2b } = useWorkspace()!;
@@ -40,9 +37,9 @@ export function LeaveTeam() {
       actions={
         data.role !== "owner" &&
         !open && (
-          <button className={secondaryClass} onClick={() => setOpen(true)}>
+          <Button variant="secondary" onClick={() => setOpen(true)}>
             {c("팀 나가기", "Leave team")}
-          </button>
+          </Button>
         )
       }
     >
@@ -73,19 +70,18 @@ export function LeaveTeam() {
         >
           {error && <B2bError code={error} />}
           <div className="flex flex-wrap gap-2">
-            <button className={primaryClass} disabled={busy}>
+            <Button type="submit" variant="danger" aria-busy={busy} disabled={busy}>
               {busy
                 ? c("탈퇴 처리 중…", "Leaving…")
                 : c("팀 탈퇴 확인", "Confirm leaving team")}
-            </button>
-            <button
-              type="button"
-              className={secondaryClass}
+            </Button>
+            <Button
+              variant="secondary"
               disabled={busy || !!pending.current}
               onClick={() => setOpen(false)}
             >
               {c("취소", "Cancel")}
-            </button>
+            </Button>
           </div>
         </form>
       )}
