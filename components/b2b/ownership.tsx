@@ -6,13 +6,8 @@ import {
   type OwnershipCredential,
 } from "@/lib/api/services/b2b.service";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
-import {
-  Block,
-  Details,
-  inputClass,
-  primaryClass,
-  secondaryClass,
-} from "@/components/workspaces/shared";
+import { Details } from "@/components/workspaces/shared";
+import { Button, Field, Select, SettingsSection } from "@/components/ui";
 import { ReauthForm } from "@/components/workspaces/reauth-form";
 import { B2bError, freeIntent, errorCode, useCopy } from "./shared";
 type Action = "request" | "accept" | "cancel" | "decline";
@@ -125,14 +120,14 @@ export function OwnershipControls() {
   }
   const frozen = busy || !!confirm || !!pending.current;
   return (
-    <Block
+    <SettingsSection
       title={c("소유권", "Ownership")}
       description={c(
         "내부 후임이 본인 확인 후 수락하면 이전됩니다.",
         "Completes when an internal successor verifies and accepts.",
       )}
     >
-      <div className="max-w-xl space-y-4">
+      <div className="space-y-4">
         {offer && (
           <p className="text-[13px]">
             {canAccept
@@ -147,11 +142,10 @@ export function OwnershipControls() {
           </p>
         )}
         {!offer && data.role === "owner" && (
-          <label className="block space-y-1.5 text-[13px]">
-            <span>{c("내부 소유권 후임", "Internal ownership successor")}</span>
-            <select
+          <Field label={c("내부 소유권 후임", "Internal ownership successor")} htmlFor="ownership-successor" className="max-w-sm">
+            <Select
+              id="ownership-successor"
               aria-label={c("내부 소유권 후임", "Internal ownership successor")}
-              className={inputClass}
               value={target}
               disabled={frozen}
               onChange={(e) => setTarget(e.target.value)}
@@ -171,14 +165,13 @@ export function OwnershipControls() {
                     {p.name || p.email}
                   </option>
                 ))}
-            </select>
-          </label>
+            </Select>
+          </Field>
         )}
         {!confirm && (
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2">
             {!offer && data.role === "owner" && (
-              <button
-                className={primaryClass}
+              <Button
                 disabled={
                   busy ||
                   !target ||
@@ -187,20 +180,19 @@ export function OwnershipControls() {
                 onClick={() => setConfirm("request")}
               >
                 {c("소유권 이전 본인 확인", "Verify for ownership transfer")}
-              </button>
+              </Button>
             )}
             {canAccept && (
-              <button
-                className={primaryClass}
+              <Button
                 disabled={busy}
                 onClick={() => setConfirm("accept")}
               >
                 {c("소유권 수락 본인 확인", "Verify to accept ownership")}
-              </button>
+              </Button>
             )}
             {offer?.toUserId === data.currentUserId && (
-              <button
-                className={secondaryClass}
+              <Button
+                variant="secondary"
                 disabled={
                   busy ||
                   (!!pending.current && pending.current.action !== "decline")
@@ -208,11 +200,11 @@ export function OwnershipControls() {
                 onClick={() => void execute("decline").catch(() => {})}
               >
                 {c("이전 요청 거절", "Decline request")}
-              </button>
+              </Button>
             )}
             {offer && data.role === "owner" && (
-              <button
-                className={secondaryClass}
+              <Button
+                variant="secondary"
                 disabled={
                   busy ||
                   (!!pending.current && pending.current.action !== "cancel")
@@ -220,7 +212,7 @@ export function OwnershipControls() {
                 onClick={() => void execute("cancel").catch(() => {})}
               >
                 {c("이전 요청 취소", "Cancel request")}
-              </button>
+              </Button>
             )}
           </div>
         )}
@@ -270,6 +262,6 @@ export function OwnershipControls() {
           </p>
         </Details>
       </div>
-    </Block>
+    </SettingsSection>
   );
 }
