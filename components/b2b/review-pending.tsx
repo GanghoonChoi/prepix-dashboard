@@ -13,7 +13,8 @@ import {
   reviewEvents,
   reviewStore,
 } from "@/lib/api/services/b2b-reviews.service";
-import { secondaryClass } from "@/components/workspaces/shared";
+import { TriangleAlert } from "lucide-react";
+import { Button } from "@/components/ui";
 import { definitivelyRejected, errorCode, useCopy } from "./shared";
 import { ReviewError } from "./reviews";
 
@@ -110,20 +111,25 @@ export function ReviewPending({
     };
   }, [refresh, scope]);
   if (!rows.length && !error) return null;
+  // A warning Notice's look (waiting on a reply), composed here to keep the
+  // labelled section and its heading.
   return (
     <section
-      className="space-y-3 rounded-lg border border-border px-4 py-3 text-sm"
+      className="space-y-3 rounded-lg bg-warning/15 px-3.5 py-3 text-[13px] leading-5"
       aria-label={c("결과 확인이 필요한 변경", "Changes awaiting confirmation")}
       aria-live="polite"
     >
-      <div>
-        <h2 className="font-medium">{c("결과 확인이 필요한 변경", "Changes awaiting confirmation")}</h2>
-        <p className="mt-0.5 text-[13px] text-muted">
-          {c("응답을 받지 못했습니다. 다시 보내도 두 번 적용되지 않습니다.", "No response arrived. Retrying never applies a change twice.")}
-        </p>
+      <div className="flex items-start gap-2.5">
+        <TriangleAlert size={16} strokeWidth={1.75} aria-hidden="true" className="mt-0.5 shrink-0 text-warning-ink" />
+        <div className="min-w-0">
+          <h2 className="font-medium">{c("결과 확인이 필요한 변경", "Changes awaiting confirmation")}</h2>
+          <p className="mt-0.5 text-foreground/80">
+            {c("응답을 받지 못했습니다. 다시 보내도 두 번 적용되지 않습니다.", "No response arrived. Retrying never applies a change twice.")}
+          </p>
+        </div>
       </div>
       {error && <ReviewError code={error} />}
-      <ul className="divide-y divide-border">
+      <ul className="divide-y divide-foreground/10 pl-[26px]">
         {rows.map((r) => (
           <li key={`${r.action}:${r.target ?? ""}`} className="flex flex-wrap items-center justify-between gap-3 py-2 first:pt-0 last:pb-0">
             <span>
@@ -131,12 +137,12 @@ export function ReviewPending({
               {typeof r.input.body === "string" && ` · ${r.input.body.slice(0, 60)}`}
             </span>
             <span className="flex flex-wrap gap-2">
-              <button type="button" className={secondaryClass} disabled={busy} onClick={() => void refresh()}>
+              <Button variant="secondary" size="sm" disabled={busy} onClick={() => void refresh()}>
                 {c("결과 확인", "Check result")}
-              </button>
-              <button
-                type="button"
-                className={secondaryClass}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
                 disabled={busy}
                 onClick={async () => {
                   setBusy(true);
@@ -159,11 +165,11 @@ export function ReviewPending({
                 }}
               >
                 {c("같은 내용으로 다시 보내기", "Retry the same change")}
-              </button>
+              </Button>
               {dead.includes(r.input.requestKey) && (
-                <button
-                  type="button"
-                  className={secondaryClass}
+                <Button
+                  variant="secondary"
+                  size="sm"
                   disabled={busy}
                   onClick={async () => {
                     setBusy(true);
@@ -182,7 +188,7 @@ export function ReviewPending({
                   }}
                 >
                   {c("이 변경 버리기", "Discard this change")}
-                </button>
+                </Button>
               )}
             </span>
           </li>
