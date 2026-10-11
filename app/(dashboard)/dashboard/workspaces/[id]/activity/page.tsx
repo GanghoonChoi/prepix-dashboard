@@ -12,8 +12,9 @@ import {
   EmptyState,
   TeamLoading,
   TeamShell,
-  secondaryClass,
 } from "@/components/workspaces/shared";
+import { Button } from "@/components/ui";
+import { formatDate, formatTime } from "@/lib/format";
 import {
   CloudError,
   cloudErrorCode,
@@ -60,13 +61,9 @@ export default function Page() {
       title={lang === "ko" ? "활동 기록" : "Activity"}
       actions={
         allowed && (
-          <button
-            className={secondaryClass}
-            disabled={busy}
-            onClick={() => load()}
-          >
+          <Button variant="secondary" disabled={busy} onClick={() => load()}>
             {lang === "ko" ? "새로고침" : "Refresh"}
-          </button>
+          </Button>
         )
       }
     >
@@ -86,9 +83,9 @@ export default function Page() {
             />
           )}
           {!!result?.events.length && (
-            <ol className="divide-y divide-border rounded-lg border border-border">
+            <ol className="divide-y divide-border border-y border-border">
               {result.events.map((row) => (
-                <li key={row.id} className="px-5 py-3">
+                <li key={row.id} className="py-3">
                   <p className="text-sm font-medium">
                     {activityLabel(row.action, lang)}
                   </p>
@@ -99,7 +96,7 @@ export default function Page() {
                     {row.actorName ||
                       row.actorEmail ||
                       (lang === "ko" ? "시스템" : "System")}{" "}
-                    · {new Date(row.createdAt).toLocaleString(lang)}
+                    · {formatDate(row.createdAt, lang)} {formatTime(row.createdAt, lang)}
                     {row.detail.userId &&
                       ` · ${lang === "ko" ? "대상" : "Member"}: ${
                         row.targetEmail ||
@@ -114,8 +111,10 @@ export default function Page() {
             </ol>
           )}
           {result?.nextCursor && (
-            <button
-              className={secondaryClass}
+            <Button
+              variant="secondary"
+              size="sm"
+              aria-busy={busy}
               disabled={busy}
               onClick={() => load(result.nextCursor!)}
             >
@@ -126,7 +125,7 @@ export default function Page() {
                 : lang === "ko"
                   ? "이전 기록 더 보기"
                   : "Load older activity"}
-            </button>
+            </Button>
           )}
         </>
       )}

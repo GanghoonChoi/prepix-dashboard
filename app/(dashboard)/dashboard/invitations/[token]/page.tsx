@@ -12,13 +12,12 @@ import {
 } from "@/lib/api/services/workspace.service";
 import { workspaceError } from "@/lib/workspaces/onboarding";
 import {
-  KeyValues,
   TeamShell,
   TeamError,
   TeamLoading,
-  primaryClass,
-  secondaryClass,
 } from "@/components/workspaces/shared";
+import { Button, buttonClass, Card, PropertyList } from "@/components/ui";
+import { formatDate } from "@/lib/format";
 
 export default function InvitationPage({
   params,
@@ -80,8 +79,9 @@ function InvitationContent({ token }: { token: string }) {
       )}
       {!invite && !error && <TeamLoading />}
       {invite && (
-        <section className="max-w-xl space-y-6 rounded-lg border border-border p-6">
-          <KeyValues
+        <Card className="space-y-5">
+          <PropertyList
+            divided
             items={[
               [t("team.invitedTo"), invite.workspaceName],
               [t("team.invitedEmail"), invite.email],
@@ -92,14 +92,14 @@ function InvitationContent({ token }: { token: string }) {
             {invite.accepted
               ? t("team.alreadyAccepted")
               : t("team.expires", {
-                  date: new Date(invite.expiresAt).toLocaleDateString(lang),
+                  date: formatDate(invite.expiresAt, lang),
                 })}
           </p>
           {invite.accepted ? (
             // Nothing left to accept: this is navigation, so render it as
             // navigation instead of a POST that happens to be idempotent.
             <Link
-              className={primaryClass}
+              className={buttonClass()}
               href={`/dashboard/workspaces${
                 invite.workspaceId ? `/${invite.workspaceId}` : ""
               }`}
@@ -107,17 +107,17 @@ function InvitationContent({ token }: { token: string }) {
               {t("team.open")}
             </Link>
           ) : (
-            <button className={primaryClass} onClick={accept} disabled={busy}>
+            <Button onClick={accept} aria-busy={busy} disabled={busy}>
               {t(busy ? "team.accepting" : "team.accept")}
-            </button>
+            </Button>
           )}
-        </section>
+        </Card>
       )}
       <div className="flex flex-wrap gap-2">
-        <button onClick={switchAccount} className={secondaryClass}>
+        <Button variant="secondary" onClick={switchAccount}>
           {t("team.switchAccount")}
-        </button>
-        <Link href="/dashboard" className={secondaryClass}>
+        </Button>
+        <Link href="/dashboard" className={buttonClass({ variant: "secondary" })}>
           {t("team.personal")}
         </Link>
       </div>

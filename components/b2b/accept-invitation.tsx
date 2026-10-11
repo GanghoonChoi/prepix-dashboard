@@ -11,16 +11,17 @@ import { clearSignedIn } from "@/lib/account-hint";
 import { loginHref } from "@/lib/auth-entry";
 import {
   Details,
-  KeyValues,
-  primaryClass,
-  secondaryClass,
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
+import { Button, buttonClass, Card, PropertyList } from "@/components/ui";
+import { useI18n } from "@/lib/i18n/context";
+import { formatDate, formatTime } from "@/lib/format";
 import { B2bError, errorCode, useCopy } from "./shared";
 
 export function AcceptInvitation({ token }: { token: string }) {
   const c = useCopy();
+  const { lang } = useI18n();
   const router = useRouter();
   const [invite, setInvite] = useState<InvitationPreview | null>(null);
   const [emailHint, setEmailHint] = useState("");
@@ -77,13 +78,13 @@ export function AcceptInvitation({ token }: { token: string }) {
         <>
           <B2bError code={error} retry={() => void load()} />
           {emailHint && (
-            <p className="text-sm text-muted">
+            <p className="text-[13px] text-muted">
               {c("초대 이메일", "Invited email")}: {emailHint}
             </p>
           )}
           {error === "INVITATION_EMAIL_MISMATCH" && (
-            <button
-              className={secondaryClass}
+            <Button
+              variant="secondary"
               onClick={() => {
                 endSession();
                 clearSignedIn();
@@ -98,14 +99,15 @@ export function AcceptInvitation({ token }: { token: string }) {
                 "초대받은 계정으로 로그인",
                 "Sign in with the invited account",
               )}
-            </button>
+            </Button>
           )}
         </>
       ) : !invite ? (
         <TeamLoading />
       ) : (
-        <section className="max-w-xl space-y-6 rounded-lg border border-border p-6">
-          <KeyValues
+        <Card className="space-y-5">
+          <PropertyList
+            divided
             items={[
               [c("팀", "Team"), invite.workspaceName],
               ...(invite.projectName
@@ -131,15 +133,12 @@ export function AcceptInvitation({ token }: { token: string }) {
                     ] as [string, string],
                   ]
                 : []),
+              [
+                c("초대 만료", "Expires"),
+                `${formatDate(invite.expiresAt, lang)} ${formatTime(invite.expiresAt, lang)}`,
+              ],
             ]}
           />
-          <p className="text-xs text-muted">
-            {c("초대 만료", "Expires")}:{" "}
-            {new Date(invite.expiresAt).toLocaleString("ko-KR", {
-              timeZone: "Asia/Seoul",
-            })}{" "}
-            (KST)
-          </p>
           <Details>
             <p>
               {c(
@@ -149,12 +148,12 @@ export function AcceptInvitation({ token }: { token: string }) {
             </p>
           </Details>
           {invite.accepted ? (
-            <Link className={primaryClass} href={href}>
+            <Link className={buttonClass()} href={href}>
               {c("참여한 업무 열기", "Open joined work")}
             </Link>
           ) : (
-            <button
-              className={primaryClass}
+            <Button
+              aria-busy={busy}
               disabled={busy}
               onClick={async () => {
                 if (busy) return;
@@ -174,9 +173,9 @@ export function AcceptInvitation({ token }: { token: string }) {
               {busy
                 ? c("수락 중…", "Accepting…")
                 : c("초대 수락", "Accept invitation")}
-            </button>
+            </Button>
           )}
-        </section>
+        </Card>
       )}
     </TeamShell>
   );
