@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Button, Chip } from "@heroui/react";
 import { Skeleton } from "@heroui/react";
 import { Check, Ticket } from "lucide-react";
 import {
@@ -22,8 +21,19 @@ import { CouponDialog } from "@/components/dashboard/coupon-dialog";
 import { BillingHeader } from "@/components/dashboard/billing-header";
 import { useSearchParams } from "next/navigation";
 import { couponService, type CouponBenefits } from "@/lib/api/services/coupon.service";
-import { cardClass } from "@/components/ui";
-import { Block, Details, Notice, inputClass } from "@/components/workspaces/shared";
+import {
+  Badge,
+  Button,
+  Card,
+  Field,
+  Notice,
+  buttonClass,
+  cardClass,
+  textareaClass,
+  type Tone,
+} from "@/components/ui";
+import { Block, Details } from "@/components/workspaces/shared";
+import { formatDay, formatMoney } from "@/lib/format";
 
 export default function PlanPage() {
   const { t, lang } = useI18n();
@@ -265,10 +275,9 @@ export default function PlanPage() {
   const statusMeta = PLAN_STATUS_META[status];
   const statusLabel = statusMeta ? t(statusMeta.labelKey) : status;
   const statusColor = statusMeta?.color ?? "default";
+  const statusTone: Tone = statusColor === "default" ? "neutral" : statusColor;
   const periodEndLabel = currentSub?.currentPeriodEnd
-    ? new Date(currentSub.currentPeriodEnd).toLocaleDateString(
-        lang === "ko" ? "ko-KR" : "en-US",
-      )
+    ? formatDay(currentSub.currentPeriodEnd, lang)
     : null;
   // Only a pending cancel keeps access until the period end. canceled/refunded/
   // chargeback mean access has already ended.
@@ -331,8 +340,13 @@ export default function PlanPage() {
           : stranded
             ? t("plan.resubscribeNeeded")
             : null;
-  const linkButton = "text-[13px] text-muted transition-colors hover:text-foreground";
-  const pill = "inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs text-muted";
+  // A live subscription with nothing else to say renews at the period end.
+  const renewsLine =
+    !statusLine && canCancel && periodEndLabel ? t("dashboard.renews", { date: periodEndLabel }) : null;
+  const updatesCard = status === "past_due" && currentSub?.provider === "tosspayments";
+  // Won the way the dashboard writes money (lib/format); other currencies as before.
+  const money = (currency: string, amount: number) =>
+    currency === "KRW" ? formatMoney(amount, lang) : formatPrice(currency, amount);
 
   // The dollar price of a plan for a card issued abroad, or null when there is
   // nothing to offer (not quoted in won, or no such price).
@@ -349,7 +363,12 @@ export default function PlanPage() {
 
   const priceLabel = (plan: CatalogPlan) => {
     if (plan.status === "coming_soon")
-      return { big: t("plan.comingSoon"), strike: null as string | null, sub: null as string | null };
+      return {
+        big: t("plan.comingSoon"),
+        per: null as string | null,
+        strike: null as string | null,
+        sub: null as string | null,
+      };
     const price = plan.prices.find((p) => p.interval === "month") ?? plan.prices[0];
     // The catalog only carries prices for the processor that would take THIS
     // buyer's money, so a paid tier can come back with none — that is a
@@ -357,20 +376,20 @@ export default function PlanPage() {
     // we will never honour.
     if (!price) {
       return plan.id === "free"
-        ? { big: formatPrice("KRW", 0), strike: null, sub: null }
-        : { big: t("plan.priceUnavailable"), strike: null, sub: null };
+        ? { big: money("KRW", 0), per: null, strike: null, sub: null }
+        : { big: t("plan.priceUnavailable"), per: null, strike: null, sub: null };
     }
 
     const pct = price.launchDiscountPercent ?? 0;
     const net = pct ? Math.round(price.unitAmount * (1 - pct / 100)) : price.unitAmount;
     const per = price.interval === "year" ? t("plan.perYear") : t("plan.perMonth");
-    const strike = pct ? formatPrice(price.currency, price.unitAmount) : null;
+    const strike = pct ? money(price.currency, price.unitAmount) : null;
 
     // "/월" already says monthly; the line under it only speaks when there is
     // something the price alone does not say.
     let sub: string | null;
     if (price.interval === "year") {
-      const perMonth = formatPrice(price.currency, Math.round(net / 12));
+      const perMonth = money(price.currency, Math.round(net / 12));
       const prefix = pct ? t("plan.launchPrefix", { pct }) : "";
       sub = prefix + t("plan.annualSuffix", { perMonth });
     } else {
@@ -381,9 +400,10 @@ export default function PlanPage() {
     const lock = price.interval === "month" ? price.couponLock : null;
     if (lock) {
       return {
-        big: `${formatPrice(price.currency, lock.amount)}${per}`,
-        strike: formatPrice(price.currency, net),
-        sub: t("coupon.priceUntilLock", { date: lastDay(lock.until), price: formatPrice(price.currency, net), per }),
+        big: money(price.currency, lock.amount),
+        per,
+        strike: money(price.currency, net),
+        sub: t("coupon.priceUntilLock", { date: lastDay(lock.until), price: money(price.currency, net), per }),
         chip: t("coupon.lockChip"),
         note: lock.minutes ? t("coupon.lockMinutes", { minutes: String(lock.minutes) }) : null,
       };
@@ -397,13 +417,14 @@ export default function PlanPage() {
         ? Math.round(net * (1 - coupon / 100))
         : Math.round(net * (100 - coupon)) / 100;
       return {
-        big: `${formatPrice(price.currency, first)}${per}`,
-        strike: formatPrice(price.currency, net),
-        sub: t("coupon.priceAfterCoupon", { price: formatPrice(price.currency, net), per }),
+        big: money(price.currency, first),
+        per,
+        strike: money(price.currency, net),
+        sub: t("coupon.priceAfterCoupon", { price: money(price.currency, net), per }),
         chip: t("coupon.chip", { percent: String(coupon) }),
       };
     }
-    return { big: `${formatPrice(price.currency, net)}${per}`, strike, sub };
+    return { big: money(price.currency, net), per, strike, sub };
   };
 
   const buttonFor = (plan: CatalogPlan) => {
@@ -440,91 +461,90 @@ export default function PlanPage() {
 
   return (
     <div>
-      <BillingHeader
-        actions={
-          <Button variant="outline" size="sm" onPress={() => { setLinkedCoupon(null); couponModal.open(); }}>
-            <Ticket size={16} strokeWidth={1.75} aria-hidden="true" />
-            {t("coupon.open")}
-          </Button>
-        }
-      />
+      <BillingHeader />
       <div className="space-y-8">
 
-      {justUpgraded && <Notice role="status">{t("plan.paymentReceived")}</Notice>}
+      {justUpgraded && <Notice tone="success" role="status">{t("plan.paymentReceived")}</Notice>}
 
       {/* Current plan, and what coupons add to it — one object, not two. */}
-      {loading ? (
-        <Skeleton className="h-24 w-full rounded-lg" />
-      ) : loadError ? (
-        <div className="flex items-center justify-between gap-4 rounded-lg border border-danger/30 bg-danger/5 p-4">
-          <p className="text-sm text-danger">{t("plan.loadError")}</p>
-          <Button variant="outline" size="sm" onPress={loadData}>{t("common.retry")}</Button>
-        </div>
-      ) : (
-        <section className={`${cardClass} p-5`}>
-          <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+      <Card>
+        {loading ? (
+          <Skeleton className="h-16 w-full rounded-md" />
+        ) : loadError ? (
+          <Notice
+            tone="danger"
+            action={
+              <Button variant="secondary" size="sm" onClick={loadData}>
+                {t("common.retry")}
+              </Button>
+            }
+          >
+            {t("plan.loadError")}
+          </Notice>
+        ) : (
+          <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
             <div className="min-w-0">
-              <div className="flex items-center gap-2.5">
-                <h2 className="text-lg font-semibold">{PLAN_NAMES[currentPlan] || "Free"}</h2>
+              <p className="text-xs text-muted">{t("plan.currentPlan")}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <h2 className="text-2xl font-semibold tracking-tight">{PLAN_NAMES[currentPlan] || "Free"}</h2>
                 {currentPlan !== "free" && (
-                  <Chip size="sm" color={statusColor} variant="soft">
+                  <Badge tone={statusTone} dot={statusTone === "warning"}>
                     {statusLabel}
-                  </Chip>
+                  </Badge>
                 )}
               </div>
-              {statusLine && (
-                <p className={`mt-1 text-[13px] ${status === "past_due" ? "text-warning" : "text-muted"}`}>
-                  {statusLine}
+              {(statusLine || renewsLine) && (
+                <p className={`mt-1.5 text-[13px] ${status === "past_due" ? "text-warning-ink" : "text-muted"}`}>
+                  {statusLine ?? renewsLine}
                 </p>
               )}
-              {/* The domestic processor mends a failed card by registering a new
-                  one; the others have no such step here. */}
-              {status === "past_due" && currentSub?.provider === "tosspayments" && (
-                <Button
-                  className="mt-3"
-                  size="sm"
-                  variant="primary"
-                  isDisabled={actionLoading}
-                  onPress={() => handleUpgrade(currentPlan)}
-                >
-                  {t("plan.updateCard")}
-                </Button>
-              )}
             </div>
-            {(canCancel || canRefund || canRequestReview || needsSupport || refundPending) && (
-              <div className="flex flex-wrap gap-x-4 gap-y-1">
+            {(updatesCard || canCancel || canRefund || canRequestReview || needsSupport || refundPending) && (
+              <div className="flex flex-wrap items-center gap-2">
+                {/* The domestic processor mends a failed card by registering a new
+                    one; the others have no such step here. */}
+                {updatesCard && (
+                  <Button size="sm" disabled={actionLoading} onClick={() => handleUpgrade(currentPlan)}>
+                    {t("plan.updateCard")}
+                  </Button>
+                )}
                 {canCancel && (
-                  <button onClick={() => cancelModal.open()} className={linkButton}>
+                  <Button variant="ghost" size="sm" onClick={() => cancelModal.open()}>
                     {t("plan.cancelSubscription")}
-                  </button>
+                  </Button>
                 )}
                 {canRefund && (
-                  <button onClick={() => refundModal.open()} className={linkButton}>
+                  <Button variant="ghost" size="sm" onClick={() => refundModal.open()}>
                     {t("plan.requestRefund")}
-                  </button>
+                  </Button>
                 )}
                 {canRequestReview && (
-                  <button onClick={() => reviewModal.open()} className={linkButton}>
+                  <Button variant="ghost" size="sm" onClick={() => reviewModal.open()}>
                     {t("plan.requestRefundReview")}
-                  </button>
+                  </Button>
                 )}
                 {needsSupport && (
-                  <button onClick={() => supportModal.open()} className={linkButton}>
+                  <Button variant="ghost" size="sm" onClick={() => supportModal.open()}>
                     {t("plan.refundContactSupport")}
-                  </button>
+                  </Button>
                 )}
                 {refundPending && (
-                  <span className="text-[13px] text-muted">{t("plan.refundPending")}</span>
+                  <Badge tone="warning" dot>
+                    {t("plan.refundPending")}
+                  </Badge>
                 )}
               </div>
             )}
           </div>
+        )}
 
-          {/* Each with when it runs out — a benefit with no date is how
-              someone gets surprised by it ending. */}
-          {hasBenefits && (
-            <div className="mt-5 border-t border-border pt-4">
-              <h3 className="text-xs text-muted">{t("coupon.benefitsTitle")}</h3>
+        {/* The coupon row: what coupons give, and where to add one. Each
+            benefit with when it runs out — a benefit with no date is how
+            someone gets surprised by it ending. */}
+        <div className="mt-5 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+          <div className="min-w-0 flex-1">
+            <h3 className="text-sm font-medium">{t("coupon.benefitsTitle")}</h3>
+            {!loading && !loadError && hasBenefits && (
               <ul className="mt-2 space-y-1.5 text-[13px]">
                 {passBenefit && (
                   <li className="flex flex-wrap justify-between gap-x-4">
@@ -552,10 +572,10 @@ export default function PlanPage() {
                       {l.minutes
                         ? t("coupon.benefitLockMinutes", {
                             plan: planName(l.plan),
-                            price: formatPrice("KRW", l.amount),
+                            price: money("KRW", l.amount),
                             minutes: String(l.minutes),
                           })
-                        : t("coupon.benefitLock", { plan: planName(l.plan), price: formatPrice("KRW", l.amount) })}
+                        : t("coupon.benefitLock", { plan: planName(l.plan), price: money("KRW", l.amount) })}
                     </span>
                     <span className="text-muted">{t("coupon.benefitLockUntil", { date: lastDay(l.until) })}</span>
                   </li>
@@ -569,10 +589,19 @@ export default function PlanPage() {
                   </li>
                 ))}
               </ul>
-            </div>
-          )}
-        </section>
-      )}
+            )}
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="self-start"
+            onClick={() => { setLinkedCoupon(null); couponModal.open(); }}
+          >
+            <Ticket size={16} strokeWidth={1.75} aria-hidden="true" />
+            {t("coupon.open")}
+          </Button>
+        </div>
+      </Card>
 
       {/* A filed refund request, with our reply. Sits above the plan cards
           because "what happened to my refund" outranks "what else could I buy". */}
@@ -585,7 +614,8 @@ export default function PlanPage() {
 
       {!loading && !loadError && (
         <Block title={t("plan.availablePlans")}>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {/* One row where there is room for it. */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-flow-col xl:grid-cols-none xl:auto-cols-fr">
             {plans.map((plan) => {
               const isCurrent = currentPlan === plan.id;
               const emphasize = plan.id === "creator" && !isCurrent;
@@ -597,21 +627,17 @@ export default function PlanPage() {
               return (
                 <div
                   key={plan.id}
-                  className={`flex flex-col rounded-lg border p-5 transition-colors ${
-                    isCurrent
-                      ? "border-foreground/30 bg-surface"
-                      : emphasize
-                        ? "border-foreground/25 hover:border-foreground/40"
-                        : "border-border hover:border-foreground/15"
+                  className={`flex flex-col rounded-lg border bg-background p-5 ${
+                    isCurrent ? "border-foreground ring-1 ring-foreground" : "border-border"
                   }`}
                 >
                   <div className="flex-1">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="text-[15px] font-semibold">{plan.displayName}</p>
-                      {emphasize && <span className={pill}>{t("plan.popular")}</span>}
+                      <p className="text-base font-semibold">{plan.displayName}</p>
+                      {emphasize && <Badge>{t("plan.popular")}</Badge>}
                       {/* The button says "현재 플랜" itself, except on a coupon
                           pass, where it offers to keep the plan instead. */}
-                      {isCurrent && !btn.disabled && <span className={pill}>{t("plan.current")}</span>}
+                      {isCurrent && !btn.disabled && <Badge>{t("plan.current")}</Badge>}
                     </div>
 
                     <div className="mt-3">
@@ -621,13 +647,14 @@ export default function PlanPage() {
                         {price.strike && (
                           <span className="text-sm text-muted line-through">{price.strike}</span>
                         )}
-                        <span className="whitespace-nowrap text-2xl font-semibold tracking-tight tabular-nums">{price.big}</span>
+                        <span className="whitespace-nowrap">
+                          <span className="text-2xl font-semibold tracking-tight tabular-nums">{price.big}</span>
+                          {price.per && <span className="ml-0.5 text-sm text-muted">{price.per}</span>}
+                        </span>
                       </div>
                       {"chip" in price && price.chip ? (
                         <p className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted">
-                          <Chip size="sm" color="success" variant="soft">
-                            {price.chip}
-                          </Chip>
+                          <Badge tone="success">{price.chip}</Badge>
                           {price.sub}
                         </p>
                       ) : (
@@ -639,8 +666,8 @@ export default function PlanPage() {
                     {copy && (
                       <ul className="mt-4 space-y-1.5">
                         {copy.features.map((feat) => (
-                          <li key={feat} className="flex items-start gap-2 text-[13px] text-muted">
-                            <Check size={14} strokeWidth={1.75} aria-hidden="true" className="mt-0.5 shrink-0 text-foreground/60" />
+                          <li key={feat} className="flex items-start gap-2 text-[13px]">
+                            <Check size={14} strokeWidth={1.75} aria-hidden="true" className="mt-0.5 shrink-0 text-muted" />
                             {feat}
                           </li>
                         ))}
@@ -650,10 +677,9 @@ export default function PlanPage() {
 
                   <Button
                     className="mt-5 w-full"
-                    variant={btn.disabled ? "outline" : "primary"}
-                    size="sm"
-                    isDisabled={btn.disabled || actionLoading}
-                    onPress={btn.onPress}
+                    variant={btn.disabled ? "secondary" : "primary"}
+                    disabled={btn.disabled || actionLoading}
+                    onClick={btn.onPress}
                   >
                     {btn.label}
                   </Button>
@@ -676,20 +702,20 @@ export default function PlanPage() {
             {process.env.NEXT_PUBLIC_START_ONBOARDING === "1" && (
             <div className={`${cardClass} flex flex-col gap-3 p-5`}>
               <div>
-                <p className="font-medium">Business</p>
-                <p className="text-sm text-muted">
+                <p className="text-base font-semibold">Business</p>
+                <p className="mt-1 text-[13px] text-muted">
                   {lang === "ko"
                     ? "1인당 월 ₩129,000 · 3인 이상 · 부가세 별도"
                     : "₩129,000 per seat / month · 3+ seats · VAT extra"}
                 </p>
               </div>
-              <p className="text-sm text-muted">
+              <p className="text-[13px] text-muted">
                 {lang === "ko"
                   ? "팀 워크스페이스, 멤버 관리, 공동 편집과 코멘트, 3TB"
                   : "Team workspace, members, co-editing and comments, 3TB"}
               </p>
               <Link
-                className="mt-auto text-sm underline underline-offset-4"
+                className={`${buttonClass({ variant: "secondary" })} mt-auto w-full`}
                 href={`/start?intent=team&step=workspace&locale=${lang}`}
               >
                 {lang === "ko" ? "팀으로 시작하기" : "Start with your team"}
@@ -743,8 +769,8 @@ export default function PlanPage() {
           {t("plan.cancelModalBody")}
         </p>
         <div className="mt-6 flex justify-end gap-3">
-          <Button variant="outline" size="sm" onPress={() => cancelModal.close()} isDisabled={actionLoading}>{t("plan.keepPlan")}</Button>
-          <Button variant="danger" size="sm" onPress={confirmCancel} isDisabled={actionLoading}>
+          <Button variant="secondary" size="sm" onClick={() => cancelModal.close()} disabled={actionLoading}>{t("plan.keepPlan")}</Button>
+          <Button variant="danger" size="sm" onClick={confirmCancel} disabled={actionLoading}>
             {actionLoading ? t("plan.cancelling") : t("plan.cancelSubscription")}
           </Button>
         </div>
@@ -761,23 +787,23 @@ export default function PlanPage() {
               ? t("plan.supportModalBodyPreviousPolicy")
               : t("plan.supportModalBodyWindowClosed")}
         </p>
-        <label className="mt-4 block">
-          <span className="text-xs text-muted">{t("plan.reviewNoteLabel")}</span>
+        <Field label={t("plan.reviewNoteLabel")} htmlFor="support-note" className="mt-4">
           <textarea
+            id="support-note"
             value={reviewNote}
             onChange={(e) => setReviewNote(e.target.value)}
             rows={3}
             maxLength={1000}
             placeholder={t("plan.supportNotePlaceholder")}
-            className={`${inputClass} mt-1`}
+            className={textareaClass}
           />
-        </label>
+        </Field>
         <p className="mt-3 text-xs text-muted">{t("plan.supportModalContact")}</p>
         <div className="mt-6 flex justify-end gap-3">
-          <Button variant="outline" size="sm" onPress={() => supportModal.close()} isDisabled={actionLoading}>
+          <Button variant="secondary" size="sm" onClick={() => supportModal.close()} disabled={actionLoading}>
             {t("common.cancel")}
           </Button>
-          <Button variant="primary" size="sm" onPress={submitSupportRequest} isDisabled={actionLoading}>
+          <Button variant="primary" size="sm" onClick={submitSupportRequest} disabled={actionLoading}>
             {actionLoading ? t("plan.reviewSubmitting") : t("plan.reviewSubmit")}
           </Button>
         </div>
@@ -793,22 +819,22 @@ export default function PlanPage() {
             {t("plan.reviewDayCount", { days: String(refundOffer.daysElapsed) })}
           </p>
         )}
-        <label className="mt-4 block">
-          <span className="text-xs text-muted">{t("plan.reviewNoteLabel")}</span>
+        <Field label={t("plan.reviewNoteLabel")} htmlFor="review-note" className="mt-4">
           <textarea
+            id="review-note"
             value={reviewNote}
             onChange={(e) => setReviewNote(e.target.value)}
             rows={3}
             maxLength={1000}
             placeholder={t("plan.reviewNotePlaceholder")}
-            className={`${inputClass} mt-1`}
+            className={textareaClass}
           />
-        </label>
+        </Field>
         <div className="mt-6 flex justify-end gap-3">
-          <Button variant="outline" size="sm" onPress={() => reviewModal.close()} isDisabled={actionLoading}>
+          <Button variant="secondary" size="sm" onClick={() => reviewModal.close()} disabled={actionLoading}>
             {t("common.cancel")}
           </Button>
-          <Button variant="primary" size="sm" onPress={submitRefundReview} isDisabled={actionLoading}>
+          <Button variant="primary" size="sm" onClick={submitRefundReview} disabled={actionLoading}>
             {actionLoading ? t("plan.reviewSubmitting") : t("plan.reviewSubmit")}
           </Button>
         </div>
@@ -820,8 +846,8 @@ export default function PlanPage() {
           {t("plan.refundModalBody")}
         </p>
         <div className="mt-6 flex justify-end gap-3">
-          <Button variant="outline" size="sm" onPress={() => refundModal.close()} isDisabled={actionLoading}>{t("plan.keepPlan")}</Button>
-          <Button variant="danger" size="sm" onPress={confirmRefund} isDisabled={actionLoading}>
+          <Button variant="secondary" size="sm" onClick={() => refundModal.close()} disabled={actionLoading}>{t("plan.keepPlan")}</Button>
+          <Button variant="danger" size="sm" onClick={confirmRefund} disabled={actionLoading}>
             {actionLoading ? t("plan.processing") : t("plan.refundAndCancel")}
           </Button>
         </div>

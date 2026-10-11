@@ -1,15 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button, Skeleton } from "@heroui/react";
+import { Skeleton } from "@heroui/react";
 import {
   refundThreadService,
   type RefundThread,
 } from "@/lib/api/services/subscription.service";
 import { useI18n } from "@/lib/i18n/context";
 import { useToast } from "@/components/toast";
-import { cardClass } from "@/components/ui";
-import { inputClass } from "@/components/workspaces/shared";
+import { Badge, Button, SettingsSection, textareaClass } from "@/components/ui";
+import { formatDate, formatTime } from "@/lib/format";
 
 /**
  * The state of a filed refund request, on the page where it was filed.
@@ -92,12 +92,10 @@ export function RefundRequestCard({
   // should not also erase that fact.
   if (!thread) return null;
 
-  const fmt = (iso: string) =>
-    new Date(iso).toLocaleString(lang === "ko" ? "ko-KR" : "en-US", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
+  const fmt = (iso: string) => `${formatDate(iso, lang)} ${formatTime(iso, lang)}`;
 
+  // Waiting on us is the one state worth a tint; an answer is news, not a
+  // verdict, so it stays neutral rather than reading as "approved".
   const statusLabel =
     thread.status === "answered"
       ? t("refund.statusAnswered")
@@ -106,73 +104,62 @@ export function RefundRequestCard({
         : t("refund.statusOpen");
 
   return (
-    <section className={`${cardClass} space-y-4 p-5`}>
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-[15px] font-medium">{t("refund.cardTitle")}</h2>
-          <p className="mt-1 text-[13px] text-muted">
-            {t("refund.filedAt", { date: fmt(thread.createdAt) })}
-          </p>
-        </div>
-        <span
-          className={`inline-flex shrink-0 items-center rounded-full border border-border px-2 py-0.5 text-xs ${
-            thread.status === "answered" ? "text-foreground" : "text-muted"
-          }`}
-        >
+    <SettingsSection
+      title={t("refund.cardTitle")}
+      description={t("refund.filedAt", { date: fmt(thread.createdAt) })}
+      action={
+        <Badge tone={thread.status === "open" ? "warning" : "neutral"} dot={thread.status !== "closed"}>
           {statusLabel}
-        </span>
-      </div>
+        </Badge>
+      }
+    >
+      <div className="space-y-4">
+        {thread.status === "open" && (
+          <p className="text-[13px] text-muted">{t("refund.openHelp")}</p>
+        )}
 
-      {thread.status === "open" && (
-        <p className="text-[13px] text-muted">{t("refund.openHelp")}</p>
-      )}
+        <ol className="divide-y divide-border">
+          {thread.messages.map((m) => (
+            <li key={m.id} className="py-3 first:pt-0">
+              <div className="flex items-baseline justify-between gap-3 text-xs">
+                <span className="font-medium">
+                  {m.author === "team"
+                    ? (m.authorName ?? t("refund.authorTeam"))
+                    : t("refund.authorYou")}
+                </span>
+                <span className="text-muted">{fmt(m.createdAt)}</span>
+              </div>
+              {/* The first message is the server-built summary, which is newline
+                  separated; whitespace-pre-line keeps it readable without markup. */}
+              <p className="mt-1 whitespace-pre-line text-sm">{m.body}</p>
+            </li>
+          ))}
+        </ol>
 
-      <ol className="space-y-2">
-        {thread.messages.map((m) => (
-          <li
-            key={m.id}
-            className={`rounded-md p-3 ${
-              m.author === "team" ? "border border-border" : "bg-surface-secondary"
-            }`}
-          >
-            <div className="flex items-baseline justify-between gap-3 text-xs">
-              <span className="font-medium">
-                {m.author === "team"
-                  ? (m.authorName ?? t("refund.authorTeam"))
-                  : t("refund.authorYou")}
-              </span>
-              <span className="text-muted">{fmt(m.createdAt)}</span>
+        {thread.status !== "closed" && (
+          <div className="space-y-2">
+            <textarea
+              value={reply}
+              onChange={(e) => setReply(e.target.value)}
+              rows={2}
+              maxLength={4000}
+              placeholder={t("refund.replyPlaceholder")}
+              aria-label={t("refund.replyPlaceholder")}
+              className={textareaClass}
+            />
+            <div className="flex justify-end">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={sendReply}
+                disabled={sending || reply.trim().length === 0}
+              >
+                {sending ? t("refund.replySending") : t("refund.replySend")}
+              </Button>
             </div>
-            {/* The first message is the server-built summary, which is newline
-                separated; whitespace-pre-line keeps it readable without markup. */}
-            <p className="mt-1 whitespace-pre-line text-sm">{m.body}</p>
-          </li>
-        ))}
-      </ol>
-
-      {thread.status !== "closed" && (
-        <div className="space-y-2">
-          <textarea
-            value={reply}
-            onChange={(e) => setReply(e.target.value)}
-            rows={2}
-            maxLength={4000}
-            placeholder={t("refund.replyPlaceholder")}
-            aria-label={t("refund.replyPlaceholder")}
-            className={inputClass}
-          />
-          <div className="flex justify-end">
-            <Button
-              variant="outline"
-              size="sm"
-              onPress={sendReply}
-              isDisabled={sending || reply.trim().length === 0}
-            >
-              {sending ? t("refund.replySending") : t("refund.replySend")}
-            </Button>
           </div>
-        </div>
-      )}
-    </section>
+        )}
+      </div>
+    </SettingsSection>
   );
 }
