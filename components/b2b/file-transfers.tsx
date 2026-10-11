@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type {
   TeamFileCapabilities,
   TeamFileKind,
@@ -24,13 +24,15 @@ import {
   type TransferPhase,
 } from "@/lib/b2b-files/transfer";
 import { bytes } from "@/lib/workspaces/upload";
+import { Details, inputClass } from "@/components/workspaces/shared";
 import {
-  Block,
-  Details,
-  inputClass,
-  primaryClass,
-  secondaryClass,
-} from "@/components/workspaces/shared";
+  Button,
+  buttonClass,
+  Field,
+  Meter,
+  Select,
+  SettingsSection,
+} from "@/components/ui";
 import { B2bError, useCopy, previewStateCopy } from "./shared";
 
 type Job = {
@@ -78,6 +80,7 @@ export function FileTransfers({
     [asset, setAsset] = useState("");
   const [selected, setSelected] = useState<File[]>([]),
     inputRef = useRef<HTMLInputElement>(null);
+  const field = useId();
   const publish = () => {
     if (alive.current) setRows([...jobs.current]);
   };
@@ -320,7 +323,7 @@ export function FileTransfers({
   const storage = capabilities.storage;
   const reserved = Number(storage.reservedBytes);
   return (
-    <Block
+    <SettingsSection
       title={c("자료 추가", "Add files")}
       description={
         capabilities.uploadsEnabled && capabilities.policy
@@ -340,10 +343,11 @@ export function FileTransfers({
               )
       }
     >
+      <div className="space-y-5">
       {error && <B2bError code={error} />}
       {capabilities.uploadsEnabled && capabilities.policy && (
         <form
-          className="max-w-2xl space-y-3"
+          className="max-w-2xl space-y-4"
           onSubmit={async (event) => {
             event.preventDefault();
             if (
@@ -377,15 +381,17 @@ export function FileTransfers({
             }
           }}
         >
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="space-y-2 text-sm">
-              <span>
-                {isDirectLibrary(scope)
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field
+              htmlFor={`${field}-kind`}
+              label={
+                isDirectLibrary(scope)
                   ? c("등록할 자료 종류", "Kind to register")
-                  : c("자료 종류", "File kind")}
-              </span>
-              <select
-                className={inputClass}
+                  : c("자료 종류", "File kind")
+              }
+            >
+              <Select
+                id={`${field}-kind`}
                 value={kind}
                 onChange={(e) => {
                   setKind(e.target.value as TeamFileKind);
@@ -399,12 +405,11 @@ export function FileTransfers({
                     {c("작업 파일", "Working project")}
                   </option>
                 )}
-              </select>
-            </label>
-            <label className="space-y-2 text-sm">
-              <span>{c("등록 방식", "Registration")}</span>
-              <select
-                className={inputClass}
+              </Select>
+            </Field>
+            <Field htmlFor={`${field}-asset`} label={c("등록 방식", "Registration")}>
+              <Select
+                id={`${field}-asset`}
                 value={asset}
                 onChange={(e) => setAsset(e.target.value)}
               >
@@ -414,24 +419,25 @@ export function FileTransfers({
                     {c("기존 자료의 새 버전", "New version")}: {v.assetName}
                   </option>
                 ))}
-              </select>
-            </label>
+              </Select>
+            </Field>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-            <label className="min-w-0 flex-1 space-y-2 text-sm">
-              <span className="block">
-                {c("보관할 파일", "Files to store")}
-              </span>
+            <Field
+              htmlFor={`${field}-files`}
+              label={c("보관할 파일", "Files to store")}
+              className="min-w-0 flex-1"
+            >
               <input
+                id={`${field}-files`}
                 ref={inputRef}
                 type="file"
                 multiple
-                className={inputClass}
+                className={`${inputClass} file:mr-3 file:border-0 file:bg-transparent file:text-[13px] file:font-medium file:text-foreground`}
                 onChange={(e) => setSelected(Array.from(e.target.files ?? []))}
               />
-            </label>
-            <button
-              className={primaryClass}
+            </Field>
+            <Button
               disabled={
                 restoring ||
                 !selected.length ||
@@ -441,7 +447,7 @@ export function FileTransfers({
               type="submit"
             >
               {c("팀에 보관 시작", "Store in team")}
-            </button>
+            </Button>
           </div>
           <p className="text-xs text-muted">
             {c("파일당 최대", "Max per file")}{" "}
@@ -474,7 +480,7 @@ export function FileTransfers({
         </form>
       )}
       {restoring && (
-        <p className="text-sm text-muted" role="status">
+        <p className="text-[13px] text-muted" role="status">
           {c(
             "이 계정의 전송 기록 확인 중",
             "Checking this account's transfer records",
@@ -482,7 +488,7 @@ export function FileTransfers({
         </p>
       )}
       {!!rows.length && (
-        <ul className="divide-y divide-border border-y border-border">
+        <ul className="divide-y divide-border border-t border-border">
           {rows.map((job) => {
             const terminal =
               job.phase === "cancelled" ||
@@ -491,7 +497,7 @@ export function FileTransfers({
               );
             const verifying = job.upload?.state === "verifying";
             return (
-              <li key={job.id} className="space-y-2 py-3">
+              <li key={job.id} className="space-y-2 py-3 last:pb-0">
                 <div>
                   <p className="break-all text-sm font-medium">
                     {job.visible
@@ -510,23 +516,26 @@ export function FileTransfers({
                 {job.running &&
                   job.visible &&
                   (job.phase === "hashing" || job.phase === "uploading") && (
-                    <progress
-                      className="w-full accent-foreground"
-                      max={job.size}
-                      value={job.loaded}
+                    <div
+                      role="progressbar"
+                      aria-valuemin={0}
+                      aria-valuemax={job.size}
+                      aria-valuenow={job.loaded}
                       aria-label={label(job)}
-                    />
+                    >
+                      <Meter tone="neutral" value={job.size ? (job.loaded / job.size) * 100 : 0} />
+                    </div>
                   )}
                 {job.error && <B2bError code={job.error} />}
                 <div className="flex flex-wrap gap-2">
                   {job.running && job.phase !== "cancelled" && (
-                    <button
-                      type="button"
-                      className={secondaryClass}
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       onClick={() => controllers.current.get(job.id)?.abort()}
                     >
                       {c("일시 중단", "Pause")}
-                    </button>
+                    </Button>
                   )}
                   {!job.running &&
                     job.visible &&
@@ -535,7 +544,7 @@ export function FileTransfers({
                     !job.record?.cancelRequested &&
                     capabilities.uploadsEnabled && (
                       <label
-                        className={`${secondaryClass} relative cursor-pointer focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-foreground`}
+                        className={`${buttonClass({ variant: "secondary", size: "sm" })} relative cursor-pointer focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-focus`}
                       >
                         <span>
                           {c("원본 선택 후 재개", "Choose source to resume")}
@@ -562,29 +571,29 @@ export function FileTransfers({
                     !verifying &&
                     !job.record?.cancelRequested &&
                     capabilities.uploadsEnabled && (
-                      <button
-                        type="button"
-                        className={secondaryClass}
+                      <Button
+                        variant="secondary"
+                        size="sm"
                         onClick={() => void run(job)}
                       >
                         {c("등록 결과 확인", "Check registration")}
-                      </button>
+                      </Button>
                     )}
                   {!job.running && job.visible && !terminal && (
-                    <button
-                      type="button"
-                      className={secondaryClass}
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       onClick={() => void cancel(job)}
                     >
                       {job.record?.cancelRequested
                         ? c("취소 결과 재확인", "Retry cancellation")
                         : c("전송 취소", "Cancel transfer")}
-                    </button>
+                    </Button>
                   )}
                   {!job.running && terminal && (
-                    <button
-                      type="button"
-                      className={secondaryClass}
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       onClick={async () => {
                         try {
                           if (job.record) await store.remove(job.record);
@@ -597,7 +606,7 @@ export function FileTransfers({
                       }}
                     >
                       {c("전송 기록 닫기", "Dismiss transfer record")}
-                    </button>
+                    </Button>
                   )}
                 </div>
               </li>
@@ -605,6 +614,7 @@ export function FileTransfers({
           })}
         </ul>
       )}
-    </Block>
+      </div>
+    </SettingsSection>
   );
 }

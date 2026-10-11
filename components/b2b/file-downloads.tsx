@@ -1,7 +1,8 @@
 "use client";
 import type { useFileDownloads } from "@/lib/b2b-files/use-downloads";
 import { bytes } from "@/lib/workspaces/upload";
-import { Details, secondaryClass } from "@/components/workspaces/shared";
+import { Details } from "@/components/workspaces/shared";
+import { Button, cardClass, Meter } from "@/components/ui";
 import { B2bError, useCopy } from "./shared";
 export function FileDownloads({
   downloads,
@@ -11,11 +12,12 @@ export function FileDownloads({
   const c = useCopy();
   if (!downloads.jobs.length && !downloads.error) return null;
   return (
+    // A card of its own while anything is being received; gone when idle.
     <section
-      className="space-y-3"
+      className={`${cardClass} space-y-4 p-5`}
       aria-label={c("원본 수령", "Original file receipts")}
     >
-      <h2 className="text-[15px] font-medium">
+      <h2 className="text-base font-semibold">
         {c("원본 수령", "Original file receipts")}
       </h2>
       {downloads.error && <B2bError code={downloads.error} />}
@@ -58,35 +60,31 @@ export function FileDownloads({
               </p>
               {busy && job.version && (
                 <div
-                  className="h-1 w-full overflow-hidden rounded-full bg-border"
                   role="progressbar"
                   aria-valuemin={0}
                   aria-valuemax={job.record.size}
                   aria-valuenow={job.bytes}
                   aria-label={c("원본 수령 진행", "Original receipt progress")}
                 >
-                  <div
-                    className="h-full bg-foreground"
-                    style={{
-                      width: `${Math.min(100, (job.bytes / job.record.size) * 100)}%`,
-                    }}
-                  />
+                  <Meter tone="neutral" value={(job.bytes / job.record.size) * 100} />
                 </div>
               )}
               {job.error && <B2bError code={job.error} />}
               <div className="flex flex-wrap gap-2">
                 {busy ? (
-                  <button
-                    className={secondaryClass}
+                  <Button
+                    variant="secondary"
+                    size="sm"
                     onClick={() => downloads.pause(job.record.versionId)}
                   >
                     {c("수령 중단", "Pause receipt")}
-                  </button>
+                  </Button>
                 ) : (
                   <>
                     {job.version && (
-                      <button
-                        className={secondaryClass}
+                      <Button
+                        variant="secondary"
+                        size="sm"
                         onClick={() => void downloads.start(job.version!)}
                       >
                         {job.state === "saved"
@@ -95,14 +93,15 @@ export function FileDownloads({
                               "Save verified file again",
                             )
                           : c("원본 수령 재개", "Resume original receipt")}
-                      </button>
+                      </Button>
                     )}
-                    <button
-                      className={secondaryClass}
+                    <Button
+                      variant="secondary"
+                      size="sm"
                       onClick={() => void downloads.discard(job.record)}
                     >
                       {c("임시 수령 삭제", "Remove staged receipt")}
-                    </button>
+                    </Button>
                   </>
                 )}
               </div>

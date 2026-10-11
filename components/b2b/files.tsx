@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { File as FileIcon, FileCog, Film } from "lucide-react";
+import { File as FileIcon, FileCog, Film, FolderOpen } from "lucide-react";
 import { apiClient } from "@/lib/api/client";
 import {
   b2bService,
@@ -26,15 +26,15 @@ import {
   ConfirmDialog,
   Details,
   EmptyState,
-  inputClass,
-  primaryClass,
-  secondaryClass,
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
 import { RowMenu, RowMenuItem } from "@/components/workspaces/row-menu";
+import { Badge, Button, numClass, SearchField, Toolbar, type Tone } from "@/components/ui";
+import { useI18n } from "@/lib/i18n/context";
+import { formatDate, formatDay } from "@/lib/format";
 import { FileTransfers } from "./file-transfers";
-import { folderTabs, B2bError, errorCode, useCopy, previewStateCopy, projectsDenial } from "./shared";
+import { B2bError, errorCode, useCopy, previewStateCopy, projectFrame, projectsDenial } from "./shared";
 
 export function ProjectFiles({ projectId }: { projectId: string }) {
   const context = useWorkspace()!;
@@ -59,6 +59,7 @@ export function ProjectFiles({ projectId }: { projectId: string }) {
 }
 function FilesView({ scope }: { scope: FileScope }) {
   const c = useCopy(),
+    { lang } = useI18n(),
     api = useMemo(() => fileApi(scope), [scope]);
   const [data, setData] = useState<{
     project: Project;
@@ -116,11 +117,7 @@ function FilesView({ scope }: { scope: FileScope }) {
   if (!data) return <TeamLoading />;
   const { project, capabilities, list } = data;
   return (
-    <TeamShell
-      title={c("프로젝트 자료", "Project files")}
-      description={project.name}
-      tabs={folderTabs(scope.workspaceId, project, c)}
-    >
+    <TeamShell {...projectFrame(scope.workspaceId, project, c, lang)}>
       <FileTransfers
         scope={scope}
         capabilities={capabilities}
@@ -129,37 +126,33 @@ function FilesView({ scope }: { scope: FileScope }) {
       />
       <FileDownloads downloads={downloads} />
       <section
-        className="space-y-4"
+        className="space-y-2"
         aria-label={c("보관된 자료", "Stored files")}
       >
-        {(list.versions.length > 0 || search) && (
-          <form
-            className="flex gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              setCursor(undefined);
-              setSearch(query.trim());
-            }}
-          >
-            <label className="min-w-0 flex-1">
-              <span className="sr-only">
-                {c("자료 이름 검색", "Search file names")}
-              </span>
-              <input
-                className={inputClass}
+        {/* The page's title is the project; this names the list in it. */}
+        <Toolbar title={c("프로젝트 자료", "Project files")}>
+          {(list.versions.length > 0 || search) && (
+            // Enter searches; there is no separate button.
+            <form
+              className="w-full sm:w-auto"
+              onSubmit={(e) => {
+                e.preventDefault();
+                setCursor(undefined);
+                setSearch(query.trim());
+              }}
+            >
+              <SearchField
                 value={query}
-                maxLength={100}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(value) => setQuery(value.slice(0, 100))}
+                label={c("자료 이름 검색", "Search file names")}
                 placeholder={c("자료 이름 검색", "Search file names")}
               />
-            </label>
-            <button type="submit" className={secondaryClass}>
-              {c("검색", "Search")}
-            </button>
-          </form>
-        )}
+            </form>
+          )}
+        </Toolbar>
         {!list.versions.length ? (
           <EmptyState
+            icon={FolderOpen}
             title={
               search
                 ? c("검색 결과가 없습니다.", "No matching files.")
@@ -177,9 +170,9 @@ function FilesView({ scope }: { scope: FileScope }) {
                   action={
                     <span className="flex items-center gap-1">
                     {version.allowedActions.download && (
-                      <button
-                        type="button"
-                        className={secondaryClass}
+                      <Button
+                        variant="secondary"
+                        size="sm"
                         disabled={downloads.jobs.some(
                           (j) =>
                             j.record.versionId === version.id &&
@@ -190,7 +183,7 @@ function FilesView({ scope }: { scope: FileScope }) {
                         onClick={() => void downloads.start(version)}
                       >
                         {c("원본 다운로드", "Download original")}
-                      </button>
+                      </Button>
                     )}
                     {version.allowedActions.unlink && version.referenceRevision !== null && (
                       <RowMenu label={c(`${version.assetName} 작업`, `Actions for ${version.assetName}`)}>
@@ -211,22 +204,16 @@ function FilesView({ scope }: { scope: FileScope }) {
           </>
         )}
         {(cursor || list.nextCursor) && (
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2 pt-2">
             {cursor && (
-              <button
-                className={secondaryClass}
-                onClick={() => setCursor(undefined)}
-              >
+              <Button variant="secondary" size="sm" onClick={() => setCursor(undefined)}>
                 {c("처음 목록", "First page")}
-              </button>
+              </Button>
             )}
             {list.nextCursor && (
-              <button
-                className={secondaryClass}
-                onClick={() => setCursor(list.nextCursor!)}
-              >
+              <Button variant="secondary" size="sm" onClick={() => setCursor(list.nextCursor!)}>
                 {c("다음 목록", "Next page")}
-              </button>
+              </Button>
             )}
           </div>
         )}
@@ -241,19 +228,19 @@ function FilesView({ scope }: { scope: FileScope }) {
                   <p className="truncate text-[13px] font-medium">{entry.version.assetName}</p>
                   <p className="text-xs text-muted tabular-nums">
                     {c(
-                      `${day(entry.restoreUntil)}까지 복원할 수 있습니다`,
-                      `Restorable until ${day(entry.restoreUntil)}`,
+                      `${formatDay(entry.restoreUntil, lang)}까지 복원할 수 있습니다`,
+                      `Restorable until ${formatDay(entry.restoreUntil, lang)}`,
                     )}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  className={secondaryClass}
+                <Button
+                  variant="secondary"
+                  size="sm"
                   disabled={trash.busy}
                   onClick={() => void trash.restore(entry)}
                 >
                   {c("복원", "Restore")}
-                </button>
+                </Button>
               </li>
             ))}
           </ul>
@@ -279,21 +266,18 @@ function FilesView({ scope }: { scope: FileScope }) {
                 )}
           </p>
           <div className="flex flex-wrap gap-2">
-            <button className={primaryClass} disabled={trash.busy} onClick={() => void trash.remove()}>
+            <Button variant="danger" aria-busy={trash.busy} disabled={trash.busy} onClick={() => void trash.remove()}>
               {trash.busy ? c("삭제하는 중…", "Deleting…") : c("삭제", "Delete")}
-            </button>
-            <button type="button" className={secondaryClass} disabled={trash.busy} onClick={() => trash.ask(null)}>
+            </Button>
+            <Button variant="secondary" disabled={trash.busy} onClick={() => trash.ask(null)}>
               {c("취소", "Cancel")}
-            </button>
+            </Button>
           </div>
         </ConfirmDialog>
       )}
     </TeamShell>
   );
 }
-
-const day = (value: string) =>
-  new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", dateStyle: "medium" }).format(new Date(value));
 
 /**
  * Delete and restore, the Figma way (2026-10-08): a file leaves the project
@@ -396,8 +380,9 @@ const kinds: Record<TeamFileVersion["kind"], [string, string]> = {
 
 /**
  * The head of a stored version's row, shared by 프로젝트 자료 and 보관함 so the
- * same version reads the same in both: its series name as the heading, one
- * meta line, the preview state as the pill and the one primary action.
+ * same version reads the same in both: a 36px kind tile, its series name as
+ * the heading with "file · version · date" under it, the size, the preview
+ * state and the row's actions.
  */
 export function VersionHeader({
   version,
@@ -407,50 +392,60 @@ export function VersionHeader({
   action?: ReactNode;
 }) {
   const c = useCopy();
+  const { lang } = useI18n();
   const Icon = version.kind === "output" ? Film : version.kind === "working" ? FileCog : FileIcon;
   return (
     <div className={fileGrid}>
       <div className="flex min-w-0 items-center gap-3">
-        <span className="grid size-8 shrink-0 place-items-center rounded-md bg-surface-secondary text-muted">
-          <Icon size={15} strokeWidth={1.75} aria-hidden="true" />
+        <span className="grid size-9 shrink-0 place-items-center rounded-md bg-surface-secondary text-muted">
+          <Icon size={16} strokeWidth={1.75} aria-hidden="true" />
         </span>
         <div className="min-w-0">
           <h2 className="truncate text-[13px] font-medium">{version.assetName}</h2>
           <p className="truncate text-xs text-muted tabular-nums">
-            {version.name} · {c("버전", "Version")} {version.ordinal}
-            <span className="sm:hidden">
+            {version.name} · {c("버전", "Version")} {version.ordinal} · {formatDate(version.createdAt, lang)}
+            <span className="md:hidden">
               {" "}· {bytes(version.size)} · {c(...kinds[version.kind])}
             </span>
           </p>
         </div>
       </div>
-      <p className="hidden text-[13px] text-muted tabular-nums sm:block">
+      <p className={`hidden text-[13px] text-muted md:block ${numClass}`}>
         {bytes(version.size)} · {c(...kinds[version.kind])}
       </p>
-      <span
-        aria-live="polite"
-        className="hidden w-fit items-center rounded-full border border-border px-2 py-0.5 text-xs sm:inline-flex"
-      >
-        {previewStateCopy(version.previewState, c)}
+      <span aria-live="polite" className="hidden md:block">
+        <Badge tone={previewTone[version.previewState]}>
+          {previewStateCopy(version.previewState, c)}
+        </Badge>
       </span>
       <div className="flex justify-end">{action}</div>
     </div>
   );
 }
 
+/** A preview that failed is the one state worth colour; the rest are facts. */
+const previewTone: Record<TeamFileVersion["previewState"], Tone> = {
+  not_requested: "neutral",
+  pending: "neutral",
+  processing: "neutral",
+  ready: "neutral",
+  failed: "danger",
+};
+
 /** One grid for the file list's head and every row, so they line up like a
- * table while each row stays a list item with its own actions under it. */
+ * table while each row stays a list item (its heading and menu inside it).
+ * The last column fits 원본 다운로드 and the menu on one line. */
 const fileGrid =
-  "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 sm:grid-cols-[minmax(0,1fr)_9rem_10rem_8rem]";
+  "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 md:grid-cols-[minmax(0,1fr)_8rem_10rem_12rem]";
 /** Actions and details under a row line up with the file name, not the icon. */
-export const fileRowClass = "space-y-1.5 border-b border-border py-3 sm:[&>*:not(:first-child)]:pl-11";
+export const fileRowClass = "space-y-1.5 border-b border-border py-2.5 md:[&>*:not(:first-child)]:pl-12";
 
 export function FileListHead() {
   const c = useCopy();
   return (
-    <div aria-hidden="true" className={`${fileGrid} hidden h-11 border-b border-border text-xs font-medium text-muted sm:grid`}>
+    <div aria-hidden="true" className={`${fileGrid} hidden h-10 border-b border-border text-xs font-medium text-muted md:grid`}>
       <span>{c("이름", "Name")}</span>
-      <span>{c("크기·종류", "Size · kind")}</span>
+      <span className="text-right">{c("크기·종류", "Size · kind")}</span>
       <span>{c("미리보기", "Preview")}</span>
       <span />
     </div>

@@ -1,17 +1,13 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import {
   b2bService,
   type Invitation,
   type ParticipationKind,
 } from "@/lib/api/services/b2b.service";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
-import {
-  Block,
-  inputClass,
-  primaryClass,
-  secondaryClass,
-} from "@/components/workspaces/shared";
+import { inputClass } from "@/components/workspaces/shared";
+import { Button, Card, CardHeader, Field, Select } from "@/components/ui";
 import { B2bError, freeIntent, errorCode, useCopy } from "./shared";
 
 /**
@@ -45,6 +41,7 @@ export function InviteForm({
   const [error, setError] = useState("");
   const pending = useRef<{ hash: string; key: string } | null>(null);
   const viewer = role === "reviewer";
+  const field = useId();
   return (
     <form
       className="max-w-xl space-y-4"
@@ -79,9 +76,13 @@ export function InviteForm({
       }}
     >
       <div className="flex flex-wrap items-end gap-2">
-        <label className="block min-w-0 flex-1 basis-56 space-y-1.5 text-[13px]">
-          <span>{c("초대 이메일", "Invitation email")}</span>
+        <Field
+          label={c("초대 이메일", "Invitation email")}
+          htmlFor={`${field}-email`}
+          className="min-w-0 flex-1 basis-56"
+        >
           <input
+            id={`${field}-email`}
             className={inputClass}
             type="email"
             required
@@ -91,27 +92,25 @@ export function InviteForm({
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
-        </label>
+        </Field>
         {projectId && (
-          <label className="block w-36 space-y-1.5 text-[13px]">
-            <span>{c("참여 구분", "Affiliation")}</span>
-            <select
+          <Field label={c("참여 구분", "Affiliation")} htmlFor={`${field}-kind`} className="w-36">
+            <Select
+              id={`${field}-kind`}
               aria-label={c("참여 구분", "Affiliation")}
-              className={inputClass}
               disabled={busy}
               value={kind}
               onChange={(e) => setKind(e.target.value as ParticipationKind)}
             >
               <option value="external">{c("외부 게스트", "Guest")}</option>
               <option value="internal">{c("팀 멤버", "Teammate")}</option>
-            </select>
-          </label>
+            </Select>
+          </Field>
         )}
-        <label className="block w-32 space-y-1.5 text-[13px]">
-          <span>{c("초대 역할", "Invitation role")}</span>
-          <select
+        <Field label={c("초대 역할", "Invitation role")} htmlFor={`${field}-role`} className="w-32">
+          <Select
+            id={`${field}-role`}
             aria-label={c("초대 역할", "Invitation role")}
-            className={inputClass}
             disabled={busy}
             value={role}
             onChange={(e) => setRole(e.target.value as TeamInviteRole)}
@@ -119,11 +118,11 @@ export function InviteForm({
             <option value="editor">{c("편집자", "Editor")}</option>
             <option value="reviewer">{c("뷰어", "Viewer")}</option>
             {!projectId && data.role === "owner" && <option value="admin">{c("관리자", "Admin")}</option>}
-          </select>
-        </label>
-        <button className={primaryClass} disabled={busy || !email.trim()}>
+          </Select>
+        </Field>
+        <Button type="submit" aria-busy={busy} disabled={busy || !email.trim()}>
           {busy ? c("보내는 중…", "Sending…") : c("초대 보내기", "Send invitation")}
-        </button>
+        </Button>
       </div>
       <p className="text-xs leading-5 text-muted" data-testid="invite-seat-info">
         {viewer
@@ -221,36 +220,39 @@ export function InvitationPanel({
     }
   };
   return (
-    <Block title={c("프로젝트 초대", "Project invitations")}>
-      {editable && <InviteForm projectId={projectId} onSent={load} />}
-      {error && <B2bError code={error} />}
-      {live.length > 0 && (
-        <ul className="divide-y divide-border">
-          {live.map((row) => (
-            <li key={row.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-              <div className="min-w-0">
-                <p className="break-all text-sm font-medium">{row.email}</p>
-                <p className="mt-0.5 text-xs text-muted">
-                  {row.projectRole === "reviewer" ? c("뷰어", "Viewer") : c("편집자", "Editor")} · {status(row)}
-                </p>
-              </div>
-              {editable && (
-                <div className="flex gap-2">
-                  {row.deliveryState !== "held" && (
-                    <button className={secondaryClass} disabled={busy} onClick={() => void act(row, "resend")}>
-                      {c("다시 보내기", "Resend")}
-                    </button>
-                  )}
-                  <button className={secondaryClass} disabled={busy} onClick={() => void act(row, "revoke")}>
-                    {c("초대 취소", "Cancel invitation")}
-                  </button>
+    <Card>
+      <CardHeader title={c("프로젝트 초대", "Project invitations")} />
+      <div className="space-y-4">
+        {editable && <InviteForm projectId={projectId} onSent={load} />}
+        {error && <B2bError code={error} />}
+        {live.length > 0 && (
+          <ul className="divide-y divide-border border-t border-border">
+            {live.map((row) => (
+              <li key={row.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                <div className="min-w-0">
+                  <p className="break-all text-sm font-medium">{row.email}</p>
+                  <p className="mt-0.5 text-xs text-muted">
+                    {row.projectRole === "reviewer" ? c("뷰어", "Viewer") : c("편집자", "Editor")} · {status(row)}
+                  </p>
                 </div>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </Block>
+                {editable && (
+                  <div className="flex gap-2">
+                    {row.deliveryState !== "held" && (
+                      <Button variant="secondary" size="sm" disabled={busy} onClick={() => void act(row, "resend")}>
+                        {c("다시 보내기", "Resend")}
+                      </Button>
+                    )}
+                    <Button variant="secondary" size="sm" disabled={busy} onClick={() => void act(row, "revoke")}>
+                      {c("초대 취소", "Cancel invitation")}
+                    </Button>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </Card>
   );
 }
 
