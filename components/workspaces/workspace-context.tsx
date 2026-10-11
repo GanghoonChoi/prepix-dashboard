@@ -18,7 +18,8 @@ import { b2bService, type B2bStatus } from "@/lib/api/services/b2b.service";
 import { isPersonal } from "@/lib/workspaces/kind";
 import { cloudService } from "@/lib/api/services/cloud.service";
 import { CloudError, cloudErrorCode } from "./cloud-shared";
-import { secondaryClass, TeamLoading } from "./shared";
+import { TeamLoading } from "./shared";
+import { buttonClass } from "@/components/ui";
 import { SearchX } from "lucide-react";
 import { useI18n } from "@/lib/i18n/context";
 import { contentGone } from "@/lib/workspaces/errors";
@@ -154,7 +155,7 @@ export function WorkspaceProvider({
                 ? "이 워크스페이스의 멤버가 아니거나 참여가 끝났습니다."
                 : "You are not a member of this workspace, or your access ended."}
             </p>
-            <Link className={`${secondaryClass} mt-2`} href="/dashboard/workspaces">
+            <Link className={`${buttonClass({ variant: "secondary" })} mt-2`} href="/dashboard/workspaces">
               {lang === "ko" ? "워크스페이스 목록으로" : "All workspaces"}
             </Link>
           </div>
