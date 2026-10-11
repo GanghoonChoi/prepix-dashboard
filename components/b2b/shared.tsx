@@ -1,15 +1,13 @@
 "use client";
 import { projectTabs } from "@/lib/b2b-projects/visibility";
-
-
 import { useI18n } from "@/lib/i18n/context";
 import type { ProjectRole, ProjectState, ProjectVisibility, TeamState } from "@/lib/api/services/b2b.service";
 import Link from "next/link";
 import { Lock, SearchX } from "lucide-react";
-import { secondaryClass } from "@/components/workspaces/shared";
-import { Badge, Button, EmptyState, Notice, type Tone } from "@/components/ui";
+import { ago, Badge, Button, buttonClass, EmptyState, Notice, type Tone } from "@/components/ui";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
-import { accessNotice, kst } from "@/lib/b2b-lifecycle/view";
+import { accessNotice } from "@/lib/b2b-lifecycle/view";
+import { formatDate, formatTime } from "@/lib/format";
 
 export const stateLabels: Record<TeamState | ProjectState, [string, string]> = {
   preparing: ["준비", "Preparing"],
@@ -50,6 +48,26 @@ export function folderTabs(
     project.role,
     project.visibility,
   ).map((t) => ({ href: t.href, label: c(t.ko, t.en), match: "match" in t ? t.match : undefined }));
+}
+
+/**
+ * The frame every tab of a project shares (영상 · 자료 · 멤버): the way back,
+ * the project's name — the same on every tab — who can see it, when it last
+ * changed, and the tabs. Spread into `TeamShell`; a tab may add to `meta`.
+ */
+export function projectFrame(
+  workspaceId: string,
+  project: Parameters<typeof folderTabs>[1] & { name: string; updatedAt: string },
+  c: (ko: string, en: string) => string,
+  lang: string,
+) {
+  return {
+    title: project.name,
+    back: { href: `/dashboard/workspaces/${workspaceId}/projects`, label: c("프로젝트", "Projects") },
+    badge: <VisibilityBadge visibility={project.visibility} />,
+    meta: [`${c("업데이트", "Updated")} ${ago(project.updatedAt, lang)}`],
+    tabs: folderTabs(workspaceId, project, c),
+  };
 }
 
 export function useCopy() {
@@ -322,29 +340,32 @@ function TeamAccessNotice({ code, notice }: { code: string; notice: [string, str
       : end && code === "B2B_TEAM_RECOVERY"
         ? [c("삭제 시작 예정", "Deletion from"), new Date(Date.parse(end) + 60 * 86400000).toISOString()]
         : null;
+  const link = buttonClass({ variant: "secondary", size: "sm" });
   return (
-    <div role="alert" data-testid="team-access-notice" className="space-y-3 rounded-lg border border-border bg-surface p-4 text-sm leading-6">
-      <p>{c(...notice)}</p>
-      {next && (
-        <p className="text-muted tabular-nums">
-          {next[0]}: {kst(next[1], lang)}
-        </p>
-      )}
-      <div className="flex flex-wrap gap-2">
-        {base && (
-          <Link className={secondaryClass} href={`${base}/status`}>
-            {c("이용 상태 확인", "Check team status")}
-          </Link>
+    <div data-testid="team-access-notice">
+      <Notice role="alert" tone="warning">
+        <p>{c(...notice)}</p>
+        {next && (
+          <p className="mt-1 tabular-nums text-muted">
+            {next[0]}: {formatDate(next[1], lang)} {formatTime(next[1], lang)}
+          </p>
         )}
-        {base && (
-          <Link className={secondaryClass} href={base}>
-            {c("팀 홈", "Team home")}
+        <div className="mt-3 flex flex-wrap gap-2">
+          {base && (
+            <Link className={link} href={`${base}/status`}>
+              {c("이용 상태 확인", "Check team status")}
+            </Link>
+          )}
+          {base && (
+            <Link className={link} href={base}>
+              {c("팀 홈", "Team home")}
+            </Link>
+          )}
+          <Link className={link} href="/dashboard/settings">
+            {c("계정 확인", "Check account")}
           </Link>
-        )}
-        <Link className={secondaryClass} href="/dashboard/settings">
-          {c("계정 확인", "Check account")}
-        </Link>
-      </div>
+        </div>
+      </Notice>
     </div>
   );
 }
@@ -426,7 +447,7 @@ export function AccessDenied({ code }: { code: string }) {
         }
         description={c(...denial.reason)}
         action={
-          <Link className={secondaryClass} href={home}>
+          <Link className={buttonClass({ variant: "secondary" })} href={home}>
             {context ? c("팀 홈으로", "Back to team home") : c("대시보드로", "Back to dashboard")}
           </Link>
         }

@@ -11,17 +11,16 @@ import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
   Block,
   Details,
-  KeyValues,
-  primaryClass,
   TeamLoading,
   TeamShell,
-  secondaryClass,
 } from "@/components/workspaces/shared";
+import { buttonClass, PropertyList } from "@/components/ui";
+import { formatDate, formatTime } from "@/lib/format";
 import { apiClient } from "@/lib/api/client";
 import { accessEnded } from "@/lib/api/session";
 import { b2bService, type TeamLifecycle } from "@/lib/api/services/b2b.service";
 import { useI18n } from "@/lib/i18n/context";
-import { deletionCopy, kst, reasonCopy } from "@/lib/b2b-lifecycle/view";
+import { deletionCopy, reasonCopy } from "@/lib/b2b-lifecycle/view";
 import {
   B2bError,
   errorCode,
@@ -88,35 +87,31 @@ function Lifecycle({ scope }: { scope: Scope }) {
       window.removeEventListener("workspaces:changed", refresh);
     };
   }, [load]);
-  const at = (iso: string | null) => (iso ? kst(iso, lang) : "—");
+  const at = (iso: string | null) =>
+    iso ? `${formatDate(iso, lang)} ${formatTime(iso, lang)}` : "—";
   const yes = (allowed: boolean) => (allowed ? c("가능", "Allowed") : c("불가", "Not allowed"));
   return (
     <TeamShell
       title={c("이용 상태", "Team status")}
+      badge={view && <StateBadge state={view.currentState} />}
       actions={
-        view && (
-          <>
-            <span className="self-center">
-              <StateBadge state={view.currentState} />
-            </span>
-            {view.allowedActions.restorePurchase ? (
-              <Link className={primaryClass} href={`/dashboard/workspaces/${scope.workspaceId}/plan`}>
-                {c("이용 복구", "Restore the team")}
-              </Link>
-            ) : (
-              view.allowedActions.billing && (
-                <Link className={secondaryClass} href={`/dashboard/workspaces/${scope.workspaceId}/plan`}>
-                  {c("플랜과 결제", "Plan and billing")}
-                </Link>
-              )
-            )}
-          </>
-        )
+        view &&
+        (view.allowedActions.restorePurchase ? (
+          <Link className={buttonClass()} href={`/dashboard/workspaces/${scope.workspaceId}/plan`}>
+            {c("이용 복구", "Restore the team")}
+          </Link>
+        ) : (
+          view.allowedActions.billing && (
+            <Link className={buttonClass({ variant: "secondary" })} href={`/dashboard/workspaces/${scope.workspaceId}/plan`}>
+              {c("플랜과 결제", "Plan and billing")}
+            </Link>
+          )
+        ))
       }
     >
       {error && <B2bError code={error} retry={() => void load()} />}
       {!view && !error && (
-        <p role="status" className="text-sm text-muted">
+        <p role="status" className="text-[13px] text-muted">
           {c("현재 이용 상태를 확인하는 중입니다.", "Checking the current team status.")}
         </p>
       )}
@@ -125,7 +120,7 @@ function Lifecycle({ scope }: { scope: Scope }) {
           <Block title={c("이용 일정", "Schedule")}>
             {view.boundaries ? (
               <>
-                <KeyValues
+                <PropertyList
                   items={[
                     [c("이용 종료 시각 (E)", "Period end (E)"), at(view.boundaries.readOnlyFrom)],
                     [c("복구 보관 시작 (E+30일)", "Recovery storage from (E+30d)"), at(view.boundaries.recoveryFrom)],
@@ -157,7 +152,7 @@ function Lifecycle({ scope }: { scope: Scope }) {
             )}
           </Block>
           <Block title={c("지금 할 수 있는 일", "Allowed now")}>
-            <KeyValues
+            <PropertyList
               items={[
                 [c("자료 열람", "Open content"), view.allowedActions.openContent],
                 [c("다운로드", "Download"), view.allowedActions.download],
@@ -180,7 +175,7 @@ function Lifecycle({ scope }: { scope: Scope }) {
               {c(...deletionCopy(view))}
             </p>
             {(view.deletion.startedAt || view.deletion.completedAt) && (
-              <KeyValues
+              <PropertyList
                 items={[
                   ...(view.deletion.startedAt
                     ? [[c("삭제 시작", "Deletion started"), at(view.deletion.startedAt)] as [string, string]]
@@ -204,7 +199,7 @@ function Lifecycle({ scope }: { scope: Scope }) {
           </Block>
           {view.recovery && (
             <section className="space-y-3" aria-label={c("복구 진행", "Recovery")} data-testid="recovery-detail">
-              <h2 className="text-[15px] font-medium">{c("복구 진행", "Recovery")}</h2>
+              <h2 className="text-base font-semibold">{c("복구 진행", "Recovery")}</h2>
               {view.recovery.holdStartedAt && (
                 <p className="text-sm tabular-nums">
                   {view.recovery.holdUsed

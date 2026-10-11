@@ -1,5 +1,6 @@
 import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
 import { harnessEnv } from "./harness-env";
+import { formatDate, formatTime } from "../lib/format";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 // S26/S32 against the real Nest/JWT harness and PostgreSQL (F17).
@@ -58,11 +59,11 @@ test("S26/S32 exact boundaries, permission-dependent recovery detail, deletion s
   await page.goto(`/dashboard/workspaces/${readOnly}/status`);
   const panel = page.getByTestId("team-lifecycle");
   await expect(panel).toContainText("이용 종료 시각 (E)");
-  await expect(panel).toContainText("KST");
-  const kst = (iso: string) =>
-    new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).format(new Date(iso));
+  // Boundaries print through lib/format (design system v2): date and minute,
+  // in the browser's zone, which is this test's zone too. No seconds.
+  const at = (iso: string) => `${formatDate(iso, "ko")} ${formatTime(iso, "ko")}`;
   for (const iso of [view.boundaries.readOnlyFrom, view.boundaries.recoveryFrom, view.boundaries.deletionFrom])
-    await expect(panel).toContainText(kst(iso));
+    await expect(panel).toContainText(at(iso));
   await expect(panel.getByText("편집·업로드·새 AI·코멘트")).toBeVisible();
   await expect(panel).toContainText("삭제가 시작되지 않았습니다.");
   await page.screenshot({ path: info.outputPath("s26-read-only.png"), fullPage: true });
@@ -78,7 +79,7 @@ test("S26/S32 exact boundaries, permission-dependent recovery detail, deletion s
   await page.goto(`/dashboard/workspaces/${recovery}/projects`);
   await expect(page.getByTestId("team-access-notice")).toContainText("복구 보관 중이라 자료를 열 수 없습니다");
   // S32 gives the exact next boundary and no project or file names.
-  await expect(page.getByTestId("team-access-notice")).toContainText(kst(recoveryView.boundaries.deletionFrom));
+  await expect(page.getByTestId("team-access-notice")).toContainText(at(recoveryView.boundaries.deletionFrom));
   // A participant without billing permission sees no billing detail.
   const memberContext = await browser.newContext({ locale: "ko-KR" });
   const memberPage = await memberContext.newPage();
