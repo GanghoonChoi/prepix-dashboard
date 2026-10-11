@@ -14,7 +14,18 @@ export type CouponRefusal =
 export type CouponBenefit =
   | { kind: "plan_pass"; plan: string; planName: string; days: number; startsAt: string; endsAt: string }
   | { kind: "minutes"; minutes: number; validDays: number; expiresAt: string }
-  | { kind: "discount"; plan: string; planName: string; percent: number; validDays: number; expiresAt: string };
+  | { kind: "discount"; plan: string; planName: string; percent: number; validDays: number; expiresAt: string }
+  // Every payment for `plan` before `until` (exclusive) is `amount` won.
+  // `subscribed`: it attaches to the running subscription, from its next renewal.
+  | {
+      kind: "price_lock";
+      plan: string;
+      planName: string;
+      amount: number;
+      minutes: number | null;
+      until: string;
+      subscribed: boolean;
+    };
 
 export type CouponPreview =
   | { valid: true; benefit: CouponBenefit }
@@ -24,6 +35,7 @@ export interface CouponBenefits {
   pass: { plan: string; endsAt: string } | null;
   credits: { remainingSeconds: number; items: { remainingSeconds: number; expiresAt: string }[] };
   discounts: { plan: string; percent: number; expiresAt: string }[];
+  locks?: { plan: string; amount: number; minutes: number | null; until: string; coversUntil: string | null }[];
 }
 
 const REFUSALS: readonly CouponRefusal[] = [

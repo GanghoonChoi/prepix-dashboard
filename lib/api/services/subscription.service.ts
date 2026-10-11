@@ -10,6 +10,9 @@ export interface PlanPrice {
   launchDiscountPercent?: number | null;
   // A coupon this buyer holds for the plan: first payment only, on top of the launch promo.
   couponDiscountPercent?: number | null;
+  // A price-lock coupon: every payment before `until` (exclusive) is `amount`,
+  // `minutes` a month while it lasts (null = the plan's). Toss only.
+  couponLock?: { amount: number; minutes: number | null; until: string } | null;
 }
 
 export interface CatalogPlan {
@@ -31,6 +34,9 @@ export interface CurrentSubscription {
   status: string;
   // Which processor sold the live subscription. Absent when there is none.
   provider?: CheckoutResult["provider"];
+  // False when that processor's account is closed (Paddle): it will never
+  // renew, and the page offers to subscribe again.
+  renews?: boolean;
   // Whether a live Paddle subscription backs this plan, i.e. whether there is
   // anything to cancel or downgrade. False for granted tiers and for plans with
   // no subscription at all.
