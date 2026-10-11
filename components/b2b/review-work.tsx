@@ -1,11 +1,12 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, Clapperboard } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import type { ReviewWorkList } from "@/lib/api/generated/b2b";
 import { origin, reviewEvents, reviewsService } from "@/lib/api/services/b2b-reviews.service";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
-import { Tag } from "@/components/ui";
+import { Badge, CardHeader } from "@/components/ui";
+import { Poster } from "./reviews";
 import { useCopy } from "./shared";
 
 // SOT: prepix-backend backend/docs/b2b-reviews.md "업무 API".
@@ -69,28 +70,26 @@ function Inbox({ scope }: { scope: Scope }) {
   }, [load]);
   if (!cards?.length) return null;
   return (
-    <section className="space-y-3 border-b border-border pb-8 last:border-b-0 last:pb-0" aria-label={c("확인할 영상", "Videos to check")}>
-      <h2 className="text-[15px] font-medium">
-        {c("확인할 영상", "Videos to check")} <span className="tabular-nums text-muted">{cards.length}</span>
-      </h2>
+    <section aria-label={c("확인할 영상", "Videos to check")}>
+      <CardHeader title={c("확인할 영상", "Videos to check")} count={cards.length} />
       <ul className="divide-y divide-border border-y border-border">
         {cards.map((card) => (
           <li key={card.id}>
             <Link
-              className="flex items-center gap-3 py-3 transition-colors hover:bg-surface"
+              className="flex min-h-14 items-center gap-3 py-2.5 transition-colors hover:bg-surface"
               href={`/dashboard/workspaces/${scope.workspaceId}/projects/${card.projectId}/reviews/${card.id}`}
             >
-              <span className="grid size-8 shrink-0 place-items-center rounded-md bg-surface-secondary text-muted">
-                <Clapperboard size={15} strokeWidth={1.75} aria-hidden="true" />
-              </span>
+              <Poster className="h-9 w-16 shrink-0" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[13px] font-medium">{card.title}</span>
                 <span className="block truncate text-xs text-muted">{card.projectName}</span>
               </span>
               {card.approval === "changes_requested" ? (
-                <Tag tone="danger">{c("수정 요청", "Changes requested")}</Tag>
+                <Badge tone="warning">{c("수정 요청", "Changes requested")}</Badge>
               ) : (
-                <Tag>{c("승인 필요", "Needs your approval")}</Tag>
+                <Badge tone="warning" dot>
+                  {c("승인 필요", "Needs your approval")}
+                </Badge>
               )}
               <ChevronRight size={16} strokeWidth={1.75} aria-hidden="true" className="text-muted" />
             </Link>

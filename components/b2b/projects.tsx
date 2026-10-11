@@ -1,8 +1,20 @@
 "use client";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, Folder } from "lucide-react";
-import { rowClass, SearchField, tableClass, tdClass, thClass } from "@/components/ui";
+import { ChevronRight, FolderOpen } from "lucide-react";
+import {
+  ago,
+  Button,
+  EmptyState,
+  Notice,
+  rowClass,
+  SearchField,
+  tableClass,
+  tdClass,
+  thClass,
+  Toolbar,
+} from "@/components/ui";
+import { useI18n } from "@/lib/i18n/context";
 import { apiClient } from "@/lib/api/client";
 import { homeEnvironment } from "@/lib/b2b-home/home";
 import {
@@ -17,11 +29,8 @@ import {
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import { ReviewWorkPanel } from "./review-work";
 import { LeaveTeam } from "./leave-team";
-import {
-  secondaryClass,
-  TeamLoading,
-  TeamShell,
-} from "@/components/workspaces/shared";
+import { Poster } from "./reviews";
+import { TeamLoading, TeamShell } from "@/components/workspaces/shared";
 import {
   B2bError,
   errorCode,
@@ -50,6 +59,7 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
   const router = useRouter();
   const context = useWorkspace()!;
   const c = useCopy();
+  const { lang } = useI18n();
   const id = scope.workspaceId;
   const base = `/dashboard/workspaces/${id}/projects`;
   const status = context.b2b;
@@ -189,90 +199,112 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
       />
     );
   return (
-    <TeamShell title={c("프로젝트", "Projects")}>
+    // No page title: the list's toolbar names it, with its count.
+    <TeamShell>
       {/* A viewer has no team home, so what waits on them shows here. */}
       {viewer && <ReviewWorkPanel />}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <SearchField
-          value={search}
-          onChange={(value) => changeFilter({ search: value.slice(0, 100) })}
-          label={c("이름으로 검색", "Search by name")}
-          placeholder={c("프로젝트 검색…", "Search projects…")}
-        />
-      </div>
-      {error === "B2B_PROJECT_LIST_SCOPE_CHANGED" ? (
-        <div role="alert" className="space-y-3 text-sm">
-          <p>{c("계정 또는 서비스가 변경되었습니다. 현재 권한으로 목록을 다시 확인해 주세요.", "The account or service changed. Reload the list with your current access.")}</p>
-          <button className={secondaryClass} onClick={() => window.location.reload()}>{c("목록 다시 열기", "Reopen list")}</button>
-        </div>
-      ) : error && <B2bError code={error} retry={() => void load()} />}
-      {rows === null && !error ? (
-        <TeamLoading />
-      ) : rows?.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted">
-          {status.enrolled && status.member.kind === "internal"
-            ? c(
-                "참여한 프로젝트가 없습니다. 앱에서 프로젝트를 공유하면 여기에 나타나요.",
-                "No projects yet. A project shared from the app shows up here.",
-              )
-            : c(
-                "초대된 프로젝트가 없습니다. 프로젝트 담당자에게 문의하세요.",
-                "There are no invited projects. Contact your project lead.",
-              )}
-        </p>
-      ) : (
-        <table ref={list} className={`${tableClass} table-fixed`}>
-          <thead>
-            <tr>
-              <th className={thClass}>{c("이름", "Name")}</th>
-              <th className={`${thClass} hidden w-[20%] sm:table-cell`}>{c("내 역할", "My role")}</th>
-              <th className={`${thClass} hidden w-[18%] md:table-cell`}>{c("공개 범위", "Visibility")}</th>
-              <th className={`${thClass} w-10`}><span className="sr-only">{c("열기", "Open")}</span></th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows?.map((p) => (
-              <tr
-                key={p.id}
-                className={rowClass}
-                onClick={(e) => {
-                  // The name is a real link; a click on it navigates by itself.
-                  if ((e.target as HTMLElement).closest("a")) return;
-                  persist();
-                  router.push(`${base}/${p.id}`);
-                }}
-              >
-                <td className={tdClass}>
-                  <Link
-                    className="flex min-w-0 items-center gap-3 outline-none focus-visible:underline"
-                    href={`${base}/${p.id}`}
-                    onClick={persist}
-                  >
-                    <span className="grid size-8 shrink-0 place-items-center rounded-md bg-surface-secondary text-muted">
-                      <Folder size={15} strokeWidth={1.75} aria-hidden="true" />
-                    </span>
-                    <h2 className="truncate text-[13px] font-medium">{p.name}</h2>
-                  </Link>
-                </td>
-                <td className={`${tdClass} hidden text-muted sm:table-cell`}>{c(...roleLabels[p.role])}</td>
-                <td className={`${tdClass} hidden text-muted md:table-cell`}>{c(...visibilityLabels[p.visibility])}</td>
-                <td className={`${tdClass} text-right text-muted`}>
-                  <ChevronRight size={16} strokeWidth={1.75} aria-hidden="true" className="ml-auto" />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-      {cursor && (
-        <button
-          className={secondaryClass}
-          disabled={busy}
-          onClick={() => void load(settings.current.pages + 1)}
+      <section className="space-y-2">
+        <Toolbar
+          title={c("프로젝트", "Projects")}
+          count={rows ? (cursor ? `${rows.length}+` : rows.length) : undefined}
         >
-          {busy ? c("불러오는 중…", "Loading…") : c("더 보기", "Load more")}
-        </button>
-      )}
+          <SearchField
+            value={search}
+            onChange={(value) => changeFilter({ search: value.slice(0, 100) })}
+            label={c("이름으로 검색", "Search by name")}
+            placeholder={c("프로젝트 검색…", "Search projects…")}
+          />
+        </Toolbar>
+        {error === "B2B_PROJECT_LIST_SCOPE_CHANGED" ? (
+          <Notice
+            role="alert"
+            tone="danger"
+            action={
+              <Button variant="secondary" size="sm" onClick={() => window.location.reload()}>
+                {c("목록 다시 열기", "Reopen list")}
+              </Button>
+            }
+          >
+            {c("계정 또는 서비스가 변경되었습니다. 현재 권한으로 목록을 다시 확인해 주세요.", "The account or service changed. Reload the list with your current access.")}
+          </Notice>
+        ) : error && <B2bError code={error} retry={() => void load()} />}
+        {rows === null && !error ? (
+          <TeamLoading />
+        ) : rows?.length === 0 ? (
+          <EmptyState
+            icon={FolderOpen}
+            title={
+              status.enrolled && status.member.kind === "internal"
+                ? c(
+                    "참여한 프로젝트가 없습니다. 앱에서 프로젝트를 공유하면 여기에 나타나요.",
+                    "No projects yet. A project shared from the app shows up here.",
+                  )
+                : c(
+                    "초대된 프로젝트가 없습니다. 프로젝트 담당자에게 문의하세요.",
+                    "There are no invited projects. Contact your project lead.",
+                  )
+            }
+          />
+        ) : (
+          <table ref={list} className={`${tableClass} table-fixed`}>
+            <thead>
+              <tr>
+                <th className={thClass}>{c("이름", "Name")}</th>
+                <th className={`${thClass} hidden w-[18%] sm:table-cell`}>{c("내 역할", "My role")}</th>
+                <th className={`${thClass} hidden w-[16%] md:table-cell`}>{c("공개 범위", "Visibility")}</th>
+                <th className={`${thClass} hidden w-28 lg:table-cell`}>{c("업데이트", "Updated")}</th>
+                <th className={`${thClass} w-10`}><span className="sr-only">{c("열기", "Open")}</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows?.map((p) => (
+                <tr
+                  key={p.id}
+                  className={rowClass}
+                  onClick={(e) => {
+                    // The name is a real link; a click on it navigates by itself.
+                    if ((e.target as HTMLElement).closest("a")) return;
+                    persist();
+                    router.push(`${base}/${p.id}`);
+                  }}
+                >
+                  <td className={tdClass}>
+                    <Link
+                      className="flex min-w-0 items-center gap-3 outline-none focus-visible:underline"
+                      href={`${base}/${p.id}`}
+                      onClick={persist}
+                    >
+                      {/* The list carries no poster yet: the frame keeps the
+                          rows the shape of the home grid's tiles. */}
+                      <Poster className="h-9 w-16 shrink-0" />
+                      <h2 className="truncate text-[13px] font-medium">{p.name}</h2>
+                    </Link>
+                  </td>
+                  <td className={`${tdClass} hidden text-muted sm:table-cell`}>{c(...roleLabels[p.role])}</td>
+                  <td className={`${tdClass} hidden text-muted md:table-cell`}>{c(...visibilityLabels[p.visibility])}</td>
+                  <td className={`${tdClass} hidden whitespace-nowrap text-muted lg:table-cell`}>{ago(p.updatedAt, lang)}</td>
+                  <td className={`${tdClass} text-right text-muted`}>
+                    <ChevronRight size={16} strokeWidth={1.75} aria-hidden="true" className="ml-auto" />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        {cursor && (
+          <div className="pt-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              aria-busy={busy}
+              disabled={busy}
+              onClick={() => void load(settings.current.pages + 1)}
+            >
+              {busy ? c("불러오는 중…", "Loading…") : c("더 보기", "Load more")}
+            </Button>
+          </div>
+        )}
+      </section>
       {viewer && <LeaveTeam />}
     </TeamShell>
   );
