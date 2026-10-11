@@ -25,7 +25,7 @@ export function ThemeSwitcher() {
     <div
       role="group"
       aria-label={ko ? "테마" : "Theme"}
-      className="inline-flex rounded-md border border-border p-0.5"
+      className="inline-flex rounded-md bg-surface-secondary p-0.5"
     >
       {options.map(({ key, label, Icon }) => (
         <button
@@ -38,8 +38,10 @@ export function ThemeSwitcher() {
             applyTheme(key);
             setPicked(key);
           }}
-          className={`grid h-6 w-7 place-items-center rounded transition-colors ${
-            theme === key ? "bg-foreground text-background" : "text-muted hover:text-foreground"
+          className={`grid h-6 w-7 place-items-center rounded-[5px] transition-colors ${
+            theme === key
+              ? "bg-background text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
+              : "text-muted hover:text-foreground"
           }`}
         >
           <Icon size={13} strokeWidth={1.75} aria-hidden="true" />

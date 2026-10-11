@@ -500,7 +500,7 @@ export function NotificationEntry({ onClose }: { onClose?: () => void }) {
     >
       <Bell size={16} strokeWidth={1.75} aria-hidden />
       {count ? (
-        <span className="absolute right-0.5 top-0.5 grid min-w-4 place-items-center rounded-full bg-foreground px-1 text-[10px] font-semibold leading-4 text-background tabular-nums">
+        <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-foreground px-1 text-[10px] font-semibold leading-none text-background ring-2 ring-background tabular-nums">
           {count > 99 ? "99+" : count}
         </span>
       ) : null}

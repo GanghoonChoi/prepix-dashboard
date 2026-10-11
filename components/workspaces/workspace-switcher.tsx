@@ -42,16 +42,20 @@ export function WorkspaceSwitcher({ onClose }: { onClose?: () => void }) {
   // chooser with one entry is a chooser for nothing.
   const kind = current && !isPersonal(current) ? "team" : "personal";
   const name = current ? spaceName(current) : t("team.kind.personal");
-  const tile = (k: "personal" | "team") => (
-    <span className="grid size-6 shrink-0 place-items-center rounded-md border border-border bg-background">
-      <SpaceIcon kind={k} size={14} />
+  const tile = (k: "personal" | "team", size: "sm" | "md" = "sm") => (
+    <span
+      className={`grid shrink-0 place-items-center border border-border bg-background ${
+        size === "md" ? "size-8 rounded-lg" : "size-6 rounded-md"
+      }`}
+    >
+      <SpaceIcon kind={k} size={size === "md" ? 16 : 14} />
     </span>
   );
 
   if (!teams || !rows?.length)
     return (
-      <div className="flex min-h-9 items-center gap-2.5 px-2 text-[13px] font-medium">
-        {tile("personal")}
+      <div className="flex min-h-11 items-center gap-2.5 px-2 text-[13px] font-semibold">
+        {tile("personal", "md")}
         <span className="min-w-0 flex-1 truncate">{name}</span>
         {teams && failed && (
           <button
@@ -72,9 +76,9 @@ export function WorkspaceSwitcher({ onClose }: { onClose?: () => void }) {
         aria-haspopup="menu"
         aria-expanded={open}
         data-space={kind}
-        className="flex min-h-9 w-full items-center gap-2.5 rounded-md px-2 text-[13px] font-medium text-foreground transition-colors hover:bg-surface-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus aria-expanded:bg-surface-secondary"
+        className="flex min-h-11 w-full items-center gap-2.5 rounded-md px-2 text-[13px] font-semibold text-foreground transition-colors hover:bg-surface-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus aria-expanded:bg-surface-secondary"
       >
-        {tile(kind)}
+        {tile(kind, "md")}
         <span className="min-w-0 flex-1 truncate text-left">{name}</span>
         <ChevronsUpDown
           size={14}

@@ -9,6 +9,7 @@ import { useCurrentSpace } from "@/components/dashboard/current-space";
 import { CommandPalette } from "@/components/dashboard/command-palette";
 import { NotificationEntry } from "@/components/b2b/notifications";
 import { useSpaceName } from "@/components/workspaces/shared";
+import { Kbd } from "@/components/ui";
 
 /** Pages that belong to the account, not to a space: no space crumb. */
 const ACCOUNT_PAGES: [RegExp, string, string][] = [
@@ -94,15 +95,15 @@ export function DashboardHeader({
         type="button"
         onClick={() => setPalette(true)}
         aria-label={ko ? "검색 (⌘K)" : "Search (⌘K)"}
-        className="flex h-8 items-center gap-2 rounded-md border border-border px-2 text-[13px] text-muted transition-colors hover:bg-surface-secondary hover:text-foreground sm:w-56 sm:px-2.5"
+        className="flex h-8 items-center gap-2 rounded-md px-2 text-[13px] text-muted transition-colors hover:bg-surface-secondary hover:text-foreground sm:w-60 sm:bg-surface-secondary sm:px-2.5 sm:hover:bg-surface-tertiary"
       >
         <Search size={15} strokeWidth={1.75} aria-hidden="true" />
         <span className="hidden flex-1 text-left sm:inline">
           {ko ? "검색…" : "Search…"}
         </span>
-        <kbd className="hidden rounded border border-border px-1 font-mono text-[10px] sm:inline">
-          ⌘K
-        </kbd>
+        <span className="hidden sm:inline-flex">
+          <Kbd>⌘K</Kbd>
+        </span>
       </button>
       <NotificationEntry />
 

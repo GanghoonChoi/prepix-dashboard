@@ -9,7 +9,7 @@ export function LanguageSwitcher({ className = "" }: { className?: string }) {
   const { lang, setLang } = useI18n();
   return (
     <div
-      className={`inline-flex rounded-md border border-border p-0.5 ${className}`}
+      className={`inline-flex rounded-md bg-surface-secondary p-0.5 ${className}`}
       role="group"
       aria-label="Language"
     >
@@ -19,9 +19,9 @@ export function LanguageSwitcher({ className = "" }: { className?: string }) {
           type="button"
           onClick={() => setLang(l)}
           aria-pressed={lang === l}
-          className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+          className={`h-6 rounded-[5px] px-2.5 text-xs font-medium transition-colors ${
             lang === l
-              ? "bg-foreground text-background"
+              ? "bg-background text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.08)]"
               : "text-muted hover:text-foreground"
           }`}
         >
