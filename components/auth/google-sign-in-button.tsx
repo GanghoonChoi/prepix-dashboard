@@ -82,14 +82,18 @@ export function GoogleSignInButton({
         },
       });
 
+      // The secondary button of the form: outlined on light, a dark fill on
+      // dark (GIS has no transparent theme). Full width like the primary
+      // above it; GIS accepts 200–400px. Height is GIS's own: "large" is 40px,
+      // the nearest it offers to our 36px (44px on touch) primary.
       gsi.renderButton(divRef.current, {
         type: "standard",
-        theme: "filled_black",
+        theme: document.documentElement.classList.contains("dark") ? "filled_black" : "outline",
         size: "large",
         text,
         shape: "rectangular",
         logo_alignment: "center",
-        width: 320,
+        width: Math.min(400, Math.max(200, divRef.current.offsetWidth)),
         locale: gisLocale,
       });
     };

@@ -4,7 +4,7 @@ import { storeSession } from "@/lib/api/session";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Button, ProgressBar, ProgressBarTrack, ProgressBarFill } from "@heroui/react";
+import { Button, Field, Meter, Notice, inputClass } from "@/components/ui";
 import confetti from "canvas-confetti";
 import { LoadingScreen } from "@/components/loading-screen";
 import { PasswordRequirements } from "@/components/auth/password-requirements";
@@ -221,8 +221,7 @@ export default function SignupPage() {
   }
 
   const info = STEP_INFO[step];
-  const inputClass =
-    "w-full rounded-md border border-border bg-field-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted outline-none transition-colors focus:border-foreground/30";
+  const progress = (step / TOTAL_STEPS) * 100;
 
   return (
     <div className="space-y-8">
@@ -233,9 +232,7 @@ export default function SignupPage() {
         </h1>
         <p className="mt-1.5 text-sm text-muted">{info.description}</p>
         <div className="mt-4">
-          <ProgressBar aria-label={t("auth.progressAriaLabel")} value={(step / TOTAL_STEPS) * 100} size="sm">
-            <ProgressBarTrack><ProgressBarFill /></ProgressBarTrack>
-          </ProgressBar>
+          <Meter value={progress} tone="neutral" label={t("auth.progressAriaLabel")} />
           <p className="mt-1.5 text-xs text-muted">{t("auth.stepOf", { step, total: TOTAL_STEPS })}</p>
         </div>
       </div>
@@ -243,54 +240,45 @@ export default function SignupPage() {
       <CouponWaiting returnTo={authDestination} />
 
       {/* Error */}
-      {error && (
-        <div className="rounded-md border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
-          {error}
-        </div>
-      )}
+      {error && <Notice tone="danger">{error}</Notice>}
 
       {/* Form */}
       <form onSubmit={handleNext} className="space-y-5">
         <div className={`transition-all duration-250 ${isAnimating ? "opacity-0 translate-y-2" : "opacity-100 translate-y-0"}`}>
           {step === 1 && (
-            <div className="space-y-1.5">
-              <label htmlFor="email" className="block text-sm font-medium text-foreground">{t("auth.email")}</label>
+            <Field label={t("auth.email")} htmlFor="email">
               <input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus placeholder={t("auth.emailPlaceholder")} className={inputClass} />
-            </div>
+            </Field>
           )}
 
           {step === 2 && (
-            <div className="space-y-1.5">
-              <label htmlFor="username" className="block text-sm font-medium text-foreground">{t("auth.username")}</label>
+            <Field label={t("auth.username")} htmlFor="username" help={t("auth.usernameHint")}>
               <input id="username" type="text" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus placeholder={t("auth.usernamePlaceholder")} className={inputClass} />
-              <p className="text-xs text-muted">{t("auth.usernameHint")}</p>
-            </div>
+            </Field>
           )}
 
           {step === 3 && (
             <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label htmlFor="password" className="block text-sm font-medium text-foreground">{t("auth.password")}</label>
+              <Field label={t("auth.password")} htmlFor="password">
                 <input id="password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required autoFocus placeholder={t("auth.passwordPlaceholderHint")} className={inputClass} />
-              </div>
-              <div className="space-y-1.5">
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-foreground">{t("auth.confirmPassword")}</label>
+              </Field>
+              <Field label={t("auth.confirmPassword")} htmlFor="confirmPassword">
                 <input id="confirmPassword" type="password" autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required placeholder={t("auth.reenterPasswordPlaceholder")} className={inputClass} />
-              </div>
+              </Field>
               <PasswordRequirements password={password} />
             </div>
           )}
 
           {step === 4 && (
             <div className="space-y-4">
-              <div className="rounded-md border border-border divide-y divide-border">
+              <div className="rounded-lg border border-border divide-y divide-border">
                 {[
                   [t("auth.email"), email],
                   [t("auth.username"), username || "—"],
                 ].map(([k, v]) => (
-                  <div key={k} className="flex items-center justify-between px-4 py-3">
-                    <span className="text-sm text-muted">{k}</span>
-                    <span className="text-sm font-medium text-foreground">{v}</span>
+                  <div key={k} className="flex items-center justify-between gap-4 px-4 py-3">
+                    <span className="shrink-0 text-sm text-muted">{k}</span>
+                    <span className="min-w-0 truncate text-sm font-medium text-foreground">{v}</span>
                   </div>
                 ))}
               </div>
@@ -324,11 +312,11 @@ export default function SignupPage() {
 
         <div className="flex gap-3">
           {step > 1 && (
-            <Button type="button" variant="outline" className="flex-1" onPress={handleBack} isDisabled={isLoading || isAnimating}>
+            <Button variant="secondary" className="flex-1" onClick={handleBack} disabled={isLoading || isAnimating}>
               {t("auth.back")}
             </Button>
           )}
-          <Button type="submit" variant="primary" className="flex-1" isDisabled={isLoading || isAnimating}>
+          <Button type="submit" className="flex-1" disabled={isLoading || isAnimating} aria-busy={isLoading}>
             {isLoading ? t("auth.creatingAccount") : step < TOTAL_STEPS ? t("auth.continue") : t("auth.createAccount")}
           </Button>
         </div>

@@ -2,7 +2,7 @@
 
 import { endSession } from "@/lib/api/session";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button } from "@heroui/react";
+import { Button, Notice } from "@/components/ui";
 import { LoadingScreen } from "@/components/loading-screen";
 import { authService } from "@/lib/api/services/auth.service";
 import {
@@ -160,38 +160,32 @@ export default function ConnectPage() {
         <p className="mt-1.5 text-sm text-muted">{t("connect.subtitle")}</p>
       </div>
 
-      {error && (
-        <div className="rounded-md border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
-          {error}
-        </div>
-      )}
+      {error && <Notice tone="danger">{error}</Notice>}
 
-      <div className="rounded-md border border-border bg-field-background px-4 py-3">
+      <div className="rounded-lg border border-border px-4 py-3">
         <div className="text-xs text-muted">{t("connect.accountLabel")}</div>
-        <div className="mt-1 text-sm text-foreground">{account || "—"}</div>
+        <div className="mt-1 truncate text-sm text-foreground">{account || "—"}</div>
       </div>
 
       <div className="space-y-3">
         <Button
-          type="button"
-          variant="primary"
           className="w-full"
-          isDisabled={phase === "connecting" || !account}
-          onPress={connect}
+          disabled={phase === "connecting" || !account}
+          aria-busy={phase === "connecting"}
+          onClick={connect}
         >
           {phase === "connecting" ? t("connect.connecting") : t("connect.confirm")}
         </Button>
         <Button
-          type="button"
           variant="secondary"
           className="w-full"
-          isDisabled={phase === "connecting"}
-          onPress={switchAccount}
+          disabled={phase === "connecting"}
+          onClick={switchAccount}
         >
           {t("connect.switchAccount")}
         </Button>
         {phase === "error" && !account && (
-          <Button type="button" variant="secondary" onPress={() => window.location.reload()}>
+          <Button variant="secondary" className="w-full" onClick={() => window.location.reload()}>
             {t("connect.retry")}
           </Button>
         )}

@@ -17,11 +17,11 @@ export function PasswordRequirements({ password }: { password: string }) {
         return (
           <li key={rule.label} className="flex items-center gap-2 text-xs">
             {pass ? (
-              <Check className="h-3.5 w-3.5 text-success" />
+              <Check className="h-3.5 w-3.5 text-success-ink" />
             ) : (
               <X className="h-3.5 w-3.5 text-muted" />
             )}
-            <span className={pass ? "text-success" : "text-muted"}>
+            <span className={pass ? "text-success-ink" : "text-muted"}>
               {rule.label}
             </span>
           </li>

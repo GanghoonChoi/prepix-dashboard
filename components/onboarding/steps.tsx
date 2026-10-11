@@ -14,6 +14,17 @@ import { b2bService } from "@/lib/api/services/b2b.service";
 import type { Invitation, TeamCommerce } from "@/lib/api/generated/b2b";
 import { useTeamCreation } from "@/components/workspaces/use-team-creation";
 import { parseEmails, seatPlan, type Intent } from "@/lib/onboarding";
+import { formatMoney } from "@/lib/format";
+import {
+  Avatar,
+  Badge,
+  Field,
+  Kbd as KitKbd,
+  Notice,
+  SummaryRows,
+  buttonClass,
+  inputClass,
+} from "@/components/ui";
 
 /**
  * The /start steps (spec: docs/plans/onboarding-renewal-design-2026-10-08.md).
@@ -33,22 +44,18 @@ export function useCopy() {
   const { lang } = useI18n();
   return (en: string, ko: string) => (lang === "ko" ? ko : en);
 }
-const won = (value: number) =>
-  `₩${new Intl.NumberFormat("ko-KR").format(value)}`;
 
 // ── Shared pieces ──────────────────────────────────────────────────────────
 
 const focusRing =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus";
-export const primaryButton = `inline-flex h-10 items-center justify-center gap-2 rounded-[10px] bg-foreground px-4 text-sm font-medium text-background transition-[opacity,scale] hover:opacity-90 active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40 ${focusRing}`;
-export const quietButton = `inline-flex h-10 items-center justify-center rounded-[10px] px-3 text-sm text-muted transition-colors hover:bg-surface-secondary hover:text-foreground disabled:opacity-40 ${focusRing}`;
-export const fieldClass =
-  "h-11 w-full rounded-[10px] border border-field-border bg-field-background px-3.5 text-base text-foreground outline-none transition-[border-color,box-shadow] placeholder:text-muted focus:border-foreground/40 focus:ring-4 focus:ring-foreground/[0.06] sm:text-sm";
+export const primaryButton = buttonClass();
+export const quietButton = buttonClass({ variant: "ghost" });
 
 /** The ↵ a desktop user can press instead of clicking. */
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <kbd aria-hidden="true" className="hidden min-w-5 rounded-[5px] bg-background/15 px-1 font-sans text-[11px] leading-5 text-current/80 sm:inline-block">
+    <kbd aria-hidden="true" className="hidden min-w-5 rounded bg-background/15 px-1 font-sans text-[11px] leading-5 text-current/80 sm:inline-block">
       {children}
     </kbd>
   );
@@ -110,10 +117,10 @@ export function Chips({
             type="button"
             aria-pressed={on}
             onClick={() => onChange(code)}
-            className={`inline-flex h-9 items-center gap-1.5 rounded-full border px-3.5 text-sm transition-colors ${focusRing} ${
+            className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-[13px] transition-colors ${focusRing} ${
               on
                 ? "border-foreground bg-foreground text-background"
-                : "border-border bg-background hover:border-foreground/30"
+                : "border-border bg-background hover:bg-surface"
             }`}
           >
             <AnimatePresence initial={false}>
@@ -147,10 +154,12 @@ export function UseStep({
   onHover: (intent: Intent | null) => void;
 }) {
   const copy = useCopy();
-  const [busy, setBusy] = useState(false);
+  // The card picked, held while its answer saves: drawn selected, the rest off.
+  const [picked, setPicked] = useState<Intent | null>(null);
+  const busy = picked !== null;
   const pick = useCallback(
     async (intent: Intent) => {
-      setBusy(true);
+      setPicked(intent);
       await userService.updateProfile({ useType: intent }).catch(() => undefined);
       onPick(intent);
     },
@@ -188,7 +197,7 @@ export function UseStep({
     },
   ];
   return (
-    <div className="rounded-[14px] bg-surface-secondary/60 p-1">
+    <div className="space-y-2">
       {options.map(({ intent, icon: Icon, title, body, badge }, index) => (
         <button
           key={intent}
@@ -198,25 +207,23 @@ export function UseStep({
           onMouseLeave={() => onHover(null)}
           onFocus={() => onHover(intent)}
           onBlur={() => onHover(null)}
-          className={`group flex w-full items-center gap-4 rounded-[10px] border border-transparent p-4 text-left transition-[background-color,border-color,box-shadow] hover:border-border hover:bg-background hover:shadow-sm disabled:opacity-60 ${focusRing}`}
+          className={`flex w-full items-center gap-4 rounded-lg border p-4 text-left transition-colors hover:bg-surface ${
+            picked === intent ? "border-foreground ring-1 ring-foreground" : "border-border"
+          } ${picked && picked !== intent ? "opacity-60" : ""} ${focusRing}`}
         >
-          <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-background shadow-[0_0_0_1px_var(--border)] group-hover:bg-surface">
+          <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-surface-secondary">
             <Icon size={18} strokeWidth={1.5} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="flex flex-wrap items-center gap-2">
               <span className="font-medium">{copy(...title)}</span>
-              {badge && (
-                <span className="rounded-md bg-surface-tertiary px-1.5 py-0.5 text-[11px] tabular-nums text-muted">
-                  {copy(...badge)}
-                </span>
-              )}
+              {badge && <Badge className="tabular-nums">{copy(...badge)}</Badge>}
             </span>
             <span className="mt-0.5 block text-sm text-muted text-pretty">{copy(...body)}</span>
           </span>
-          <kbd aria-hidden="true" className="hidden rounded-[5px] border border-border px-1.5 font-sans text-[11px] leading-5 text-muted sm:inline-block">
-            {index + 1}
-          </kbd>
+          <span aria-hidden="true" className="hidden sm:inline-flex">
+            <KitKbd>{index + 1}</KitKbd>
+          </span>
         </button>
       ))}
     </div>
@@ -281,7 +288,7 @@ export function ProfileStep({ onDone }: { onDone: () => void }) {
     <form className="space-y-7" onSubmit={save}>
       {PROFILE_GROUPS.map((group) => (
         <fieldset key={group.field} className="space-y-2.5">
-          <legend className="text-sm font-medium">{copy(...group.label)}</legend>
+          <legend className="text-[13px] font-medium">{copy(...group.label)}</legend>
           <Chips
             value={answers[group.field]}
             options={group.options}
@@ -383,15 +390,17 @@ export function NameStep({
     team && capabilities !== null && !capabilities.canCreate && !creation.pending;
   return (
     <form className="space-y-7" onSubmit={submit}>
-      <div className="space-y-2">
-        <label htmlFor="start-name" className="block text-sm font-medium">
-          {team
+      <Field
+        htmlFor="start-name"
+        label={
+          team
             ? copy("Company or team name", "회사 또는 팀 이름")
-            : copy("Workspace name", "워크스페이스 이름")}
-        </label>
+            : copy("Workspace name", "워크스페이스 이름")
+        }
+      >
         <input
           id="start-name"
-          className={fieldClass}
+          className={inputClass}
           value={name}
           autoFocus
           maxLength={team ? 100 : 80}
@@ -402,10 +411,10 @@ export function NameStep({
             onName(event.target.value);
           }}
         />
-      </div>
+      </Field>
       {team && (
         <fieldset className="space-y-2.5">
-          <legend className="text-sm font-medium">{copy("How big is your team?", "팀은 몇 명인가요?")}</legend>
+          <legend className="text-[13px] font-medium">{copy("How big is your team?", "팀은 몇 명인가요?")}</legend>
           <Chips value={size} options={TEAM_SIZES} onChange={setSize} />
           {(size === "21-100" || size === "100+") && (
             <p className="text-[13px] text-muted">
@@ -421,19 +430,17 @@ export function NameStep({
         </fieldset>
       )}
       {unavailable && (
-        <p role="status" className="text-sm text-muted">
-          {t("team.error.WORKSPACE_CREATION_UNAVAILABLE")}
-        </p>
+        <Notice role="status">{t("team.error.WORKSPACE_CREATION_UNAVAILABLE")}</Notice>
       )}
       {(failed || creation.error) && (
-        <p role="alert" className="text-sm">
+        <Notice tone="danger" role="alert">
           {creation.error
             ? t(`team.error.${creation.error}`)
             : copy(
                 "That didn't save. Your text is still here — try again.",
                 "저장하지 못했어요. 입력한 내용은 그대로 있으니 다시 시도해 주세요.",
               )}
-        </p>
+        </Notice>
       )}
       <StepActions
         secondary={
@@ -486,14 +493,6 @@ function useTeam(workspaceId: string) {
     held,
     reload,
   };
-}
-
-function Avatar({ email }: { email: string }) {
-  return (
-    <span className="grid size-6 shrink-0 place-items-center rounded-full bg-surface-tertiary text-[11px] font-medium uppercase">
-      {email[0]}
-    </span>
-  );
 }
 
 export function InviteStep({
@@ -567,13 +566,21 @@ export function InviteStep({
   }
   return (
     <form className="space-y-6" onSubmit={next}>
-      <div className="space-y-2">
-        <label htmlFor="start-invites" className="block text-sm font-medium">
-          {copy("Teammates' emails", "팀원 이메일")}
-        </label>
+      <Field
+        htmlFor="start-invites"
+        label={copy("Teammates' emails", "팀원 이메일")}
+        error={
+          invalid.length > 0 && (
+            <>
+              {copy("Not an email: ", "이메일 형식이 아니에요: ")}
+              {invalid.join(", ")}
+            </>
+          )
+        }
+      >
         <input
           id="start-invites"
-          className={fieldClass}
+          className={inputClass}
           value={text}
           autoFocus
           autoComplete="off"
@@ -581,13 +588,7 @@ export function InviteStep({
           placeholder={copy("kim@studio.com, lee@studio.com", "kim@studio.com, lee@studio.com")}
           onChange={(event) => setText(event.target.value)}
         />
-        {invalid.length > 0 && (
-          <p className="text-[13px]">
-            {copy("Not an email: ", "이메일 형식이 아니에요: ")}
-            {invalid.join(", ")}
-          </p>
-        )}
-      </div>
+      </Field>
       {(taken.length > 0 || emails.length > 0) && (
         <ul className="flex flex-wrap gap-2">
           <AnimatePresence initial={false}>
@@ -599,19 +600,17 @@ export function InviteStep({
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.96 }}
                 transition={{ duration: 0.15, ease: "easeOut" }}
-                className="flex items-center gap-2 rounded-full border border-border py-1 pl-1 pr-1.5 text-[13px]"
+                className="flex items-center gap-2 rounded-md border border-border py-1 pl-1 pr-1.5 text-[13px]"
               >
-                <Avatar email={row.email} />
+                <Avatar id={row.email} name={row.email} size={24} />
                 <span className="break-all">{row.email}</span>
-                <span className="rounded-full bg-surface-secondary px-1.5 text-[11px] text-muted">
-                  {copy("After payment", "결제 후 발송")}
-                </span>
+                <Badge>{copy("After payment", "결제 후 발송")}</Badge>
                 <button
                   type="button"
                   aria-label={copy("Remove", "취소")}
                   disabled={busy}
                   onClick={() => void remove(row)}
-                  className={`relative grid size-5 place-items-center rounded-full text-muted transition-colors after:absolute after:-inset-2 hover:bg-surface-secondary hover:text-foreground ${focusRing}`}
+                  className={`relative grid size-5 place-items-center rounded-md text-muted transition-colors after:absolute after:-inset-2 hover:bg-surface-secondary hover:text-foreground ${focusRing}`}
                 >
                   <X size={12} strokeWidth={2} />
                 </button>
@@ -625,9 +624,9 @@ export function InviteStep({
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.96 }}
                 transition={{ duration: 0.15, ease: "easeOut" }}
-                className="flex items-center gap-2 rounded-full border border-dashed border-border py-1 pl-1 pr-3 text-[13px]"
+                className="flex items-center gap-2 rounded-md border border-dashed border-border py-1 pl-1 pr-3 text-[13px]"
               >
-                <Avatar email={email} />
+                <Avatar id={email} name={email} size={24} />
                 <span className="break-all">{email}</span>
               </motion.li>
             ))}
@@ -635,19 +634,19 @@ export function InviteStep({
         </ul>
       )}
       {failed.length > 0 && (
-        <p role="alert" className="text-sm">
+        <Notice tone="danger" role="alert">
           {copy(
             "We couldn't invite these. Check them and try again.",
             "이 주소는 초대하지 못했어요. 확인하고 다시 시도해 주세요.",
           )}
-        </p>
+        </Notice>
       )}
       {plan && product && (
         <p className="flex flex-wrap items-baseline gap-x-2 text-sm tabular-nums">
           <span>
             {copy(
-              `You + ${seated} → ${plan.seats} seats · ${won(plan.supplyKrw)}/month (excl. VAT)`,
-              `나 포함 ${1 + seated}명 → ${plan.seats}석 · 월 ${won(plan.supplyKrw)} (VAT 별도)`,
+              `You + ${seated} → ${plan.seats} seats · ${formatMoney(plan.supplyKrw, lang)}/month (excl. VAT)`,
+              `나 포함 ${1 + seated}명 → ${plan.seats}석 · 월 ${formatMoney(plan.supplyKrw, lang)} (VAT 별도)`,
             )}
           </span>
           {plan.seats === product.base.seats && (
@@ -684,6 +683,8 @@ export function PayStep({
   onPreview: (update: PreviewUpdate) => void;
 }) {
   const copy = useCopy();
+  const { lang } = useI18n();
+  const money = (value: number) => formatMoney(value, lang);
   const { product, paid, held } = useTeam(workspaceId);
   const plan =
     product && held
@@ -719,12 +720,12 @@ export function PayStep({
   if (paid)
     return (
       <div className="space-y-6">
-        <p role="status" className="text-sm leading-6">
+        <Notice tone="success" role="status">
           {copy(
             "This team is already paid for. Invitations go out by email.",
             "이미 결제한 팀이에요. 초대한 팀원에게는 메일이 발송돼요.",
           )}
-        </p>
+        </Notice>
         <StepActions
           primary={
             <button type="button" className={primaryButton} onClick={onPaid}>
@@ -737,46 +738,45 @@ export function PayStep({
   if (!product || !plan)
     return (
       <div className="space-y-6">
-        <p role="alert" className="text-sm leading-6">
+        <Notice tone="danger" role="alert">
           {copy(
             "We couldn't load the team plan. You can pay later from the team's plan page.",
             "팀 플랜 정보를 불러오지 못했어요. 나중에 팀의 플랜 화면에서 결제할 수 있어요.",
           )}
-        </p>
+        </Notice>
         <StepActions secondary={later} />
       </div>
     );
   const unit = product.extraSeat.supplyKrw;
+  const vat = product.settlement.vatBasisPoints / 100;
   return (
     <div className="space-y-6">
-      <div className="rounded-xl bg-surface p-1">
-        <dl className="rounded-[10px] bg-background p-4 text-sm tabular-nums shadow-[0_0_0_1px_var(--border)]">
-          <div className="flex justify-between pb-3">
-            <dt className="font-medium">{product.name}</dt>
-            <dd className="text-[13px] text-muted">
-              {copy(
-                `${won(unit)}/seat/mo · excl. VAT · from ${product.base.seats} seats`,
-                `1인 월 ${won(unit)} · VAT 별도 · ${product.base.seats}석부터`,
-              )}
-            </dd>
-          </div>
-          <div className="flex justify-between py-1.5">
-            <dt className="text-muted">{copy("Seats", "좌석")}</dt>
-            <dd>{copy(`${plan.seats} seats`, `${plan.seats}석`)}</dd>
-          </div>
-          <div className="flex justify-between py-1.5">
-            <dt className="text-muted">{copy("Supply", "공급가")}</dt>
-            <dd>{won(plan.supplyKrw)}</dd>
-          </div>
-          <div className="flex justify-between py-1.5">
-            <dt className="text-muted">{copy("VAT", "부가세")}</dt>
-            <dd>{won(plan.vatKrw)}</dd>
-          </div>
-          <div className="mt-2 flex justify-between border-t border-dashed border-border pt-3 text-base font-semibold">
-            <dt>{copy("Total per month", "월 결제액")}</dt>
-            <dd>{won(plan.totalKrw)}</dd>
-          </div>
-        </dl>
+      <div className="space-y-4 rounded-lg border border-border p-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <p className="text-sm font-medium">{product.name}</p>
+          <p className="text-[13px] text-muted">
+            {copy(
+              `${money(unit)}/seat/mo · excl. VAT · from ${product.base.seats} seats`,
+              `1인 월 ${money(unit)} · VAT 별도 · ${product.base.seats}석부터`,
+            )}
+          </p>
+        </div>
+        {/* ponytail: the line reads unit × seats but carries the plan's
+            supply, which assumes the base seats cost the per-seat price (as
+            the line above already says). Split a base row out if they differ. */}
+        <SummaryRows
+          rows={[
+            [
+              <>
+                {money(unit)} × <span>{copy(`${plan.seats} seats`, `${plan.seats}석`)}</span>
+              </>,
+              money(plan.supplyKrw),
+            ],
+            [copy("Subtotal", "소계"), money(plan.supplyKrw)],
+            [copy(`VAT ${vat}%`, `부가세 ${vat}%`), money(plan.vatKrw)],
+          ]}
+          total={[copy("Total", "합계"), money(plan.totalKrw)]}
+        />
       </div>
       {held.length > 0 && (
         <p className="text-sm text-muted">
@@ -793,7 +793,7 @@ export function PayStep({
             className={primaryButton}
             href={`/dashboard/workspaces/${workspaceId}/plan?${new URLSearchParams({ return: returnTo })}`}
           >
-            {copy(`Pay ${won(plan.totalKrw)}`, `${won(plan.totalKrw)} 결제하기`)}
+            {copy(`Pay ${money(plan.totalKrw)}`, `${money(plan.totalKrw)} 결제하기`)}
           </Link>
         }
       />
@@ -825,8 +825,7 @@ export function AppStep({
     `https://www.prepix.ai/api/download/${value}${lang === "ko" ? "?from=ko" : ""}`;
   return (
     <div className="space-y-6">
-      <div className="rounded-xl bg-surface p-1">
-        <div className="flex flex-col gap-4 rounded-[10px] bg-background p-4 shadow-[0_0_0_1px_var(--border)] sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 rounded-lg border border-border p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="font-medium">{copy(`Prepix for ${label(os)}`, `${label(os)}용 Prepix`)}</p>
             <p className="text-[13px] text-muted">
@@ -839,7 +838,6 @@ export function AppStep({
             <Download size={16} strokeWidth={2} aria-hidden="true" />
             {copy(`Download for ${label(os)}`, `${label(os)}용 다운로드`)}
           </a>
-        </div>
       </div>
       <p className="text-[13px] text-muted">
         {copy("On another computer? ", "다른 컴퓨터인가요? ")}
@@ -880,8 +878,8 @@ export function EditStep({ homeHref, helpHref }: { homeHref: string; helpHref: s
     <div className="space-y-6">
       <ol className="space-y-1">
         {items.map(([en, enBody, ko, koBody], i) => (
-          <li key={en} className="flex gap-3 rounded-[10px] p-2.5">
-            <span className="grid size-6 shrink-0 place-items-center rounded-full bg-surface-secondary text-[12px] font-medium tabular-nums text-muted">
+          <li key={en} className="flex gap-3 p-2.5">
+            <span className="grid size-6 shrink-0 place-items-center rounded-full bg-surface-secondary text-xs font-medium tabular-nums text-muted">
               {i + 1}
             </span>
             <span>

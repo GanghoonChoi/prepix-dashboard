@@ -26,7 +26,7 @@ export default function GlobalError({
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          gap: "20px",
+          gap: "24px",
           background: "#0a0a0a",
           color: "#fafafa",
           fontFamily:
@@ -39,7 +39,7 @@ export default function GlobalError({
           <h1 style={{ fontSize: "22px", fontWeight: 600, margin: 0 }}>
             문제가 발생했어요 / Something went wrong
           </h1>
-          <p style={{ fontSize: "14px", opacity: 0.6, marginTop: "8px" }}>
+          <p style={{ fontSize: "14px", opacity: 0.6, margin: "4px 0 0" }}>
             예상치 못한 오류가 발생했어요. 다시 시도해 주세요. / An unexpected error
             occurred. Please try again.
           </p>
@@ -47,10 +47,12 @@ export default function GlobalError({
         <button
           onClick={() => reset()}
           style={{
-            padding: "8px 16px",
-            fontSize: "14px",
+            height: "36px",
+            padding: "0 14px",
+            fontSize: "13px",
+            fontWeight: 500,
             borderRadius: "6px",
-            border: "1px solid #2a2a2a",
+            border: "none",
             background: "#fafafa",
             color: "#0a0a0a",
             cursor: "pointer",

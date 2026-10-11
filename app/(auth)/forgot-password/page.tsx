@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Button } from "@heroui/react";
+import { Button, Field, Notice, inputClass } from "@/components/ui";
 import { authService } from "@/lib/api/services/auth.service";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useI18n } from "@/lib/i18n/context";
@@ -50,9 +50,6 @@ export default function ForgotPasswordPage() {
     }
   };
 
-  const inputClass =
-    "w-full rounded-md border border-border bg-field-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted outline-none transition-colors focus:border-foreground/30";
-
   return (
     <div className="space-y-8">
       <div>
@@ -68,7 +65,7 @@ export default function ForgotPasswordPage() {
 
       {isSubmitted ? (
         <div className="space-y-4">
-          <div className="rounded-md border border-border px-4 py-3 text-sm text-muted">
+          <Notice>
             {t("auth.didntReceiveEmailPrefix")}
             <button
               onClick={() => {
@@ -79,21 +76,17 @@ export default function ForgotPasswordPage() {
             >
               {t("auth.tryAgain")}
             </button>
-          </div>
+          </Notice>
           <Button
-            variant="primary"
             className="w-full"
-            onPress={() => (window.location.href = "/login")}
+            onClick={() => (window.location.href = "/login")}
           >
             {t("auth.backToSignIn")}
           </Button>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="space-y-1.5">
-            <label htmlFor="email" className="block text-sm font-medium text-foreground">
-              {t("auth.email")}
-            </label>
+          <Field label={t("auth.email")} htmlFor="email">
             <input
               id="email"
               type="email"
@@ -105,12 +98,8 @@ export default function ForgotPasswordPage() {
               placeholder={t("auth.emailPlaceholder")}
               className={inputClass}
             />
-          </div>
-          {error && (
-            <div className="rounded-md border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
-              {error}
-            </div>
-          )}
+          </Field>
+          {error && <Notice tone="danger">{error}</Notice>}
           <Turnstile
             action="password-reset"
             onToken={setTurnstileToken}
@@ -118,9 +107,9 @@ export default function ForgotPasswordPage() {
           />
           <Button
             type="submit"
-            variant="primary"
             className="w-full"
-            isDisabled={isLoading}
+            disabled={isLoading}
+            aria-busy={isLoading}
           >
             {isLoading ? t("auth.sending") : t("auth.sendResetLink")}
           </Button>

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/context";
 import type { Intent } from "@/lib/onboarding";
+import { formatMoney } from "@/lib/format";
 
 /**
  * The right half of /start: the workspace being made, drawn as it will look,
@@ -25,13 +26,11 @@ export type PreviewState = {
   surface: "workspace" | "app";
 };
 
-const won = (value: number) =>
-  `₩${new Intl.NumberFormat("ko-KR").format(value)}`;
 const initial = (value: string) =>
   (value.trim()[0] ?? "P").toLocaleUpperCase();
 
 const windowClass =
-  "relative w-[min(660px,100%)] overflow-hidden rounded-l-2xl bg-background shadow-[0_0_0_1px_var(--border),0_12px_32px_-12px_rgb(0_0_0/0.18),0_40px_80px_-32px_rgb(0_0_0/0.22)]";
+  "relative w-[min(660px,100%)] overflow-hidden rounded-l-lg border border-r-0 border-border bg-background";
 
 export function StartPreview({ state }: { state: PreviewState }) {
   return (
@@ -152,7 +151,7 @@ function WorkspaceWindow({ state }: { state: PreviewState }) {
               </li>
             ))}
           </ul>
-          <div className="mt-auto flex items-center justify-between gap-3 rounded-xl bg-surface p-3">
+          <div className="mt-auto flex items-center justify-between gap-3 rounded-lg bg-surface p-3">
             <div className="flex -space-x-1.5">
               <AnimatePresence initial={false}>
                 {state.people.slice(0, 6).map((person) => (
@@ -170,7 +169,7 @@ function WorkspaceWindow({ state }: { state: PreviewState }) {
                 ))}
               </AnimatePresence>
               {state.people.length > 6 && (
-                <span className="grid size-7 place-items-center rounded-full bg-surface-tertiary text-[10px] ring-2 ring-surface">
+                <span className="grid size-7 place-items-center rounded-full bg-surface-tertiary text-[11px] ring-2 ring-surface">
                   +{state.people.length - 6}
                 </span>
               )}
@@ -178,7 +177,7 @@ function WorkspaceWindow({ state }: { state: PreviewState }) {
             {team && state.seats ? (
               <span className="text-[12px] tabular-nums text-muted">
                 {copy(`${state.seats.count} seats`, `${state.seats.count}석`)} ·{" "}
-                <span className="text-foreground">{won(state.seats.supplyKrw)}</span>
+                <span className="text-foreground">{formatMoney(state.seats.supplyKrw, lang)}</span>
                 {copy("/mo", "/월")}
               </span>
             ) : (
