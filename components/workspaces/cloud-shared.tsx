@@ -4,7 +4,7 @@ import { useI18n } from "@/lib/i18n/context";
 import { workspaceError } from "@/lib/workspaces/onboarding";
 import { bytes } from "@/lib/workspaces/upload";
 import type { StorageUsage } from "@/lib/api/services/cloud.service";
-import { secondaryClass } from "./shared";
+import { Button, cardClass, Notice } from "@/components/ui";
 const messages: Record<string, [string, string]> = {
   API_SESSION_CHANGED: [
     "로그인 계정이나 연결된 서비스가 바뀌었습니다. 현재 계정으로 다시 불러오세요.",
@@ -170,17 +170,19 @@ export function CloudError({
 }) {
   const { lang } = useI18n();
   return (
-    <div
+    <Notice
       role="alert"
-      className="space-y-3 rounded-lg border border-border bg-surface p-4 text-sm leading-6"
+      tone="danger"
+      action={
+        retry && (
+          <Button variant="secondary" size="sm" onClick={retry}>
+            {lang === "ko" ? "다시 시도" : "Try again"}
+          </Button>
+        )
+      }
     >
-      <p>{cloudMessage(code, lang)}</p>
-      {retry && (
-        <button className={secondaryClass} onClick={retry}>
-          {lang === "ko" ? "다시 시도" : "Try again"}
-        </button>
-      )}
-    </div>
+      {cloudMessage(code, lang)}
+    </Notice>
   );
 }
 /**
@@ -211,11 +213,11 @@ export function StorageMeter({
   return (
     <section
       aria-label={c("저장 공간", "Storage")}
-      className="rounded-2xl border border-border bg-gradient-to-b from-surface/60 to-background p-4 sm:p-5"
+      className={`${cardClass} p-5`}
     >
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
         <div className="flex items-center gap-3">
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-secondary text-foreground">
+          <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-surface-secondary text-foreground">
             <HardDrive size={18} strokeWidth={1.75} aria-hidden="true" />
           </span>
           <div className="min-w-0">
