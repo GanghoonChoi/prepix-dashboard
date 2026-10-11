@@ -2,14 +2,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
-import {
-  Details,
-  inputClass,
-  KeyValues,
-  Notice,
-  primaryClass,
-  secondaryClass,
-} from "@/components/workspaces/shared";
+import { Details } from "@/components/workspaces/shared";
+import { Button, Field, inputClass, Notice, PropertyList, SummaryRows } from "@/components/ui";
 import type {
   B2bStatus,
   TeamRefundLine,
@@ -17,7 +11,7 @@ import type {
   TeamTerminationPreview,
 } from "@/lib/api/services/b2b.service";
 import { checkRecord, runRecord, type BillingRecord } from "@/lib/b2b-billing/operations";
-import { BillingError, billingCode, kst, refundLabels, useTeamBilling, won } from "./billing-shared";
+import { BillingError, billingCode, kst, refundLabels, useTeamBilling, useWon } from "./billing-shared";
 import { useCopy } from "./shared";
 
 // Legal floor screens: renewal re-consent and mid-term termination.
@@ -35,6 +29,7 @@ const consentReasons: Record<string, [string, string]> = {
  * price without an explicit answer inside [opensAt, chargeAt). */
 export function RenewalConsentCard({ billing }: { billing: Billing }) {
   const c = useCopy();
+  const won = useWon();
   const { billing: view, scope, api, store, reload } = billing;
   const consent = view?.renewalConsent ?? null;
   const [pending, setPending] = useState<BillingRecord[]>([]);
@@ -93,9 +88,9 @@ export function RenewalConsentCard({ billing }: { billing: Billing }) {
     <div className="space-y-3 text-[13px] leading-5">
       <Notice>{c("갱신 동의 답변의 결과를 확인하지 못했습니다.", "Your answer has no confirmed result.")}</Notice>
       {pending.map((p) => (
-        <button key={p.action} type="button" className={secondaryClass} disabled={busy} onClick={() => void answer(p, true)}>
+        <Button key={p.action} variant="secondary" disabled={busy} onClick={() => void answer(p, true)}>
           {p.action === "renewal.consent.accept" ? c("동의 결과 확인", "Confirm consent result") : c("거절 결과 확인", "Confirm decline result")}
-        </button>
+        </Button>
       ))}
       {failure && (
         <p className="text-muted">
@@ -142,9 +137,9 @@ export function RenewalConsentCard({ billing }: { billing: Billing }) {
     input,
   });
   return (
-    <section aria-labelledby="renewal-consent" className="space-y-4 rounded-lg border border-border bg-surface p-5" data-consent-state="required">
+    <section aria-labelledby="renewal-consent" className="space-y-5 rounded-lg border border-border bg-surface p-5" data-consent-state="required">
       <div>
-        <h2 id="renewal-consent" className="text-[15px] font-medium">
+        <h2 id="renewal-consent" className="text-base font-semibold">
           {c("갱신 금액 변경 · 동의가 필요합니다", "Renewal price change · consent needed")}
         </h2>
         <p className="mt-1 text-[13px] leading-5 text-muted">
@@ -155,7 +150,8 @@ export function RenewalConsentCard({ billing }: { billing: Billing }) {
           )}
         </p>
       </div>
-      <KeyValues
+      <PropertyList
+        divided
         items={[
           [
             c("한 달 갱신 금액 (부가세 포함)", "Monthly renewal (VAT incl.)"),
@@ -199,8 +195,8 @@ export function RenewalConsentCard({ billing }: { billing: Billing }) {
         </p>
       ) : (
         <div className="space-y-3">
-          <label className="flex items-start gap-2 text-sm leading-6">
-            <input type="checkbox" checked={agreed === terms} disabled={busy} onChange={(e) => setAgreed(e.target.checked ? terms : "")} />
+          <label className="flex items-start gap-2.5 text-sm leading-6">
+            <input type="checkbox" className="mt-1.5 shrink-0" checked={agreed === terms} disabled={busy} onChange={(e) => setAgreed(e.target.checked ? terms : "")} />
             <span>
               {c(
                 `바뀐 상품 조건과 한 달 ${won(consent.toTotalKrw)}(부가세 포함)으로 ${kst(consent.chargeAt)} 이후 등록 카드로 자동결제하는 데 동의합니다.`,
@@ -208,10 +204,8 @@ export function RenewalConsentCard({ billing }: { billing: Billing }) {
               )}
             </span>
           </label>
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              className={primaryClass}
+          <div className="flex flex-wrap gap-2">
+            <Button
               disabled={busy || agreed !== terms || !scope}
               onClick={() =>
                 void answer(
@@ -225,15 +219,14 @@ export function RenewalConsentCard({ billing }: { billing: Billing }) {
               }
             >
               {c("동의하고 갱신", "Consent and renew")} · {won(consent.toTotalKrw)}
-            </button>
-            <button
-              type="button"
-              className={secondaryClass}
+            </Button>
+            <Button
+              variant="secondary"
               disabled={busy || !scope}
               onClick={() => void answer(record("renewal.consent.decline", { requestKey: crypto.randomUUID(), consentId: consent.id }))}
             >
               {c("동의하지 않음 · 기간 끝에 종료", "Decline · end with this period")}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -265,6 +258,7 @@ export function TeamTermination({
   billing: Billing;
 }) {
   const c = useCopy();
+  const won = useWon();
   const workspace = useWorkspace();
   const { billing: view, scope, api, store, reload } = billing;
   const [preview, setPreview] = useState<TeamTerminationPreview | null>(null);
@@ -362,9 +356,11 @@ export function TeamTermination({
     money.push([c("환불 확인 중", "Refund being confirmed"), <span key="pending" className="tabular-nums" data-money="pending">{won(t.pendingKrw)}</span>]);
   const settings = `/dashboard/workspaces/${workspaceId}/plan/settings`;
   return (
-    <section aria-labelledby="termination" className="space-y-4 border-b border-border pb-8 last:border-b-0 last:pb-0">
+    // The kit's DangerZone, composed here: e2e and screen readers find this
+    // section by its name ("중도해지"), which DangerZone does not give it.
+    <section aria-labelledby="termination" className="space-y-5 rounded-lg border border-danger/30 p-5">
       <div>
-        <h2 id="termination" className="text-[15px] font-medium">
+        <h2 id="termination" className="text-base font-semibold text-danger-ink">
           {c("중도해지", "Mid-term termination")}
         </h2>
         {active && (
@@ -386,7 +382,7 @@ export function TeamTermination({
                 ? c("청약철회로 원주문 전액을 환불합니다.", "Withdrawal: the original orders are refunded in full.")
                 : c("쓰지 않은 부분을 환불합니다.", "The unused part is refunded.")}
           </Notice>
-          {t.requestedTotalKrw > 0 && <KeyValues items={money} />}
+          {t.requestedTotalKrw > 0 && <PropertyList divided items={money} />}
           {t.refunds.length > 0 && (
             <ul className="divide-y divide-border border-y border-border">
               {t.refunds.map((r) => (
@@ -428,9 +424,8 @@ export function TeamTermination({
               )}
             </p>
           )}
-          <button
-            type="button"
-            className={secondaryClass}
+          <Button
+            variant="secondary"
             disabled={!!busy || !api}
             onClick={() => {
               if (!api) return;
@@ -441,15 +436,14 @@ export function TeamTermination({
             }}
           >
             {c("해지 요청 결과 확인", "Confirm termination result")}
-          </button>
+          </Button>
         </div>
       ) : active && !preview ? (
         <>
           {/* Stopping renewal sits beside termination, never behind it. */}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <button
-              type="button"
-              className={secondaryClass}
+            <Button
+              variant="danger"
               disabled={!!busy || !api}
               onClick={async () => {
                 if (!api) return;
@@ -470,7 +464,7 @@ export function TeamTermination({
               }}
             >
               {busy === "preview" ? c("확인 중…", "Checking…") : c("해지 환불 금액 확인", "Check termination refund")}
-            </button>
+            </Button>
             <Link className="text-[13px] text-muted underline underline-offset-4 hover:text-foreground" href={settings}>
               {c("다음 결제만 멈추려면 자동결제 중지", "Only stop the next charge instead")}
             </Link>
@@ -499,7 +493,7 @@ export function TeamTermination({
       ) : active && preview ? (
         <form
           aria-label={c("중도해지 확인", "Confirm termination")}
-          className="space-y-4 rounded-lg border border-border p-4"
+          className="space-y-5 border-t border-border pt-5"
           onSubmit={(e) => {
             e.preventDefault();
             if (!api || !scope || !agreed || !reason.trim()) return;
@@ -558,25 +552,29 @@ export function TeamTermination({
               ))}
             </ul>
           )}
-          <div role="status" className="space-y-1">
-            <p className="flex flex-wrap items-baseline justify-between gap-x-4 text-sm">
-              <span>{c("환불 예정 합계", "Refund total")}</span>
-              <strong className="font-medium tabular-nums" data-termination-total>{won(preview.amounts.totalKrw)}</strong>
-            </p>
+          <div role="status" className="space-y-2">
+            <SummaryRows
+              rows={[
+                [c("공급가액", "Supply"), won(preview.amounts.supplyKrw)],
+                [c("부가세", "VAT"), won(preview.amounts.vatKrw)],
+              ]}
+              total={[
+                c("환불 예정 합계", "Refund total"),
+                <span key="total" data-termination-total>{won(preview.amounts.totalKrw)}</span>,
+              ]}
+            />
             <p className="text-xs leading-5 text-muted tabular-nums">
-              {c("공급가액", "Supply")} {won(preview.amounts.supplyKrw)} · {c("부가세", "VAT")} {won(preview.amounts.vatKrw)} ·{" "}
               {c(
                 `${kst(preview.basisAt)} 기준, 10분 동안 유효합니다. 환불은 운영 확인 뒤 원결제를 취소해 돌려드립니다.`,
                 `Measured at ${kst(preview.basisAt)}, valid for 10 minutes. Refunds return to the original payment after operations review.`,
               )}
             </p>
           </div>
-          <label className="block space-y-2 text-sm">
-            <span>{c("해지 사유", "Reason")}</span>
-            <input className={inputClass} value={reason} maxLength={500} disabled={!!busy} onChange={(e) => setReason(e.target.value)} />
-          </label>
-          <label className="flex items-start gap-2 text-sm leading-6">
-            <input type="checkbox" checked={agreed} disabled={!!busy} onChange={(e) => setAgreed(e.target.checked)} />
+          <Field label={c("해지 사유", "Reason")} htmlFor="termination-reason">
+            <input id="termination-reason" className={inputClass} value={reason} maxLength={500} disabled={!!busy} onChange={(e) => setReason(e.target.value)} />
+          </Field>
+          <label className="flex items-start gap-2.5 text-sm leading-6">
+            <input type="checkbox" className="mt-1.5 shrink-0" checked={agreed} disabled={!!busy} onChange={(e) => setAgreed(e.target.checked)} />
             <span>
               {zero
                 ? c("환불받을 금액이 없음을 확인했고, 환불 없이 지금 팀 이용을 끝내는 데 동의합니다. 해지는 되돌릴 수 없습니다.", "I understand there is nothing to refund and agree to end the team now. This cannot be undone.")
@@ -586,13 +584,13 @@ export function TeamTermination({
                   )}
             </span>
           </label>
-          <div className="flex flex-wrap gap-3">
-            <button className={primaryClass} disabled={!!busy || !agreed || !reason.trim()}>
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" variant="danger" disabled={!!busy || !agreed || !reason.trim()}>
               {busy === "terminate" ? c("해지 중…", "Terminating…") : zero ? c("중도해지", "Terminate") : `${c("중도해지", "Terminate")} · ${won(preview.amounts.totalKrw)}`}
-            </button>
-            <button type="button" className={secondaryClass} disabled={!!busy} onClick={() => setPreview(null)}>
+            </Button>
+            <Button variant="secondary" disabled={!!busy} onClick={() => setPreview(null)}>
               {c("취소", "Cancel")}
-            </button>
+            </Button>
           </div>
         </form>
       ) : null}

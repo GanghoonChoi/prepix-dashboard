@@ -1,6 +1,6 @@
 "use client";
-import { billingTabs } from "./billing-shared";
-import { ArrowLeft, ChevronRight } from "lucide-react";
+import { billingTabs, kst, useWon } from "./billing-shared";
+import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { apiClient } from "@/lib/api/client";
@@ -13,13 +13,17 @@ import { statementLabels } from "@/lib/api/generated/b2b";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 // Only what e2e/b2b-statements-races.spec.ts stubs for this module may be
 // imported here (no BackLink/Details/KeyValues until that stub grows them).
+// The kit (@/components/ui) is not stubbed, so it is safe to import.
+import { TeamLoading, TeamShell } from "@/components/workspaces/shared";
 import {
-  Block,
-  primaryClass,
-  secondaryClass,
-  TeamLoading,
-  TeamShell,
-} from "@/components/workspaces/shared";
+  Badge,
+  Button,
+  Notice,
+  SettingsSection,
+  SummaryRows,
+  type Tone,
+} from "@/components/ui";
+import { formatDate } from "@/lib/format";
 import { useI18n } from "@/lib/i18n/context";
 import {
   StatementLifetime,
@@ -27,11 +31,9 @@ import {
   freshIssue,
   runIssue,
   type PendingIssue,
-  kst,
   monthLabel,
   scopeKey,
   verifiedPdf,
-  won,
   type StatementScope,
 } from "@/lib/b2b-statements/statements";
 import { B2bError, errorCode as commonErrorCode, useCopy } from "./shared";
@@ -81,17 +83,19 @@ function StatementError({ code, retry }: { code: string; retry?: () => void }) {
   const c = useCopy();
   if (!messages[code]) return <B2bError code={code} retry={retry} />;
   return (
-    <div
+    <Notice
       role="alert"
-      className="rounded-lg border border-border bg-surface p-4 text-sm leading-6"
+      tone="danger"
+      action={
+        retry && (
+          <Button variant="secondary" size="sm" onClick={retry}>
+            {c("다시 확인", "Check again")}
+          </Button>
+        )
+      }
     >
-      <p>{c(...messages[code])}</p>
-      {retry && (
-        <button type="button" className={`${secondaryClass} mt-3`} onClick={retry}>
-          {c("다시 확인", "Check again")}
-        </button>
-      )}
-    </div>
+      {c(...messages[code])}
+    </Notice>
   );
 }
 
@@ -194,8 +198,18 @@ function stateText(
   if (state === "blocked") return c("발행 설정 누락", "Issue setting missing");
   return c("집계 중", "Collecting");
 }
+// Issued → done; due → waiting on someone; a missing setting → failed.
+const stateTones: Record<TeamStatementMonthState, Tone> = {
+  collecting: "neutral",
+  scheduled: "neutral",
+  due: "warning",
+  blocked: "danger",
+  issued: "success",
+};
+// The table classes' row, on a grid: each row stays one link (its name
+// carries the month and state, which e2e reads), so it cannot be a <tr>.
 const monthGrid =
-  "grid grid-cols-[1fr_auto] items-center gap-x-4 sm:grid-cols-[9rem_minmax(0,1fr)_12rem_1.5rem]";
+  "grid grid-cols-[1fr_auto] items-center gap-x-4 sm:grid-cols-[9rem_minmax(0,1fr)_8rem_1.5rem]";
 export function TeamStatements() {
   const c = useCopy();
   const { lang } = useI18n();
@@ -215,9 +229,9 @@ export function TeamStatements() {
             "Purchases by month. A statement is not a tax invoice.",
           )}
         </p>
-        <button className={secondaryClass} disabled={busy} onClick={() => void load()}>
+        <Button variant="secondary" size="sm" disabled={busy} onClick={() => void load()}>
           {c("최신 상태 확인", "Refresh")}
-        </button>
+        </Button>
       </div>
       {error && <StatementError code={error} retry={() => void load()} />}
       {!view ? (
@@ -235,33 +249,43 @@ export function TeamStatements() {
               )}
             </p>
           ) : (
-            <div>
-              <div aria-hidden="true" className={`${monthGrid} hidden h-11 border-b border-border text-xs font-medium text-muted sm:grid`}>
-                <span>{c("월", "Month")}</span>
-                <span>{c("상태", "State")}</span>
-                <span>{c("발행", "Issued")}</span>
-              </div>
-              <ul aria-label={c("명세 월 목록", "Statement months")}>
-                {view.months.map((m) => (
-                  <li key={m.month} className="border-b border-border">
-                    <Link
-                      href={`/dashboard/workspaces/${scope.workspaceId}/statements/${m.month}`}
-                      className={`${monthGrid} py-3 text-[13px] transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-foreground`}
-                    >
-                      <span className="font-medium">{monthLabel(m.month, lang === "ko" ? "ko" : "en")}</span>
-                      <span className="text-muted">
-                        {stateText(c, m.state, m.issueOn, m.revisions)}
-                      </span>
-                      {/* The state already names the issue day; only the issue time is new. */}
-                      <span className="hidden truncate tabular-nums text-muted sm:block">
-                        {m.latest ? kst(m.latest.issuedAt) : "—"}
-                      </span>
-                      <ChevronRight size={15} strokeWidth={1.75} aria-hidden="true" className="hidden justify-self-end text-muted sm:block" />
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            [...new Set(view.months.map((m) => m.month.slice(0, 4)))].map((year) => (
+              <section key={year} aria-labelledby={`statements-${year}`} className="space-y-2">
+                <h2 id={`statements-${year}`} className="text-base font-semibold tabular-nums">
+                  {c(`${year}년`, year)}
+                </h2>
+                <div>
+                  <div aria-hidden="true" className={`${monthGrid} hidden h-10 border-b border-border text-xs font-medium text-muted sm:grid`}>
+                    <span>{c("월", "Month")}</span>
+                    <span>{c("상태", "State")}</span>
+                    <span>{c("발행", "Issued")}</span>
+                  </div>
+                  <ul aria-label={c("명세 월 목록", "Statement months")}>
+                    {view.months
+                      .filter((m) => m.month.startsWith(year))
+                      .map((m) => (
+                        <li key={m.month} className="border-b border-border">
+                          <Link
+                            href={`/dashboard/workspaces/${scope.workspaceId}/statements/${m.month}`}
+                            className={`${monthGrid} min-h-12 py-2.5 text-[13px] transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-foreground`}
+                          >
+                            <span className="font-medium">{monthLabel(m.month, lang === "ko" ? "ko" : "en")}</span>
+                            <span className="min-w-0">
+                              <Badge tone={stateTones[m.state]} dot={stateTones[m.state] !== "neutral"}>
+                                {stateText(c, m.state, m.issueOn, m.revisions)}
+                              </Badge>
+                            </span>
+                            <span className="hidden truncate tabular-nums text-muted sm:block">
+                              {m.latest ? formatDate(m.latest.issuedAt, lang === "ko" ? "ko" : "en") : "—"}
+                            </span>
+                            <ChevronRight size={15} strokeWidth={1.75} aria-hidden="true" className="hidden justify-self-end text-muted sm:block" />
+                          </Link>
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              </section>
+            ))
           )}
         </>
       )}
@@ -269,58 +293,54 @@ export function TeamStatements() {
   );
 }
 
-function Figures({ rows }: { rows: [string, string][] }) {
-  return (
-    <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
-      {rows.map(([label, value]) => (
-        <div key={label}>
-          <dt className="text-sm text-muted">{label}</dt>
-          <dd className="mt-1 text-lg font-medium tabular-nums">{value}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
 function Snapshot({ revision }: { revision: TeamStatementRevision }) {
   const c = useCopy();
+  const won = useWon();
   const s = revision.snapshot;
   const pick = (label: { ko: string; en: string }) => c(label.ko, label.en);
   return (
     <>
-      <Block
+      <SettingsSection
         title={c("결제 금액 요약", "Payment summary")}
         description={c(
           "이 달에 확인된 수납과 환불입니다. 환불은 이전 달 주문의 것일 수 있습니다.",
           "Payments and refunds confirmed this month. A refund may belong to an earlier month's order.",
         )}
       >
-        <Figures
-          rows={[
-            [c("공급가액", "Supply"), won(s.totals.supplyKrw)],
-            [c("부가세", "VAT"), won(s.totals.vatKrw)],
-            [c("합계", "Total"), won(s.totals.totalKrw)],
-            [c("수납 확인", "Received"), won(s.totals.receivedKrw)],
-            [c("환불 완료", "Refunded"), won(s.totals.refundedKrw)],
-            [c("이 달 순수납", "Net received this month"), won(s.totals.receivedKrw - s.totals.refundedKrw)],
-          ]}
-        />
-        {s.byKind.length > 0 && (
-          <ul className="space-y-1 text-sm tabular-nums">
-            {s.byKind.map((k) => (
-              <li key={k.kind} className="flex justify-between gap-4">
-                <span>
-                  {pick(L.kinds[k.kind])} × {k.quantity}
-                </span>
-                <span className="text-muted">
-                  {c("비례 전 정가", "List")} {won(k.listSupplyKrw)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Block>
+        <div className="space-y-5">
+          {/* Two sums: what was sold (supply + VAT) and what came in net. */}
+          <SummaryRows
+            rows={[
+              [c("공급가액", "Supply"), won(s.totals.supplyKrw)],
+              [c("부가세", "VAT"), won(s.totals.vatKrw)],
+            ]}
+            total={[c("합계", "Total"), won(s.totals.totalKrw)]}
+          />
+          <SummaryRows
+            rows={[
+              [c("수납 확인", "Received"), won(s.totals.receivedKrw)],
+              [c("환불 완료", "Refunded"), won(s.totals.refundedKrw)],
+            ]}
+            total={[c("이 달 순수납", "Net received this month"), won(s.totals.receivedKrw - s.totals.refundedKrw)]}
+          />
+          {s.byKind.length > 0 && (
+            <ul className="space-y-1 border-t border-border pt-4 text-[13px] tabular-nums">
+              {s.byKind.map((k) => (
+                <li key={k.kind} className="flex justify-between gap-4">
+                  <span>
+                    {pick(L.kinds[k.kind])} × {k.quantity}
+                  </span>
+                  <span className="text-muted">
+                    {c("비례 전 정가", "List")} {won(k.listSupplyKrw)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </SettingsSection>
       {(s.recipients.length > 0 || s.recipient) && (
-        <Block
+        <SettingsSection
           title={c("수신 사업자 정보", "Recipient")}
           description={
             s.recipients.length > 1
@@ -328,29 +348,31 @@ function Snapshot({ revision }: { revision: TeamStatementRevision }) {
               : undefined
           }
         >
-          {(s.recipients.length > 0
-            ? s.recipients
-            : [{ buyer: s.recipient!, sourceOrderIds: [s.recipient!.sourceOrderId] }]
-          ).map((r) => (
-            <div key={r.sourceOrderIds.join()} className="space-y-0.5 text-sm">
-              <p className="font-medium">{r.buyer.businessName}</p>
-              <p className="text-[13px] text-muted tabular-nums">
-                {r.buyer.businessRegistrationNumber} · {r.buyer.representative} · {r.buyer.receiptEmail}
-              </p>
-              <p className="text-[13px] text-muted">
-                {r.buyer.address} · {c("주문", "Orders")} {r.sourceOrderIds.map((id) => id.slice(0, 8)).join(", ")}
-              </p>
-            </div>
-          ))}
-        </Block>
+          <div className="divide-y divide-border">
+            {(s.recipients.length > 0
+              ? s.recipients
+              : [{ buyer: s.recipient!, sourceOrderIds: [s.recipient!.sourceOrderId] }]
+            ).map((r) => (
+              <div key={r.sourceOrderIds.join()} className="space-y-0.5 py-3 text-sm first:pt-0 last:pb-0">
+                <p className="font-medium">{r.buyer.businessName}</p>
+                <p className="text-[13px] text-muted tabular-nums">
+                  {r.buyer.businessRegistrationNumber} · {r.buyer.representative} · {r.buyer.receiptEmail}
+                </p>
+                <p className="text-[13px] text-muted">
+                  {r.buyer.address} · {c("주문", "Orders")} {r.sourceOrderIds.map((id) => id.slice(0, 8)).join(", ")}
+                </p>
+              </div>
+            ))}
+          </div>
+        </SettingsSection>
       )}
-      <Block title={c("주문별 내역", "Orders")}>
+      <SettingsSection title={c("주문별 내역", "Orders")}>
         {s.purchases.length === 0 ? (
           <p className="text-sm text-muted">{c("이 달에 수납된 주문이 없습니다.", "No orders were paid this month.")}</p>
         ) : (
           <ul className="divide-y divide-border">
             {s.purchases.map((p) => (
-              <li key={p.orderId} className="space-y-0.5 py-3 text-sm">
+              <li key={p.orderId} className="space-y-0.5 py-3 text-sm first:pt-0 last:pb-0">
                 <p className="flex flex-wrap justify-between gap-2">
                   <span className="font-medium">
                     {pick(L.targets[p.target])} · {pick(L.purchaseStates[p.status])}
@@ -367,9 +389,9 @@ function Snapshot({ revision }: { revision: TeamStatementRevision }) {
             ))}
           </ul>
         )}
-      </Block>
+      </SettingsSection>
       {(s.adjustments.length > 0 || s.refunds.length > 0) && (
-        <Block
+        <SettingsSection
           title={c("정산과 환불", "Settlement and refunds")}
           description={c(
             "확인 중인 환불은 금액에 넣지 않습니다.",
@@ -378,13 +400,13 @@ function Snapshot({ revision }: { revision: TeamStatementRevision }) {
         >
           <ul className="divide-y divide-border text-sm tabular-nums">
             {s.adjustments.map((a) => (
-              <li key={`a-${a.orderId}`} className="flex flex-wrap justify-between gap-2 py-3">
+              <li key={`a-${a.orderId}`} className="flex flex-wrap justify-between gap-2 py-3 first:pt-0 last:pb-0">
                 <span>{c("반영 지연 과납 차액", "Delayed-application overpayment")} · {pick(L.adjustmentStates[a.state])}</span>
                 <span>{won(a.amountKrw)}</span>
               </li>
             ))}
             {s.refunds.map((r) => (
-              <li key={r.refundId} className="space-y-1 py-3">
+              <li key={r.refundId} className="space-y-1 py-3 first:pt-0 last:pb-0">
                 <p className="flex flex-wrap justify-between gap-2">
                   <span>
                     {r.kind === "overpayment" ? c("과납 반환", "Overpayment return") : c("미사용분 환불", "Unused refund")} · {pick(L.refundStates[r.state])}
@@ -399,7 +421,7 @@ function Snapshot({ revision }: { revision: TeamStatementRevision }) {
               </li>
             ))}
           </ul>
-        </Block>
+        </SettingsSection>
       )}
     </>
   );
@@ -492,32 +514,25 @@ export function TeamStatementMonth({ month }: { month: string }) {
   return (
     <TeamShell
       title={c(`${monthLabel(month)} 이용명세서`, `${monthLabel(month, "en")} statement`)}
+      back={{ href: `/dashboard/workspaces/${scope.workspaceId}/statements`, label: c("명세 목록", "All statements") }}
       actions={
-        <button className={secondaryClass} disabled={busy} onClick={() => void load()}>
+        <Button variant="secondary" size="sm" disabled={busy} onClick={() => void load()}>
           {c("최신 상태 확인", "Refresh")}
-        </button>
+        </Button>
       }
     >
-      {/* BackLink's markup: the races spec's stub of the shared module lacks it. */}
-      <Link
-        href={`/dashboard/workspaces/${scope.workspaceId}/statements`}
-        className="inline-flex items-center gap-1 text-[13px] text-muted transition-colors hover:text-foreground"
-      >
-        <ArrowLeft size={14} strokeWidth={1.75} aria-hidden="true" />
-        {c("명세 목록", "All statements")}
-      </Link>
       {error && <StatementError code={error} retry={() => void load()} />}
       {shownNotice && (
         <div className="space-y-3">
           <StatementError code={shownNotice.code} />
           {shownNotice.pending && (
-            <button
-              className={secondaryClass}
+            <Button
+              variant="secondary"
               disabled={issuing}
               onClick={() => void retryIssue()}
             >
               {c("같은 발행 요청 결과 다시 확인", "Check the same issue request again")}
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -526,16 +541,18 @@ export function TeamStatementMonth({ month }: { month: string }) {
       ) : (
         <>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-[13px] text-muted">
-              {stateText(c, view.state, view.issueOn, view.revisions.length)}
-              {view.state !== "scheduled" && view.issueOn && ` · ${c("발행 기준일", "issue day")} ${view.issueOn}`}
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted">
+              <Badge tone={stateTones[view.state]} dot={stateTones[view.state] !== "neutral"}>
+                {stateText(c, view.state, view.issueOn, view.revisions.length)}
+              </Badge>
+              {view.state !== "scheduled" && view.issueOn && <span>{`${c("발행 기준일", "issue day")} ${view.issueOn}`}</span>}
             </p>
             {(view.state === "due" || (view.state === "issued" && view.issueOn)) && (
-              <button className={view.state === "due" ? primaryClass : secondaryClass} disabled={issuing} onClick={requestIssue}>
+              <Button variant={view.state === "due" ? "primary" : "secondary"} disabled={issuing} onClick={requestIssue}>
                 {view.state === "due"
                   ? c("명세 발행 요청", "Request issue")
                   : c("정정 필요 여부 확인", "Check for corrections")}
-              </button>
+              </Button>
             )}
           </div>
           {issuing && (
@@ -544,7 +561,7 @@ export function TeamStatementMonth({ month }: { month: string }) {
             </p>
           )}
           {view.revisions.length > 0 && (
-            <Block
+            <SettingsSection
               title={c("확정본과 정정본", "Issued versions")}
               description={c(
                 "발행된 PDF는 바뀌지 않으며, 받은 파일은 발행본과 대조한 뒤 저장합니다.",
@@ -555,15 +572,15 @@ export function TeamStatementMonth({ month }: { month: string }) {
                 {view.revisions.map((r) => {
                   const state = downloads.find((d) => d.id === r.id && d.key === viewKey)?.state;
                   return (
-                    <li key={r.id} className="space-y-1 py-4 text-sm">
+                    <li key={r.id} className="space-y-1 py-4 text-sm first:pt-0 last:pb-0">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="font-medium">
                           revision {r.revision}
                           {r.revision > 1 && ` · ${c("정정본", "correction")}`} · {kst(r.issuedAt)} {c("발행", "issued")}
                         </span>
-                        <button className={secondaryClass} disabled={state === "busy"} onClick={() => void download(r)}>
+                        <Button variant="secondary" size="sm" disabled={state === "busy"} onClick={() => void download(r)}>
                           {c("PDF 받기", "Download PDF")}
-                        </button>
+                        </Button>
                       </div>
                       <p className="text-[13px] text-muted">
                         {r.reasons.map((reason) => c(L.reasons[reason].ko, L.reasons[reason].en)).join(", ")}
@@ -582,7 +599,7 @@ export function TeamStatementMonth({ month }: { month: string }) {
                   );
                 })}
               </ul>
-            </Block>
+            </SettingsSection>
           )}
           {latest && <Snapshot revision={latest} />}
           {!latest && view.state !== "due" && (

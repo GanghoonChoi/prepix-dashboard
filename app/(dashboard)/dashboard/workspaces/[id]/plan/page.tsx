@@ -3,12 +3,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import { useI18n } from "@/lib/i18n/context";
-import {
-  Block,
-  TeamShell,
-  SeatBreakdown,
-  secondaryClass,
-} from "@/components/workspaces/shared";
+import { TeamShell, SeatBreakdown } from "@/components/workspaces/shared";
+import { buttonClass, SettingsSection } from "@/components/ui";
 import { B2bPlan } from "@/components/b2b/plan";
 import { AccessDenied } from "@/components/b2b/shared";
 import { isPersonal } from "@/lib/workspaces/kind";
@@ -63,29 +59,29 @@ export default function Page() {
   if (!personal && !data.canManage)
     return <AccessDenied code="B2B_TEAM_MANAGER_REQUIRED" />;
   const myPlan = (
-    <Link href="/dashboard/plan" className={secondaryClass}>
+    <Link href="/dashboard/plan" className={buttonClass({ variant: "secondary", size: "sm" })}>
       {c("내 플랜 보기", "View my plan")}
     </Link>
   );
   return (
     <TeamShell title={c("플랜과 결제", "Plan and billing")}>
       {personal ? (
-        <Block
+        <SettingsSection
           title={t("team.kind.personal")}
           description={t("team.personalDesc")}
-          actions={myPlan}
+          action={myPlan}
         />
       ) : (
         <>
           {/* One sentence, not two empty sections: a "결제 수단" block and an
               "청구서 내역" block both saying there is nothing yet. */}
-          <Block
+          <SettingsSection
             title={c("팀 프리뷰", "Team preview")}
             description={c(
               "팀 결제가 연결되기 전이라 청구되지 않습니다.",
               "Nothing is charged until team billing is connected.",
             )}
-            actions={myPlan}
+            action={myPlan}
           />
           {/*
             Seats belong to a team. A personal space consumes none, so this
@@ -97,7 +93,7 @@ export default function Page() {
           <div className="space-y-3">
             <SeatBreakdown detail={data} />
             <Link
-              className={secondaryClass}
+              className={buttonClass({ variant: "secondary" })}
               href={`/dashboard/workspaces/${data.workspace.id}/members`}
             >
               {c("멤버 관리", "Manage members")}

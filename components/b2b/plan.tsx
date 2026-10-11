@@ -9,17 +9,27 @@ import { billingTabs,
   billingCode,
   kst,
   orderLabels,
+  orderTones,
   refundLabels,
+  refundTones,
+  targetLabels,
   useTeamBilling,
-  won,
+  useWon,
 } from "./billing-shared";
 import type { B2bStatus } from "@/lib/api/services/b2b.service";
+import { SpaceBadge, TeamShell } from "@/components/workspaces/shared";
 import {
-  Block,
-  secondaryClass,
-  SpaceBadge,
-  TeamShell,
-} from "@/components/workspaces/shared";
+  Badge,
+  buttonClass,
+  numClass,
+  SettingsSection,
+  StatStrip,
+  tableClass,
+  tdClass,
+  thClass,
+} from "@/components/ui";
+import { formatDate } from "@/lib/format";
+import { useI18n } from "@/lib/i18n/context";
 import { B2bError, StateBadge, useCopy } from "./shared";
 
 export function B2bPlan({
@@ -30,6 +40,8 @@ export function B2bPlan({
   workspace: { id: string; name: string };
 }) {
   const c = useCopy();
+  const won = useWon();
+  const { lang } = useI18n();
   const billing = useTeamBilling(workspace.id);
   const [orders, setOrders] = useState<TeamOrderList | null>(null);
   const [failure, setFailure] = useState("");
@@ -53,26 +65,47 @@ export function B2bPlan({
   // new members on People and renews by itself.
   const lapsed = ["read_only", "recovery", "deletion_due"].includes(status.team.currentState);
   const target = !status.team.periodEndsAt ? "initial" : lapsed ? "restore" : null;
+  const card = view?.methods.find((m) => m.state === "active");
+  const ends = status.team.periodEndsAt;
   return (
     <TeamShell title={c("플랜과 결제", "Plan and billing")} tabs={billingTabs(workspace.id, c)}>
       <RenewalConsentCard billing={billing} />
-      <Block
-        title={c("팀 이용기간", "Team period")}
-        description={
-          status.team.periodEndsAt
-            ? c(`${kst(status.team.periodEndsAt)}까지`, `Until ${kst(status.team.periodEndsAt)}`)
-            : c("아직 구매한 기간이 없습니다.", "No period purchased yet.")
-        }
-        actions={<StateBadge state={status.team.currentState} />}
+      {/* Only figures this page already holds; seats live on People. */}
+      <StatStrip
+        items={[
+          { label: c("플랜", "Plan"), value: "Business", foot: <StateBadge state={status.team.currentState} /> },
+          {
+            label: c("팀 이용기간", "Team period"),
+            // The exact instant, not a day: the period end is exclusive.
+            value: ends ? (
+              <span className="text-base">{c(`${kst(ends)}까지`, `Until ${kst(ends)}`)}</span>
+            ) : (
+              "—"
+            ),
+            foot: ends ? undefined : c("아직 구매한 기간이 없습니다.", "No period purchased yet."),
+          },
+          {
+            label: c("결제수단", "Payment method"),
+            value: view ? (
+              card ? (
+                <span className="font-mono text-base">{card.cardNumberMasked ?? c("카드 정보 없음", "No card")}</span>
+              ) : (
+                <span className="text-base">{c("등록 카드 없음", "No card")}</span>
+              )
+            ) : (
+              "—"
+            ),
+          },
+        ]}
       />
       {/* The space is named where the money goes, not in a row of its own. */}
-      <Block
+      <SettingsSection
         title={c("Business 플랜", "Business plan")}
         description={c(
           "뷰어를 뺀 멤버마다 좌석 하나, 매월 자동결제됩니다. 뷰어는 무료입니다.",
           "One seat per member but viewers, charged monthly. Viewers are free.",
         )}
-        actions={<SpaceBadge workspace={workspace} />}
+        action={<SpaceBadge workspace={workspace} />}
       >
         {target ? (
           <Suspense>
@@ -89,36 +122,58 @@ export function B2bPlan({
             </Link>
           </p>
         )}
-      </Block>
+      </SettingsSection>
       {/* No orders yet is the absence of this section, not a heading over "none". */}
       {(failure || (orders && orders.items.length > 0)) && (
-        <Block title={c("주문과 결제", "Orders and payments")}>
+        <SettingsSection title={c("주문과 결제", "Orders and payments")}>
           {failure && <BillingError code={failure} />}
           {orders && orders.items.length > 0 && (
-            <ul className="divide-y divide-border border-y border-border">
-              {orders.items.map((o) => (
-                <li key={o.id}>
-                  <Link
-                    className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-3 hover:bg-surface focus-visible:outline-2 focus-visible:outline-foreground"
-                    href={`/dashboard/workspaces/${workspace.id}/plan/orders/${o.id}`}
-                  >
-                    <span className="min-w-0">
-                      <span className="block text-sm font-medium tabular-nums">{won(o.amounts.totalKrw)}</span>
-                      <span className="block text-[13px] text-muted">{kst(o.createdAt)}</span>
-                    </span>
-                    <span className="text-[13px] text-muted">
-                      {c(...orderLabels[o.state])}
-                      {o.refund && ` · ${c(...refundLabels[o.refund.state])}`}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <div className="overflow-x-auto">
+              <table className={tableClass}>
+                <thead>
+                  <tr>
+                    <th className={thClass}>{c("내용", "Item")}</th>
+                    <th className={thClass}>{c("날짜", "Date")}</th>
+                    <th className={`${thClass} ${numClass}`}>{c("금액", "Amount")}</th>
+                    <th className={thClass}>{c("상태", "Status")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.items.map((o) => (
+                    // The link stretches over the row, so the whole row opens the order.
+                    <tr key={o.id} className="relative transition-colors hover:bg-surface focus-within:bg-surface">
+                      <td className={`${tdClass} font-medium`}>
+                        <Link
+                          className="whitespace-nowrap after:absolute after:inset-0 focus-visible:outline-none"
+                          href={`/dashboard/workspaces/${workspace.id}/plan/orders/${o.id}`}
+                        >
+                          {c(...(targetLabels[o.target] ?? [o.target, o.target]))}
+                        </Link>
+                      </td>
+                      <td className={`${tdClass} whitespace-nowrap tabular-nums text-muted`}>{formatDate(o.createdAt, lang)}</td>
+                      <td className={`${tdClass} ${numClass} whitespace-nowrap`}>{won(o.amounts.totalKrw)}</td>
+                      <td className={tdClass}>
+                        <span className="flex flex-wrap gap-1">
+                          <Badge tone={orderTones[o.state]} dot={orderTones[o.state] !== "neutral"}>
+                            {c(...orderLabels[o.state])}
+                          </Badge>
+                          {o.refund && (
+                            <Badge tone={refundTones[o.refund.state]} dot={refundTones[o.refund.state] !== "neutral"}>
+                              {c(...refundLabels[o.refund.state])}
+                            </Badge>
+                          )}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
-        </Block>
+        </SettingsSection>
       )}
       {/* Edited on the 결제 정보 tab; here only the summary. */}
-      <Block
+      <SettingsSection
         title={c("결제 정보와 갱신", "Billing and renewal")}
         description={
           view
@@ -135,8 +190,8 @@ export function B2bPlan({
               ].join(" · ")
             : undefined
         }
-        actions={
-          <Link className={secondaryClass} href={`/dashboard/workspaces/${workspace.id}/plan/settings`}>
+        action={
+          <Link className={buttonClass({ variant: "secondary", size: "sm" })} href={`/dashboard/workspaces/${workspace.id}/plan/settings`}>
             {c("관리", "Manage")}
           </Link>
         }
@@ -144,7 +199,7 @@ export function B2bPlan({
         {!view && billing.error && (
           <BillingError code={billing.error} retry={() => void billing.reload()} />
         )}
-      </Block>
+      </SettingsSection>
       {/* Last on purpose: the destructive action sits below everything a
           customer comes here to do. */}
       <TeamTermination workspaceId={workspace.id} status={status} billing={billing} />
