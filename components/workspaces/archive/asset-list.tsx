@@ -15,8 +15,17 @@ import {
 } from "@/lib/workspaces/archive-view";
 import { posterKey } from "@/lib/workspaces/poster-cache";
 import { AssetActions, type ArchiveHandlers } from "./asset-actions";
-import { clock, statePill, typeIcon } from "./asset-grid";
-import { ago } from "@/components/ui";
+import { statePill, typeIcon } from "./asset-grid";
+import {
+  ago,
+  Badge,
+  numClass,
+  rowClass,
+  tableClass,
+  tdClass,
+  thClass,
+} from "@/components/ui";
+import { formatClock } from "@/lib/format";
 
 /**
  * A sortable column header.
@@ -42,7 +51,7 @@ function SortHeader({
   return (
     <th
       scope="col"
-      className={`py-3 pr-4 font-normal ${align === "right" ? "text-right" : "text-left"}`}
+      className={`${thClass} ${align === "right" ? "text-right" : "text-left"}`}
       aria-sort={
         activeColumn ? (sort.dir === "asc" ? "ascending" : "descending") : "none"
       }
@@ -50,7 +59,7 @@ function SortHeader({
       <button
         type="button"
         onClick={() => onSort(column)}
-        className={`inline-flex min-h-9 items-center gap-1 rounded-md px-1 transition-colors hover:text-foreground ${
+        className={`-mx-1 inline-flex h-8 items-center gap-1 rounded-md px-1 transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-focus ${
           activeColumn ? "text-foreground" : ""
         }`}
       >
@@ -102,26 +111,26 @@ export function AssetList({
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[36rem] text-[13px]">
+      <table className={`${tableClass} min-w-[36rem]`}>
         <thead>
-          <tr className="border-b border-border text-left text-xs text-muted">
+          <tr>
             <SortHeader column="name" label={c("이름", "Name")} sort={sort} onSort={onSort} />
             <SortHeader column="size" label={c("크기", "Size")} align="right" sort={sort} onSort={onSort} />
             <SortHeader column="createdAt" label={c("올린 날짜", "Uploaded")} sort={sort} onSort={onSort} />
             {/* `relative` contains the absolutely-positioned sr-only label,
                 which would otherwise escape this table's overflow clip and
                 scroll the whole page sideways on a phone. */}
-            <th scope="col" className="relative w-24 py-3">
+            <th scope="col" className={`${thClass} relative w-24`}>
               <span className="sr-only">{c("작업", "Actions")}</span>
             </th>
           </tr>
         </thead>
         <tbody>
           {folders.map((folder) => (
-            <tr key={folder.id} className="border-b border-border transition-colors hover:bg-surface">
-              <td colSpan={4} className="py-0">
+            <tr key={folder.id} className={rowClass}>
+              <td colSpan={4} className="border-b border-border p-0">
                 <button
-                  className="flex min-h-14 w-full items-center gap-3 text-left"
+                  className="flex min-h-14 w-full items-center gap-3 text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-focus"
                   onClick={() => onOpenFolder(folder)}
                 >
                   <span className="grid h-9 w-16 shrink-0 place-items-center rounded-md bg-surface-secondary text-muted">
@@ -143,8 +152,8 @@ export function AssetList({
             const pill = statePill(asset, handlers.now, c);
             const Icon = typeIcon(asset.name);
             return (
-              <tr key={asset.id} className="group border-b border-border transition-colors hover:bg-surface">
-                <td className="py-2.5 pr-4">
+              <tr key={asset.id} className="group transition-colors hover:bg-surface">
+                <td className={tdClass}>
                   <div className="flex items-center gap-3">
                     <span className="relative grid h-9 w-16 shrink-0 place-items-center overflow-hidden rounded-md bg-surface-secondary text-muted ring-1 ring-border">
                       {poster ? (
@@ -154,8 +163,8 @@ export function AssetList({
                         <Icon size={15} strokeWidth={1.5} aria-hidden="true" />
                       )}
                       {duration !== undefined && (
-                        <span className="absolute bottom-0.5 right-0.5 rounded bg-black/70 px-1 text-[9px] font-medium leading-4 tabular-nums text-white">
-                          {clock(duration)}
+                        <span className="absolute bottom-0.5 right-0.5 rounded bg-black/70 px-1 font-mono text-[11px] leading-4 tabular-nums text-white">
+                          {formatClock(duration)}
                         </span>
                       )}
                     </span>
@@ -163,7 +172,7 @@ export function AssetList({
                       <div className="flex min-w-0 items-center gap-2">
                         {playable ? (
                           <button
-                            className="min-w-0 truncate text-left font-medium underline-offset-4 hover:underline"
+                            className="min-w-0 truncate rounded-sm text-left font-medium underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-focus"
                             title={asset.name}
                             onClick={() => onPreview(asset)}
                           >
@@ -174,11 +183,7 @@ export function AssetList({
                             {asset.name}
                           </span>
                         )}
-                        {pill && (
-                          <span className="shrink-0 rounded-md bg-surface-secondary px-1.5 py-0.5 text-[11px] text-muted">
-                            {pill}
-                          </span>
-                        )}
+                        {pill && <Badge>{pill}</Badge>}
                       </div>
                       {note && (
                         <p className="mt-0.5 text-xs leading-5 text-muted">
@@ -199,14 +204,14 @@ export function AssetList({
                     </div>
                   </div>
                 </td>
-                <td className="py-2.5 pr-4 text-right tabular-nums text-muted">{bytes(asset.size)}</td>
+                <td className={`${tdClass} ${numClass} text-muted`}>{bytes(asset.size)}</td>
                 <td
-                  className="whitespace-nowrap py-2.5 pr-4 tabular-nums text-muted"
+                  className={`${tdClass} whitespace-nowrap tabular-nums text-muted`}
                   title={`${new Date(asset.createdAt).toLocaleString(lang)} · ${storageLabel(asset, lang, handlers.now)}`}
                 >
                   {ago(asset.createdAt, lang)}
                 </td>
-                <td className="py-2.5 text-right">
+                <td className={`${tdClass} text-right`}>
                   <div className="flex justify-end opacity-60 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                     <AssetActions asset={asset} handlers={handlers} />
                   </div>

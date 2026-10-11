@@ -7,6 +7,7 @@ import {
 } from "@/lib/api/services/cloud.service";
 import { useI18n } from "@/lib/i18n/context";
 import { RowMenu, RowMenuItem } from "@/components/workspaces/row-menu";
+import { IconButton } from "@/components/ui";
 
 /**
  * Everything a row or a tile needs from the page to act on one asset.
@@ -77,15 +78,14 @@ export function AssetActions({
   return (
     <div className={`flex shrink-0 items-center ${compact ? "" : "gap-1"}`}>
       {active && data.canDownload && (
-        <button
-          className={`grid ${compact ? "size-8" : "size-9"} place-items-center rounded-md text-muted transition-colors hover:bg-surface-secondary hover:text-foreground disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground`}
+        <IconButton
+          label={c("원본 다운로드", "Download original")}
+          size={compact ? "sm" : "md"}
           disabled={!!busy}
-          title={c("원본 다운로드", "Download original")}
-          aria-label={c("원본 다운로드", "Download original")}
           onClick={() => handlers.onDownload(asset)}
         >
-          <Download size={16} strokeWidth={1.5} />
-        </button>
+          <Download size={16} strokeWidth={1.5} aria-hidden="true" />
+        </IconButton>
       )}
       <RowMenu label={c("파일 작업", "File actions")}>
         {data.canEdit && ready && !trash && (

@@ -17,6 +17,7 @@ import {
   type Asset,
   type ArchiveDetail,
   type Folder,
+  type StorageUsage,
 } from "@/lib/api/services/cloud.service";
 import {
   workspaceService,
@@ -42,17 +43,22 @@ import {
   SpaceBadge,
   TeamLoading,
   ConfirmDialog,
-  Notice,
-  inputClass,
-  primaryClass,
-  secondaryClass,
 } from "@/components/workspaces/shared";
-import { RowMenu, RowMenuItem } from "@/components/workspaces/row-menu";
 import {
-  CloudError,
-  cloudErrorCode,
-  StorageMeter,
-} from "@/components/workspaces/cloud-shared";
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  inputClass,
+  MeterRow,
+  Notice,
+  SearchField,
+  Segmented,
+  Select,
+  Toolbar,
+} from "@/components/ui";
+import { RowMenu, RowMenuItem } from "@/components/workspaces/row-menu";
+import { CloudError, cloudErrorCode } from "@/components/workspaces/cloud-shared";
 import { AssetGrid } from "@/components/workspaces/archive/asset-grid";
 import { AssetList } from "@/components/workspaces/archive/asset-list";
 import { PreviewModal } from "@/components/workspaces/archive/preview-modal";
@@ -454,18 +460,22 @@ function Content({ id }: { id: string }) {
   return (
     <TeamShell
       title={c("콘텐츠 아카이브", "Content archive")}
+      /*
+        Upload is the durable action on this page, so the space it lands in is
+        named beside the page's own title, not only in the switcher.
+      */
+      badge={team && <SpaceBadge workspace={team.workspace} />}
       actions={
         data && (
           <>
             {data.canEdit && !trash && (
-              <button className={secondaryClass} disabled={queue.busy} onClick={folderDialog.open}>
+              <Button variant="secondary" disabled={queue.busy} onClick={folderDialog.open}>
                 <FolderPlus size={16} strokeWidth={1.75} aria-hidden="true" />
                 {c("새 폴더", "New folder")}
-              </button>
+              </Button>
             )}
             {data.canEdit && !trash && (
-              <button
-                className={primaryClass}
+              <Button
                 disabled={!canUpload}
                 onClick={() => {
                   resume.current = undefined;
@@ -474,7 +484,7 @@ function Content({ id }: { id: string }) {
               >
                 <Upload size={16} strokeWidth={1.75} aria-hidden="true" />
                 {c("업로드", "Upload")}
-              </button>
+              </Button>
             )}
             {/* Rare doors, one menu: the app, and the trash. */}
             <RowMenu label={c("콘텐츠 아카이브 작업", "Content archive actions")}>
@@ -519,9 +529,9 @@ function Content({ id }: { id: string }) {
         >
           <p className="text-sm leading-6">{confirm.label}</p>
           <div className="flex gap-2">
-            <button
-              className={primaryClass}
+            <Button
               disabled={!!busy}
+              aria-busy={busy === "confirm"}
               onClick={() => {
                 void action("confirm", confirm.run).then(() =>
                   setConfirm(null),
@@ -529,14 +539,14 @@ function Content({ id }: { id: string }) {
               }}
             >
               {c("확인", "Confirm")}
-            </button>
-            <button
-              className={secondaryClass}
+            </Button>
+            <Button
+              variant="secondary"
               disabled={!!busy}
               onClick={() => setConfirm(null)}
             >
               {c("돌아가기", "Go back")}
-            </button>
+            </Button>
           </div>
         </ConfirmDialog>
       )}
@@ -544,46 +554,29 @@ function Content({ id }: { id: string }) {
         <>
           {/* Capacity first (2026-10-08): how full the archive is frames
               everything below it, like a drive's quota card. */}
-          <StorageMeter
+          <ArchiveStorage
             storage={data.storage}
             note={c(
               `파일당 최대 ${bytes(data.capabilities.maxFileBytes)}`,
               `Up to ${bytes(data.capabilities.maxFileBytes)} per file`,
             )}
           />
-          <section className="space-y-6">
-            {/* The toolbar: where you are on the left, how you look on the
-                right (Drive, Frame.io). */}
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+          <section className="space-y-4">
+            {/* The way back up, once there is somewhere above this. */}
+            {(current || trash) && (
               <nav
                 aria-label={c("폴더 경로", "Folder path")}
-                className="flex min-w-0 flex-wrap items-center gap-1 text-sm"
+                className="-mb-2 flex min-w-0 flex-wrap items-center gap-1 text-[13px]"
               >
-                {/*
-                  Upload is the durable action on this page, so the space it
-                  lands in is named at the root of where it lands, not only in
-                  the switcher.
-                */}
-                {team && (
-                  <span className="mr-1">
-                    <SpaceBadge workspace={team.workspace} />
-                  </span>
-                )}
-                {current || trash ? (
-                  <button
-                    className={crumb}
-                    onClick={() => {
-                      setTrash(false);
-                      setPath([]);
-                    }}
-                  >
-                    {c("모든 파일", "All files")}
-                  </button>
-                ) : (
-                  <span aria-current="page" className="px-1.5 py-1 font-medium">
-                    {c("모든 파일", "All files")}
-                  </span>
-                )}
+                <button
+                  className={crumb}
+                  onClick={() => {
+                    setTrash(false);
+                    setPath([]);
+                  }}
+                >
+                  {c("모든 파일", "All files")}
+                </button>
                 {path.map((folder, i) =>
                   !trash && i === path.length - 1 ? (
                     <span key={folder.id} className="flex min-w-0 items-center gap-1">
@@ -616,72 +609,46 @@ function Content({ id }: { id: string }) {
                   </span>
                 )}
               </nav>
-              <div className="flex flex-wrap items-center gap-2">
-                <label className="relative block">
-                  <span className="sr-only">{c("파일 검색", "Search files")}</span>
-                  <Search
-                    size={15}
-                    strokeWidth={1.75}
-                    aria-hidden="true"
-                    className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted"
-                  />
-                  <input
-                    type="search"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder={c("이 폴더에서 검색", "Search this folder")}
-                    className="h-9 w-48 rounded-lg border border-border bg-background pl-8 pr-2 text-[13px] outline-none transition-colors placeholder:text-muted focus:border-foreground/40 sm:w-56"
-                  />
-                </label>
-                <label className="block">
-                  <span className="sr-only">{c("정렬", "Sort")}</span>
-                  <select
-                    value={sortValue}
-                    onChange={(e) => {
-                      const [key, dir] = e.target.value.split(":") as [ArchiveSort["key"], ArchiveSort["dir"]];
-                      setSort({ key, dir });
-                    }}
-                    className="h-9 rounded-lg border border-border bg-background px-2 text-[13px] outline-none focus:border-foreground/40"
-                  >
-                    <option value="createdAt:desc">{c("최근 올린 순", "Newest first")}</option>
-                    <option value="createdAt:asc">{c("오래된 순", "Oldest first")}</option>
-                    <option value="name:asc">{c("이름 순", "Name A–Z")}</option>
-                    <option value="size:desc">{c("큰 파일 순", "Largest first")}</option>
-                  </select>
-                </label>
-                {/* Two views of one archive. The pair is a radiogroup rather
-                    than two toggles so a screen reader hears one choice with
-                    two options, which is what it is. */}
-                <div
-                  role="radiogroup"
-                  aria-label={c("보기 방식", "View")}
-                  className="inline-flex h-9 items-center rounded-lg border border-border p-0.5"
-                >
-                  {(
-                    [
-                      ["grid", LayoutGrid, c("그리드", "Grid")],
-                      ["list", List, c("리스트", "List")],
-                    ] as const
-                  ).map(([mode, Icon, label]) => (
-                    <button
-                      key={mode}
-                      role="radio"
-                      aria-checked={view === mode}
-                      aria-label={label}
-                      title={label}
-                      onClick={() => chooseView(mode)}
-                      className={`grid size-8 place-items-center rounded-md transition-colors ${
-                        view === mode
-                          ? "bg-surface-secondary text-foreground"
-                          : "text-muted hover:text-foreground"
-                      }`}
-                    >
-                      <Icon size={16} strokeWidth={1.75} aria-hidden="true" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
+            )}
+            {/* One line: where you are and how much is here, then how you
+                look at it (Drive, Frame.io). */}
+            <Toolbar title={here} count={files.length}>
+              <SearchField
+                value={query}
+                onChange={setQuery}
+                placeholder={c("이 폴더에서 검색", "Search this folder")}
+                label={c("파일 검색", "Search files")}
+                className="sm:w-56"
+              />
+              <Select
+                aria-label={c("정렬", "Sort")}
+                size="sm"
+                wrapperClassName="w-36"
+                value={sortValue}
+                onChange={(e) => {
+                  const [key, dir] = e.target.value.split(":") as [ArchiveSort["key"], ArchiveSort["dir"]];
+                  setSort({ key, dir });
+                }}
+              >
+                <option value="createdAt:desc">{c("최근 올린 순", "Newest first")}</option>
+                <option value="createdAt:asc">{c("오래된 순", "Oldest first")}</option>
+                <option value="name:asc">{c("이름 순", "Name A–Z")}</option>
+                <option value="size:desc">{c("큰 파일 순", "Largest first")}</option>
+              </Select>
+              {/* Two views of one archive. A radiogroup rather than two
+                  toggles, so a screen reader hears one choice with two
+                  options, which is what it is. */}
+              <Segmented
+                label={c("보기 방식", "View")}
+                iconOnly
+                value={view}
+                onChange={chooseView}
+                options={[
+                  { value: "grid", label: c("그리드", "Grid"), icon: LayoutGrid },
+                  { value: "list", label: c("리스트", "List"), icon: List },
+                ]}
+              />
+            </Toolbar>
             <input
               ref={fileInput}
               type="file"
@@ -707,50 +674,47 @@ function Content({ id }: { id: string }) {
               </Notice>
             )}
             {trash && (
-              <div className="flex items-center gap-2 rounded-lg bg-surface-secondary px-3 py-2 text-[13px] text-muted">
-                <Trash2 size={15} strokeWidth={1.75} aria-hidden="true" />
+              <Notice>
                 {c(
                   "휴지통의 파일은 보관 기한이 지나면 영구 삭제됩니다. 그 전에는 복구할 수 있습니다.",
                   "Files in the trash are deleted for good when their retention ends. Restore them before that.",
                 )}
-              </div>
+              </Notice>
             )}
 
             {empty ? (
               needle ? (
-                <p className="py-16 text-center text-[13px] text-muted">
-                  {c(`'${query.trim()}'와 맞는 파일이 없습니다.`, `Nothing matches '${query.trim()}'.`)}
-                </p>
+                <EmptyState
+                  icon={Search}
+                  title={c(`'${query.trim()}'와 맞는 파일이 없습니다.`, `Nothing matches '${query.trim()}'.`)}
+                />
               ) : trash ? (
-                <p className="py-16 text-center text-[13px] text-muted">
-                  {c("휴지통이 비어 있습니다.", "Trash is empty.")}
-                </p>
+                <EmptyState icon={Trash2} title={c("휴지통이 비어 있습니다.", "Trash is empty.")} />
               ) : (
-                <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-border px-6 py-16 text-center">
-                  <span className="grid size-12 place-items-center rounded-full bg-surface-secondary text-muted">
-                    <UploadCloud size={22} strokeWidth={1.5} aria-hidden="true" />
-                  </span>
-                  <div>
-                    <p className="text-sm font-medium">{c("첫 원본을 올려보세요", "Upload your first original")}</p>
-                    <p className="mt-1 text-[13px] text-muted">
-                      {data.canEdit
-                        ? c("파일을 이 화면 아무 곳에나 끌어다 놓거나 업로드를 누르세요.", "Drop files anywhere on this page, or choose Upload.")
-                        : c("콘텐츠 아카이브에 원본이 추가되면 여기에 표시됩니다.", "Originals added to this archive will appear here.")}
-                    </p>
-                  </div>
-                  {canUpload && (
-                    <button
-                      className={primaryClass}
-                      onClick={() => {
-                        resume.current = undefined;
-                        fileInput.current?.click();
-                      }}
-                    >
-                      <Upload size={16} strokeWidth={1.75} aria-hidden="true" />
-                      {c("업로드", "Upload")}
-                    </button>
-                  )}
-                </div>
+                <EmptyState
+                  frame="dashed"
+                  icon={UploadCloud}
+                  className="py-16"
+                  title={c("첫 원본을 올려보세요", "Upload your first original")}
+                  description={
+                    data.canEdit
+                      ? c("파일을 이 화면 아무 곳에나 끌어다 놓거나 업로드를 누르세요.", "Drop files anywhere on this page, or choose Upload.")
+                      : c("콘텐츠 아카이브에 원본이 추가되면 여기에 표시됩니다.", "Originals added to this archive will appear here.")
+                  }
+                  action={
+                    canUpload && (
+                      <Button
+                        onClick={() => {
+                          resume.current = undefined;
+                          fileInput.current?.click();
+                        }}
+                      >
+                        <Upload size={16} strokeWidth={1.75} aria-hidden="true" />
+                        {c("업로드", "Upload")}
+                      </Button>
+                    )
+                  }
+                />
               )
             ) : view === "grid" ? (
               <AssetGrid
@@ -779,16 +743,20 @@ function Content({ id }: { id: string }) {
 
             {data.nextCursor && (
               <div className="flex justify-center">
-                <button className={secondaryClass} onClick={() => void loadMore()}>
+                <Button
+                  variant="secondary"
+                  aria-busy={busy === "more"}
+                  onClick={() => void loadMore()}
+                >
                   {c("더 불러오기", "Load more")}
-                </button>
+                </Button>
               </div>
             )}
           </section>
           <TransferPanel queue={queue} onCancel={cancelTransfer} />
           {dragging && (
             <div className="pointer-events-none fixed inset-0 z-50 grid place-items-center bg-background/70 p-6 backdrop-blur-sm">
-              <div className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-foreground/40 bg-background px-10 py-12 text-center shadow-lg">
+              <div className="flex flex-col items-center gap-3 rounded-lg border-2 border-dashed border-foreground/40 bg-background px-10 py-12 text-center">
                 <UploadCloud size={28} strokeWidth={1.5} aria-hidden="true" />
                 <p className="text-sm font-medium">
                   {c(`'${here}'에 놓아서 업로드`, `Drop to upload to '${here}'`)}
@@ -819,12 +787,12 @@ function Content({ id }: { id: string }) {
                 onChange={(e) => setFolderName(e.target.value)}
               />
               <div className="flex justify-end gap-2">
-                <button type="button" className={secondaryClass} onClick={folderDialog.close}>
+                <Button variant="secondary" onClick={folderDialog.close}>
                   {c("취소", "Cancel")}
-                </button>
-                <button className={primaryClass} disabled={!!busy || !folderName.trim()}>
+                </Button>
+                <Button type="submit" disabled={!!busy || !folderName.trim()}>
                   {c("폴더 만들기", "Create folder")}
-                </button>
+                </Button>
               </div>
             </form>
           </Dialog>
@@ -844,20 +812,19 @@ function Content({ id }: { id: string }) {
                   });
                 }}
               >
-                <label className="block space-y-1.5">
-                  <span className="text-xs text-muted">{c("파일 이름", "File name")}</span>
+                <Field label={c("파일 이름", "File name")} htmlFor="archive-edit-name">
                   <input
+                    id="archive-edit-name"
                     className={inputClass}
                     required
                     maxLength={255}
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
                   />
-                </label>
-                <label className="block space-y-1.5">
-                  <span className="text-xs text-muted">{c("폴더", "Folder")}</span>
-                  <select
-                    className={inputClass}
+                </Field>
+                <Field label={c("폴더", "Folder")} htmlFor="archive-edit-folder">
+                  <Select
+                    id="archive-edit-folder"
                     value={editFolder}
                     onChange={(e) => setEditFolder(e.target.value)}
                   >
@@ -867,15 +834,15 @@ function Content({ id }: { id: string }) {
                         {f.name}
                       </option>
                     ))}
-                  </select>
-                </label>
+                  </Select>
+                </Field>
                 <div className="flex justify-end gap-2">
-                  <button type="button" className={secondaryClass} onClick={editDialog.close}>
+                  <Button variant="secondary" onClick={editDialog.close}>
                     {c("취소", "Cancel")}
-                  </button>
-                  <button className={primaryClass} disabled={!!busy}>
+                  </Button>
+                  <Button type="submit" disabled={!!busy}>
                     {c("변경 저장", "Save changes")}
-                  </button>
+                  </Button>
                 </div>
               </form>
             )}
@@ -896,5 +863,47 @@ function Content({ id }: { id: string }) {
         </>
       )}
     </TeamShell>
+  );
+}
+
+/**
+ * How full the archive is, as one kit meter row. The numbers are the old
+ * StorageMeter's — what is stored plus what in-flight uploads have reserved.
+ */
+function ArchiveStorage({ storage, note }: { storage: StorageUsage; note: string }) {
+  const { lang } = useI18n();
+  const c = (ko: string, en: string) => (lang === "ko" ? ko : en);
+  const total = storage.used + storage.reserved;
+  const free = Math.max(0, storage.limit - total);
+  const share = storage.limit > 0 ? total / storage.limit : 0;
+  const percent =
+    total > 0 && share < 0.001
+      ? c("0.1% 미만", "under 0.1%")
+      : `${(share * 100).toFixed(share < 0.1 ? 1 : 0)}%`;
+  const facts = [
+    c(`${percent} 사용`, `${percent} used`),
+    c(`${bytes(free)} 남음`, `${bytes(free)} left`),
+    storage.reserved > 0 ? c(`업로드 중 ${bytes(storage.reserved)}`, `Uploading ${bytes(storage.reserved)}`) : null,
+    note,
+  ];
+  return (
+    <section aria-label={c("저장 공간", "Storage")}>
+      <Card>
+        <MeterRow
+          label={c("저장 공간", "Storage")}
+          value={`${bytes(total)} / ${bytes(storage.limit)}`}
+          percent={share * 100}
+          foot={facts.filter(Boolean).join(" · ")}
+        />
+        {share >= 0.95 && (
+          <p className="mt-3 text-xs leading-5 text-danger-ink">
+            {c(
+              "저장 공간이 거의 찼습니다. 휴지통을 비우거나 플랜에서 용량을 늘려 주세요.",
+              "Storage is nearly full. Empty the trash or add capacity on your plan.",
+            )}
+          </p>
+        )}
+      </Card>
+    </section>
   );
 }

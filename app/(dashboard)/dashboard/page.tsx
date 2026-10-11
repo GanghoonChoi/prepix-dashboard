@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Skeleton, Button } from "@heroui/react";
+import { Skeleton } from "@heroui/react";
 import {
   ArrowRight,
   ArrowUpRight,
   Download,
-  FileVideo,
   TicketPercent,
+  Upload,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -25,7 +25,19 @@ import { useI18n } from "@/lib/i18n/context";
 import { downloadUrl } from "@/lib/i18n/config";
 import { useCurrentSpace } from "@/components/dashboard/current-space";
 import { isPersonal } from "@/lib/workspaces/kind";
-import { PageHeader, Stat, Meter, cardClass } from "@/components/ui";
+import {
+  ago,
+  Button,
+  cardClass,
+  EmptyState,
+  Meter,
+  Notice,
+  Page,
+  Poster,
+  StatStrip,
+  Toolbar,
+} from "@/components/ui";
+import { formatDay, formatDuration } from "@/lib/format";
 
 type Usage = {
   inferenceQuota?: {
@@ -112,9 +124,12 @@ export default function DashboardPage() {
     };
   }, [spaceId]);
 
-  const locale = lang === "ko" ? "ko-KR" : "en-US";
-  const day = (value: number | string) =>
-    new Date(value).toLocaleDateString(locale, { month: "long", day: "numeric" });
+  const day = (value: number | string) => formatDay(new Date(value), lang);
+  // formatDuration says "1분 미만" for anything under a minute, which is a lie
+  // about a used-up quota; nothing left is 0.
+  // ponytail: belongs in lib/format.formatDuration once that file is open again.
+  const duration = (seconds: number) =>
+    seconds > 0 ? formatDuration(seconds, lang) : lang === "ko" ? "0분" : "0m";
 
   // /usage reports the same entitled tier, so a failed subscription fetch falls
   // back to it rather than silently claiming the user is on Free.
@@ -168,91 +183,107 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="space-y-8">
-      <PageHeader
-        title={
-          profile?.username
-            ? t("dashboard.welcomeBack", { name: profile.username })
-            : t("dashboard.welcomeBackGeneric")
-        }
-        description={t("dashboard.subtitle")}
-      />
-
+    <Page
+      title={
+        profile?.username
+          ? t("dashboard.welcomeBack", { name: profile.username })
+          : t("dashboard.welcomeBackGeneric")
+      }
+      description={t("dashboard.subtitle")}
+    >
       {/* Only for accounts that never answered /start's first question. */}
       {process.env.NEXT_PUBLIC_START_ONBOARDING === "1" &&
         unanswered &&
         !rows?.some((row) => !isPersonal(row)) && (
-        <Link href={`/start?locale=${lang}`} className={`${cardClass} block p-4 text-sm`}>
-          <span className="font-medium">{lang === "ko" ? "시작 설정 마치기" : "Finish setting up"}</span>
-          <span className="ml-2 text-muted">{lang === "ko" ? "1분이면 끝나요" : "Takes a minute"}</span>
+        <Link
+          href={`/start?locale=${lang}`}
+          className={`${cardClass} flex items-center gap-3 p-4 text-sm transition-colors hover:bg-surface`}
+        >
+          <span className="min-w-0 flex-1">
+            <span className="font-medium">{lang === "ko" ? "시작 설정 마치기" : "Finish setting up"}</span>
+            <span className="ml-2 text-muted">{lang === "ko" ? "1분이면 끝나요" : "Takes a minute"}</span>
+          </span>
+          <ArrowRight size={14} className="shrink-0 text-muted" aria-hidden="true" />
         </Link>
       )}
 
       {loadError && (
-        <div className="flex items-center justify-between rounded-lg border border-danger/30 bg-danger/5 px-5 py-4">
-          <p className="text-sm text-danger">{t("dashboard.loadError")}</p>
-          <Button variant="outline" size="sm" onPress={loadData}>{t("common.retry")}</Button>
-        </div>
+        <Notice
+          tone="danger"
+          action={
+            <Button variant="secondary" size="sm" onClick={loadData}>
+              {t("common.retry")}
+            </Button>
+          }
+        >
+          {t("dashboard.loadError")}
+        </Notice>
       )}
 
       {loading ? (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-[1.4fr_1fr_1fr]">
-          {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className={`h-[124px] rounded-lg ${i === 0 ? "col-span-2 md:col-span-1" : ""}`} />
-          ))}
-        </div>
+        <Skeleton className="h-[124px] rounded-lg" />
       ) : (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-[1.4fr_1fr_1fr]">
-          <Stat
-            className="col-span-2 md:col-span-1"
-            label={t("dashboard.creditsRemaining")}
-            value={unlimited ? t("dashboard.unlimited") : (quota?.remainingFormatted ?? "—")}
-            unit={
-              unlimited || !quota
-                ? undefined
-                : t("dashboard.ofTotal", { total: quota.totalFormatted })
-            }
-          >
-            <Meter value={pct} />
-            <p className="mt-2">
-              {[
-                usage?.periodEnd ? t("dashboard.resets", { date: day(usage.periodEnd) }) : null,
-                bonusMinutes > 0 ? t("dashboard.bonusIncluded", { minutes: String(bonusMinutes) }) : null,
+        <StatStrip
+          items={[
+            {
+              label: t("dashboard.creditsRemaining"),
+              // The seconds, not the server's English "38m": durations are
+              // ours to print, in the reader's language.
+              value: unlimited
+                ? t("dashboard.unlimited")
+                : quota
+                  ? duration(remaining)
+                  : "—",
+              unit:
+                unlimited || !quota
+                  ? undefined
+                  : t("dashboard.ofTotal", { total: duration(total) }),
+              foot: (
+                <>
+                  {/* Time left: full is good news, never amber. */}
+                  <Meter value={pct} tone="neutral" />
+                  <span className="mt-2 block">
+                    {[
+                      usage?.periodEnd ? t("dashboard.resets", { date: day(usage.periodEnd) }) : null,
+                      bonusMinutes > 0 ? t("dashboard.bonusIncluded", { minutes: String(bonusMinutes) }) : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
+                </>
+              ),
+            },
+            {
+              label: t("dashboard.planLabel"),
+              value: PLAN_NAMES[plan] ?? PLAN_NAMES.free,
+              foot: (
+                <Link href="/dashboard/plan" className="inline-flex items-center gap-1 hover:text-foreground">
+                  {planNote || t("dashboard.upgradePlan")}
+                  <ArrowRight size={12} aria-hidden="true" />
+                </Link>
+              ),
+            },
+            {
+              label: t("dashboard.videosThisMonth"),
+              value: String(videos?.thisMonth ?? 0),
+              foot: [
+                t("dashboard.completedCount", { count: videos?.completed ?? 0 }),
+                videos?.processing ? t("dashboard.processingCount", { count: videos.processing }) : null,
               ]
                 .filter(Boolean)
-                .join(" · ")}
-            </p>
-          </Stat>
-          <Stat
-            label={t("dashboard.planLabel")}
-            value={PLAN_NAMES[plan] ?? PLAN_NAMES.free}
-          >
-            <Link href="/dashboard/plan" className="inline-flex items-center gap-1 hover:text-foreground">
-              {planNote || t("dashboard.upgradePlan")}
-              <ArrowRight size={12} aria-hidden="true" />
-            </Link>
-          </Stat>
-          <Stat
-            label={t("dashboard.videosThisMonth")}
-            value={String(videos?.thisMonth ?? 0)}
-          >
-            {[
-              t("dashboard.completedCount", { count: videos?.completed ?? 0 }),
-              videos?.processing ? t("dashboard.processingCount", { count: videos.processing }) : null,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </Stat>
-        </div>
+                .join(" · "),
+            },
+          ]}
+        />
       )}
 
       <section>
-        <h2 className="mb-3 text-[13px] font-medium">{t("dashboard.quickActions")}</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <Toolbar title={t("dashboard.quickActions")} className="mb-3" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {actions.map(({ label, hint, href, Icon, external }) => {
             const inner = (
               <>
-                <span className="grid size-9 shrink-0 place-items-center rounded-md border border-border bg-surface">
+                <span className="grid size-9 shrink-0 place-items-center rounded-md bg-surface-secondary text-muted">
                   <Icon size={16} strokeWidth={1.75} aria-hidden="true" />
                 </span>
                 <span className="min-w-0 flex-1">
@@ -282,49 +313,37 @@ export default function DashboardPage() {
 
       {archive && (
         <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-[13px] font-medium">{t("dashboard.recentUploads")}</h2>
+          <Toolbar title={t("dashboard.recentUploads")} className="mb-3">
             <Link
               href={archive.href}
               className="inline-flex items-center gap-1 text-xs text-muted hover:text-foreground"
             >
               {t("dashboard.openArchive")} <ArrowRight size={12} aria-hidden="true" />
             </Link>
-          </div>
-          <div className={`${cardClass} divide-y divide-border`}>
-            {!recent || recent.space !== spaceId ? (
-              <div className="space-y-2 p-4">
-                <Skeleton className="h-4 w-2/3 rounded" />
-                <Skeleton className="h-4 w-1/2 rounded" />
-              </div>
-            ) : recent.assets.length === 0 ? (
-              <p className="px-4 py-6 text-center text-[13px] text-muted">{t("dashboard.noUploads")}</p>
-            ) : (
-              recent.assets.map((asset) => (
-                <Link
-                  key={asset.id}
-                  href={archive.href}
-                  className="flex items-center gap-3 px-4 py-3 text-[13px] transition-colors hover:bg-surface"
-                >
-                  <FileVideo size={16} strokeWidth={1.75} className="shrink-0 text-muted" aria-hidden="true" />
-                  <span className="min-w-0 flex-1 truncate">{asset.name}</span>
-                  <span className="shrink-0 text-xs text-muted tabular-nums">{ago(asset.createdAt, locale)}</span>
+          </Toolbar>
+          {!recent || recent.space !== spaceId ? (
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              {[0, 1, 2, 3].map((i) => (
+                <Skeleton key={i} className="aspect-video rounded-lg" />
+              ))}
+            </div>
+          ) : recent.assets.length === 0 ? (
+            <EmptyState icon={Upload} title={t("dashboard.noUploads")} />
+          ) : (
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              {recent.assets.map((asset) => (
+                <Link key={asset.id} href={archive.href} className="group min-w-0">
+                  <Poster className="transition-colors group-hover:border-foreground/25" />
+                  <p className="mt-2 truncate text-[13px] font-medium" title={asset.name}>
+                    {asset.name}
+                  </p>
+                  <p className="text-xs text-muted tabular-nums">{ago(asset.createdAt, lang)}</p>
                 </Link>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
       )}
-    </div>
+    </Page>
   );
-}
-
-/** "2시간 전", "어제", then a date once it is more than a week old. */
-function ago(iso: string, locale: string) {
-  const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
-  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
-  if (minutes < 60) return rtf.format(-Math.max(1, minutes), "minute");
-  if (minutes < 60 * 24) return rtf.format(-Math.round(minutes / 60), "hour");
-  if (minutes < 60 * 24 * 7) return rtf.format(-Math.round(minutes / 1440), "day");
-  return new Date(iso).toLocaleDateString(locale, { month: "long", day: "numeric" });
 }

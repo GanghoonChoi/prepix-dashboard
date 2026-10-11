@@ -3,7 +3,16 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Mail } from "lucide-react";
-import { Tag } from "@/components/ui";
+import {
+  Badge,
+  Button,
+  buttonClass,
+  rowClass,
+  tableClass,
+  tdClass,
+  thClass,
+} from "@/components/ui";
+import { formatDay } from "@/lib/format";
 import { useI18n } from "@/lib/i18n/context";
 import {
   workspaceService,
@@ -17,9 +26,8 @@ import {
   SpaceIcon,
   useSpaceName,
   inputClass,
-  primaryClass,
-  secondaryClass,
 } from "@/components/workspaces/shared";
+import { RowMenu, RowMenuItem } from "@/components/workspaces/row-menu";
 import { workspaceError } from "@/lib/workspaces/onboarding";
 import { isPersonal, personalFirst } from "@/lib/workspaces/kind";
 
@@ -76,7 +84,7 @@ export default function WorkspacesPage() {
         status !== "unreachable" &&
         capabilities?.enabled &&
         capabilities.canCreate && (
-          <Link href="/dashboard/workspaces/new" className={secondaryClass}>
+          <Link href="/dashboard/workspaces/new" className={buttonClass({ variant: "secondary" })}>
             {t("team.makeTeam")}
           </Link>
         )
@@ -97,7 +105,7 @@ export default function WorkspacesPage() {
         */
         <>
           <TeamError code="WORKSPACES_DISABLED" />
-          <Link href="/dashboard" className={secondaryClass}>
+          <Link href="/dashboard" className={buttonClass({ variant: "secondary" })}>
             {t("team.personal")}
           </Link>
         </>
@@ -114,11 +122,11 @@ export default function WorkspacesPage() {
                 section simply does not appear for them.
               */}
               {data.invitations.length > 0 && (
-                <section className="space-y-2">
-                  <h2 className="text-[15px] font-medium">{t("team.pending")}</h2>
+                <section className="space-y-3">
+                  <h2 className="text-base font-semibold">{t("team.pending")}</h2>
                   <ul className="border-t border-border">
                     {data.invitations.map((invite) => (
-                      <li key={invite.id} className={`${spaceGrid} border-b border-border py-3`}>
+                      <li key={invite.id} className={`${spaceGrid} min-h-14 border-b border-border py-2.5`}>
                         <div className="flex min-w-0 items-center gap-3">
                           <IconBox>
                             <Mail size={15} strokeWidth={1.75} aria-hidden="true" />
@@ -130,9 +138,7 @@ export default function WorkspacesPage() {
                         <p className="hidden truncate text-[13px] text-muted sm:block">
                           {t(`team.role.${invite.role}`)} ·{" "}
                           {t("team.expires", {
-                            date: new Date(
-                              invite.expiresAt,
-                            ).toLocaleDateString(lang),
+                            date: formatDay(invite.expiresAt, lang),
                           })}
                         </p>
                         {/*
@@ -141,9 +147,10 @@ export default function WorkspacesPage() {
                           route rather than asking the server to hand out
                           tokens it withheld on purpose.
                         */}
-                        <button
-                          className={primaryClass}
+                        <Button
+                          size="sm"
                           disabled={!!joining}
+                          aria-busy={joining === invite.id}
                           onClick={() => void acceptPending(invite.id)}
                         >
                           {t(
@@ -151,7 +158,7 @@ export default function WorkspacesPage() {
                               ? "team.accepting"
                               : "team.acceptPending",
                           )}
-                        </button>
+                        </Button>
                       </li>
                     ))}
                   </ul>
@@ -175,7 +182,7 @@ export default function WorkspacesPage() {
   );
 }
 
-/** Name | your role | open, so a row reads like the members table. */
+/** Invitation rows: name | role · expiry | accept. */
 const spaceGrid =
   "grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 sm:grid-cols-[minmax(0,1fr)_14rem_auto]";
 
@@ -205,29 +212,63 @@ function Spaces({
   const teams = ordered.filter((row) => !isPersonal(row));
   return (
     <div>
-      <div
-        aria-hidden="true"
-        className={`${spaceGrid} hidden h-11 border-b border-border text-xs font-medium text-muted sm:grid`}
-      >
-        <span>{t("team.col.name")}</span>
-        <span>{t("team.col.role")}</span>
-        <span className="w-4" />
+      <div className="overflow-x-auto">
+        <table className={tableClass}>
+          <thead>
+            <tr>
+              <th scope="col" className={thClass}>
+                {t("team.col.name")}
+              </th>
+              <th scope="col" className={`${thClass} hidden w-56 sm:table-cell`}>
+                {t("team.col.role")}
+              </th>
+              <th scope="col" className={`${thClass} w-12`} />
+            </tr>
+          </thead>
+          <tbody>
+            {ordered.map((workspace) =>
+              workspace.suspendedAt && !isPersonal(workspace) ? (
+                <SuspendedSpace
+                  key={workspace.id}
+                  workspace={workspace}
+                  onChange={onChange}
+                />
+              ) : (
+                <SpaceRow key={workspace.id} workspace={workspace} />
+              ),
+            )}
+          </tbody>
+        </table>
       </div>
-      {ordered.map((workspace) =>
-        workspace.suspendedAt && !isPersonal(workspace) ? (
-          <SuspendedSpace
-            key={workspace.id}
-            workspace={workspace}
-            onChange={onChange}
-          />
-        ) : (
-          <SpaceRow key={workspace.id} workspace={workspace} />
-        ),
-      )}
       {teams.length === 0 && (
         <p className="py-4 text-[13px] text-muted">{t("team.personalOne")}</p>
       )}
     </div>
+  );
+}
+
+function SpaceName({
+  personal,
+  name,
+  muted = false,
+}: {
+  personal: boolean;
+  name: string;
+  muted?: boolean;
+}) {
+  const { t } = useI18n();
+  return (
+    <>
+      <IconBox>
+        <SpaceIcon kind={personal ? "personal" : "team"} size={15} />
+      </IconBox>
+      <span className={`min-w-0 truncate font-medium ${muted ? "text-muted" : ""}`}>
+        {name}
+      </span>
+      {/* The personal row is already called 개인 공간; only a team needs its
+          kind said. */}
+      {!personal && <Badge>{t("team.kind.team")}</Badge>}
+    </>
   );
 }
 
@@ -237,35 +278,50 @@ function SpaceRow({
   workspace: WorkspaceList["workspaces"][number];
 }) {
   const { t } = useI18n();
+  const router = useRouter();
   const spaceName = useSpaceName();
   const personal = isPersonal(workspace);
+  const href = `/dashboard/workspaces/${workspace.id}`;
   return (
-    <Link
-      href={`/dashboard/workspaces/${workspace.id}`}
-      data-space={personal ? "personal" : "team"}
-      className={`${spaceGrid} border-b border-border py-3 text-[13px] transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-foreground`}
+    // The link is the way in for a keyboard; the row is the same door for a
+    // pointer anywhere on it.
+    <tr
+      className={rowClass}
+      onClick={(e) => {
+        if (!(e.target as Element).closest("a,button")) router.push(href);
+      }}
     >
-      <div className="flex min-w-0 items-center gap-3">
-        <IconBox>
-          <SpaceIcon kind={personal ? "personal" : "team"} size={15} />
-        </IconBox>
-        <p className="truncate font-medium">{spaceName(workspace)}</p>
-      </div>
+      <td className={tdClass}>
+        <Link
+          href={href}
+          data-space={personal ? "personal" : "team"}
+          className="flex min-w-0 items-center gap-3 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+        >
+          <SpaceName personal={personal} name={spaceName(workspace)} />
+        </Link>
+      </td>
       {/*
         A personal space has no role to report — there is nobody to have a
         role relative to — so its cell stays empty.
       */}
-      <p className="hidden text-muted sm:block">
+      <td className={`${tdClass} hidden text-muted sm:table-cell`}>
         {personal ? (
           "—"
         ) : workspace.onboardingCompletedAt ? (
           t(`team.role.${workspace.role}`)
         ) : (
-          <Tag>{t("team.continueSetup")}</Tag>
+          <Badge>{t("team.continueSetup")}</Badge>
         )}
-      </p>
-      <ChevronRight size={15} strokeWidth={1.75} aria-hidden="true" className="text-muted" />
-    </Link>
+      </td>
+      <td className={`${tdClass} text-right`}>
+        <ChevronRight
+          size={15}
+          strokeWidth={1.75}
+          aria-hidden="true"
+          className="inline text-muted"
+        />
+      </td>
+    </tr>
   );
 }
 
@@ -280,31 +336,49 @@ function SuspendedSpace({
   workspace: WorkspaceList["workspaces"][number];
   onChange: () => Promise<void>;
 }) {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
+  const [open, setOpen] = useState(false);
+  const menu = useRef<HTMLDivElement>(null);
   return (
-    <div
-      data-space="team"
-      className={`${spaceGrid} gap-y-3 border-b border-border py-3 text-[13px]`}
-    >
-      <div className="flex min-w-0 items-center gap-3">
-        <IconBox>
-          <SpaceIcon kind="team" size={15} />
-        </IconBox>
-        <p className="truncate font-medium text-muted">{workspace.name}</p>
-      </div>
-      <p className="hidden sm:block">
-        <Tag tone="danger">{t("team.seatSuspended")}</Tag>
-      </p>
-      {workspace.managementEnabled ? (
-        <SuspendedLeave
-          id={workspace.id}
-          name={workspace.name}
-          onChange={onChange}
-        />
-      ) : (
-        <span />
+    <>
+      <tr data-space="team">
+        <td className={`${tdClass} ${open ? "border-b-0" : ""}`}>
+          <div className="flex min-w-0 items-center gap-3">
+            <SpaceName personal={false} name={workspace.name} muted />
+          </div>
+        </td>
+        <td className={`${tdClass} hidden sm:table-cell ${open ? "border-b-0" : ""}`}>
+          <Badge tone="danger">{t("team.seatSuspended")}</Badge>
+        </td>
+        <td className={`${tdClass} text-right ${open ? "border-b-0" : ""}`}>
+          {workspace.managementEnabled && (
+            <div ref={menu} className="flex justify-end">
+              <RowMenu>
+                <RowMenuItem tone="danger" onClick={() => setOpen(true)}>
+                  {lang === "ko" ? "워크스페이스 탈퇴" : "Leave workspace"}
+                </RowMenuItem>
+              </RowMenu>
+            </div>
+          )}
+        </td>
+      </tr>
+      {open && (
+        <tr>
+          <td colSpan={3} className={`${tdClass} pb-4`}>
+            <SuspendedLeave
+              id={workspace.id}
+              name={workspace.name}
+              onChange={onChange}
+              onCancel={() => {
+                setOpen(false);
+                // Back to the control that opened this, not to <body>.
+                menu.current?.querySelector("button")?.focus();
+              }}
+            />
+          </td>
+        </tr>
       )}
-    </div>
+    </>
   );
 }
 
@@ -312,79 +386,61 @@ function SuspendedLeave({
   id,
   name,
   onChange,
+  onCancel,
 }: {
   id: string;
   name: string;
   onChange: () => Promise<void>;
+  onCancel: () => void;
 }) {
   const { lang } = useI18n();
-  const [open, setOpen] = useState(false);
-  const trigger = useRef<HTMLButtonElement>(null);
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   return (
-    <div className={open ? "col-span-full" : "justify-self-end"}>
-      {!open ? (
-        <button
-          ref={trigger}
-          className={secondaryClass}
-          onClick={() => setOpen(true)}
+    <form
+      className="max-w-md space-y-3"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        try {
+          await workspaceService.leave(id);
+          await onChange();
+        } catch (e) {
+          setError(workspaceError(e));
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      <label className="block space-y-1.5 text-[13px]">
+        <span>
+          {lang === "ko"
+            ? `팀 자료는 남습니다. 탈퇴하려면 ‘${name}’ 입력`
+            : `Team files remain. Type “${name}” to leave`}
+        </span>
+        <input
+          className={inputClass}
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          disabled={busy}
+        />
+      </label>
+      {error && <TeamError code={error} />}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="submit"
+          variant="danger"
+          size="sm"
+          disabled={busy || confirm !== name}
+          aria-busy={busy}
         >
-          {lang === "ko" ? "워크스페이스 탈퇴" : "Leave workspace"}
-        </button>
-      ) : (
-        <form
-          className="w-full space-y-3"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            setBusy(true);
-            try {
-              await workspaceService.leave(id);
-              await onChange();
-            } catch (e) {
-              setError(workspaceError(e));
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          <label className="block space-y-1.5 text-[13px]">
-            <span>
-              {lang === "ko"
-                ? `팀 자료는 남습니다. 탈퇴하려면 ‘${name}’ 입력`
-                : `Team files remain. Type “${name}” to leave`}
-            </span>
-            <input
-              className={inputClass}
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              disabled={busy}
-            />
-          </label>
-          {error && <TeamError code={error} />}
-          <div className="flex flex-wrap gap-2">
-            <button
-              className={primaryClass}
-              disabled={busy || confirm !== name}
-            >
-              {lang === "ko" ? "탈퇴 확인" : "Confirm leaving"}
-            </button>
-            <button
-              type="button"
-              className={secondaryClass}
-              disabled={busy}
-              onClick={() => {
-                setOpen(false);
-                // Back to the control that opened this, not to <body>.
-                trigger.current?.focus();
-              }}
-            >
-              {lang === "ko" ? "취소" : "Cancel"}
-            </button>
-          </div>
-        </form>
-      )}
-    </div>
+          {lang === "ko" ? "탈퇴 확인" : "Confirm leaving"}
+        </Button>
+        <Button variant="secondary" size="sm" disabled={busy} onClick={onCancel}>
+          {lang === "ko" ? "취소" : "Cancel"}
+        </Button>
+      </div>
+    </form>
   );
 }

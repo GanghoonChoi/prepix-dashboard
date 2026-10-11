@@ -17,6 +17,7 @@ import { isPersonal } from "@/lib/workspaces/kind";
 import { useCurrentSpace } from "@/components/dashboard/current-space";
 import { NAV_ICONS } from "@/components/dashboard/sidebar";
 import { SpaceIcon, useSpaceName } from "@/components/workspaces/shared";
+import { Kbd, menuLabelClass } from "@/components/ui";
 
 type Item = {
   section: string;
@@ -29,7 +30,7 @@ type Item = {
 };
 
 const glyph = (Icon: LucideIcon) => (
-  <Icon size={16} strokeWidth={1.75} aria-hidden="true" />
+  <Icon size={15} strokeWidth={1.75} aria-hidden="true" />
 );
 
 /**
@@ -83,7 +84,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           ? "/dashboard"
           : `/dashboard/workspaces/${row.id}`,
         icon: (
-          <SpaceIcon kind={isPersonal(row) ? "personal" : "team"} size={16} />
+          <SpaceIcon kind={isPersonal(row) ? "personal" : "team"} size={15} />
         ),
       })),
     ...(rows
@@ -146,7 +147,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
       onClose={onClose}
       onClick={(event) => event.target === dialog.current && onClose()}
       aria-label={ko ? "명령 검색" : "Command menu"}
-      className="mx-auto mb-auto mt-[12vh] w-[min(560px,calc(100vw-32px))] overflow-hidden rounded-xl border border-border bg-overlay p-0 text-foreground shadow-[0_16px_50px_rgba(0,0,0,0.25)] backdrop:bg-black/40"
+      className="mx-auto mb-auto mt-[12vh] w-[min(560px,calc(100vw-32px))] overflow-hidden rounded-lg border border-border bg-overlay p-0 text-foreground shadow-[0_16px_50px_rgba(0,0,0,0.25)] backdrop:bg-black/40"
     >
       <div className="flex items-center gap-2.5 border-b border-border px-4">
         <Search
@@ -167,11 +168,9 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           aria-label={ko ? "검색" : "Search"}
           className="h-12 flex-1 bg-transparent text-sm outline-none placeholder:text-muted"
         />
-        <kbd className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-muted">
-          esc
-        </kbd>
+        <Kbd>esc</Kbd>
       </div>
-      <ul role="listbox" className="max-h-[50vh] overflow-y-auto p-1.5">
+      <ul role="listbox" className="max-h-[50vh] overflow-y-auto p-1">
         {shown.length === 0 && (
           <li className="px-3 py-8 text-center text-[13px] text-muted">
             {ko ? "결과가 없습니다." : "No results."}
@@ -180,9 +179,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
         {shown.map((item, i) => (
           <li key={`${item.section}:${item.href}`}>
             {(i === 0 || shown[i - 1].section !== item.section) && (
-              <p className="px-2.5 pb-1 pt-2.5 text-[11px] font-medium text-muted">
-                {item.section}
-              </p>
+              <p className={menuLabelClass}>{item.section}</p>
             )}
             <button
               type="button"
@@ -190,11 +187,17 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
               aria-selected={i === active}
               onMouseMove={() => i !== active && setIndex(i)}
               onClick={() => open(item)}
-              className={`flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-left text-[13px] ${
+              className={`flex h-10 w-full items-center gap-2.5 rounded-md px-2 text-left text-[13px] ${
                 i === active ? "bg-surface-secondary" : ""
               }`}
             >
-              <span className="text-muted">{item.icon}</span>
+              <span
+                className={`grid size-7 shrink-0 place-items-center rounded-md border border-border text-muted ${
+                  i === active ? "bg-background" : "bg-surface"
+                }`}
+              >
+                {item.icon}
+              </span>
               <span className="flex-1 truncate">{item.label}</span>
               {i === active && (
                 <ArrowRight

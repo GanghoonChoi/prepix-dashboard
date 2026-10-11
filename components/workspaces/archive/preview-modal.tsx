@@ -7,7 +7,8 @@ import { useI18n } from "@/lib/i18n/context";
 import { cloudService, type Asset } from "@/lib/api/services/cloud.service";
 import { bytes } from "@/lib/workspaces/upload";
 import { captureFrame, posterKey, writePoster } from "@/lib/workspaces/poster-cache";
-import { secondaryClass } from "@/components/workspaces/shared";
+import { Button, IconButton, Notice } from "@/components/ui";
+import { formatDate } from "@/lib/format";
 
 /**
  * Watch an original without leaving the archive.
@@ -197,13 +198,10 @@ export function PreviewModal({
                   "This format cannot play in a browser. The original is stored and intact.",
                 )}
               </p>
-              <button
-                className={`${secondaryClass} border-white/30 text-white hover:bg-white/10`}
-                onClick={() => onDownload(asset)}
-              >
-                <Download size={16} strokeWidth={1.5} />
+              <Button variant="secondary" onClick={() => onDownload(asset)}>
+                <Download size={16} strokeWidth={1.5} aria-hidden="true" />
                 {c("원본 다운로드", "Download original")}
-              </button>
+              </Button>
             </div>
           ) : (
             <video
@@ -298,46 +296,48 @@ export function PreviewModal({
         </div>
 
         {failure === "network" && (
-          <p role="alert" className="text-sm leading-6">
+          <Notice tone="danger" role="alert">
             {c(
               "재생이 중단되었습니다. 다시 열거나 원본을 내려받아 확인하세요.",
               "Playback stopped. Open it again, or download the original.",
             )}
-          </p>
+          </Notice>
         )}
 
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="min-w-0 text-sm text-muted tabular-nums">
+          <p className="min-w-0 text-[13px] text-muted tabular-nums">
             <span className="break-all">{asset.name}</span>
             {" · "}
             {bytes(asset.size)}
             {" · "}
-            {new Date(asset.createdAt).toLocaleDateString(lang)}
+            {formatDate(asset.createdAt, lang)}
           </p>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <button
-              className={secondaryClass}
+            <IconButton
+              variant="secondary"
+              size="md"
               disabled={index === 0}
-              aria-label={c("이전 파일", "Previous file")}
+              label={c("이전 파일", "Previous file")}
               onClick={() => step(-1)}
             >
-              <ChevronLeft size={16} strokeWidth={1.5} />
-            </button>
+              <ChevronLeft size={16} strokeWidth={1.5} aria-hidden="true" />
+            </IconButton>
             <span className="text-xs text-muted tabular-nums">
               {index + 1} / {assets.length}
             </span>
-            <button
-              className={secondaryClass}
+            <IconButton
+              variant="secondary"
+              size="md"
               disabled={index === assets.length - 1}
-              aria-label={c("다음 파일", "Next file")}
+              label={c("다음 파일", "Next file")}
               onClick={() => step(1)}
             >
-              <ChevronRight size={16} strokeWidth={1.5} />
-            </button>
-            <button className={secondaryClass} onClick={() => onDownload(asset)}>
-              <Download size={16} strokeWidth={1.5} />
+              <ChevronRight size={16} strokeWidth={1.5} aria-hidden="true" />
+            </IconButton>
+            <Button variant="secondary" onClick={() => onDownload(asset)}>
+              <Download size={16} strokeWidth={1.5} aria-hidden="true" />
               {c("다운로드", "Download")}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
