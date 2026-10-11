@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 
 export const cardClass = "rounded-lg border border-border bg-background";
 
@@ -7,15 +7,17 @@ export function Card({
   padded = true,
   as: Tag = "section",
   children,
-}: {
-  className?: string;
+  ...props
+}: HTMLAttributes<HTMLElement> & {
   /** Off for cards whose first child is a full-bleed table or list. */
   padded?: boolean;
   as?: "section" | "div" | "article";
   children: ReactNode;
 }) {
   return (
-    <Tag className={`${cardClass} ${padded ? "p-5" : ""} ${className}`}>{children}</Tag>
+    <Tag className={`${cardClass} ${padded ? "p-5" : ""} ${className}`} {...props}>
+      {children}
+    </Tag>
   );
 }
 

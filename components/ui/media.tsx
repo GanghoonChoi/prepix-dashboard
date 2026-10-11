@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Clapperboard } from "lucide-react";
+import { Clapperboard, type LucideIcon } from "lucide-react";
 import { formatClock } from "@/lib/format";
 
 /**
@@ -12,10 +12,13 @@ export function Poster({
   alt = "",
   duration,
   badge,
+  icon: Icon = Clapperboard,
   className = "",
   children,
 }: {
   src?: string | null;
+  /** Placeholder when there is no picture (audio, a document). */
+  icon?: LucideIcon;
   alt?: string;
   /** Seconds. */
   duration?: number | null;
@@ -33,7 +36,7 @@ export function Poster({
         <img src={src} alt={alt} loading="lazy" className="absolute inset-0 size-full object-cover" />
       ) : (
         <span className="absolute inset-0 grid place-items-center text-muted">
-          <Clapperboard size={20} strokeWidth={1.5} aria-hidden="true" />
+          <Icon size={20} strokeWidth={1.5} aria-hidden="true" />
         </span>
       )}
       {badge && <span className="absolute left-2 top-2">{badge}</span>}

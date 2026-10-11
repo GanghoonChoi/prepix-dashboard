@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 
 /**
  * Status and attribute tags. Colour means state and nothing else: neutral for
@@ -47,10 +47,11 @@ export function Tag({
   return <Badge tone={tone === "danger" ? "danger" : "neutral"}>{children}</Badge>;
 }
 
-export function Kbd({ children }: { children: ReactNode }) {
+export function Kbd({ className = "", ...props }: HTMLAttributes<HTMLElement>) {
   return (
-    <kbd className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded bg-surface-tertiary px-1 font-mono text-[11px] leading-none text-muted">
-      {children}
-    </kbd>
+    <kbd
+      className={`inline-flex h-[18px] min-w-[18px] items-center justify-center rounded bg-surface-tertiary px-1 font-mono text-[11px] leading-none text-muted ${className}`}
+      {...props}
+    />
   );
 }

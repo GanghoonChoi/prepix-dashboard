@@ -20,7 +20,8 @@ test("durations read in the UI's language, never '1h 0m'", () => {
   assert.equal(formatDuration(3600, "en"), "1h");
   assert.equal(formatDuration(3900, "en"), "1h 5m");
   assert.equal(formatDuration(20, "ko"), "1분 미만");
-  assert.equal(formatDuration(0, "en"), "<1m");
+  assert.equal(formatDuration(0, "ko"), "0분");
+  assert.equal(formatDuration(0, "en"), "0m");
 });
 
 test("clock time for video lengths", () => {

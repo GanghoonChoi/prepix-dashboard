@@ -45,12 +45,32 @@ export function Stat({
   return <StatStrip className={className} items={[{ label, value, unit, foot: children }]} />;
 }
 
-/** Thin progress bar, 0–100. Turns amber from 90%, where a limit starts to bite. */
-export function Meter({ value, tone = "auto" }: { value: number; tone?: "auto" | "neutral" }) {
+/**
+ * Thin progress bar, 0–100. `auto` turns amber from 90%, where a USED-up limit
+ * starts to bite; a bar of what is LEFT should pass `neutral`, or a fresh
+ * account would start out amber.
+ */
+export function Meter({
+  value,
+  tone = "auto",
+  label,
+}: {
+  value: number;
+  tone?: "auto" | "neutral";
+  /** Names the bar for assistive tech (role="progressbar"). */
+  label?: string;
+}) {
   const percent = Math.max(0, Math.min(100, value));
   const warn = tone === "auto" && percent >= 90;
   return (
-    <div className="h-1.5 overflow-hidden rounded-full bg-surface-tertiary">
+    <div
+      role="progressbar"
+      aria-label={label}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(percent)}
+      className="h-1.5 overflow-hidden rounded-full bg-surface-tertiary"
+    >
       <div
         className={`h-full rounded-full transition-[width] ${warn ? "bg-warning" : "bg-foreground"}`}
         style={{ width: `${percent}%` }}
@@ -64,11 +84,13 @@ export function MeterRow({
   value,
   percent,
   foot,
+  tone,
 }: {
   label: ReactNode;
   value: ReactNode;
   percent: number;
   foot?: ReactNode;
+  tone?: "auto" | "neutral";
 }) {
   return (
     <div className="space-y-2">
@@ -76,7 +98,7 @@ export function MeterRow({
         <span className="text-muted">{label}</span>
         <span className="font-medium tabular-nums">{value}</span>
       </div>
-      <Meter value={percent} />
+      <Meter value={percent} tone={tone} label={typeof label === "string" ? label : undefined} />
       {foot && <p className="text-xs text-muted">{foot}</p>}
     </div>
   );

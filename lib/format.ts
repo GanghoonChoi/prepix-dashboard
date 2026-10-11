@@ -40,6 +40,7 @@ export function formatTime(value: string | Date, lang: Lang) {
 /** Processing time and quotas: "38분", "1시간 5분" / "38m", "1h 5m". */
 export function formatDuration(seconds: number, lang: Lang) {
   const minutes = Math.floor(seconds / 60);
+  if (seconds <= 0) return lang === "ko" ? "0분" : "0m";
   if (minutes < 1) return lang === "ko" ? "1분 미만" : "<1m";
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;

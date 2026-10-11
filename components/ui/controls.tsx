@@ -149,8 +149,12 @@ export function FilterSelect<T extends string>({
   );
 }
 
-const trackClass = "inline-flex shrink-0 rounded-md bg-surface-secondary p-0.5";
-const segmentClass = (on: boolean, size: "sm" | "md") =>
+/**
+ * The segmented track, for groups that must stay toggle buttons
+ * (aria-pressed) rather than radios — e.g. where e2e drives them as buttons.
+ */
+export const trackClass = "inline-flex shrink-0 rounded-md bg-surface-secondary p-0.5";
+export const segmentClass = (on: boolean, size: "sm" | "md" = "sm") =>
   `inline-flex items-center justify-center gap-1.5 rounded-[5px] px-2.5 text-[13px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus ${
     size === "sm" ? "h-7" : "h-8"
   } ${
