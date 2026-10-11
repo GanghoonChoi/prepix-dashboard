@@ -3,7 +3,7 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button } from "@heroui/react";
+import { Button, Field, Notice, inputClass } from "@/components/ui";
 import { authService } from "@/lib/api/services/auth.service";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useI18n } from "@/lib/i18n/context";
@@ -22,9 +22,6 @@ function ResetPasswordForm() {
   const [isDone, setIsDone] = useState(false);
   const [error, setError] = useState("");
 
-  const inputClass =
-    "w-full rounded-md border border-border bg-field-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted outline-none transition-colors focus:border-foreground/30";
-
   if (!token) {
     return (
       <div className="space-y-6">
@@ -37,9 +34,8 @@ function ResetPasswordForm() {
           </p>
         </div>
         <Button
-          variant="primary"
           className="w-full"
-          onPress={() => router.replace("/forgot-password")}
+          onClick={() => router.replace("/forgot-password")}
         >
           {t("auth.requestNewLink")}
         </Button>
@@ -86,9 +82,8 @@ function ResetPasswordForm() {
           </p>
         </div>
         <Button
-          variant="primary"
           className="w-full"
-          onPress={() => router.replace("/login")}
+          onClick={() => router.replace("/login")}
         >
           {t("auth.goToSignIn")}
         </Button>
@@ -108,10 +103,7 @@ function ResetPasswordForm() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
-        <div className="space-y-1.5">
-          <label htmlFor="password" className="block text-sm font-medium text-foreground">
-            {t("auth.newPassword")}
-          </label>
+        <Field label={t("auth.newPassword")} htmlFor="password">
           <input
             id="password"
             type="password"
@@ -125,11 +117,8 @@ function ResetPasswordForm() {
             placeholder={t("auth.passwordPlaceholderHint")}
             className={inputClass}
           />
-        </div>
-        <div className="space-y-1.5">
-          <label htmlFor="confirm" className="block text-sm font-medium text-foreground">
-            {t("auth.confirmNewPassword")}
-          </label>
+        </Field>
+        <Field label={t("auth.confirmNewPassword")} htmlFor="confirm">
           <input
             id="confirm"
             type="password"
@@ -142,17 +131,13 @@ function ResetPasswordForm() {
             placeholder={t("auth.reenterPasswordPlaceholder")}
             className={inputClass}
           />
-        </div>
-        {error && (
-          <div className="rounded-md border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
-            {error}
-          </div>
-        )}
+        </Field>
+        {error && <Notice tone="danger">{error}</Notice>}
         <Button
           type="submit"
-          variant="primary"
           className="w-full"
-          isDisabled={isLoading}
+          disabled={isLoading}
+          aria-busy={isLoading}
         >
           {isLoading ? t("auth.updatingPassword") : t("auth.updatePasswordButton")}
         </Button>

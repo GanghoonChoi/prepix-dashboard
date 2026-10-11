@@ -4,7 +4,7 @@ import { storeSession } from "@/lib/api/session";
 import { useState, useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Button } from "@heroui/react";
+import { Button, Field, Notice, inputClass } from "@/components/ui";
 import { LoadingScreen } from "@/components/loading-screen";
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { authService } from "@/lib/api/services/auth.service";
@@ -115,9 +115,6 @@ export default function LoginPage() {
     );
   }
 
-  const inputClass =
-    "w-full rounded-md border border-border bg-field-background px-3 py-2.5 text-sm text-foreground placeholder:text-muted outline-none transition-colors focus:border-foreground/30";
-
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -136,19 +133,12 @@ export default function LoginPage() {
       <CouponWaiting returnTo={authDestination} />
 
       {/* Error */}
-      {error && (
-        <div className="rounded-md border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">
-          {error}
-        </div>
-      )}
+      {error && <Notice tone="danger">{error}</Notice>}
 
       {/* Form */}
       <form onSubmit={handleLogin} className="space-y-5">
         <fieldset disabled={!hydrated || isLoading || isSigningIn} className="space-y-5">
-        <div className="space-y-1.5">
-          <label htmlFor="email" className="block text-sm font-medium text-foreground">
-            {t("auth.email")}
-          </label>
+        <Field label={t("auth.email")} htmlFor="email">
           <input
             id="email"
             type="email"
@@ -160,20 +150,17 @@ export default function LoginPage() {
             placeholder={t("auth.emailPlaceholder")}
             className={inputClass}
           />
-        </div>
+        </Field>
 
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <label htmlFor="password" className="text-sm font-medium text-foreground">
-              {t("auth.password")}
-            </label>
-            <Link
-              href="/forgot-password"
-              className="text-xs text-muted hover:text-foreground"
-            >
+        <Field
+          label={t("auth.password")}
+          htmlFor="password"
+          aside={
+            <Link href="/forgot-password" className="text-muted hover:text-foreground">
               {t("auth.forgotPassword")}
             </Link>
-          </div>
+          }
+        >
           <input
             id="password"
             type="password"
@@ -184,13 +171,13 @@ export default function LoginPage() {
             placeholder={t("auth.passwordPlaceholderDots")}
             className={inputClass}
           />
-        </div>
+        </Field>
 
         <Button
           type="submit"
-          variant="primary"
           className="w-full"
-          isDisabled={!hydrated || isLoading || isSigningIn}
+          disabled={!hydrated || isLoading || isSigningIn}
+          aria-busy={isLoading}
         >
           {isLoading ? t("auth.signingIn") : t("auth.continue")}
         </Button>

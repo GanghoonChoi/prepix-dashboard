@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { Button } from "@heroui/react";
+import { Button } from "@/components/ui";
 import { useT } from "@/lib/i18n/context";
 
 export default function Error({
@@ -22,24 +22,21 @@ export default function Error({
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center gap-6 px-6 text-center">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+        <h1 className="text-base font-medium text-foreground">
           {t("misc.errorTitle")}
         </h1>
-        <p className="mx-auto mt-2 max-w-sm text-sm text-muted">
+        <p className="mx-auto mt-1 max-w-sm text-sm text-muted">
           {t("misc.errorDescription")}
         </p>
       </div>
-      <div className="flex gap-3">
-        <Button variant="primary" size="sm" onPress={() => reset()}>
-          {t("common.retry")}
-        </Button>
+      <div className="flex flex-wrap justify-center gap-2">
         <Button
-          variant="outline"
-          size="sm"
-          onPress={() => (window.location.href = "/dashboard")}
+          variant="secondary"
+          onClick={() => (window.location.href = "/dashboard")}
         >
           {t("misc.goToDashboard")}
         </Button>
+        <Button onClick={() => reset()}>{t("common.retry")}</Button>
       </div>
     </div>
   );

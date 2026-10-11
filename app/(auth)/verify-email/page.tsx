@@ -6,11 +6,8 @@ import { useI18n } from "@/lib/i18n/context";
 import { loginHref } from "@/lib/auth-entry";
 import { authService } from "@/lib/api/services/auth.service";
 import { workspaceError } from "@/lib/workspaces/onboarding";
-import {
-  TeamError,
-  primaryClass,
-  secondaryClass,
-} from "@/components/workspaces/shared";
+import { buttonClass } from "@/components/ui";
+import { TeamError } from "@/components/workspaces/shared";
 import { VerifyEmailNotice } from "@/components/workspaces/verify-email";
 
 /**
@@ -105,13 +102,13 @@ function Confirm() {
       )}
       <div className="flex flex-wrap gap-3">
         {(state === "done" || used) && (
-          <Link href="/dashboard/workspaces" className={primaryClass}>
+          <Link href="/dashboard/workspaces" className={buttonClass()}>
             {t("team.verifyOpenTeams")}
           </Link>
         )}
         <Link
           href={loginHref({ returnTo: "/dashboard/workspaces", lang })}
-          className={secondaryClass}
+          className={buttonClass({ variant: "secondary" })}
         >
           {t("team.switchAccount")}
         </Link>
