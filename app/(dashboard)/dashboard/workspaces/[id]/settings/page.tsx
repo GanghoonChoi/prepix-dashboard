@@ -9,6 +9,7 @@ import { useWorkspace } from "@/components/workspaces/workspace-context";
 import { TeamShell, SpaceBadge } from "@/components/workspaces/shared";
 import {
   Button,
+  Card,
   CardFooter,
   DangerZone,
   Field,
@@ -42,6 +43,7 @@ export default function Page() {
    * private space is the kind of object that can be given away.
    */
   const personal = isPersonal(data.workspace);
+  const MembershipZone = data.role === "owner" ? SettingsSection : DangerZone;
   const [draft, setDraft] = useState<{
     name: string;
     description: string;
@@ -361,15 +363,21 @@ export default function Page() {
             </div>
           </SettingsSection>
         )}
-        {/* DangerZone's frame around the shared leave section, which brings
-            its own heading. */}
-        {!personal && b2b?.enrolled && (
-          <div className="rounded-lg border border-danger/30 p-5">
-            <LeaveTeam />
-          </div>
-        )}
+        {/* Leaving is the irreversible act, so only someone who CAN leave sees
+            the red frame; an owner only reads why they can't yet. The shared
+            leave section brings its own heading, so it gets just the frame. */}
+        {!personal && b2b?.enrolled &&
+          (data.role === "owner" ? (
+            <Card>
+              <LeaveTeam />
+            </Card>
+          ) : (
+            <DangerZone>
+              <LeaveTeam />
+            </DangerZone>
+          ))}
         {!personal && !b2b?.enrolled && (
-          <DangerZone
+          <MembershipZone
             title={c("내 참여", "Your membership")}
             description={
               data.role === "owner"
@@ -453,7 +461,7 @@ export default function Page() {
                 </div>
               </form>
             )}
-          </DangerZone>
+          </MembershipZone>
         )}
       </div>
     </TeamShell>
