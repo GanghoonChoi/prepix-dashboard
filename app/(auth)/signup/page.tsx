@@ -232,15 +232,7 @@ export default function SignupPage() {
         </h1>
         <p className="mt-1.5 text-sm text-muted">{info.description}</p>
         <div className="mt-4">
-          <div
-            role="progressbar"
-            aria-label={t("auth.progressAriaLabel")}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={progress}
-          >
-            <Meter value={progress} tone="neutral" />
-          </div>
+          <Meter value={progress} tone="neutral" label={t("auth.progressAriaLabel")} />
           <p className="mt-1.5 text-xs text-muted">{t("auth.stepOf", { step, total: TOTAL_STEPS })}</p>
         </div>
       </div>
