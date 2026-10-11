@@ -13,16 +13,25 @@ import type {
   TeamRefundState,
 } from "@/lib/api/services/b2b.service";
 import { savePgIntent, type PgIntent } from "@/lib/b2b-billing/pg-return";
-import { secondaryClass } from "@/components/workspaces/shared";
+import { Button, Notice, type Tone } from "@/components/ui";
+import { formatMoney } from "@/lib/format";
+import { useI18n } from "@/lib/i18n/context";
 import { B2bError, errorCode, useCopy } from "./shared";
 
 export const won = (value: number) =>
   `${new Intl.NumberFormat("ko-KR").format(value)}원`;
+/** "129,000원" / "₩129,000" in the reader's language (lib/format). */
+export function useWon() {
+  const { lang } = useI18n();
+  return (value: number) => formatMoney(value, lang === "ko" ? "ko" : "en");
+}
+// Billing instants stay on Korea time (the PG, the statements and the legal
+// deadlines all count in KST); minutes, never seconds.
 export const kst = (value: string) =>
   new Intl.DateTimeFormat("ko-KR", {
     timeZone: "Asia/Seoul",
     dateStyle: "medium",
-    timeStyle: "medium",
+    timeStyle: "short",
   }).format(new Date(value));
 
 // Payment declined, receipt unknown, not applied, operations check and refund
@@ -36,6 +45,32 @@ export const orderLabels: Record<TeamOrderState, [string, string]> = {
   review_required: ["운영 확인 중", "Under operations review"],
   canceled: ["결제 거절·취소", "Declined or cancelled"],
   expired: ["주문 만료", "Order expired"],
+};
+// Settled → success, still moving → warning, refused → danger.
+export const orderTones: Record<TeamOrderState, Tone> = {
+  awaiting_payment: "warning",
+  payment_unknown: "warning",
+  received: "warning",
+  applying: "warning",
+  applied: "success",
+  review_required: "warning",
+  canceled: "danger",
+  expired: "neutral",
+};
+export const refundTones: Record<TeamRefundState, Tone> = {
+  reserved: "warning",
+  cancelling: "warning",
+  provider_unknown: "warning",
+  refunded: "neutral",
+  rejected: "neutral",
+  failed: "danger",
+  review_required: "warning",
+};
+export const targetLabels: Record<string, [string, string]> = {
+  initial: ["첫 한 달", "First month"],
+  current: ["현재 기간 추가", "Added to current period"],
+  next: ["다음 한 달", "Next month"],
+  restore: ["복구 후 한 달", "Month after restoration"],
 };
 export const refundLabels: Record<TeamRefundState, [string, string]> = {
   reserved: ["환불 검토 중 · 미사용분 예약됨", "Refund under review · unused portion reserved"],
@@ -110,14 +145,19 @@ export function BillingError({ code, retry }: { code: string; retry?: () => void
   const m = messages[code];
   if (!m) return <B2bError code={code} retry={retry} />;
   return (
-    <div role="alert" className="rounded-lg border border-border bg-surface p-4 text-sm leading-6">
-      <p>{c(...m)}</p>
-      {retry && (
-        <button type="button" className={`${secondaryClass} mt-3`} onClick={retry}>
-          {c("다시 확인", "Check again")}
-        </button>
-      )}
-    </div>
+    <Notice
+      role="alert"
+      tone="danger"
+      action={
+        retry && (
+          <Button variant="secondary" size="sm" onClick={retry}>
+            {c("다시 확인", "Check again")}
+          </Button>
+        )
+      }
+    >
+      {c(...m)}
+    </Notice>
   );
 }
 export const billingCode = (e: unknown) =>
