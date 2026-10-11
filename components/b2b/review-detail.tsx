@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref, type RefObject } from "react";
+import { Fragment, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref, type RefObject } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -272,11 +272,13 @@ function ReviewScreen({
             )}
           </div>
           <p className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-muted">
+            {/* The dot beside the fact, not in it: "현재 검토 대상: …" stays one
+                text node that e2e and screen readers find by its exact words. */}
             {facts.map((fact, i) => (
-              <span key={i} className="inline-flex min-w-0 items-center gap-1.5 break-words">
+              <Fragment key={i}>
                 {i > 0 && <span aria-hidden="true">·</span>}
-                {fact}
-              </span>
+                <span className="min-w-0 break-words">{fact}</span>
+              </Fragment>
             ))}
           </p>
         </div>
