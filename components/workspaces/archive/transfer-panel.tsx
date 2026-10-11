@@ -13,6 +13,7 @@ import {
 } from "@/lib/workspaces/queue";
 import type { UploadQueue } from "@/lib/workspaces/use-upload-queue";
 import { CloudProgress, cloudMessage } from "@/components/workspaces/cloud-shared";
+import { Button, IconButton } from "@/components/ui";
 
 /** What the upload queue is doing, one row per file (F04.3) — a tray in the
  * corner, like a video cloud's upload sheet (2026-10-08): it floats over the
@@ -59,15 +60,12 @@ export function TransferPanel({
 
   // Icon buttons with their name as the label: three worded buttons per file
   // made a five-file queue louder than the archive under it.
-  const iconButton =
-    "grid size-9 place-items-center rounded-md text-muted transition-colors hover:bg-surface-secondary hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground";
-
   return (
     <section
       aria-label={c("전송 패널", "Transfer panel")}
-      className="fixed bottom-4 right-4 z-40 w-[22rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-border bg-background shadow-lg"
+      className="fixed bottom-4 right-4 z-40 w-[22rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-border bg-overlay shadow-[0_8px_30px_rgba(0,0,0,0.12)]"
     >
-      <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2.5">
+      <div className="flex items-center justify-between gap-2 border-b border-border py-1.5 pl-4 pr-1.5">
         {/* Five counters, four of them usually zero. Only what is actually
             happening earns a place on the line. */}
         <p role="status" className="text-[13px] font-medium tabular-nums">
@@ -86,16 +84,13 @@ export function TransferPanel({
         </p>
         <div className="flex shrink-0 items-center">
           {transfers.some((entry) => isSettled(entry.state)) && (
-            <button
-              className="rounded-md px-2 py-1 text-xs text-muted transition-colors hover:bg-surface-secondary hover:text-foreground"
-              onClick={queue.clearSettled}
-            >
+            <Button variant="ghost" size="xs" className="text-muted" onClick={queue.clearSettled}>
               {c("끝난 항목 지우기", "Clear finished")}
-            </button>
+            </Button>
           )}
-          <button
-            className={iconButton}
-            aria-label={folded ? c("펼치기", "Expand") : c("접기", "Collapse")}
+          <IconButton
+            size="md"
+            label={folded ? c("펼치기", "Expand") : c("접기", "Collapse")}
             aria-expanded={!folded}
             onClick={() => setFolded((v) => !v)}
           >
@@ -104,7 +99,7 @@ export function TransferPanel({
             ) : (
               <ChevronDown size={16} strokeWidth={1.75} aria-hidden="true" />
             )}
-          </button>
+          </IconButton>
         </div>
       </div>
       <ul className="max-h-72 divide-y divide-border overflow-y-auto px-4" hidden={folded}>
@@ -113,37 +108,34 @@ export function TransferPanel({
           return (
             <li key={entry.id} className="space-y-1.5 py-3">
               <div className="flex items-center justify-between gap-2">
-                <p className="min-w-0 break-all text-sm">{entry.name}</p>
+                <p className="min-w-0 break-all text-[13px] font-medium">{entry.name}</p>
                 <div className="flex shrink-0">
                   {canPause(entry.state) && (
-                    <button
-                      className={iconButton}
-                      aria-label={c("멈추기", "Pause")}
-                      title={c("멈추기", "Pause")}
+                    <IconButton
+                      size="md"
+                      label={c("멈추기", "Pause")}
                       onClick={() => queue.pause(entry)}
                     >
                       <Pause size={16} strokeWidth={1.75} aria-hidden="true" />
-                    </button>
+                    </IconButton>
                   )}
                   {canResume(entry.state) && (
-                    <button
-                      className={iconButton}
-                      aria-label={c("이어 올리기", "Resume")}
-                      title={c("이어 올리기", "Resume")}
+                    <IconButton
+                      size="md"
+                      label={c("이어 올리기", "Resume")}
                       onClick={() => queue.resume(entry)}
                     >
                       <Play size={16} strokeWidth={1.75} aria-hidden="true" />
-                    </button>
+                    </IconButton>
                   )}
                   {canCancel(entry.state) && (
-                    <button
-                      className={iconButton}
-                      aria-label={c("취소", "Cancel")}
-                      title={c("취소", "Cancel")}
+                    <IconButton
+                      size="md"
+                      label={c("취소", "Cancel")}
                       onClick={() => onCancel(entry)}
                     >
                       <X size={16} strokeWidth={1.75} aria-hidden="true" />
-                    </button>
+                    </IconButton>
                   )}
                 </div>
               </div>
