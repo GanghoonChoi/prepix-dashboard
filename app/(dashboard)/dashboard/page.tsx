@@ -125,6 +125,11 @@ export default function DashboardPage() {
   }, [spaceId]);
 
   const day = (value: number | string) => formatDay(new Date(value), lang);
+  // formatDuration says "1분 미만" for anything under a minute, which is a lie
+  // about a used-up quota; nothing left is 0.
+  // ponytail: belongs in lib/format.formatDuration once that file is open again.
+  const duration = (seconds: number) =>
+    seconds > 0 ? formatDuration(seconds, lang) : lang === "ko" ? "0분" : "0m";
 
   // /usage reports the same entitled tier, so a failed subscription fetch falls
   // back to it rather than silently claiming the user is on Free.
@@ -227,12 +232,12 @@ export default function DashboardPage() {
               value: unlimited
                 ? t("dashboard.unlimited")
                 : quota
-                  ? formatDuration(remaining, lang)
+                  ? duration(remaining)
                   : "—",
               unit:
                 unlimited || !quota
                   ? undefined
-                  : t("dashboard.ofTotal", { total: formatDuration(total, lang) }),
+                  : t("dashboard.ofTotal", { total: duration(total) }),
               foot: (
                 <>
                   {/* Time left: full is good news, never amber. */}

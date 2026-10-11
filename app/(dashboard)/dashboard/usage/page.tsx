@@ -46,6 +46,11 @@ export default function UsagePage() {
   // through lib/format from the seconds (the server's "38m" is English).
   const formatCount = (n: number) =>
     n.toLocaleString(lang === "ko" ? "ko-KR" : "en-US");
+  // formatDuration says "1분 미만" for anything under a minute, which is a lie
+  // about a used-up quota; nothing left is 0.
+  // ponytail: belongs in lib/format.formatDuration once that file is open again.
+  const duration = (seconds: number) =>
+    seconds > 0 ? formatDuration(seconds, lang) : lang === "ko" ? "0분" : "0m";
   const videoCount = formatCount(Number(videos?.thisMonth ?? 0));
   const videoFoot = [
     t("usage.completedCount", { count: formatCount(Number(videos?.completed ?? 0)) }),
@@ -84,13 +89,13 @@ export default function UsagePage() {
                 unlimited
                   ? t("usage.unlimited")
                   : quota
-                    ? `${formatDuration(remaining, lang)} ${t("usage.ofTotal", { total: formatDuration(total, lang) })}`
+                    ? `${duration(remaining)} ${t("usage.ofTotal", { total: duration(total) })}`
                     : "—"
               }
               meter={<Meter value={pct} tone="neutral" />}
               foot={[
                 quota && !unlimited
-                  ? t("usage.usedAmount", { amount: formatDuration(Number(quota.used ?? 0), lang) })
+                  ? t("usage.usedAmount", { amount: duration(Number(quota.used ?? 0)) })
                   : null,
                 bonus && bonus.remainingSeconds > 0
                   ? t("coupon.usageBonus", {
