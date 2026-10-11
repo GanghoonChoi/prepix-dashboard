@@ -6,9 +6,10 @@ import { apiClient } from "@/lib/api/client";
 import { b2bService, type TeamOrder, type TeamQuote } from "@/lib/api/services/b2b.service";
 import { billingApi } from "@/lib/b2b-billing/operations";
 import { Dialog } from "@/components/dialog";
-import { primaryClass, secondaryClass } from "@/components/workspaces/shared";
+import { Button, buttonClass, SummaryRows } from "@/components/ui";
+import { formatDay } from "@/lib/format";
 import { useI18n } from "@/lib/i18n/context";
-import { billingCode, BillingError, won } from "./billing-shared";
+import { billingCode, BillingError, useWon } from "./billing-shared";
 import { useCopy } from "./shared";
 
 const settled: TeamOrder["state"][] = ["applied", "canceled", "expired", "review_required"];
@@ -32,6 +33,7 @@ export function AddSeats({
   onDone: () => void;
 }) {
   const c = useCopy();
+  const won = useWon();
   const { lang } = useI18n();
   const [quote, setQuote] = useState<TeamQuote | null>(null);
   const [card, setCard] = useState("");
@@ -106,7 +108,7 @@ export function AddSeats({
   };
 
   const ends = quote?.period.endsAt
-    ? new Date(Date.parse(quote.period.endsAt) - 1).toLocaleDateString(lang, { month: "long", day: "numeric" })
+    ? formatDay(new Date(Date.parse(quote.period.endsAt) - 1), lang)
     : "";
   return (
     <Dialog state={state} title={c(`좌석 ${count}개 추가`, `Add ${count} seat${count > 1 ? "s" : ""}`)}>
@@ -115,38 +117,35 @@ export function AddSeats({
         {!quote && !error && <p className="text-sm text-muted">{c("금액을 계산하는 중…", "Calculating…")}</p>}
         {quote && (
           <>
-            <dl className="divide-y divide-border rounded-xl border border-border text-sm">
-              <div className="flex items-center justify-between gap-4 px-4 py-3">
-                <dt className="text-muted">{c("기간", "Period")}</dt>
-                <dd>{c(`오늘부터 ${ends}까지`, `Today to ${ends}`)}</dd>
-              </div>
-              <div className="flex items-center justify-between gap-4 px-4 py-3">
-                <dt className="text-muted">{c("결제 카드", "Card")}</dt>
-                <dd className="tabular-nums">{card}</dd>
-              </div>
-              <div className="flex items-baseline justify-between gap-4 px-4 py-3">
-                <dt className="text-muted">{c("지금 결제 (VAT 포함)", "Charged now (VAT incl.)")}</dt>
-                <dd className="text-lg font-semibold tabular-nums">{won(quote.amounts.totalKrw)}</dd>
-              </div>
-            </dl>
+            {/* Prorated to the days left, so no "unit × seats" line: the
+                quote's own supply and VAT are the breakdown. */}
+            <SummaryRows
+              rows={[
+                [c("기간", "Period"), c(`오늘부터 ${ends}까지`, `Today to ${ends}`)],
+                [c("결제 카드", "Card"), <span key="card" className="font-mono">{card}</span>],
+                [c("공급가액", "Supply"), won(quote.amounts.supplyKrw)],
+                [c("부가세", "VAT"), won(quote.amounts.vatKrw)],
+              ]}
+              total={[c("지금 결제 (VAT 포함)", "Charged now (VAT incl.)"), won(quote.amounts.totalKrw)]}
+            />
             <p className="text-xs leading-5 text-muted">
               {c(
                 "이번 달은 남은 기간만큼만 결제됩니다. 다음 결제일부터는 뷰어를 뺀 멤버 수만큼 자동 결제됩니다.",
                 "This month is charged for the days left. From the next payment, renewal bills every member but viewers.",
               )}
             </p>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" className={primaryClass} disabled={paying} onClick={() => void pay()}>
-                {paying ? c("결제하는 중…", "Paying…") : c(`${won(quote.amounts.totalKrw)} 결제`, `Pay ${won(quote.amounts.totalKrw)}`)}
-              </button>
-              <button type="button" className={secondaryClass} disabled={paying} onClick={state.close}>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button variant="secondary" disabled={paying} onClick={state.close}>
                 {c("취소", "Cancel")}
-              </button>
+              </Button>
+              <Button disabled={paying} aria-busy={paying || undefined} onClick={() => void pay()}>
+                {paying ? c("결제하는 중…", "Paying…") : c(`${won(quote.amounts.totalKrw)} 결제`, `Pay ${won(quote.amounts.totalKrw)}`)}
+              </Button>
             </div>
           </>
         )}
         {error === "B2B_AUTOPAY_REQUIRED" && (
-          <Link className={primaryClass} href={`/dashboard/workspaces/${workspaceId}/plan`}>
+          <Link className={buttonClass()} href={`/dashboard/workspaces/${workspaceId}/plan`}>
             {c("플랜으로 이동", "Go to plan")}
           </Link>
         )}

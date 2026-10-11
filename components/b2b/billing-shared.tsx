@@ -18,8 +18,6 @@ import { formatMoney } from "@/lib/format";
 import { useI18n } from "@/lib/i18n/context";
 import { B2bError, errorCode, useCopy } from "./shared";
 
-export const won = (value: number) =>
-  `${new Intl.NumberFormat("ko-KR").format(value)}원`;
 /** "129,000원" / "₩129,000" in the reader's language (lib/format). */
 export function useWon() {
   const { lang } = useI18n();

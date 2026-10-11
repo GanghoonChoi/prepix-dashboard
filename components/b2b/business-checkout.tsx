@@ -8,8 +8,9 @@ import {
   type TeamCommerce,
   type TeamOrder,
 } from "@/lib/api/services/b2b.service";
-import { inputClass, primaryClass, TeamLoading } from "@/components/workspaces/shared";
-import { billingCode, BillingError, openBillingAuth, won, type useTeamBilling } from "./billing-shared";
+import { TeamLoading } from "@/components/workspaces/shared";
+import { Button, Field, inputClass, SummaryRows } from "@/components/ui";
+import { billingCode, BillingError, openBillingAuth, useWon, type useTeamBilling } from "./billing-shared";
 import { useCopy } from "./shared";
 
 type Product = Extract<TeamCommerce, { configured: true }>["product"];
@@ -42,6 +43,7 @@ export function BusinessCheckout({
   billing: ReturnType<typeof useTeamBilling>;
 }) {
   const c = useCopy();
+  const won = useWon();
   const params = useSearchParams();
   const { api, scope, billing: view, reload } = billing;
   const [product, setProduct] = useState<Product | null>(null);
@@ -236,37 +238,31 @@ export function BusinessCheckout({
     applying: c("팀을 여는 중…", "Opening the team…"),
   };
   return (
-    <div className="space-y-4" data-testid="business-checkout">
-      <dl className="divide-y divide-border rounded-xl border border-border text-sm tabular-nums">
-        <div className="flex items-baseline justify-between gap-4 px-4 py-3">
-          <dt className="font-medium">{product.name}</dt>
-          <dd className="text-[13px] text-muted">
-            {c(
-              `1석 월 ${won(product.extraSeat.supplyKrw)} · VAT 별도 · ${product.base.seats}석부터`,
-              `${won(product.extraSeat.supplyKrw)}/seat/mo · excl. VAT · from ${product.base.seats} seats`,
-            )}
-          </dd>
-        </div>
-        <div className="flex justify-between gap-4 px-4 py-3">
-          <dt className="text-muted">{c("좌석", "Seats")}</dt>
-          <dd>
-            {c(`${seats}석`, `${seats} seats`)}
-            <span className="ml-2 text-[13px] text-muted">
-              {c(`멤버 ${wanted ?? 1}명 · 뷰어 무료`, `${wanted ?? 1} members · viewers free`)}
-            </span>
-          </dd>
-        </div>
-        <div className="flex justify-between gap-4 px-4 py-3">
-          <dt className="text-muted">{c("공급가 · 부가세", "Supply · VAT")}</dt>
-          <dd>
-            {won(supply)} · {won(vat)}
-          </dd>
-        </div>
-        <div className="flex items-baseline justify-between gap-4 px-4 py-3">
-          <dt className="font-medium">{c("월 결제액", "Per month")}</dt>
-          <dd className="text-lg font-semibold">{won(total)}</dd>
-        </div>
-      </dl>
+    <div className="space-y-5" data-testid="business-checkout">
+      <SummaryRows
+        rows={[
+          [
+            <span key="name" className="font-medium text-foreground">{product.name}</span>,
+            <span key="price" className="text-muted">
+              {c(
+                `1석 월 ${won(product.extraSeat.supplyKrw)} · VAT 별도 · ${product.base.seats}석부터`,
+                `${won(product.extraSeat.supplyKrw)}/seat/mo · excl. VAT · from ${product.base.seats} seats`,
+              )}
+            </span>,
+          ],
+          [
+            c("좌석", "Seats"),
+            <span key="seats">
+              {c(`${seats}석`, `${seats} seats`)}
+              <span className="ml-2 text-muted">
+                {c(`멤버 ${wanted ?? 1}명 · 뷰어 무료`, `${wanted ?? 1} members · viewers free`)}
+              </span>
+            </span>,
+          ],
+          [c("공급가 · 부가세", "Supply · VAT"), `${won(supply)} · ${won(vat)}`],
+        ]}
+        total={[c("월 결제액", "Per month"), won(total)]}
+      />
 
       {saved ? (
         <p className="text-[13px] leading-5 text-muted">
@@ -274,12 +270,12 @@ export function BusinessCheckout({
           {saved.businessRegistrationNumber.replace(/^(\d{3})(\d{2})(\d{5})$/, "$1-$2-$3")} · {saved.receiptEmail}
         </p>
       ) : (
-        <fieldset className="grid gap-3 sm:grid-cols-2" disabled={busy}>
-          <legend className="mb-2 text-sm font-medium">{c("사업자 정보", "Business details")}</legend>
+        <fieldset className="grid gap-4 sm:grid-cols-2" disabled={busy}>
+          <legend className="mb-3 text-sm font-medium">{c("사업자 정보", "Business details")}</legend>
           {fields.map(([key, ko, en, auto]) => (
-            <label key={key} className={`block space-y-1.5 text-[13px] ${key === "address" ? "sm:col-span-2" : ""}`}>
-              <span>{c(ko, en)}</span>
+            <Field key={key} label={c(ko, en)} htmlFor={`checkout-${key}`} className={key === "address" ? "sm:col-span-2" : ""}>
               <input
+                id={`checkout-${key}`}
                 className={inputClass}
                 autoComplete={auto}
                 required
@@ -288,15 +284,15 @@ export function BusinessCheckout({
                 value={draft[key]}
                 onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
               />
-            </label>
+            </Field>
           ))}
         </fieldset>
       )}
 
-      <label className="flex items-start gap-2 text-[13px] leading-5">
+      <label className="flex items-start gap-2.5 text-[13px] leading-5">
         <input
           type="checkbox"
-          className="mt-0.5"
+          className="mt-0.5 shrink-0"
           checked={consented}
           disabled={busy || view.renewal.mode === "automatic"}
           onChange={(e) => setConsent(e.target.checked)}
@@ -322,10 +318,9 @@ export function BusinessCheckout({
       )}
 
       <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          className={primaryClass}
+        <Button
           disabled={busy || !consented || !readiness.autoPay || (!saved && Object.values(draft).some((v) => !v.trim()))}
+          aria-busy={busy || undefined}
           onClick={() => void pay()}
         >
           {busy ? (
@@ -338,7 +333,7 @@ export function BusinessCheckout({
                 : c(`카드 등록하고 ${won(total)} 결제`, `Add card and pay ${won(total)}`)}
             </>
           )}
-        </button>
+        </Button>
         {card && !busy && (
           <span className="inline-flex items-center gap-1.5 text-[13px] text-muted">
             <Check size={14} strokeWidth={2} aria-hidden="true" />
