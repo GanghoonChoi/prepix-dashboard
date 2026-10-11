@@ -35,6 +35,7 @@ import {
   type PreviewUpdate,
 } from "./steps";
 import { StartPreview, type PreviewState } from "./preview";
+import { Button, Notice } from "@/components/ui";
 
 type Row = WorkspaceList["workspaces"][number];
 
@@ -317,14 +318,17 @@ export function StartExperience() {
     body = (
       <div className="space-y-3" role="status" aria-label={copy("Loading your workspace", "워크스페이스를 불러오는 중")}>
         {[0, 1, 2].map((i) => (
-          <div key={i} className="h-11 animate-pulse rounded-[10px] bg-surface-secondary" />
+          <div key={i} className="h-11 animate-pulse rounded-lg bg-surface-secondary" />
         ))}
       </div>
     );
   else if (status === "error" || provisioning)
     body = (
       <div className="space-y-6">
-        <p role={status === "error" ? "alert" : "status"} className="text-sm leading-6">
+        <Notice
+          tone={status === "error" ? "danger" : "neutral"}
+          role={status === "error" ? "alert" : "status"}
+        >
           {status === "error"
             ? copy(
                 "We couldn't reach your workspace. Nothing is lost — try again, or go straight to the app.",
@@ -334,7 +338,7 @@ export function StartExperience() {
                 "Your workspace is being prepared. This usually takes a moment.",
                 "워크스페이스를 준비하고 있어요. 보통 잠깐이면 끝나요.",
               )}
-        </p>
+        </Notice>
         <StepActions
           secondary={
             <button className={quietButton} onClick={() => go({ step: "app" })}>
@@ -369,11 +373,11 @@ export function StartExperience() {
       intent === "team" && team ? (
         // Back here after the team exists: never a second create form.
         <div className="space-y-6">
-          <div className="flex items-center gap-3 rounded-[10px] bg-surface p-3">
+          <div className="flex min-w-0 items-center gap-3 rounded-lg border border-border p-3">
             <span className="grid size-9 place-items-center rounded-lg bg-foreground font-semibold text-background">
               {team.name.trim()[0]?.toUpperCase()}
             </span>
-            <span className="font-medium">{team.name}</span>
+            <span className="min-w-0 truncate font-medium">{team.name}</span>
           </div>
           <StepActions
             primary={
@@ -457,17 +461,19 @@ export function StartExperience() {
         </header>
 
         <main className="relative mx-auto flex w-full max-w-[1120px] flex-1 flex-col px-4 pb-10 sm:px-6">
-          <div className="grid overflow-hidden lg:flex-1 rounded-2xl bg-background shadow-[0_0_0_1px_var(--border),0_1px_2px_rgb(0_0_0/0.04),0_8px_24px_-12px_rgb(0_0_0/0.08)] lg:min-h-[640px] lg:grid-cols-[minmax(0,44fr)_minmax(0,56fr)]">
+          <div className="grid overflow-hidden rounded-lg border border-border bg-background lg:min-h-[640px] lg:flex-1 lg:grid-cols-[minmax(0,44fr)_minmax(0,56fr)]">
             <section className="flex flex-col px-6 py-7 sm:px-10 sm:py-9">
               <div className="h-8">
                 {canGoBack && (
-                  <button
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="-ml-3"
                     onClick={() => window.history.back()}
-                    className="-ml-2 inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-sm text-muted transition-colors hover:bg-surface-secondary hover:text-foreground"
                   >
                     <ArrowLeft size={14} strokeWidth={1.5} />
                     {copy("Back", "뒤로")}
-                  </button>
+                  </Button>
                 )}
               </div>
               <AnimatePresence mode="wait" initial={false}>
@@ -483,17 +489,17 @@ export function StartExperience() {
                     {settling ? (
                       <div className="space-y-3" aria-hidden="true">
                         <div className="h-8 w-3/4 animate-pulse rounded-lg bg-surface-secondary" />
-                        <div className="h-4 w-1/2 animate-pulse rounded bg-surface-secondary" />
+                        <div className="h-4 w-1/2 animate-pulse rounded-md bg-surface-secondary" />
                       </div>
                     ) : (
                     <div className="space-y-2">
-                      <h1 className="text-2xl font-semibold tracking-tight text-balance sm:text-[28px] sm:leading-9">
+                      <h1 className="text-2xl font-semibold tracking-tight text-balance">
                         {signedIn
                           ? copy(...heading[step])
                           : copy("First, connect your account", "먼저 계정을 연결해 주세요")}
                       </h1>
                       {signedIn && (
-                        <p className="text-[15px] leading-6 text-muted text-pretty">
+                        <p className="text-sm leading-6 text-muted text-pretty">
                           {copy(...intro[step])}
                         </p>
                       )}
@@ -553,7 +559,7 @@ function JoinStep({
   return (
     <div className="space-y-6">
       {list.invitations.length > 0 ? (
-        <ul className="divide-y divide-border rounded-[10px] bg-surface px-3">
+        <ul className="divide-y divide-border rounded-lg border border-border px-3">
           {list.invitations.map((invite) => (
             <li key={invite.id} className="flex items-center gap-3 py-3">
               <span className="grid size-8 place-items-center rounded-lg bg-foreground text-sm font-semibold text-background">
