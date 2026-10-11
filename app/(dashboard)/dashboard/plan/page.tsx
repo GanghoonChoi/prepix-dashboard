@@ -277,8 +277,12 @@ export default function PlanPage() {
   // Only a live Paddle subscription can be cancelled. A tier granted by hand
   // (comp/promo) reports manageable: false — offering "Cancel" there would only
   // 400, since there is no subscription behind it.
+  // A subscription on a closed processor (Paddle) will never renew: nothing
+  // to cancel, and the way to keep the plan is to subscribe again.
+  const stranded = currentSub?.manageable === true && currentSub.renews === false && !isEnded;
   const canCancel =
     currentSub?.manageable === true &&
+    !stranded &&
     ["active", "trialing", "past_due"].includes(status);
   // Three affordances, not one, because the policy has three bands: refund now,
   // ask us to review, or nothing here. The backend decides which — rendering a
@@ -324,7 +328,9 @@ export default function PlanPage() {
         ? t("plan.pastDue")
         : onPass
           ? t("coupon.planPassActive", { plan: planName(pass!.plan), date: shortDate(pass!.endsAt) })
-          : null;
+          : stranded
+            ? t("plan.resubscribeNeeded")
+            : null;
   const linkButton = "text-[13px] text-muted transition-colors hover:text-foreground";
   const pill = "inline-flex items-center rounded-full border border-border px-2 py-0.5 text-xs text-muted";
 
@@ -402,9 +408,9 @@ export default function PlanPage() {
 
   const buttonFor = (plan: CatalogPlan) => {
     const isCurrent = currentPlan === plan.id;
-    // On a coupon pass the plan is "current" but nothing pays for it, so the
-    // one useful thing to offer is keeping it.
-    if (isCurrent && onPass && plan.prices.length > 0) {
+    // On a coupon pass, or a subscription that will never renew, the plan is
+    // "current" but nothing will pay for it next — so offer to keep it.
+    if (isCurrent && (onPass || stranded) && plan.prices.length > 0) {
       return {
         label: t("coupon.keepWithSubscription", { plan: plan.displayName }),
         disabled: false,
@@ -426,7 +432,7 @@ export default function PlanPage() {
     // One subscription per account, and switching between paid plans is not
     // offered yet (Light joined Creator in 2026-10) — checkout would refuse it,
     // so say so rather than offer it.
-    if (currentSub?.manageable && !isEnded) {
+    if (currentSub?.manageable && !isEnded && !stranded) {
       return { label: t("plan.switchAfterCancel"), disabled: true, onPress: () => {} };
     }
     return { label: t("plan.get", { name: plan.displayName }), disabled: false, onPress: () => handleUpgrade(plan.id) };
@@ -644,7 +650,7 @@ export default function PlanPage() {
 
                   <Button
                     className="mt-5 w-full"
-                    variant={isCurrent || plan.status === "coming_soon" ? "outline" : "primary"}
+                    variant={btn.disabled ? "outline" : "primary"}
                     size="sm"
                     isDisabled={btn.disabled || actionLoading}
                     onPress={btn.onPress}
