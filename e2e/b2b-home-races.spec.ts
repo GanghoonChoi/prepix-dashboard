@@ -30,18 +30,18 @@ test.beforeAll(async () => {
   const root = process.cwd();
   const stubs: Record<string, string> = {
     "next/navigation":
-      "export function useSearchParams(){return new URLSearchParams(location.search)}export function usePathname(){return location.pathname}",
+      "export function useSearchParams(){return new URLSearchParams(location.search)}export function usePathname(){return location.pathname}export function useRouter(){return {push(){},replace(){}}}",
     "next/link":
       'import React from "react"; export default function Link({href,children,...props}){return <a href={href} {...props}>{children}</a>}',
     "@/components/workspaces/workspace-context":
       "export function useWorkspace(){return window.fixture}",
     "@/components/workspaces/shared":
-      'import React from "react"; export const primaryClass="",secondaryClass="",inputClass="";export function TeamLoading(){return <p>Loading</p>}export function Block({title,children,actions}){return <section><h2>{title}</h2>{actions}{children}</section>}export function ConfirmDialog({children}){return <div>{children}</div>}export function TeamShell({title,children}){return <main><h1>{title}</h1>{children}</main>}export function SpaceBadge(){return null}',
+      'import React from "react"; export const primaryClass="",secondaryClass="",inputClass="";export function TeamLoading(){return <p>Loading</p>}export function Block({title,children,actions}){return <section><h2>{title}</h2>{actions}{children}</section>}export function ConfirmDialog({children}){return <div>{children}</div>}export function TeamShell({title,children}){return <main><h1>{title}</h1>{children}</main>}export function SpaceBadge(){return null}export function Details({children}){return <details>{children}</details>}export function EmptyState({title}){return <p>{title}</p>}',
     "@/lib/i18n/context":
       'export function useI18n(){return {lang:"ko"}}export function readLang(){return "ko"}',
     "./request-work": "export function RequestWorkPanel(){return null}",
     "./review-work": "export function ReviewWorkPanel(){return null}",
-    "./ownership": "export function OwnershipControls(){return null}",
+    "./ownership": "export function OwnershipControls(){return null}export function OwnershipOffer(){return null}",
     "./leave-team": "export function LeaveTeam(){return null}",
   };
   const result = await esbuild.build({
