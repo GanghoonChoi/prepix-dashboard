@@ -1,9 +1,12 @@
 "use client";
+import { InfoTip } from "@/components/ui";
 import { useCopy } from "./shared";
 
 /**
- * The four team roles, side by side on the members page: a name, the seat it
- * takes, and what it can do in short noun phrases — not sentences.
+ * The four team roles, behind the "?" beside 역할 on the members page: a
+ * name, the seat it takes, what it can do in short noun phrases, and the
+ * menus it sees. Not on the page itself — the user asked twice for no
+ * explanations stacked under the list (2026-10-12).
  *
  * Every line is a rule the backend enforces (prepix-backend, checked
  * 2026-10-12): managers are internal owners and admins (b2b-core `manager()`);
@@ -47,12 +50,21 @@ const CAN: Record<TeamRole, [string, string][]> = {
   editor: [
     ["앱에서 프로젝트 올리기", "Bring projects in from the app"],
     ["자기가 올린 프로젝트 관리", "Manage the projects they brought in"],
-    ["영상·자료 올리기, 콘텐츠 아카이브", "Upload videos and files, content archive"],
+    ["영상·자료 올리기", "Upload videos and files"],
   ],
   reviewer: [
     ["참여한 프로젝트 영상 보기", "Watch projects they're in"],
     ["코멘트, 승인·수정 요청", "Comment, approve, request changes"],
   ],
+};
+
+/** The sidebar each role gets — workspaceLinks() in lib/workspaces/nav.ts;
+ * the pages behind the missing entries refuse them too. */
+const MENU: Record<TeamRole, [string, string]> = {
+  owner: ["홈 · 프로젝트 · 멤버 · 플랜과 결제 · 설정", "Home · Projects · Members · Plan & billing · Settings"],
+  admin: ["홈 · 프로젝트 · 멤버 · 설정 (+ 플랜과 결제)", "Home · Projects · Members · Settings (+ Plan & billing)"],
+  editor: ["홈 · 프로젝트", "Home · Projects"],
+  reviewer: ["프로젝트 (공유받은 것만)", "Projects (shared ones only)"],
 };
 
 const SEAT: Record<TeamRole, [string, string]> = {
@@ -62,26 +74,18 @@ const SEAT: Record<TeamRole, [string, string]> = {
   reviewer: ["무료", "Free"],
 };
 
-export function TeamRoles() {
+export function RolesTip() {
   const c = useCopy();
   return (
-    <section aria-labelledby="team-roles" className="space-y-3">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <h2 id="team-roles" className="text-sm font-semibold">
-          {c("역할", "Roles")}
-        </h2>
-        <p className="text-xs text-muted">
-          {c("역할은 소유자와 관리자만 바꿀 수 있어요.", "Only the owner and admins change roles.")}
-        </p>
-      </div>
-      <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <InfoTip wide label={c("역할별 권한", "What each role can do")}>
+      <ul className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
         {(Object.keys(CAN) as TeamRole[]).map((role) => (
-          <li key={role} className="rounded-lg border border-border p-4">
+          <li key={role} data-role-guide={role}>
             <div className="flex items-baseline justify-between gap-2">
-              <h3 className="text-sm font-semibold">{c(...roleName[role])}</h3>
-              <span className="text-xs text-muted">{c(...SEAT[role])}</span>
+              <strong className="text-[13px] font-semibold">{c(...roleName[role])}</strong>
+              <span className="text-xs">{c(...SEAT[role])}</span>
             </div>
-            <ul className="mt-2.5 space-y-1 text-[13px] leading-5">
+            <ul className="mt-1.5 space-y-0.5 text-foreground">
               {CAN[role].map((item) => (
                 <li key={item[0]} className="flex gap-2">
                   <span aria-hidden="true" className="mt-2 size-1 shrink-0 rounded-full bg-muted" />
@@ -89,9 +93,15 @@ export function TeamRoles() {
                 </li>
               ))}
             </ul>
+            <p className="mt-1.5 text-xs">
+              {c("메뉴", "Menu")}: {c(...MENU[role])}
+            </p>
           </li>
         ))}
       </ul>
-    </section>
+      <p className="border-t border-border pt-2 text-xs">
+        {c("역할은 소유자와 관리자만 바꿀 수 있어요.", "Only the owner and admins change roles.")}
+      </p>
+    </InfoTip>
   );
 }

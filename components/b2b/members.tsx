@@ -37,7 +37,7 @@ import { AddSeats } from "./add-seats";
 import { OwnershipControls } from "./ownership";
 import { changeInvitation, InviteForm, useInvitationStatus } from "./invitations";
 import { B2bError, errorCode, useCopy } from "./shared";
-import { roleSummary, TeamRoles } from "./team-roles";
+import { RolesTip, roleSummary } from "./team-roles";
 
 /**
  * 멤버, the way Figma's people list works (2026-10-08): one table of who is
@@ -261,7 +261,12 @@ export function TeamMembers() {
                 <thead>
                   <tr>
                     <th className={thClass}>{c("이름", "Name")}</th>
-                    <th className={`${thClass} w-32`}>{c("역할", "Role")}</th>
+                    <th className={`${thClass} w-32`}>
+                      <span className="inline-flex items-center gap-1">
+                        {c("역할", "Role")}
+                        <RolesTip />
+                      </span>
+                    </th>
                     <th className={`${thClass} hidden w-28 md:table-cell`}>{c("최근 활동", "Last active")}</th>
                     <th className={`${thClass} relative w-12`}>
                       <span className="sr-only">{c("작업", "Actions")}</span>
@@ -412,7 +417,6 @@ export function TeamMembers() {
               <EmptyState frame="none" title={c("검색과 맞는 사람이 없습니다.", "No one matches your search.")} />
             )}
           </section>
-          <TeamRoles />
 
         </div>
       )}

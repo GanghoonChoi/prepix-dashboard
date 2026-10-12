@@ -21,6 +21,7 @@ import { b2bService, type TeamLifecycle } from "@/lib/api/services/b2b.service";
 import { useI18n } from "@/lib/i18n/context";
 import { deletionCopy, reasonCopy } from "@/lib/b2b-lifecycle/view";
 import {
+  AccessDenied,
   B2bError,
   errorCode,
   StateBadge,
@@ -36,6 +37,8 @@ export function TeamStatus() {
   if (!context?.b2b) return <TeamLoading />;
   if (!context.b2b.enrolled || !context.data.currentUserId)
     return <B2bError code="B2B_TEAM_NOT_FOUND" />;
+  // A viewer has no team dashboard; this page is part of it.
+  if (context.data.role === "reviewer") return <AccessDenied code="B2B_VIEWER_READ_ONLY" />;
   const scope: Scope = {
     origin: new URL(apiClient.defaults.baseURL!).origin,
     userId: context.data.currentUserId,
