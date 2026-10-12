@@ -66,6 +66,34 @@ export interface CurrentSubscription {
   };
 }
 
+/** One payment of a personal subscription (결제내역, 2026-10-13). */
+export interface SubscriptionPayment {
+  id: string;
+  receiptNo: string;
+  provider: "tosspayments" | "portone";
+  plan: string;
+  interval: BillingInterval;
+  amount: number;
+  supplyAmount: number;
+  vatAmount: number;
+  currency: string;
+  status: "paid" | "partial_cancelled" | "cancelled";
+  cancelledAmount: number;
+  method: "card" | "kakaopay";
+  cardCompany: string | null;
+  cardNumber: string | null;
+  approvalNo: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+  paidAt: string;
+  cancelledAt: string | null;
+  hasPgReceipt: boolean;
+}
+export interface SubscriptionReceipt extends SubscriptionPayment {
+  buyer: { email: string };
+  merchant: { name: string; representative: string; businessNo: string; address: string; phone: string; email: string };
+}
+
 export interface CheckoutResult {
   // Which merchant of record this checkout belongs to. Only "paddle" has an
   // in-page overlay; the others host their own page, so the client follows
@@ -85,6 +113,22 @@ export interface CheckoutResult {
 }
 
 export const subscriptionService = {
+  payments: async (): Promise<SubscriptionPayment[]> => {
+    const response = await apiClient.get("/subscriptions/payments");
+    return response.data.data.payments;
+  },
+
+  receipt: async (id: string): Promise<SubscriptionReceipt> => {
+    const response = await apiClient.get(`/subscriptions/payments/${encodeURIComponent(id)}`);
+    return response.data.data;
+  },
+
+  /** The card company's slip, handed out to its owner one at a time. */
+  pgReceipt: async (id: string): Promise<{ url: string; verification: boolean }> => {
+    const response = await apiClient.get(`/subscriptions/payments/${encodeURIComponent(id)}/pg-receipt`);
+    return response.data.data;
+  },
+
   getCurrent: async (): Promise<CurrentSubscription> => {
     const response = await apiClient.get("/subscriptions/current");
     return response.data.data;

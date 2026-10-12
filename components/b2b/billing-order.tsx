@@ -188,8 +188,36 @@ export function BillingOrder({ workspaceId, orderId }: { workspaceId: string; or
   // The expiry only matters while the order can still be paid (or just lapsed).
   if (order.state === "awaiting_payment" || order.state === "expired")
     facts.push([c("주문 유효 시각", "Order expires"), kst(order.expiresAt)]);
+  // The tab opens on the click (a window opened after an await is a blocked
+  // popup) and is pointed at the slip once the server has fetched it.
+  const openSlip = async () => {
+    const tab = window.open("", "_blank");
+    if (tab) tab.opener = null;
+    try {
+      const { url } = await api!.pgReceipt(order.id);
+      if (tab) tab.location.href = url;
+      else window.location.href = url;
+    } catch {
+      tab?.close();
+    }
+  };
   if (order.receipt)
-    facts.push([c("수납 확인", "Receipt"), `${won(order.receipt.amountKrw)} · ${kst(order.receipt.approvedAt)}`]);
+    facts.push([
+      c("수납 확인", "Receipt"),
+      <span key="receipt" className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span>{`${won(order.receipt.amountKrw)} · ${kst(order.receipt.approvedAt)}`}</span>
+        {api && (
+          <button
+            type="button"
+            onClick={() => void openSlip()}
+            className="text-foreground underline underline-offset-4"
+            title={c("토스페이먼츠에서 본인 확인 후 열려요", "Opens at Toss Payments after a quick check")}
+          >
+            {c("카드 매출전표", "Card slip")}
+          </button>
+        )}
+      </span>,
+    ]);
   if (order.application && order.application.overpaymentKrw > 0)
     facts.push([c("반영 지연 차액 (원결제로 반환)", "Late-application difference (returned to payment)"), won(order.application.overpaymentKrw)]);
   if (order.failureCode) facts.push([c("결제사 응답 코드", "Provider code"), order.failureCode]);
