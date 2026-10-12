@@ -34,9 +34,9 @@ test("P08: selected audience only, explicit publication, lost audience receipt, 
     await videoReady(L.page);
     await L.page.locator("video").evaluate((video: HTMLVideoElement) => video.play());
     await L.page.getByRole("radio", { name: "선택한 사람만", exact: true }).check();
+    // A chosen audience is enough; nobody is named approver.
     await L.page.getByRole("checkbox", { name: "aud-client · 뷰어", exact: true }).check();
-    await expect(publish).toBeDisabled();
-    await L.page.getByRole("combobox", { name: "승인자 선택", exact: true }).selectOption(client.id);
+    await expect(publish).toBeEnabled();
     await publish.click();
     await expect(L.page.getByRole("heading", { name: "지정 대상 검토", exact: true })).toBeVisible();
     const reviewUrl = new URL(L.page.url()).pathname;
@@ -62,10 +62,8 @@ test("P08: selected audience only, explicit publication, lost audience receipt, 
     // M4: the form starts from the current selected round, never project-wide.
     await expect(audience.getByRole("radio", { name: "선택한 사람만", exact: true })).toBeChecked({ timeout: 30_000 });
     await expect(audience.getByRole("checkbox", { name: "aud-client · 뷰어", exact: true })).toBeChecked();
-    await expect(audience.getByRole("combobox", { name: "승인자 선택", exact: true })).toHaveValue(client.id);
     await audience.getByRole("checkbox", { name: "aud-client · 뷰어", exact: true }).uncheck();
     await audience.getByRole("checkbox", { name: "aud-producer · 편집자", exact: true }).check();
-    await audience.getByRole("combobox", { name: "승인자 선택", exact: true }).selectOption(producer.id);
     const confirm = audience.getByRole("button", { name: "대상을 확정하고 새 회차 공개", exact: true });
     // No reason to type (2026-10-08): a valid audience is enough.
     await expect(confirm).toBeEnabled();
@@ -87,7 +85,7 @@ test("P08: selected audience only, explicit publication, lost audience receipt, 
     await expect(L.page.getByText("결과 확인이 필요한 변경", { exact: true })).toHaveCount(0);
     expect(sends).toBe(1);
     const next = await json(request.get(`${root}/reviews/${id}`, { headers: lead.headers }));
-    expect(next.approval).toBe("awaiting");
+    expect(next.approval).toBe("no_approver"); // a new round starts in review, nobody named
     expect(next.comments).toHaveLength(0);
     expect((await json(request.get(`${root}/reviews/${id}?round=1`, { headers: lead.headers }))).decisions.some((decision: { decision: string }) => decision.decision === "approved")).toBe(true);
     expect((await request.get(`${root}/reviews/${id}`, { headers: client.headers })).status()).toBe(404);

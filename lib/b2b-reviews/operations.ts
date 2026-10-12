@@ -97,21 +97,21 @@ export function validScope(s: unknown): s is ReviewScope {
 export type AudienceSelection = { audienceScope: "project" | "selected"; audienceUserIds: string[]; approverUserId: string };
 /** V: the wire fields of an audience choice. "project" (every internal member
  * who can see the project) sends the external participants opened to this
- * round only when there are any, and an approver only when one is chosen;
- * "selected" (0067) sends the list and an approver among it. */
+ * round only when there are any; "selected" (0067) sends the list. Neither
+ * names an approver any more (status model, 2026-10-12) — the field is sent
+ * only by old saved records that still carry one. */
 export function audienceInput(a: AudienceSelection) {
+  const approver = a.approverUserId ? { approverUserId: a.approverUserId } : {};
   return a.audienceScope === "project"
-    ? { audienceScope: "project" as const, ...(a.audienceUserIds.length ? { audienceUserIds: a.audienceUserIds } : {}), ...(a.approverUserId ? { approverUserId: a.approverUserId } : {}) }
-    : { audienceScope: "selected" as const, audienceUserIds: a.audienceUserIds, approverUserId: a.approverUserId };
+    ? { audienceScope: "project" as const, ...(a.audienceUserIds.length ? { audienceUserIds: a.audienceUserIds } : {}), ...approver }
+    : { audienceScope: "selected" as const, audienceUserIds: a.audienceUserIds, ...approver };
 }
 /** The current round's audience as the starting choice of an audience change
  * or a version replacement: a selected review never silently becomes
  * project-wide, and a project round keeps the externals it was opened to. */
-export function detailAudience(d: Pick<ReviewDetail, "review" | "audience" | "approver">): AudienceSelection {
-  const audienceUserIds = d.audience?.map((p) => p.userId) ?? [];
-  const approver = d.approver?.active && d.approver.basis === "participant" ? d.approver.person.userId : "";
-  const fits = d.review.audienceScope === "project" || audienceUserIds.includes(approver);
-  return { audienceScope: d.review.audienceScope, audienceUserIds, approverUserId: fits ? approver : "" };
+export function detailAudience(d: Pick<ReviewDetail, "review" | "audience">): AudienceSelection {
+  // A new round starts in review; the last decider is not carried over.
+  return { audienceScope: d.review.audienceScope, audienceUserIds: d.audience?.map((p) => p.userId) ?? [], approverUserId: "" };
 }
 const idList = (v: unknown): v is string[] =>
   Array.isArray(v) && v.every((id) => typeof id === "string" && uuid.test(id)) && new Set(v).size === v.length;
@@ -121,7 +121,7 @@ export function validAudience(input: Record<string, unknown>) {
   if (input.audienceScope === "project")
     return (audience === undefined || idList(audience)) && (approver == null || (typeof approver === "string" && uuid.test(approver)));
   if (input.audienceScope !== undefined && input.audienceScope !== "selected") return false;
-  return idList(audience) && audience.length > 0 && typeof approver === "string" && audience.includes(approver);
+  return idList(audience) && audience.length > 0 && (approver == null || (typeof approver === "string" && audience.includes(approver)));
 }
 export function validRecord(raw: unknown, scope: ReviewScope): raw is ReviewRecord {
   const r = raw as ReviewRecord;

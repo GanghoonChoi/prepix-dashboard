@@ -14,7 +14,6 @@ import {
   rowClass,
   SearchField,
   Segmented,
-  Select,
   tableClass,
   tdClass,
   thClass,
@@ -49,25 +48,30 @@ import { ReviewPending } from "./review-pending";
 
 // SOT: prepix-backend backend/docs/b2b-reviews.md (S34)
 type Copy = [string, string];
+// Status model (2026-10-12, Frame.io-style): a video is in review until
+// someone on the project approves it or asks for changes. The server's
+// approver states all read "in review" — there is no named approver to wait on.
 export const approvalCopy: Record<ReviewApprovalState, Copy> = {
-  no_approver: ["승인자 미지정", "No approver"],
-  approver_inactive: ["승인자 재지정 필요", "Approver needs reassignment"],
-  awaiting: ["승인 대기", "Awaiting approval"],
-  approved: ["승인", "Approved"],
+  no_approver: ["검토 중", "In review"],
+  approver_inactive: ["검토 중", "In review"],
+  awaiting: ["검토 중", "In review"],
+  approved: ["승인됨", "Approved"],
   changes_requested: ["수정 요청", "Changes requested"],
 };
-/** Approved is done, a pending approval waits on someone, changes are asked. */
+/** Approved is done, changes are asked; in review is the quiet default. */
 const approvalTone: Record<ReviewApprovalState, Tone> = {
   no_approver: "neutral",
   approver_inactive: "neutral",
-  awaiting: "warning",
+  awaiting: "neutral",
   approved: "success",
   changes_requested: "warning",
 };
+const decided = (state: ReviewApprovalState) =>
+  state === "approved" || state === "changes_requested";
 function ApprovalBadge({ state }: { state: ReviewApprovalState }) {
   const c = useCopy();
   return (
-    <UiBadge tone={approvalTone[state]} dot={state === "awaiting"}>
+    <UiBadge tone={approvalTone[state]} dot={state === "changes_requested"}>
       {c(...approvalCopy[state])}
     </UiBadge>
   );
@@ -94,16 +98,16 @@ const reviewErrors: Record<string, Copy> = {
     "A previous round is read-only.",
   ],
   B2B_REVIEW_APPROVER_REQUIRED: [
-    "지정된 승인자만 이 영상을 승인하거나 수정 요청할 수 있습니다.",
-    "Only the designated approver can approve or request changes.",
+    "이 영상의 상태는 프로젝트 참여자만 바꿀 수 있어요.",
+    "Only people taking part in the project can change this video's status.",
   ],
   B2B_REVIEW_APPROVER_INVALID: [
     "현재 이 검토에 접근할 수 있는 사람만 승인자로 지정할 수 있습니다.",
     "Only someone with current access to this review can be the approver.",
   ],
   B2B_REVIEW_DECISION_EXISTS: [
-    "이 회차에 이미 결정이 있습니다. 바꾸려면 사유와 함께 취소한 뒤 다시 결정해 주세요.",
-    "This round already has a decision. Cancel it with a reason before deciding again.",
+    "이미 그 상태예요.",
+    "The video already has that status.",
   ],
   B2B_REVIEW_DECISION_NOT_CURRENT: [
     "현재 유효한 결정이 아닙니다. 최신 상태를 확인해 주세요.",
@@ -158,9 +162,9 @@ const reviewErrors: Record<string, Copy> = {
     "사용자 지정 공유 기간이 아직 설정되지 않았습니다. 만료일을 비우면 기본 7일로 공유할 수 있습니다.",
     "Custom share expiry is not configured. Leave the date empty to share for the default 7 days.",
   ],
-  B2B_REVIEW_AUDIENCE_REQUIRED: ["검토 대상과 승인자 한 명을 선택해 주세요.", "Choose the review audience and one approver."],
+  B2B_REVIEW_AUDIENCE_REQUIRED: ["검토 대상을 선택해 주세요.", "Choose the review audience."],
   B2B_REVIEW_AUDIENCE_INVALID: ["선택한 사람의 현재 프로젝트 참여 상태가 바뀌었습니다. 대상을 다시 확인해 주세요.", "A selected person's folder participation changed. Check the audience again."],
-  B2B_REVIEW_AUDIENCE_CONFIRMATION_REQUIRED: ["담당자가 검토 대상과 승인자를 확정해야 합니다.", "The lead must confirm the audience and approver."],
+  B2B_REVIEW_AUDIENCE_CONFIRMATION_REQUIRED: ["담당자가 검토 대상을 확정해야 합니다.", "The lead must confirm the audience."],
   B2B_REVIEW_SHARE_DOWNLOAD_NOT_ALLOWED: [
     "원본 공유가 허용된 프로젝트에서, 원본을 받을 수 있는 담당자만 원본 다운로드를 허용할 수 있습니다.",
     "Original downloads need a folder that allows sharing originals and your own download access.",
@@ -334,8 +338,8 @@ export type { AudienceSelection };
 export const projectAudience = (approverUserId = ""): AudienceSelection => ({ audienceScope: "project", audienceUserIds: [], approverUserId });
 /** V: by default a review is open to every internal member who can see the
  * project, external participants only when ticked here (or sent a share
- * link), and an approver is designated only when needed; "선택한 사람만"
- * keeps the 0067 explicit audience with one approver among it. */
+ * link); "선택한 사람만" keeps the 0067 explicit audience. Nobody is named
+ * approver: anyone in the audience who takes part sets the status. */
 export function ReviewAudiencePicker({ scope, value, onChange, disabled, onValidityChange }: {
   scope: ReviewScope & { kind: "project" };
   value: AudienceSelection;
@@ -348,22 +352,19 @@ export function ReviewAudiencePicker({ scope, value, onChange, disabled, onValid
   const { data, error, load } = useLoader<ReviewAudienceCandidates>(read);
   const selected = value.audienceScope === "selected", group = useId();
   const external = useCallback((id: string) => !!data?.candidates.some((p) => p.userId === id && p.external), [data]);
-  // Under "project" an internal approver needs no listing; an external one must be opened to the round.
-  const fits = (audienceScope: AudienceSelection["audienceScope"], audienceUserIds: string[], id: string) =>
-    audienceScope === "selected" ? audienceUserIds.includes(id) : !external(id) || audienceUserIds.includes(id);
   const choose = (audienceScope: AudienceSelection["audienceScope"], audienceUserIds: string[]) =>
-    onChange({ audienceScope, audienceUserIds, approverUserId: fits(audienceScope, audienceUserIds, value.approverUserId) ? value.approverUserId : "" });
+    onChange({ audienceScope, audienceUserIds, approverUserId: "" });
   useEffect(() => {
     const known = (id: string) => !!data && data.candidates.some((p) => p.userId === id);
     onValidityChange(selected
-      ? !!data && !error && value.audienceUserIds.length > 0 && value.audienceUserIds.every(known) && value.audienceUserIds.includes(value.approverUserId)
-      : value.audienceUserIds.every(external) && (!value.approverUserId || (known(value.approverUserId) && (!external(value.approverUserId) || value.audienceUserIds.includes(value.approverUserId)))));
+      ? !!data && !error && value.audienceUserIds.length > 0 && value.audienceUserIds.every(known)
+      : value.audienceUserIds.every(external));
   }, [data, error, value, selected, external, onValidityChange]);
   const roles = { lead: c("담당자", "Lead"), producer: c("편집자", "Editor"), reviewer: c("뷰어", "Viewer") };
   const listed = data?.candidates.filter((person) => selected || person.external) ?? [];
   return (
     <fieldset disabled={disabled} className="space-y-3">
-      <legend className="mb-1 text-sm font-medium">{c("검토 대상과 승인자", "Review audience and approver")}</legend>
+      <legend className="mb-1 text-sm font-medium">{c("검토 대상", "Review audience")}</legend>
       <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
         {([["project", c("프로젝트 내부 전체 공개", "Everyone internal on the project")], ["selected", c("선택한 사람만", "Selected people only")]] as const).map(([scopeValue, label]) => (
           <label key={scopeValue} className="flex min-h-11 items-center gap-3">
@@ -373,7 +374,7 @@ export function ReviewAudiencePicker({ scope, value, onChange, disabled, onValid
         ))}
       </div>
       <p className="text-[13px] text-muted">{selected
-        ? c("고른 참여자만 보고, 승인자는 그중 한 명입니다.", "Only the people you pick can view it; the approver is one of them.")
+        ? c("고른 참여자만 보고 코멘트할 수 있어요.", "Only the people you pick can view and comment.")
         : c("프로젝트를 볼 수 있는 내부 구성원 모두가 보고 코멘트합니다.", "Every internal member who can see the project can view and comment.")}</p>
       {error && <ReviewError code={error} retry={() => void load()} />}
       {!data && !error && <TeamLoading />}
@@ -385,13 +386,6 @@ export function ReviewAudiencePicker({ scope, value, onChange, disabled, onValid
           <span className="min-w-0 break-words">{person.label} · {roles[person.role]}</span>
         </label>)}
       </div>}
-      <label className="block space-y-2 text-sm">
-        <span>{c("승인자 선택", "Choose approver")}</span>
-        <Select value={value.approverUserId} disabled={!data || !!error} onChange={(e) => onChange({ ...value, approverUserId: e.target.value })}>
-          <option value="">{selected ? c("선택", "Choose") : c("지정 안 함", "None")}</option>
-          {data?.candidates.filter((person) => fits(value.audienceScope, value.audienceUserIds, person.userId)).map((person) => <option key={person.userId} value={person.userId}>{person.label} · {roles[person.role]}</option>)}
-        </Select>
-      </label>
     </fieldset>
   );
 }
@@ -699,7 +693,7 @@ function ReviewListInner({ projectId, heading }: { projectId: string; heading?: 
                 <Poster
                   url={r.posterUrl}
                   className={posterLinkClass}
-                  badge={r.approval !== "no_approver" && <ApprovalBadge state={r.approval} />}
+                  badge={decided(r.approval) && <ApprovalBadge state={r.approval} />}
                 />
                 <span className="mt-2 block truncate text-[13px] font-medium">{r.title}</span>
                 <span className="block truncate text-xs tabular-nums text-muted">
@@ -751,11 +745,7 @@ function ReviewListInner({ projectId, heading }: { projectId: string; heading?: 
                   {r.publisher?.name ?? (r.publisher ? c("이름 없음", "Unnamed") : "—")}
                 </td>
                 <td className={tdClass}>
-                  {r.approval === "no_approver" ? (
-                    <span className="text-muted">—</span>
-                  ) : (
-                    <ApprovalBadge state={r.approval} />
-                  )}
+                  <ApprovalBadge state={r.approval} />
                 </td>
                 <td className={`${tdClass} hidden whitespace-nowrap text-muted lg:table-cell`}>{ago(r.updatedAt, lang)}</td>
                 <td className={`${tdClass} text-right text-muted`}>

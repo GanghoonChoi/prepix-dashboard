@@ -62,7 +62,7 @@ function Sheet() {
         title="1차 편집 검토"
         back={{ href: "#", label: "영상 목록" }}
         badge={<Badge tone="warning" dot>승인 대기</Badge>}
-        meta={["v2", "회차 1", "승인자 김지훈"]}
+        meta={["v2", "회차 1", "승인됨 · 김지훈"]}
         actions={
           <>
             <Button variant="secondary">

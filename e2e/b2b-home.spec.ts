@@ -32,7 +32,8 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
   let E: Awaited<ReturnType<typeof open>> | undefined;
   try {
     await expect(
-      O.page.getByText("첫 구매가 반영되면 이용기간이 시작됩니다."),
+      // Said once, by the preparing banner; the seat line is gone (2026-10-12).
+      O.page.getByText("첫 이용권 반영 전에는 이용기간이 시작되지 않습니다."),
     ).toBeVisible();
     fixture("b2b-paid-test-fixture.cjs", {
       workspaceId: team,

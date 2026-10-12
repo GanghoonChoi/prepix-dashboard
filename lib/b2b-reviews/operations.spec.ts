@@ -210,6 +210,10 @@ test("audience publication is project-scoped and malformed audience records cann
   assert.equal(validRecord({ ...r, input: { ...r.input, audienceUserIds: [] } }, project), false);
   assert.equal(validRecord({ ...r, input: { ...r.input, audienceUserIds: [approverUserId, approverUserId] } }, project), false);
   assert.equal(validRecord({ ...r, input: { ...r.input, approverUserId: randomUUID() } }, project), false);
+  // Status model (2026-10-12): a selected audience needs no named approver.
+  const withoutApprover = { ...(r.input as Record<string, unknown>) };
+  delete withoutApprover.approverUserId;
+  assert.equal(validRecord({ ...r, input: withoutApprover } as ReviewRecord, project), true);
   assert.equal(validRecord({ ...r, input: { ...r.input, reason: " " } }, project), false);
 });
 
@@ -219,6 +223,7 @@ test("project-wide audience sends the opened externals only when chosen and an o
   assert.deepEqual(audienceInput({ audienceScope: "project", audienceUserIds: [approverUserId], approverUserId: "" }), { audienceScope: "project", audienceUserIds: [approverUserId] });
   assert.deepEqual(audienceInput({ audienceScope: "project", audienceUserIds: [], approverUserId }), { audienceScope: "project", approverUserId });
   assert.deepEqual(audienceInput({ audienceScope: "selected", audienceUserIds: [approverUserId], approverUserId }), { audienceScope: "selected", audienceUserIds: [approverUserId], approverUserId });
+  assert.deepEqual(audienceInput({ audienceScope: "selected", audienceUserIds: [approverUserId], approverUserId: "" }), { audienceScope: "selected", audienceUserIds: [approverUserId] });
   const r: ReviewRecord = { ...comment(), action: "round", input: { requestKey: randomUUID(), revision: 1, versionId: randomUUID(), reason: "V2", audienceScope: "project" } };
   assert.equal(validRecord(r, project), true);
   assert.equal(validRecord({ ...r, input: { ...r.input, approverUserId } }, project), true);
@@ -238,12 +243,10 @@ test("an audience change starts from the current round, never widening a selecte
     ({ designationId: randomUUID(), person: { userId, name: null }, basis, active, assignedAt: "" });
   const detail = (audienceScope: "project" | "selected", audience: string[], appr: ReturnType<typeof approver> | null) =>
     ({ review: { audienceScope }, audience: audience.map(person), approver: appr }) as unknown as Parameters<typeof detailAudience>[0];
-  assert.deepEqual(detailAudience(detail("selected", [a, b], approver(b))), { audienceScope: "selected", audienceUserIds: [a, b], approverUserId: b });
-  assert.deepEqual(detailAudience(detail("selected", [a], approver(b))), { audienceScope: "selected", audienceUserIds: [a], approverUserId: "" });
-  assert.deepEqual(detailAudience(detail("selected", [a], approver(a, "share"))), { audienceScope: "selected", audienceUserIds: [a], approverUserId: "" });
-  assert.deepEqual(detailAudience(detail("project", [ext], approver(a))), { audienceScope: "project", audienceUserIds: [ext], approverUserId: a });
-  assert.deepEqual(detailAudience(detail("project", [], approver(a, "participant", false))), { audienceScope: "project", audienceUserIds: [], approverUserId: "" });
-  assert.deepEqual(audienceInput(detailAudience(detail("selected", [a, b], approver(a)))), { audienceScope: "selected", audienceUserIds: [a, b], approverUserId: a });
+  // A new round starts in review: the last decider is never carried over.
+  assert.deepEqual(detailAudience(detail("selected", [a, b], approver(b))), { audienceScope: "selected", audienceUserIds: [a, b], approverUserId: "" });
+  assert.deepEqual(detailAudience(detail("project", [ext], approver(a))), { audienceScope: "project", audienceUserIds: [ext], approverUserId: "" });
+  assert.deepEqual(audienceInput(detailAudience(detail("selected", [a, b], approver(a)))), { audienceScope: "selected", audienceUserIds: [a, b] });
 });
 
 test("a lost audience-change response recovers the same round receipt after reload", async () => {
