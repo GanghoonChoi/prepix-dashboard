@@ -5,7 +5,7 @@ import {
   type Page,
 } from "@playwright/test";
 import { execFileSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
@@ -145,20 +145,54 @@ export async function open(browser: Browser, user: Account, target: string) {
   await page.getByRole("button", { name: "계속하기", exact: true }).click();
   return { page, errors, close: () => context.close() };
 }
-export async function upload(page: Page, name: string, newVersionOf?: string) {
-  await expect(
-    page.getByRole("heading", { name: "프로젝트 자료", exact: true }),
-  ).toBeVisible();
-  if (newVersionOf)
-    await page
-      .getByRole("combobox", { name: "등록 방식", exact: true })
-      .selectOption({ label: `기존 자료의 새 버전: ${newVersionOf}` });
-  await page.getByLabel("보관할 파일", { exact: true }).setInputFiles({
-    name,
-    mimeType: "video/mp4",
-    buffer: await readFile(resolve(media, name)),
+/**
+ * Stores a media file in a project the way the app does — through the API
+ * (the web has no upload since 2026-10-12). `newVersionOf` names an earlier
+ * file of the project; returns the upload id.
+ */
+export async function upload(
+  request: APIRequestContext,
+  user: Account,
+  team: string,
+  projectId: string,
+  name: string,
+  options: { newVersionOf?: string; kind?: "original" | "output" } = {},
+) {
+  const root = `${api}/v2/workspaces/${team}/b2b/projects/${projectId}`;
+  const content = await readFile(resolve(media, name));
+  let existingAssetId: string | undefined;
+  if (options.newVersionOf) {
+    const versions = (await json(request.get(`${root}/files`, { headers: user.headers }))).versions as { name: string; assetId: string }[];
+    existingAssetId = versions.find((v) => v.name === options.newVersionOf)?.assetId;
+    expect(existingAssetId, `no file named ${options.newVersionOf}`).toBeTruthy();
+  }
+  const begin = await request.post(`${root}/uploads`, {
+    headers: user.headers,
+    data: {
+      requestKey: randomUUID(),
+      name,
+      kind: options.kind ?? "original",
+      size: content.length,
+      sha256: createHash("sha256").update(content).digest("hex"),
+      scope: "uploader_and_steward",
+      ...(existingAssetId ? { existingAssetId } : {}),
+    },
   });
-  await page.getByRole("button", { name: "팀에 보관 시작", exact: true }).click();
+  expect(begin.status(), await begin.text()).toBe(201);
+  const stored = (await begin.json()).data.upload as { id: string; partSize: number };
+  for (let offset = 0, number = 1; offset < content.length; offset += stored.partSize, number++) {
+    const part = content.subarray(offset, offset + stored.partSize);
+    const signed = await request.post(`${root}/uploads/${stored.id}/parts`, {
+      headers: user.headers,
+      data: { number, checksum: createHash("sha256").update(part).digest("base64") },
+    });
+    expect(signed.status(), await signed.text()).toBe(201);
+    const target = (await signed.json()).data as { url: string; headers: Record<string, string> };
+    expect((await request.put(target.url, { headers: target.headers, data: part })).status()).toBe(200);
+  }
+  const done = await request.post(`${root}/uploads/${stored.id}/complete`, { headers: user.headers, data: {} });
+  expect(done.status(), await done.text()).toBe(201);
+  return stored.id;
 }
 export async function videoReady(page: Page) {
   await expect

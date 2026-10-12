@@ -25,24 +25,16 @@ export function LeaveTeam() {
     revision: number;
     reason: string;
   } | null>(null);
-  if (!b2b?.enrolled) return null;
-  const owner = data.role === "owner";
+  // The owner hands over first (설정 → 소유권); there is nothing to leave yet.
+  if (!b2b?.enrolled || data.role === "owner") return null;
   return (
     <Block
-      title={c("내 참여", "Your participation")}
-      description={
-        owner
-          ? c(
-              "소유자는 위 소유권에서 다른 멤버에게 넘긴 뒤 나갈 수 있어요.",
-              "Hand ownership to another member above before you leave.",
-            )
-          : c(
-              "탈퇴하면 팀과 프로젝트 접근이 즉시 종료됩니다. 작성한 자료는 팀에 남습니다.",
-              "Leaving ends team and project access at once. Your work stays with the team.",
-            )
-      }
+      title={c("팀 나가기", "Leave team")}
+      description={c(
+        "팀을 나가면 이 팀의 프로젝트와 파일에 더 이상 접근할 수 없어요. 올린 파일은 팀에 남아요.",
+        "You lose access to this team's projects and files. Files you added stay with the team.",
+      )}
       actions={
-        !owner &&
         !open && (
           <Button variant="secondary" onClick={() => setOpen(true)}>
             {c("팀 나가기", "Leave team")}
@@ -50,7 +42,7 @@ export function LeaveTeam() {
         )
       }
     >
-      {!owner && open && (
+      {open && (
         <form
           className="max-w-xl space-y-4"
           onSubmit={async (event) => {
@@ -127,12 +119,12 @@ export function DeleteTeam() {
         description={
           !ended
             ? c(
-                "결제한 팀은 바로 삭제되지 않아요. 플랜과 결제에서 구독을 해지하면 이번 이용기간까지 쓰고, 그 뒤 30일 동안 읽기 전용, 30일 더 복구할 수 있고, 그다음 모든 자료가 삭제돼요.",
-                "A paid team is not deleted at once. Cancel the subscription in Plan & billing: it works until the period ends, is read-only for 30 days, restorable for 30 more, and then everything is deleted.",
+                "구독 중인 팀은 바로 삭제할 수 없어요. 구독을 해지하면 이용기간이 끝나고 60일 뒤에 모든 데이터가 삭제돼요.",
+                "A subscribed team can't be deleted right away. Cancel the subscription and all data is deleted 60 days after the period ends.",
               )
             : c(
-                `이용기간이 끝난 팀이에요. ${formatDate(new Date(Date.parse(ended) + 60 * DAY), lang)} 이후 모든 자료가 삭제돼요. 그 전에는 플랜과 결제에서 복구할 수 있어요.`,
-                `This team's period has ended. Everything is deleted after ${formatDate(new Date(Date.parse(ended) + 60 * DAY), lang)}; until then you can restore it in Plan & billing.`,
+                `${formatDate(new Date(Date.parse(ended) + 60 * DAY), lang)}에 모든 데이터가 영구 삭제돼요. 그 전에 다시 구독하면 그대로 복구돼요.`,
+                `All data is deleted on ${formatDate(new Date(Date.parse(ended) + 60 * DAY), lang)}. Subscribe again before then to restore it.`,
               )
         }
       >
@@ -147,8 +139,8 @@ export function DeleteTeam() {
     <DangerZone
       title={title}
       description={c(
-        "결제 전인 팀이라 바로 삭제돼요. 멤버와 보낸 초대도 모두 사라지고, 되돌릴 수 없어요.",
-        "This team was never paid for, so it is deleted at once with its members and pending invitations. This cannot be undone.",
+        "팀과 멤버, 보낸 초대가 영구 삭제돼요. 삭제한 팀은 되돌릴 수 없어요.",
+        "The team, its members and pending invitations are deleted. This can't be undone.",
       )}
     >
       {!open ? (

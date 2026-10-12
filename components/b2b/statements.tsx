@@ -1,7 +1,7 @@
 "use client";
 import { kst, useWon } from "./billing-shared";
 import { formatPhone } from "@/lib/api/generated/b2b";
-import { ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { apiClient } from "@/lib/api/client";
@@ -218,6 +218,7 @@ export function TeamStatements() {
   const api = useStatementApi(scope, key, allowed);
   const fetcher = useCallback(() => api.list(), [api]);
   const { view, error, busy, load } = usePinned(key, allowed, fetcher);
+  const [newest, setNewest] = useState(true);
   if (!b2b?.enrolled) return <B2bError code="B2B_TEAM_NOT_FOUND" />;
   if (!allowed) return <B2bError code="B2B_BILLING_PERMISSION_REQUIRED" />;
   return (
@@ -253,20 +254,29 @@ export function TeamStatements() {
               )}
             </p>
           ) : (
-            [...new Set(view.months.map((m) => m.month.slice(0, 4)))].map((year) => (
+            [...new Set([...view.months].sort((a, b) => (newest ? b.month.localeCompare(a.month) : a.month.localeCompare(b.month))).map((m) => m.month.slice(0, 4)))].map((year) => (
               <section key={year} aria-labelledby={`statements-${year}`} className="space-y-2">
                 <h2 id={`statements-${year}`} className="text-base font-semibold tabular-nums">
                   {c(`${year}년`, year)}
                 </h2>
                 <div>
-                  <div aria-hidden="true" className={`${monthGrid} hidden h-10 border-b border-border text-xs font-medium text-muted sm:grid`}>
-                    <span>{c("월", "Month")}</span>
+                  <div className={`${monthGrid} hidden h-10 border-b border-border text-xs font-medium text-muted sm:grid`}>
+                    <button
+                      type="button"
+                      aria-label={newest ? c("오래된 달부터 보기", "Oldest first") : c("최근 달부터 보기", "Newest first")}
+                      onClick={() => setNewest((v) => !v)}
+                      className="inline-flex items-center gap-1 justify-self-start rounded-md text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-focus"
+                    >
+                      {c("월", "Month")}
+                      {newest ? <ChevronDown size={13} strokeWidth={2} aria-hidden="true" /> : <ChevronUp size={13} strokeWidth={2} aria-hidden="true" />}
+                    </button>
                     <span>{c("상태", "State")}</span>
                     <span>{c("발행", "Issued")}</span>
                   </div>
                   <ul aria-label={c("명세 월 목록", "Statement months")}>
                     {view.months
                       .filter((m) => m.month.startsWith(year))
+                      .sort((a, b) => (newest ? b.month.localeCompare(a.month) : a.month.localeCompare(b.month)))
                       .map((m) => (
                         <li key={m.month} className="border-b border-border">
                           <Link

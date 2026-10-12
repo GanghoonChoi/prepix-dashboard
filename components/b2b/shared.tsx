@@ -23,7 +23,7 @@ export const stateLabels: Record<TeamState | ProjectState, [string, string]> = {
   archived: ["보관", "Archived"],
 };
 export const roleLabels: Record<ProjectRole | "viewer", [string, string]> = {
-  lead: ["올린 사람", "Creator"],
+  lead: ["관리자", "Manager"],
   // Figma-like: an editor makes, a viewer watches and comments.
   producer: ["편집자", "Editor"],
   reviewer: ["뷰어", "Viewer"],
@@ -317,7 +317,7 @@ const errors: Record<string, [string, string]> = {
     "Reopen the completed folder before changing it.",
   ],
   B2B_PROJECT_LEAD_REQUIRED: [
-    "프로젝트를 올린 사람이나 소유자·관리자만 변경할 수 있습니다.",
+    "프로젝트 관리자나 팀 소유자·관리자만 변경할 수 있습니다.",
     "Only the folder lead can make this change.",
   ],
   B2B_PROJECT_VISIBILITY_CONFIRMATION_REQUIRED: [
@@ -330,7 +330,7 @@ const errors: Record<string, [string, string]> = {
   ],
   B2B_REASON_REQUIRED: ["사유를 입력해 주세요.", "Enter a reason."],
   B2B_PROJECT_LEAD_PROTECTED: [
-    "프로젝트를 올린 사람의 역할은 바꿀 수 없습니다.",
+    "프로젝트 관리자의 역할은 바꿀 수 없습니다.",
     "Transfer the lead role before changing this participant.",
   ],
   B2B_INTERNAL_SUCCESSOR_REQUIRED: [

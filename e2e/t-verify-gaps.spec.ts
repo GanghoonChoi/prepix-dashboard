@@ -93,7 +93,7 @@ test("FL12: opening a web review fetches the review copy only, never the origina
   const base = `/dashboard/workspaces/${teamId}/projects/${project}`;
   const root = `${api}/v2/workspaces/${teamId}/b2b/projects/${project}`;
   const L = await open(browser, leader, `${base}/files`);
-  await upload(L.page, "cut-v1.mp4");
+  await upload(request, leader, teamId, project, "cut-v1.mp4");
   await expect.poll(async () => (await json(request.get(`${root}/files`, { headers: leader.headers }))).versions[0]?.previewState, { timeout: 120_000 }).toBe("ready");
   const version = (await json(request.get(`${root}/files`, { headers: leader.headers }))).versions[0] as { id: string };
   const created = await json(request.post(`${root}/reviews`, { headers: leader.headers, data: { requestKey: randomUUID(), title: "FL12 검토", versionId: version.id, audienceUserIds: [leader.id], approverUserId: leader.id } }));

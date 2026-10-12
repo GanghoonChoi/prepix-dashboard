@@ -9,6 +9,9 @@ import {
   Notice,
   rowClass,
   SearchField,
+  SortHeader,
+  sortRows,
+  useSort,
   tableClass,
   tdClass,
   thClass,
@@ -71,6 +74,7 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
   const [ready, setReady] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [sort, sortBy] = useSort<"name" | "role" | "visibility" | "updated">({ key: "updated", dir: "desc" });
   const serial = useRef(0);
   const lifetime = useRef<AbortController | null>(null);
   const activeRequest = useRef<AbortController | null>(null);
@@ -248,15 +252,17 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
           <table ref={list} className={`${tableClass} table-fixed`}>
             <thead>
               <tr>
-                <th className={thClass}>{c("이름", "Name")}</th>
-                <th className={`${thClass} hidden w-[18%] sm:table-cell`}>{c("내 역할", "My role")}</th>
-                <th className={`${thClass} hidden w-[16%] md:table-cell`}>{c("공개 범위", "Visibility")}</th>
-                <th className={`${thClass} hidden w-28 lg:table-cell`}>{c("업데이트", "Updated")}</th>
+                <SortHeader column="name" label={c("이름", "Name")} sort={sort} onSort={sortBy} />
+                <SortHeader column="role" label={c("내 역할", "My role")} sort={sort} onSort={sortBy} className="hidden w-[18%] sm:table-cell" />
+                <SortHeader column="visibility" label={c("공개 범위", "Visibility")} sort={sort} onSort={sortBy} className="hidden w-[16%] md:table-cell" />
+                <SortHeader column="updated" label={c("업데이트", "Updated")} sort={sort} onSort={sortBy} className="hidden w-28 lg:table-cell" />
                 <th className={`${thClass} w-10`}><span className="sr-only">{c("열기", "Open")}</span></th>
               </tr>
             </thead>
             <tbody>
-              {rows?.map((p) => (
+              {sortRows(rows ?? [], sort, (p, key) =>
+                key === "name" ? p.name : key === "role" ? c(...roleLabels[p.role]) : key === "visibility" ? c(...visibilityLabels[p.visibility]) : Date.parse(p.updatedAt),
+              lang).map((p) => (
                 <tr
                   key={p.id}
                   className={rowClass}

@@ -1,5 +1,8 @@
 "use client";
-import { InvitationPanel } from "./invitations";
+import { InviteForm, useInvitationStatus, useProjectInvitations } from "./invitations";
+import { Plus } from "lucide-react";
+import { useOverlayState } from "@heroui/react";
+import { Dialog } from "@/components/dialog";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { apiClient } from "@/lib/api/client";
 import {
@@ -25,6 +28,9 @@ import {
   thClass,
   Toolbar,
   InfoTip,
+  SortHeader,
+  sortRows,
+  useSort,
 } from "@/components/ui";
 import {
   Block,
@@ -225,8 +231,8 @@ function VisibilitySection({
         {project.visibility === "team" ? (
           <p>
             {c(
-              "뷰어를 제외한 멤버는 팀 공용 클라우드처럼 자료를 올리고 받고 결과를 발행할 수 있습니다. 공개 범위와 공유 링크는 프로젝트를 올린 사람과 소유자·관리자가 관리합니다. 영상 승인은 참여자 누구나 할 수 있습니다. AI 사용은 자료별 권한을 따릅니다.",
-              "Members other than team viewers can upload and download files and publish results, like a shared team cloud. Visibility and share links stay with whoever brought the project in and the owner and admins; anyone taking part can approve a video. AI use follows per-file permissions.",
+              "뷰어를 제외한 멤버는 팀 공용 클라우드처럼 자료를 올리고 받고 결과를 발행할 수 있습니다. 공개 범위와 공유 링크는 프로젝트 관리자와 팀 소유자·관리자가 관리합니다. 영상 승인은 참여자 누구나 할 수 있습니다. AI 사용은 자료별 권한을 따릅니다.",
+              "Members other than team viewers can upload and download files and publish results, like a shared team cloud. Visibility and share links stay with the project's manager and the team's owner and admins; anyone taking part can approve a video. AI use follows per-file permissions.",
             )}
           </p>
         ) : (
@@ -427,6 +433,13 @@ export function ProjectParticipants({ projectId }: { projectId: string }) {
   const [rosterError, setRosterError] = useState("");
   const [busy, setBusy] = useState(false);
   const active = !!project && projectSurfaces(project.role).people;
+  // Invitations sit in the people table and the form opens from the top,
+  // like 멤버 (2026-10-12: "상단에서 버튼 누르면 모달로").
+  const canInvite = active && !!project?.allowedActions.managePeople;
+  const invites = useProjectInvitations(projectId, canInvite);
+  const inviteDialog = useOverlayState();
+  const inviteStatus = useInvitationStatus();
+  const [sort, sortBy] = useSort<"name" | "role">({ key: "role", dir: "asc" });
   const loadPeople = useCallback(async () => {
     if (!active) return;
     try {
@@ -484,24 +497,31 @@ export function ProjectParticipants({ projectId }: { projectId: string }) {
         reason,
       }),
     );
-  const people = [...roster?.people ?? []].sort(
-    (a, b) => Number(b.role === "lead") - Number(a.role === "lead"),
-  );
+  const roleRank: Record<string, number> = { lead: 0, producer: 1, reviewer: 2 };
+  const people = sortRows(roster?.people ?? [], sort, (p, key) => (key === "role" ? roleRank[p.role] ?? 3 : p.name || p.email), lang);
   return (
     <TeamShell {...projectFrame(id, project, c, lang)}>
       {rosterError && (
         <B2bError code={rosterError} retry={() => void loadPeople()} />
       )}
+      {invites.error && <B2bError code={invites.error} />}
       {!roster ? (
         !rosterError && <TeamLoading />
       ) : (
         <section className="space-y-2">
-          <Toolbar title={c("프로젝트 멤버", "Project people")} count={people.length} />
+          <Toolbar title={c("프로젝트 멤버", "Project people")} count={people.length}>
+            {canInvite && (
+              <Button size="sm" onClick={inviteDialog.open}>
+                <Plus size={14} strokeWidth={2} aria-hidden="true" />
+                {c("초대", "Invite")}
+              </Button>
+            )}
+          </Toolbar>
           <table className={`${tableClass} table-fixed`}>
             <thead>
               <tr>
-                <th className={thClass}>{c("이름", "Name")}</th>
-                <th className={`${thClass} w-32`}>{c("역할", "Role")}</th>
+                <SortHeader column="name" label={c("이름", "Name")} sort={sort} onSort={sortBy} />
+                <SortHeader column="role" label={c("역할", "Role")} sort={sort} onSort={sortBy} className="w-32" />
                 <th className={`${thClass} w-12`}>
                   <span className="sr-only">{c("작업", "Actions")}</span>
                 </th>
@@ -546,7 +566,7 @@ export function ProjectParticipants({ projectId }: { projectId: string }) {
                         </Select>
                       ) : (
                         <span className="text-muted">
-                          {lead ? c("올린 사람", "Creator") : person.role === "producer" ? c("편집자", "Editor") : c("뷰어", "Viewer")}
+                          {lead ? c("관리자", "Manager") : person.role === "producer" ? c("편집자", "Editor") : c("뷰어", "Viewer")}
                         </span>
                       )}
                     </td>
@@ -576,13 +596,40 @@ export function ProjectParticipants({ projectId }: { projectId: string }) {
                   </tr>
                 );
               })}
+              {canInvite &&
+                invites.live.map((row) => (
+                  <tr key={row.id} data-invitation={row.email}>
+                    <td className={tdClass}>
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        <span className="truncate font-medium">{row.email}</span>
+                        <Badge>{c("초대됨", "Invited")}</Badge>
+                      </div>
+                      <p className="truncate text-xs text-muted">{inviteStatus(row)}</p>
+                    </td>
+                    <td className={`${tdClass} text-muted`}>
+                      {row.projectRole === "reviewer" ? c("뷰어", "Viewer") : c("편집자", "Editor")}
+                    </td>
+                    <td className={`${tdClass} text-right`}>
+                      <RowMenu label={c(`${row.email} 초대 작업`, `Invitation actions for ${row.email}`)}>
+                        {row.deliveryState !== "held" && (
+                          <RowMenuItem disabled={invites.busy} onClick={() => void invites.act(row, "resend")}>
+                            {c("다시 보내기", "Resend")}
+                          </RowMenuItem>
+                        )}
+                        <RowMenuItem tone="danger" disabled={invites.busy} onClick={() => void invites.act(row, "revoke")}>
+                          {c("초대 취소", "Cancel invitation")}
+                        </RowMenuItem>
+                      </RowMenu>
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </section>
       )}
-      {project.role === "lead" && (
-        <InvitationPanel projectId={projectId} editable={editable} />
-      )}
+      <Dialog state={inviteDialog} title={c("프로젝트 초대", "Invite to project")}>
+        <InviteForm projectId={projectId} onSent={() => invites.load()} />
+      </Dialog>
     </TeamShell>
   );
 }

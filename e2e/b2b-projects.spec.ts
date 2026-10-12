@@ -131,6 +131,8 @@ test("B2B preparing gate, private projects, lost-response retry, role handoff an
       page.getByRole("heading", { name: "Private B2B project", exact: true }),
     ).toBeVisible();
     await editorPage.getByRole("link", { name: "멤버", exact: true }).click();
+    // The invitation form opens from the top, like the team's 멤버 (2026-10-12).
+    await editorPage.getByRole("button", { name: "초대", exact: true }).click();
     await editorPage
       .getByLabel("초대 이메일", { exact: true })
       .fill(owner.email);
@@ -253,6 +255,7 @@ test("B2B external invitation proves mailbox and preserves billing mutation on l
   await signIn(page, owner.email);
   const base = `/dashboard/workspaces/${team.id}`;
   await page.goto(`${base}/projects/${project.id}/people`);
+  await page.getByRole("button", { name: "초대", exact: true }).click();
   await page.getByLabel("초대 이메일", { exact: true }).fill(guest.email);
   await page.getByLabel("초대 역할", { exact: true }).selectOption("reviewer");
   await page.getByRole("button", { name: "초대 보내기", exact: true }).click();

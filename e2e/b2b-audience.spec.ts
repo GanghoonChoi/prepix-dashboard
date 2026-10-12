@@ -18,7 +18,7 @@ test("P08: selected audience only, explicit publication, lost audience receipt, 
   const L = await open(browser, lead, `${base}/reviews`);
   let C: Awaited<ReturnType<typeof open>> | undefined;
   try {
-    await upload(P.page, "cut-v1.mp4");
+    await upload(request, producer, team, projectId, "cut-v1.mp4");
     await expect.poll(async () => (await json(request.get(`${root}/files`, { headers: producer.headers }))).versions.length, { timeout: 60_000 }).toBe(1);
     const version = (await json(request.get(`${root}/files`, { headers: producer.headers }))).versions[0];
     expect((await request.post(`${root}/assets/${version.assetId}/permissions`, { headers: producer.headers, data: { requestKey: randomUUID(), revision: 0, userId: lead.id, canDownload: false, canUseForAi: false, reason: "Lead checks publication" } })).status()).toBe(201);

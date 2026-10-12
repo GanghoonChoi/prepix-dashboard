@@ -39,9 +39,11 @@ import {
   Notice,
   numClass,
   SettingsSection,
+  SortHeader,
+  sortRows,
   tableClass,
   tdClass,
-  thClass,
+  useSort,
 } from "@/components/ui";
 import { formatDate } from "@/lib/format";
 import { useI18n } from "@/lib/i18n/context";
@@ -129,6 +131,7 @@ function Plan({
   const cancelDialog = useOverlayState();
   const resumeDialog = useOverlayState();
   const seatsDialog = useOverlayState();
+  const [sort, sortBy] = useSort<"date" | "item" | "amount" | "state">({ key: "date", dir: "desc" });
 
   const refreshPending = useCallback(async () => {
     if (!scope) return setPending([]);
@@ -379,8 +382,8 @@ function Plan({
         description={
           product
             ? c(
-                `좌석당 월 ${won(product.extraSeat.supplyKrw)} · 최소 ${product.base.seats}석 · 부가세 별도 · 뷰어 무료`,
-                `${won(product.extraSeat.supplyKrw)} per seat a month · ${product.base.seats} seats minimum · VAT extra · viewers free`,
+                `좌석당 월 ${won(product.extraSeat.supplyKrw)} · 최소 ${product.base.seats}석 · 부가세 별도`,
+                `${won(product.extraSeat.supplyKrw)} per seat a month · ${product.base.seats} seats minimum · VAT extra`,
               )
             : undefined
         }
@@ -564,14 +567,16 @@ function Plan({
             <table className={tableClass}>
               <thead>
                 <tr>
-                  <th className={thClass}>{c("날짜", "Date")}</th>
-                  <th className={thClass}>{c("내용", "Item")}</th>
-                  <th className={`${thClass} ${numClass}`}>{c("금액", "Amount")}</th>
-                  <th className={thClass}>{c("상태", "Status")}</th>
+                  <SortHeader column="date" label={c("날짜", "Date")} sort={sort} onSort={sortBy} />
+                  <SortHeader column="item" label={c("내용", "Item")} sort={sort} onSort={sortBy} />
+                  <SortHeader column="amount" label={c("금액", "Amount")} sort={sort} onSort={sortBy} align="right" />
+                  <SortHeader column="state" label={c("상태", "Status")} sort={sort} onSort={sortBy} />
                 </tr>
               </thead>
               <tbody>
-                {orders.items.map((o) => (
+                {sortRows(orders.items, sort, (o, key) =>
+                  key === "date" ? Date.parse(o.createdAt) : key === "amount" ? o.amounts.totalKrw : key === "item" ? c(...(targetLabels[o.target] ?? [o.target, o.target])) : c(...orderLabels[o.state]),
+                lang).map((o) => (
                   <tr key={o.id} className="relative transition-colors hover:bg-surface focus-within:bg-surface">
                     <td className={`${tdClass} whitespace-nowrap tabular-nums text-muted`}>{formatDate(o.createdAt, lang)}</td>
                     <td className={`${tdClass} font-medium`}>
