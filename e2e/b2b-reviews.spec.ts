@@ -122,8 +122,8 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   expect(
     await L.page.locator("video").evaluate((v: HTMLVideoElement) => Math.round(v.duration)),
   ).toBe(6);
-  // The playback-URL policy sits in the 자세히 fold under the shortcuts.
-  await L.page.getByText("자세히", { exact: true }).click();
+  // The playback-URL policy opens from the "?" under the shortcuts.
+  await L.page.getByRole("button", { name: "재생 주소 안내", exact: true }).click();
   await expect(
     L.page.getByText("이미 발급된 주소는 만료 시각(최대 5분)까지 남을 수 있습니다", { exact: false }),
   ).toBeVisible();

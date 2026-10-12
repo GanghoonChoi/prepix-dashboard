@@ -1,5 +1,5 @@
 "use client";
-import { Building2, ChevronRight, UserRound } from "lucide-react";
+import { Building2, UserRound } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
 import { Button, Notice, Page, SettingsSection } from "@/components/ui";
 import { useI18n } from "@/lib/i18n/context";
@@ -37,37 +37,6 @@ export function Block(props: {
   const { actions, ...rest } = props;
   return <SettingsSection flush action={actions} {...rest} />;
 }
-/**
- * Detail most people never need — policy wording, edge cases, how a rule is
- * computed — one click away instead of a paragraph above every control.
- * Never put text a person needs in order to act in here.
- */
-export function Details({
-  summary,
-  children,
-}: {
-  summary?: string;
-  children: ReactNode;
-}) {
-  const { lang } = useI18n();
-  return (
-    <details className="group text-[13px]">
-      <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-muted transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
-        <ChevronRight
-          size={14}
-          strokeWidth={1.75}
-          aria-hidden="true"
-          className="transition-transform group-open:rotate-90"
-        />
-        {summary ?? (lang === "ko" ? "자세히" : "Details")}
-      </summary>
-      <div className="mt-2 max-w-2xl space-y-2 leading-6 text-muted">
-        {children}
-      </div>
-    </details>
-  );
-}
-
 export function TeamError({
   code,
   retry,

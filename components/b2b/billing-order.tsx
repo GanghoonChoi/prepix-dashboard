@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
-import { Details, TeamLoading, TeamShell } from "@/components/workspaces/shared";
+import { TeamLoading, TeamShell } from "@/components/workspaces/shared";
 import {
   Button,
   cardClass,
@@ -14,6 +14,7 @@ import {
   SettingsSection,
   SummaryRows,
   Timeline,
+  InfoTip,
 } from "@/components/ui";
 import type {
   TeamOrder,
@@ -438,12 +439,12 @@ export function BillingOrder({ workspaceId, orderId }: { workspaceId: string; or
                 )}
               </form>
             ))}
-            <Details>
+            <InfoTip label={c("환불은 어떻게 처리되나요?", "How refunds work")} text={c("환불은 어떻게 처리되나요?", "How refunds work")}>
               {c(
                 "요청하면 미사용분을 먼저 예약하고, 운영자 확인 뒤 원결제를 취소합니다. 배정 해제나 자동결제 중지는 환불이 아닙니다.",
                 "A request reserves the unused part first; the original payment is cancelled after operations review. Unassigning or stopping renewal is not a refund.",
               )}
-            </Details>
+            </InfoTip>
           </div>
         </SettingsSection>
       )}

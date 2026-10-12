@@ -24,7 +24,7 @@ import {
   type TransferPhase,
 } from "@/lib/b2b-files/transfer";
 import { bytes } from "@/lib/workspaces/upload";
-import { Details, inputClass } from "@/components/workspaces/shared";
+import { inputClass } from "@/components/workspaces/shared";
 import {
   Button,
   buttonClass,
@@ -32,6 +32,7 @@ import {
   Meter,
   Select,
   SettingsSection,
+  InfoTip,
 } from "@/components/ui";
 import { B2bError, useCopy, previewStateCopy } from "./shared";
 
@@ -461,7 +462,7 @@ export function FileTransfers({
               ? ".prepixwork"
               : capabilities.policy.formats.join(", ")}
           </p>
-          <Details>
+          <InfoTip label={c("올린 파일은 누가 볼 수 있나요?", "Who can see uploaded files?")} text={c("누가 볼 수 있나요?", "Who sees it?")}>
             <p>
               {c(
                 "이 프로젝트에 참여한 사람이 보고, 편집자는 내려받을 수 있습니다. 이름이 같은 파일도 덮어쓰지 않으며, 실제 형식은 서버에서 검사합니다.",
@@ -476,7 +477,7 @@ export function FileTransfers({
                 )}
               </p>
             )}
-          </Details>
+          </InfoTip>
         </form>
       )}
       {restoring && (

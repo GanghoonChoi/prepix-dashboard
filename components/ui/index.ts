@@ -14,4 +14,5 @@ export * from "./settings";
 export * from "./media";
 export * from "./overlay";
 export * from "./progress-tracker";
+export * from "./info-tip";
 export { ago } from "@/lib/format";

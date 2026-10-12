@@ -1,8 +1,7 @@
 "use client";
 import type { useFileDownloads } from "@/lib/b2b-files/use-downloads";
 import { bytes } from "@/lib/workspaces/upload";
-import { Details } from "@/components/workspaces/shared";
-import { Button, cardClass, Meter } from "@/components/ui";
+import { Button, cardClass, Meter, InfoTip } from "@/components/ui";
 import { B2bError, useCopy } from "./shared";
 export function FileDownloads({
   downloads,
@@ -109,12 +108,12 @@ export function FileDownloads({
           );
         })}
       </ul>
-      <Details>
+      <InfoTip label={c("받은 파일은 어떻게 확인하나요?", "How is a download checked?")} text={c("다운로드 방식", "How downloads work")}>
         {c(
           "받은 부분은 이 브라우저에 임시 보관합니다. 크기와 전체 해시, 현재 다운로드 권한을 확인한 뒤 파일 저장을 시작합니다.",
           "Received bytes are staged in this browser. Saving starts after the size, full hash and current download access are verified.",
         )}
-      </Details>
+      </InfoTip>
     </section>
   );
 }

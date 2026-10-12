@@ -33,8 +33,9 @@ import {
   cardClass,
   textareaClass,
   type Tone,
+  InfoTip,
 } from "@/components/ui";
-import { Block, Details } from "@/components/workspaces/shared";
+import { Block } from "@/components/workspaces/shared";
 import { formatDay, formatMoney } from "@/lib/format";
 
 export default function PlanPage() {
@@ -772,9 +773,9 @@ export default function PlanPage() {
               </a>
               {t("plan.consentSuffix")}
             </p>
-            <Details summary={t("plan.refundTerms")}>
+            <InfoTip label={t("plan.refundTerms")} text={t("plan.refundTerms")}>
               <p>{t("plan.purchaseNotice")}</p>
-            </Details>
+            </InfoTip>
           </div>
         </Block>
       )}

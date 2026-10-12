@@ -6,8 +6,7 @@ import {
   type OwnershipCredential,
 } from "@/lib/api/services/b2b.service";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
-import { Details } from "@/components/workspaces/shared";
-import { Button, Field, Select, SettingsSection } from "@/components/ui";
+import { Button, Field, Select, SettingsSection, InfoTip } from "@/components/ui";
 import { ReauthForm } from "@/components/workspaces/reauth-form";
 import { B2bError, freeIntent, errorCode, useCopy } from "./shared";
 type Action = "request" | "accept" | "cancel" | "decline";
@@ -253,14 +252,14 @@ export function OwnershipControls() {
             )}
           </p>
         )}
-        <Details>
+        <InfoTip label={c("이전하면 무엇이 바뀌나요?", "What changes after a transfer?")} text={c("이전하면 무엇이 바뀌나요?", "What changes after a transfer?")}>
           <p>
             {c(
               "이전 소유자는 관리자로 남고 결제 위임은 회수됩니다. 편집 이용권과 AI, 이용기간은 바뀌지 않습니다.",
               "The previous owner stays an administrator and loses billing delegation. Editing licences, AI and the team period do not change.",
             )}
           </p>
-        </Details>
+        </InfoTip>
       </div>
     </SettingsSection>
   );

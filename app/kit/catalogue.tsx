@@ -12,6 +12,7 @@ import {
   EmptyState,
   Field,
   IconButton,
+  InfoTip,
   inputClass,
   Kbd,
   MeterRow,
@@ -91,6 +92,20 @@ function Sheet() {
           <IconButton label="업로드" variant="secondary">
             <Upload size={16} strokeWidth={1.75} />
           </IconButton>
+        </div>
+      </Section>
+
+      <Section title="InfoTip">
+        <div className="flex flex-wrap items-center gap-6 text-sm">
+          <span className="inline-flex items-center gap-1.5 font-medium">
+            결제 정보
+            <InfoTip label="저장한 정보는 어디에 쓰이나요?">
+              <p>이미 만든 주문과 증빙은 당시 정보를 유지해요.</p>
+            </InfoTip>
+          </span>
+          <InfoTip label="환불은 어떻게 처리되나요?" text="환불은 어떻게 처리되나요?">
+            <p>요청하면 미사용분을 먼저 예약하고, 확인 뒤 원결제를 취소해요.</p>
+          </InfoTip>
         </div>
       </Section>
 
