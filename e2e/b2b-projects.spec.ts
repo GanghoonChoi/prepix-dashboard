@@ -399,7 +399,7 @@ test("B2B external invitation proves mailbox and preserves billing mutation on l
   }
 });
 
-test("B2B owner restores vacant lead without gaining private project content", async ({
+test("B2B owner restores a vacant lead and, as owner, sees the private project", async ({
   request,
 }) => {
   const owner = await account(request, "b2b-recover-owner");
@@ -432,7 +432,7 @@ test("B2B owner restores vacant lead without gaining private project content", a
         data: {
           requestKey: crypto.randomUUID(),
           name: "Private vacancy content",
-          brief: "Owner must never see this",
+          brief: "Private brief",
           visibility: "private",
         },
       })
@@ -474,7 +474,7 @@ test("B2B owner restores vacant lead without gaining private project content", a
   ).toBe(201);
   // Lead recovery left the web UI (2026-10-12); the server keeps it, and this
   // is the rule it still has to hold: the owner names a successor only for a
-  // vacant lead, and gains no project content by doing so.
+  // vacant lead. Owners and admins see private projects (2026-10-12).
   const recovery = `${endpoint}/projects/${project.id}/lead-recovery`;
   const refused = await request.get(recovery, { headers: owner.headers });
   expect(refused.status()).toBeGreaterThanOrEqual(400);
@@ -521,7 +521,7 @@ test("B2B owner restores vacant lead without gaining private project content", a
         headers: owner.headers,
       })
     ).status(),
-  ).toBe(404);
+  ).toBe(200);
   expect(
     (
       await (

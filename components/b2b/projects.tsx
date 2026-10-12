@@ -240,7 +240,7 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
                   )
                 : c(
                     "초대된 프로젝트가 없습니다. 관리자에게 문의하세요.",
-                    "There are no invited projects. Contact your project lead.",
+                    "There are no invited projects. Contact an admin.",
                   )
             }
           />

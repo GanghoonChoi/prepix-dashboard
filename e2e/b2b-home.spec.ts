@@ -109,7 +109,8 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
     )) as TeamHome;
     expect(home.currentUserId).toBe(owner.id);
     expect(home.workspaceId).toBe(team);
-    expect(home.projects.items.map((p) => p.id)).toEqual([own]);
+    // The owner sees the lead's private project too (2026-10-12).
+    expect(home.projects.items.map((p) => p.id).sort()).toEqual([own, privateProject].sort());
     expect(home.projects.hasMore).toBe(false);
     expect(home.transfers.items.map((t) => t.name)).toEqual([
       "내 원본 전송 준비.wav",
