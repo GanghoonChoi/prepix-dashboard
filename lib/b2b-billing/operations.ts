@@ -2,6 +2,7 @@ import { sha256 } from "@noble/hashes/sha2.js";
 import { bytesToHex } from "@noble/hashes/utils.js";
 import { apiClient } from "../api/client";
 import type {
+  ChangeAutoSeats,
   ChargeTeamQuote,
   AcceptRenewalConsent,
   BillingOperationAction,
@@ -262,6 +263,8 @@ export function billingApi(scope: Omit<BillingScope, "userId"> & { userId: strin
       send<{ revision: number; requestId: string }>("PUT", `${base}/billing/renewal`, input),
     charge: (input: ChargeTeamQuote) =>
       send<{ order: TeamOrder }>("POST", `${base}/billing/charge`, input),
+    changeAutoSeats: (input: ChangeAutoSeats) =>
+      send<{ autoSeats: { since: string; by: string } | null; requestId: string }>("PUT", `${base}/billing/auto-seats`, input),
     stopRenewal: (input: { requestKey: string }) =>
       send<{ inFlightOrderId: string | null; requestId: string }>("POST", `${base}/billing/renewal/stop`, input),
     orders: (cursor?: string) =>

@@ -23,9 +23,12 @@ export type TeamInviteRole = "editor" | "reviewer" | "admin";
 
 export function InviteForm({
   projectId,
+  autoSeats = false,
   onSent,
 }: {
   projectId?: string;
+  /** The team buys missing seats by itself (billing auto-seats). */
+  autoSeats?: boolean;
   onSent: () => void | Promise<void>;
 }) {
   const { data, b2b } = useWorkspace()!;
@@ -134,7 +137,9 @@ export function InviteForm({
             ? c("이 프로젝트에 참여합니다. 편집자는 자료를 올리고 받을 수 있습니다.", "They join this project. Editors can upload and download.")
             : seats && seats.free > 0
               ? c(`좌석 1개를 씁니다 · 남은 좌석 ${seats.free}/${seats.capacity}석`, `Takes a seat · ${seats.free} of ${seats.capacity} free`)
-              : canBill
+              : autoSeats
+                ? c("좌석 1개를 씁니다 · 수락하면 이번 달 남은 기간만큼 자동결제 카드로 결제되고 바로 쓸 수 있습니다.", "Takes a seat · once they accept, the rest of this month is charged to the renewal card and they start at once.")
+                : canBill
                 ? c("좌석 1개를 씁니다 · 수락하면 멤버 화면에서 이번 달 남은 기간만큼 결제하고 바로 쓸 수 있습니다.", "Takes a seat · once they accept, pay for the rest of this month on People and they start at once.")
                 : c("좌석 1개를 씁니다 · 남은 좌석이 없으면 결제 권한자가 좌석을 추가할 때까지 대기합니다.", "Takes a seat · waits until someone with billing permission adds one.")}
       </p>

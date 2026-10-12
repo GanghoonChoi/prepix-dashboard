@@ -117,6 +117,8 @@ export function TeamMembers() {
   const canBill = b2b.allowedActions.billing;
   const people = roster?.people ?? [];
   const seats = roster?.seats;
+  // The server buys the shortfall by itself (billing auto-seats).
+  const auto = !!roster?.autoSeats;
   const q = query.trim().toLowerCase();
   const match = (text: string) => !q || text.toLowerCase().includes(q);
   const rank = { owner: 0, admin: 1, editor: 2, reviewer: 3 } as const;
@@ -153,8 +155,8 @@ export function TeamMembers() {
       // The seat follows the role: someone who now edits wants one.
       if (next !== "reviewer" && (p.seat ?? "none") === "none") await turnOnSeat(p);
     });
-    // Short of a seat now: offer to pay for it at once.
-    if (next !== "reviewer" && canBill && after?.seats?.waiting) buy.open();
+    // Short of a seat now: offer to pay for it at once, unless that is automatic.
+    if (next !== "reviewer" && canBill && !after?.autoSeats && after?.seats?.waiting) buy.open();
   };
   const appoint = async (p: TeamPerson, billing: boolean) => {
     let changed = false;
@@ -176,7 +178,7 @@ export function TeamMembers() {
         }),
       );
     appointDialog.close();
-    if (canBill && after?.seats?.waiting) buy.open();
+    if (canBill && !after?.autoSeats && after?.seats?.waiting) buy.open();
   };
   // The owner cannot be changed here, nor can you change yourself, and only
   // the owner manages admins (the server enforces all three).
@@ -202,14 +204,20 @@ export function TeamMembers() {
                 tone="warning"
                 action={
                   canBill &&
-                  editable && (
+                  editable &&
+                  !auto && (
                     <Button size="sm" onClick={buy.open}>
                       {c(`좌석 ${seats.waiting}개 추가`, `Add ${seats.waiting} seat${seats.waiting > 1 ? "s" : ""}`)}
                     </Button>
                   )
                 }
               >
-                {canBill
+                {auto
+                  ? c(
+                      `${seats.waiting}명의 좌석을 남은 기간만큼 자동으로 결제하고 있어요. 잠시 뒤 바로 편집할 수 있습니다.`,
+                      `Buying ${seats.waiting} seat${seats.waiting > 1 ? "s" : ""} for the rest of this period automatically. They can edit in a moment.`,
+                    )
+                  : canBill
                   ? c(
                       `${seats.waiting}명이 좌석을 기다리고 있어요. 좌석을 추가하면 바로 편집할 수 있습니다.`,
                       `${seats.waiting} waiting for a seat. Add seats and they can edit right away.`,
@@ -473,7 +481,7 @@ export function TeamMembers() {
         </Dialog>
       )}
       <Dialog state={invite} title={c("멤버 초대", "Invite people")}>
-        <InviteForm onSent={async () => void (await load())} />
+        <InviteForm autoSeats={auto} onSent={async () => void (await load())} />
       </Dialog>
       {canBill && !!seats?.waiting && (
         <AddSeats

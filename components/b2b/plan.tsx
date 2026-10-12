@@ -130,10 +130,15 @@ export function B2bPlan({
           </Suspense>
         ) : (
           <p className="text-[13px] leading-5 text-muted">
-            {c(
-              "멤버를 추가하면 멤버 화면에서 이번 달 남은 기간만큼 바로 결제하고, 다음 달부터 함께 갱신됩니다.",
-              "Adding a member is paid on People for the rest of this month, then renews with the team.",
-            )}{" "}
+            {view?.renewal.autoSeats
+              ? c(
+                  "멤버가 늘면 이번 달 남은 기간만큼 자동으로 결제되고, 다음 달부터 함께 갱신됩니다.",
+                  "New members are charged for the rest of this month automatically, then renew with the team.",
+                )
+              : c(
+                  "멤버를 추가하면 이번 달 남은 기간만큼 바로 결제하고, 다음 달부터 함께 갱신됩니다. 결제 정보에서 멤버 추가 자동결제를 켜면 누르지 않아도 됩니다.",
+                  "Adding a member is paid for the rest of this month, then renews with the team. Turn on automatic seats in Billing and it happens by itself.",
+                )}{" "}
             <Link className="text-foreground underline underline-offset-4" href={`/dashboard/workspaces/${workspace.id}/members`}>
               {c("멤버로 이동", "Go to People")}
             </Link>
@@ -204,6 +209,7 @@ export function B2bPlan({
                 view.profile
                   ? c("사업자 정보 저장됨", "Business details saved")
                   : c("사업자 정보 없음", "No business details"),
+                ...(view.renewal.autoSeats ? [c("멤버 추가 자동결제", "Automatic seats")] : []),
               ].join(" · ")
             : undefined
         }

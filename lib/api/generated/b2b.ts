@@ -196,6 +196,8 @@ export type TeamPeople = {
   canDelegateBilling: boolean;
   /** Seats of the running period; null before the first purchase. */
   seats?: { capacity: number; assigned: number; waiting: number } | null;
+  /** Waiting members are bought seats automatically (billing auto-seats). */
+  autoSeats?: boolean;
 };
 /** Turn a member's editing seat on or off; the server assigns or releases. */
 export type SetMemberSeat = { requestKey: string; editing: boolean };
@@ -599,6 +601,15 @@ export type TeamRenewalPlan = {
   // (`upcomingSkipped`) and starts with the following one.
   firstChargeAt: string | null;
   upcomingSkipped: boolean;
+  // Members added mid-period are charged for the time left at once (Claude
+  // Team style), as the billing member who turned it on. Null: off.
+  autoSeats: { since: string; by: string } | null;
+};
+/** Turn automatic mid-period seat charges on (with the consent shown) or off. */
+export type ChangeAutoSeats = {
+  requestKey: string;
+  enabled: boolean;
+  consentVersion?: string;
 };
 /** A seats-only quote charged at once to the card on automatic renewal:
  * `initial` (first month), `current` (seats for the time left) or `restore`.
