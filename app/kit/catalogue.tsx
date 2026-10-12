@@ -106,6 +106,12 @@ function Sheet() {
           <InfoTip label="환불은 어떻게 처리되나요?" text="환불은 어떻게 처리되나요?">
             <p>요청하면 미사용분을 먼저 예약하고, 확인 뒤 원결제를 취소해요.</p>
           </InfoTip>
+          <span className="inline-flex items-center gap-1 text-xs text-muted">
+            역할
+            <InfoTip wide label="역할별 권한">
+              <p>참조 카드용 넓은 카드(560px). 길면 카드 안에서 스크롤돼요.</p>
+            </InfoTip>
+          </span>
         </div>
       </Section>
 

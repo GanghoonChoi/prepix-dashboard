@@ -63,6 +63,8 @@ import {
 } from "@/components/ui";
 import { RowMenu, RowMenuItem } from "@/components/workspaces/row-menu";
 import { CloudError, cloudErrorCode } from "@/components/workspaces/cloud-shared";
+import { useWorkspace } from "@/components/workspaces/workspace-context";
+import { AccessDenied } from "@/components/b2b/shared";
 import { AssetGrid } from "@/components/workspaces/archive/asset-grid";
 import { AssetList } from "@/components/workspaces/archive/asset-list";
 import { PreviewModal } from "@/components/workspaces/archive/preview-modal";
@@ -91,6 +93,11 @@ export default function MediaPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const context = useWorkspace();
+  // A team viewer has no archive (the nav has no entry for it); a kept URL
+  // says so instead of a load error.
+  if (context?.b2b?.enrolled && context.data.role === "reviewer")
+    return <AccessDenied code="B2B_VIEWER_READ_ONLY" />;
   return <Content key={id} id={id} />;
 }
 
