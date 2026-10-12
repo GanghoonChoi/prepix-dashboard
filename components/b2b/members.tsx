@@ -69,6 +69,7 @@ export function TeamMembers() {
   const [withBilling, setWithBilling] = useState(true);
   const invite = useOverlayState();
   const recover = useOverlayState();
+  const appointDialog = useOverlayState();
   const buy = useOverlayState();
   const sequence = useRef(0);
   const id = data.workspace.id;
@@ -172,7 +173,7 @@ export function TeamMembers() {
           reason: "결제 권한 주기",
         }),
       );
-    setAppointing(null);
+    appointDialog.close();
     if (canBill && after?.seats?.waiting) buy.open();
   };
   // The owner cannot be changed here, nor can you change yourself, and only
@@ -293,6 +294,7 @@ export function TeamMembers() {
                               if (next === "admin") {
                                 setWithBilling(!!roster?.canDelegateBilling && !p.billingAllowed);
                                 setAppointing(p);
+                                appointDialog.open();
                               } else void setRole(p, next);
                             }}
                           >
@@ -411,12 +413,8 @@ export function TeamMembers() {
         </Dialog>
       )}
       {appointing && (
-        <ConfirmDialog
-          label={c("관리자로 지정", "Make admin")}
-          onClose={() => {
-            if (!busy) setAppointing(null);
-          }}
-        >
+        <Dialog state={appointDialog} title={c("관리자로 지정", "Make admin")}>
+          <div className="space-y-4">
           <p className="text-sm font-medium">
             {c(
               `${appointing.name || appointing.email}님을 관리자로 지정할까요?`,
@@ -462,11 +460,12 @@ export function TeamMembers() {
             >
               {c("관리자로 지정", "Make admin")}
             </Button>
-            <Button variant="secondary" disabled={busy} onClick={() => setAppointing(null)}>
+            <Button variant="secondary" disabled={busy} onClick={appointDialog.close}>
               {c("취소", "Cancel")}
             </Button>
           </div>
-        </ConfirmDialog>
+          </div>
+        </Dialog>
       )}
       <Dialog state={invite} title={c("멤버 초대", "Invite people")}>
         <InviteForm onSent={async () => void (await load())} />
