@@ -53,12 +53,11 @@ test("a personal space reads as yours, offers no invite affordance anywhere, and
   const main = page.locator("main");
   const personalCard = main.locator('[data-space="personal"]');
   await expect(personalCard).toHaveCount(1);
+  // Its own name — /start asks for one (2026-10-12) — and always its kind
+  // beside it: a bare "<account>의 워크스페이스" next to "Studio team" is the
+  // row that reads like one more team (D13 §2.3).
+  await expect(personalCard).toContainText(`${email.split("@")[0]}의 워크스페이스`);
   await expect(personalCard).toContainText("개인 공간");
-  // Never the server's own name for it. "<account>의 워크스페이스" sitting in a
-  // list next to "Studio team" is exactly the row that reads like one more
-  // team, which is what D13 §2.3 says causes the wrong-space mistake.
-  await expect(personalCard).not.toContainText("의 워크스페이스");
-  await expect(personalCard).not.toContainText(email.split("@")[0]);
   await expect(main.locator('[data-space="team"]')).toHaveCount(0);
   // A one-workspace account is not an empty team list.
   await expect(main.getByText(/다른 사람과 함께 일할 때 팀을 만드세요/)).toBeVisible();
@@ -76,7 +75,7 @@ test("a personal space reads as yours, offers no invite affordance anywhere, and
   // ---- 2. no team chrome in the personal space --------------------------
   await personalCard.click();
   await expect(
-    page.getByRole("heading", { name: "내 개인 공간", level: 1 })
+    page.getByRole("heading", { name: `${email.split("@")[0]}의 워크스페이스`, level: 1 })
   ).toBeVisible();
   const personalUrl = page.url();
   for (const name of ["멤버", "활동 기록"])

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { teamStartHref } from "@/lib/onboarding";
 import { useRouter } from "next/navigation";
 import { File } from "lucide-react";
 import { useI18n } from "@/lib/i18n/context";
@@ -140,7 +141,7 @@ export default function Page() {
 
   return (
     <TeamShell
-      title={personal ? t("team.personalTitle") : workspace.name}
+      title={personal ? workspace.name.trim() || t("team.personalTitle") : workspace.name}
       /* The team's own description if it wrote one; otherwise nothing. The
          sidebar nav already lists what lives in here, so the fallback was a
          sentence describing the menu beside it. */
@@ -148,7 +149,7 @@ export default function Page() {
       actions={
         // The only route from personal to team is an explicit, named one.
         personal && (
-          <Link className={buttonClass({ variant: "secondary" })} href="/dashboard/workspaces/new">
+          <Link className={buttonClass({ variant: "secondary" })} href={teamStartHref(lang)}>
             {t("team.makeTeam")}
           </Link>
         )

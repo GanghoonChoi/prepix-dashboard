@@ -67,6 +67,17 @@ export function startHref(state: StartState, locale: string): string {
   return `/start?${params}`;
 }
 
+/**
+ * Where every "make a team" goes: /start's team path (name → invite → pay),
+ * so a team is never made by a form that skips the rest. With first run off,
+ * the plain creation page.
+ */
+export function teamStartHref(locale: string): string {
+  return process.env.NEXT_PUBLIC_START_ONBOARDING === "1"
+    ? startHref({ step: "workspace", workspace: null, intent: "team", next: null }, locale)
+    : "/dashboard/workspaces/new";
+}
+
 type SeatProduct = {
   base: { seats: number; supplyKrw: number };
   extraSeat: { supplyKrw: number };
