@@ -1,18 +1,17 @@
 "use client";
 
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect } from "react";
 import { Skeleton } from "@heroui/react";
 import { usageService } from "@/lib/api/services/usage.service";
 import { useI18n } from "@/lib/i18n/context";
-import { Button, Card, CardHeader, Meter, MeterRow, Notice } from "@/components/ui";
+import { Button, Meter, Notice } from "@/components/ui";
 import { formatDay, formatDuration } from "@/lib/format";
 
 /**
- * 사용량, as a section of 플랜과 결제 rather than a tab beside it: what the plan
- * gives and how much of it is left are one question, and a tab made people
- * click to see the half that changes every day.
+ * 사용량 inside the plan card: how much AI time is left of what the plan
+ * gives. One figure — the video count was a number nobody acted on.
  */
-export function UsageCard() {
+export function UsageSection() {
   const { t, lang } = useI18n();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -32,117 +31,54 @@ export function UsageCard() {
   useEffect(() => { loadUsage(); }, []);
 
   const quota = usage?.inferenceQuota;
-  const videos = usage?.videos;
   // Coupon time is already inside total/remaining; this just says how much of
   // it there is and when the soonest of it lapses, so it is not a surprise.
   const bonus = (usage as { bonus?: { remainingSeconds: number; nextExpiresAt: number | null } } | null)?.bonus;
   const remaining = Number(quota?.remaining ?? 0);
   const total = Number(quota?.total ?? 0);
   const unlimited = total < 0;
-  const pct = total > 0 ? (remaining / total) * 100 : 100;
-  // `videos.total` is the plan's monthly allowance, and the server sends -1
-  // for "no limit" — printed raw that read "-1" on every Pro account.
-  const allowance = Number(videos?.total ?? 0);
-
-  // Locale-aware thousands separators for the video counts; durations go
-  // through lib/format from the seconds (the server's "38m" is English).
-  const formatCount = (n: number) =>
-    n.toLocaleString(lang === "ko" ? "ko-KR" : "en-US");
-  // formatDuration says "1분 미만" for anything under a minute, which is a lie
-  // about a used-up quota; nothing left is 0.
-  // ponytail: belongs in lib/format.formatDuration once that file is open again.
-  const duration = (seconds: number) =>
-    seconds > 0 ? formatDuration(seconds, lang) : lang === "ko" ? "0분" : "0m";
-  const videoCount = formatCount(Number(videos?.thisMonth ?? 0));
-  const videoFoot = [
-    t("usage.completedCount", { count: formatCount(Number(videos?.completed ?? 0)) }),
-    Number(videos?.processing ?? 0) > 0
-      ? t("usage.processingCount", { count: formatCount(Number(videos?.processing)) })
+  // Nothing left reads 0분, not "1분 미만".
+  const duration = (seconds: number) => formatDuration(Math.max(0, seconds), lang);
+  const foot = [
+    quota && !unlimited ? t("usage.usedAmount", { amount: duration(Number(quota.used ?? 0)) }) : null,
+    bonus && bonus.remainingSeconds > 0
+      ? t("coupon.usageBonus", {
+          minutes: String(Math.floor(bonus.remainingSeconds / 60)),
+          date: bonus.nextExpiresAt ? formatDay(new Date(bonus.nextExpiresAt), lang) : "—",
+        })
       : null,
   ]
     .filter(Boolean)
     .join(" · ");
 
-  return (
-    <Card>
-      <CardHeader title={t("usage.title")} />
-      {loadError && !loading ? (
-        <Notice
-          tone="danger"
-          action={
-            <Button variant="secondary" size="sm" onClick={loadUsage}>
-              {t("common.retry")}
-            </Button>
-          }
-        >
-          {t("usage.loadError")}
-        </Notice>
-      ) : loading ? (
-        <Skeleton className="h-[120px] rounded-md" />
-      ) : (
-          <div className="space-y-6">
-            {/* Time LEFT: a full bar is good news, so it never turns amber the
-                way a used-of-limit meter does near 100%. */}
-            <UsageRow
-              label={t("usage.timeLeft")}
-              value={
-                unlimited
-                  ? t("usage.unlimited")
-                  : quota
-                    ? `${duration(remaining)} ${t("usage.ofTotal", { total: duration(total) })}`
-                    : "—"
-              }
-              meter={<Meter value={pct} tone="neutral" />}
-              foot={[
-                quota && !unlimited
-                  ? t("usage.usedAmount", { amount: duration(Number(quota.used ?? 0)) })
-                  : null,
-                bonus && bonus.remainingSeconds > 0
-                  ? t("coupon.usageBonus", {
-                      minutes: String(Math.floor(bonus.remainingSeconds / 60)),
-                      date: bonus.nextExpiresAt ? formatDay(new Date(bonus.nextExpiresAt), lang) : "—",
-                    })
-                  : null,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            />
-            {/* No allowance (-1 = no limit) has nothing to fill. */}
-            {allowance > 0 ? (
-              <MeterRow
-                label={t("usage.videosThisMonth")}
-                value={`${videoCount} ${t("usage.ofTotal", { total: formatCount(allowance) })}`}
-                percent={(Number(videos?.thisMonth ?? 0) / allowance) * 100}
-                foot={videoFoot}
-              />
-            ) : (
-              <UsageRow label={t("usage.videosThisMonth")} value={videoCount} foot={videoFoot} />
-            )}
-          </div>
-      )}
-    </Card>
-  );
-}
-
-/** `MeterRow`'s layout with the bar optional and its tone the caller's. */
-function UsageRow({
-  label,
-  value,
-  meter,
-  foot,
-}: {
-  label: string;
-  value: ReactNode;
-  meter?: ReactNode;
-  foot?: string;
-}) {
+  if (loading) return <Skeleton className="h-12 rounded-md" />;
+  if (loadError)
+    return (
+      <Notice
+        tone="danger"
+        action={
+          <Button variant="secondary" size="sm" onClick={loadUsage}>
+            {t("common.retry")}
+          </Button>
+        }
+      >
+        {t("usage.loadError")}
+      </Notice>
+    );
   return (
     <div className="space-y-2">
       <div className="flex items-baseline justify-between gap-4 text-[13px]">
-        <span className="text-muted">{label}</span>
-        <span className="font-medium tabular-nums">{value}</span>
+        <span className="text-muted">{t("usage.timeLeft")}</span>
+        <span className="font-medium tabular-nums">
+          {unlimited
+            ? t("usage.unlimited")
+            : quota
+              ? `${duration(remaining)} ${t("usage.ofTotal", { total: duration(total) })}`
+              : "—"}
+        </span>
       </div>
-      {meter}
+      {/* Time LEFT: a full bar is good news, so it never turns amber. */}
+      {!unlimited && <Meter value={total > 0 ? (remaining / total) * 100 : 100} tone="neutral" />}
       {foot && <p className="text-xs text-muted">{foot}</p>}
     </div>
   );

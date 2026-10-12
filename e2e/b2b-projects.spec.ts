@@ -410,7 +410,6 @@ test("B2B external invitation proves mailbox and preserves billing mutation on l
 });
 
 test("B2B owner restores vacant lead without gaining private project content", async ({
-  page,
   request,
 }) => {
   const owner = await account(request, "b2b-recover-owner");
@@ -483,20 +482,13 @@ test("B2B owner restores vacant lead without gaining private project content", a
       })
     ).status(),
   ).toBe(201);
-  await signIn(page, owner.email);
-  const base = `/dashboard/workspaces/${team.id}`;
-  await page.goto(`${base}/members`);
-  // Repairs fold at the bottom of the people page (2026-10-08).
-  await page.getByText("담당자 복구", { exact: true }).click();
-  await page
-    .getByLabel("복구할 프로젝트 주소", { exact: true })
-    .fill(`http://localhost:3001${base}/projects/${project.id}`);
-  await page
-    .getByRole("button", { name: "담당자 공백 확인", exact: true })
-    .click();
-  await expect(page.locator("main [role=alert]")).toContainText(
-    "현재 담당자가 유효한 프로젝트",
-  );
+  // Lead recovery left the web UI (2026-10-12); the server keeps it, and this
+  // is the rule it still has to hold: the owner names a successor only for a
+  // vacant lead, and gains no project content by doing so.
+  const recovery = `${endpoint}/projects/${project.id}/lead-recovery`;
+  const refused = await request.get(recovery, { headers: owner.headers });
+  expect(refused.status()).toBeGreaterThanOrEqual(400);
+  expect(JSON.stringify(await refused.json())).toContain("B2B_LEAD_RECOVERY_NOT_ALLOWED");
   // Suspension left the people table (2026-10-08); the server keeps it.
   const leadRevision = (
     await (
@@ -516,27 +508,23 @@ test("B2B owner restores vacant lead without gaining private project content", a
       })
     ).status(),
   ).toBe(201);
-  await page
-    .getByRole("button", { name: "담당자 공백 확인", exact: true })
-    .click();
-  await page
-    .getByLabel("수락한 내부 후임", { exact: true })
-    .selectOption(successor.id);
-  await page
-    .getByLabel("담당자 복구 사유", { exact: true })
-    .fill("Hand over after urgent suspension");
-  await page
-    .getByRole("button", { name: "후임 지정 확인", exact: true })
-    .click();
-  await expect(
-    page.getByRole("status").filter({ hasText: "후임을 지정했습니다" }),
-  ).toBeVisible();
-  await expect(
-    page.getByText("Private vacancy content", { exact: true }),
-  ).toHaveCount(0);
-  await expect(
-    page.getByText("Owner must never see this", { exact: true }),
-  ).toHaveCount(0);
+  const vacancy = (
+    await (await request.get(recovery, { headers: owner.headers })).json()
+  ).data as { revision: number; eligibleUserIds: string[] };
+  expect(vacancy.eligibleUserIds).toContain(successor.id);
+  expect(
+    (
+      await request.post(`${endpoint}/projects/${project.id}/recover-lead`, {
+        headers: owner.headers,
+        data: {
+          requestKey: crypto.randomUUID(),
+          revision: vacancy.revision,
+          targetId: successor.id,
+          reason: "Hand over after urgent suspension",
+        },
+      })
+    ).status(),
+  ).toBe(201);
   expect(
     (
       await request.get(`${endpoint}/projects/${project.id}`, {
@@ -628,10 +616,10 @@ test("B2B ownership uses consent and verification, retries lost responses and re
   await signIn(page, owner.email);
   await page.goto(`${base}/settings`);
   await page
-    .getByLabel("내부 소유권 후임", { exact: true })
+    .getByLabel("새 소유자", { exact: true })
     .selectOption(successor.id);
   await page
-    .getByRole("button", { name: "소유권 이전 본인 확인", exact: true })
+    .getByRole("button", { name: "소유자 넘기기", exact: true })
     .click();
   await page.getByLabel("현재 비밀번호", { exact: true }).fill(password);
   let lost = true;
@@ -643,17 +631,17 @@ test("B2B ownership uses consent and verification, retries lost responses and re
     } else await route.continue();
   });
   await page
-    .getByRole("button", { name: "본인 확인 후 이전 요청", exact: true })
+    .getByRole("button", { name: "본인 확인하고 넘기기", exact: true })
     .click();
   await expect(
-    page.getByLabel("내부 소유권 후임", { exact: true }),
+    page.getByLabel("새 소유자", { exact: true }),
   ).toBeDisabled();
   await page
     .getByRole("button", { name: "본인 확인 다시 시작", exact: true })
     .click();
   await page.getByLabel("현재 비밀번호", { exact: true }).fill(password);
   await page
-    .getByRole("button", { name: "본인 확인 후 이전 요청", exact: true })
+    .getByRole("button", { name: "본인 확인하고 넘기기", exact: true })
     .click();
   await expect(
     page.getByText("소유권 이전 요청의 수락을 기다리고 있습니다.", {
@@ -674,7 +662,7 @@ test("B2B ownership uses consent and verification, retries lost responses and re
     // A reviewer has no settings page; the offer waits on the team home.
     await successorPage.goto(base);
     await successorPage
-      .getByRole("button", { name: "소유권 수락 본인 확인", exact: true })
+      .getByRole("button", { name: "소유자 수락하기", exact: true })
       .click();
     await successorPage
       .getByLabel("현재 비밀번호", { exact: true })
@@ -694,7 +682,7 @@ test("B2B ownership uses consent and verification, retries lost responses and re
       },
     );
     await successorPage
-      .getByRole("button", { name: "본인 확인 후 소유권 수락", exact: true })
+      .getByRole("button", { name: "본인 확인하고 수락", exact: true })
       .click();
     await expect(
       successorPage.getByRole("button", {
@@ -707,7 +695,7 @@ test("B2B ownership uses consent and verification, retries lost responses and re
       window.dispatchEvent(new Event("workspaces:changed")),
     );
     await expect(
-      successorPage.getByLabel("내부 소유권 후임", { exact: true }),
+      successorPage.getByLabel("새 소유자", { exact: true }),
     ).toBeVisible();
     await successorPage
       .getByRole("button", { name: "본인 확인 다시 시작", exact: true })
@@ -716,7 +704,7 @@ test("B2B ownership uses consent and verification, retries lost responses and re
       .getByLabel("현재 비밀번호", { exact: true })
       .fill(password);
     await successorPage
-      .getByRole("button", { name: "본인 확인 후 소유권 수락", exact: true })
+      .getByRole("button", { name: "본인 확인하고 수락", exact: true })
       .click();
     await expect(
       successorPage

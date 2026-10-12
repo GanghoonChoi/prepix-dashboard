@@ -31,11 +31,21 @@ export function OwnershipOffer() {
   if (offered && !shown) setShown(true);
   return shown ? <OwnershipControls /> : null;
 }
-export function OwnershipControls() {
+export function OwnershipControls({
+  initialTarget = "",
+  bare = false,
+  onDone,
+}: {
+  /** The successor already chosen (from a row on 멤버). */
+  initialTarget?: string;
+  /** Without the section frame, inside a dialog that has its own title. */
+  bare?: boolean;
+  onDone?: () => void;
+} = {}) {
   const { data, b2b, reload } = useWorkspace()!;
   const c = useCopy();
   const [people, setPeople] = useState<TeamPerson[]>([]);
-  const [target, setTarget] = useState("");
+  const [target, setTarget] = useState(initialTarget);
   const [confirm, setConfirm] = useState<"request" | "accept" | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState(false);
@@ -106,6 +116,7 @@ export function OwnershipControls() {
       setConfirm(null);
       setNotice(true);
       await reload();
+      onDone?.();
     } catch (e) {
       setError(errorCode(e));
       if (freeIntent(pending.current, e)) {
@@ -118,14 +129,7 @@ export function OwnershipControls() {
     }
   }
   const frozen = busy || !!confirm || !!pending.current;
-  return (
-    <SettingsSection
-      title={c("소유권", "Ownership")}
-      description={c(
-        "내부 후임이 본인 확인 후 수락하면 이전됩니다.",
-        "Completes when an internal successor verifies and accepts.",
-      )}
-    >
+  const body = (
       <div className="space-y-4">
         {offer && (
           <p className="text-[13px]">
@@ -141,16 +145,16 @@ export function OwnershipControls() {
           </p>
         )}
         {!offer && data.role === "owner" && (
-          <Field label={c("내부 소유권 후임", "Internal ownership successor")} htmlFor="ownership-successor" className="max-w-sm">
+          <Field label={c("새 소유자", "New owner")} htmlFor="ownership-successor" className="max-w-sm">
             <Select
               id="ownership-successor"
-              aria-label={c("내부 소유권 후임", "Internal ownership successor")}
+              aria-label={c("새 소유자", "New owner")}
               value={target}
               disabled={frozen}
               onChange={(e) => setTarget(e.target.value)}
             >
               <option value="">
-                {c("내부 참여자 선택", "Choose internal participant")}
+                {c("멤버 선택", "Choose a member")}
               </option>
               {people
                 .filter(
@@ -178,7 +182,7 @@ export function OwnershipControls() {
                 }
                 onClick={() => setConfirm("request")}
               >
-                {c("소유권 이전 본인 확인", "Verify for ownership transfer")}
+                {c("소유자 넘기기", "Hand over ownership")}
               </Button>
             )}
             {canAccept && (
@@ -186,7 +190,7 @@ export function OwnershipControls() {
                 disabled={busy}
                 onClick={() => setConfirm("accept")}
               >
-                {c("소유권 수락 본인 확인", "Verify to accept ownership")}
+                {c("소유자 수락하기", "Accept ownership")}
               </Button>
             )}
             {offer?.toUserId === data.currentUserId && (
@@ -225,8 +229,8 @@ export function OwnershipControls() {
             }
             label={
               confirm === "request"
-                ? c("본인 확인 후 이전 요청", "Verify and request transfer")
-                : c("본인 확인 후 소유권 수락", "Verify and accept ownership")
+                ? c("본인 확인하고 넘기기", "Verify and hand over")
+                : c("본인 확인하고 수락", "Verify and accept")
             }
             onConfirm={(credential) => execute(confirm, credential)}
             cancelDisabled={!!pending.current}
@@ -261,6 +265,17 @@ export function OwnershipControls() {
           </p>
         </InfoTip>
       </div>
+  );
+  if (bare) return body;
+  return (
+    <SettingsSection
+      title={c("소유권", "Ownership")}
+      description={c(
+        "내부 후임이 본인 확인 후 수락하면 이전됩니다.",
+        "Completes when an internal successor verifies and accepts.",
+      )}
+    >
+      {body}
     </SettingsSection>
   );
 }
