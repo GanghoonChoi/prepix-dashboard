@@ -32,7 +32,8 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
   let E: Awaited<ReturnType<typeof open>> | undefined;
   try {
     await expect(
-      O.page.getByText("첫 구매가 반영되면 이용기간이 시작됩니다."),
+      // Said once, by the preparing banner; the seat line is gone (2026-10-12).
+      O.page.getByText("첫 이용권 반영 전에는 이용기간이 시작되지 않습니다."),
     ).toBeVisible();
     fixture("b2b-paid-test-fixture.cjs", {
       workspaceId: team,
@@ -97,20 +98,12 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
     });
     expect(source.status(), await source.text()).toBe(201);
     await O.page.reload();
+    // A seated owner has nothing to read about their seat: no seat line, and
+    // periods are billing, on 플랜과 결제 — not on the home.
     const periods = O.page.getByRole("region", { name: "내 좌석" });
-    // One line on the home; periods and devices are folded under it.
-    await periods.getByText("기간과 장치", { exact: true }).click();
-    await expect(
-      periods.getByText("현재 이용기간", { exact: true }),
-    ).toBeVisible();
-    await expect(
-      periods.getByText("다음 기간 예정", { exact: true }),
-    ).toBeVisible();
-    await expect(
-      periods.getByRole("listitem").getByText("편집 좌석 있음", { exact: true }).first(),
-    ).toBeVisible();
-    // Team AI is the app's, on the person's seat: the web shows no AI figures.
-    await expect(periods.getByText(/AI/)).toHaveCount(0);
+    await expect(O.page.getByRole("heading", { level: 1 })).toBeVisible();
+    await expect(periods).toHaveCount(0);
+    await expect(O.page.getByText("현재 이용기간", { exact: true })).toHaveCount(0);
     const home = (await json(
       request.get(`${endpoint}/home`, { headers: owner.headers }),
     )) as TeamHome;
@@ -173,10 +166,7 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
     ).toBe(404);
     await O.page.setViewportSize({ width: 390, height: 844 });
     await O.page.reload();
-    await periods.getByText("기간과 장치", { exact: true }).click();
-    await expect(
-      periods.getByRole("listitem").getByText("편집 좌석 있음", { exact: true }).first(),
-    ).toBeVisible();
+    await expect(periods).toHaveCount(0);
     expect(
       await O.page.evaluate(
         () => document.documentElement.scrollWidth <= window.innerWidth + 1,

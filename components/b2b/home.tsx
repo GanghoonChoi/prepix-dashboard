@@ -24,7 +24,6 @@ import {
   type HomeScope,
 } from "@/lib/b2b-home/home";
 import {
-  Details,
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
@@ -37,11 +36,8 @@ import {
   CardHeader,
   EmptyState,
   Notice,
-  PropertyList,
-  type Tone,
 } from "@/components/ui";
 import { useI18n } from "@/lib/i18n/context";
-import { formatDay, formatPeriod, formatTime } from "@/lib/format";
 import { href as notificationHref } from "@/lib/b2b-notifications/notifications";
 import { B2bError, StateBadge, errorCode, useCopy } from "./shared";
 import { InviteForm } from "./invitations";
@@ -49,27 +45,6 @@ import { Poster, posterLinkClass } from "./reviews";
 import { OwnershipOffer } from "./ownership";
 import { LeaveTeam } from "./leave-team";
 import { MyDevices } from "./devices";
-const periods = {
-  current: ["현재 이용기간", "Current period"],
-  scheduled: ["다음 기간 예정", "Next period scheduled"],
-  withheld: ["환불 확인 중 · 사용 보류", "Refund pending · use withheld"],
-  ended: ["종료된 기간", "Ended period"],
-} as const;
-const licences = {
-  active: ["편집 좌석 있음", "Editing seat"],
-  scheduled: ["다음 기간 좌석 예정", "Seat next period"],
-  revoking: ["좌석 해제 중", "Seat being released"],
-  released: ["좌석 해제됨", "Seat released"],
-  expired: ["좌석 종료", "Seat ended"],
-} as const;
-/** Holding a seat is the good state; a seat on its way out is worth a look. */
-const licenceTones: Record<keyof typeof licences, Tone> = {
-  active: "success",
-  scheduled: "neutral",
-  revoking: "warning",
-  released: "neutral",
-  expired: "neutral",
-};
 const transfers: Record<string, [string, string]> = {
   preparing: ["전송 준비", "Preparing"],
   uploading: ["전송 중", "Uploading"],
@@ -108,6 +83,7 @@ function ScopedHome({
   status: Extract<B2bStatus, { enrolled: true }>;
   workspace: { id: string; name: string };
 }) {
+  const role = useWorkspace()?.data.role;
   const c = useCopy(),
     base = `/dashboard/workspaces/${workspace.id}`;
   const { lang } = useI18n();
@@ -198,9 +174,16 @@ function ScopedHome({
   const listClass = "divide-y divide-border border-y border-border";
   const rowClass = "block min-h-14 py-3 transition-colors hover:bg-surface";
   const watch = data?.toWatch?.items ?? [];
-  const current = data?.periods.find((p) => p.state === "current");
+  const seatNotice = !data?.period
+    ? null
+    : data.seat === "waiting"
+      ? c("편집 좌석을 기다리고 있어요. 자리가 나면 자동으로 배정돼요.", "Waiting for an editing seat. You'll get one as soon as one frees up.")
+      : data.seat === "releasing"
+        ? c("편집 좌석이 곧 해제돼요.", "Your editing seat is being released.")
+        : data.seat === "none" && role && role !== "reviewer"
+          ? c("편집 좌석이 없어 앱에서는 보기만 할 수 있어요.", "You don't have an editing seat, so the app is view-only.")
+          : null;
   const link = "font-medium text-foreground underline underline-offset-4";
-  const at = (iso: string) => `${formatDay(iso, lang)} ${formatTime(iso, lang)}`;
   return (
     <TeamShell
       title={workspace.name}
@@ -391,64 +374,26 @@ function ScopedHome({
           </ul>
         </Section>
       )}
-      {/* My seat and devices: one line, the details folded away. */}
-      {data && (
-        <section aria-label={c("내 좌석", "My seat")} className="space-y-2 border-t border-border pt-6 text-[13px]">
-          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-muted">
-            <span className="font-medium text-foreground">{c("내 좌석", "My seat")}</span>
-            <span>
-              {!data.period
-                ? c("첫 구매가 반영되면 이용기간이 시작됩니다.", "The first applied purchase starts the entitlement period.")
-                : data.seat === "waiting"
-                  ? c("좌석 대기 중 · 자리가 나면 자동으로 배정됩니다", "Waiting for a seat · assigned automatically")
-                  : current?.licence
-                    ? c(licences[current.licence.state][0], licences[current.licence.state][1])
-                    : c("편집 좌석 없음 · 보기만", "No editing seat · view only")}
-              {current && c(` · ${formatDay(current.endsAt, lang)}까지`, ` · until ${formatDay(current.endsAt, lang)}`)}
-            </span>
+      {/* My seat is said only when it needs saying — waiting, on its way
+          out, or an editing member without one. Periods are billing and live
+          on 플랜과 결제; devices show only once one is registered, because a
+          full device cap is the one time a member must act here. */}
+      {seatNotice && (
+        <section aria-label={c("내 좌석", "My seat")} className="border-t border-border pt-6 text-[13px] text-muted">
+          <p>
+            {seatNotice}
+            {status.allowedActions.manage && data?.seat === "none" && (
+              <>
+                {" "}
+                <Link className={link} href={`${base}/members`}>
+                  {c("멤버에서 좌석 켜기", "Turn it on in People")}
+                </Link>
+              </>
+            )}
           </p>
-          {(data.periods.length > 0 || readable) && (
-            <Details summary={c("기간과 장치", "Periods and devices")}>
-              <div className="space-y-6 text-foreground">
-                {data.periods.length > 0 && (
-                  <ul className={listClass}>
-                    {data.periods.map((p) => (
-                      <li key={p.id} className="py-2.5">
-                        <PropertyList
-                          items={[
-                            [
-                              c(periods[p.state][0], periods[p.state][1]),
-                              <span key="value" className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                                <span className="tabular-nums">
-                                  {formatPeriod(p.startsAt, p.endsAt, lang)}
-                                  {p.licence?.scheduledRevokeAt &&
-                                    ` · ${c("회수 예정", "Revocation scheduled")} ${at(p.licence.scheduledRevokeAt)}`}
-                                </span>
-                                {p.licence ? (
-                                  <Badge tone={licenceTones[p.licence.state]}>
-                                    {c(licences[p.licence.state][0], licences[p.licence.state][1])}
-                                  </Badge>
-                                ) : p.state === "current" && data.seat === "waiting" ? (
-                                  <Badge tone="warning" dot>
-                                    {c("좌석 대기", "Waiting for a seat")}
-                                  </Badge>
-                                ) : (
-                                  <Badge>{c("편집 좌석 없음 · 보기만", "No editing seat · view only")}</Badge>
-                                )}
-                              </span>,
-                            ],
-                          ]}
-                        />
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {readable && <MyDevices />}
-              </div>
-            </Details>
-          )}
         </section>
       )}
+      {readable && <MyDevices />}
       {!status.allowedActions.manage && <LeaveTeam />}
       <Dialog state={invite} title={c("멤버 초대", "Invite people")}>
         <InviteForm onSent={() => undefined} />

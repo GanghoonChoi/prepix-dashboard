@@ -113,7 +113,6 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   await L.page.getByRole("radio", { name: "선택한 사람만", exact: true }).check();
   await L.page.getByRole("checkbox", { name: "producer · 편집자", exact: true }).check();
   await L.page.getByRole("checkbox", { name: "client · 뷰어", exact: true }).check();
-  await L.page.getByRole("combobox", { name: "승인자 선택", exact: true }).selectOption(client.id);
   await L.page.getByRole("button", { name: "이 버전으로 검토 시작", exact: true }).click();
   await expect(L.page.getByRole("heading", { name: "1차 편집 검토", exact: true })).toBeVisible();
   const reviewUrl = new URL(L.page.url()).pathname;
@@ -229,16 +228,16 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
     .poll(() => P.page.locator("video").evaluate((v: HTMLVideoElement) => v.currentTime))
     .toBeGreaterThan(1.3);
 
-  // Publication already fixed its selected audience and one approver.
+  // Status model (2026-10-12): no named approver — it starts in review and
+  // anyone taking part (the producer too) may approve or ask for changes.
   await L.page.goto(reviewUrl);
-  await expect(L.page.getByText("승인 대기", { exact: true })).toBeVisible();
-  // The producer is not the approver: no decision buttons.
+  await expect(L.page.getByText("검토 중", { exact: true }).first()).toBeVisible();
   await P.page.reload();
-  await expect(P.page.getByRole("button", { name: "승인", exact: true })).toHaveCount(0);
+  await expect(P.page.getByRole("button", { name: "승인", exact: true })).toBeVisible();
   const C = await open(browser, client, reviewUrl);
   await videoReady(C.page);
   await C.page.getByRole("button", { name: "승인", exact: true }).click();
-  await expect(C.page.getByText("승인", { exact: true }).first()).toBeVisible();
+  await expect(C.page.getByText("승인됨", { exact: true }).first()).toBeVisible();
   await expect
     .poll(async () =>
       (await json(request.get(`${root}/reviews/${reviewId}`, { headers: lead.headers }))).approval,
@@ -373,7 +372,6 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   await replacing.getByRole("radio", { name: "선택한 사람만", exact: true }).check();
   await replacing.getByRole("checkbox", { name: "producer · 편집자", exact: true }).check();
   await replacing.getByRole("checkbox", { name: "client · 뷰어", exact: true }).check();
-  await replacing.getByRole("combobox", { name: "승인자 선택", exact: true }).selectOption(client.id);
   await L.page.getByRole("button", { name: "이 버전으로 교체", exact: true }).click();
   await expect(L.page.getByText(/V2 · 회차 2/)).toBeVisible();
   await videoReady(L.page);
@@ -381,7 +379,7 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   const round2 = await json(request.get(`${root}/reviews/${reviewId}`, { headers: lead.headers }));
   expect(round2.review.round).toBe(2);
   expect(round2.comments).toHaveLength(0);
-  expect(round2.approval).toBe("awaiting");
+  expect(round2.approval).toBe("no_approver"); // a new round starts in review, nobody named
   const round1 = await json(request.get(`${root}/reviews/${reviewId}?round=1`, { headers: lead.headers }));
   expect(round1.comments.map((c: { body: string }) => c.body).sort()).toEqual(
     ["여기 무음 구간을 줄여 주세요", "클라이언트 의견: 로고가 늦게 나옵니다"].sort(),

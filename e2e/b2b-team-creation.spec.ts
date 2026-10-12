@@ -138,13 +138,10 @@ test("B2B first-run creation retries its known team after destination failure an
     "Requires B2B_TEST_NEW_TEAMS=true local harness",
   );
   await signIn(page, owner.email);
-  await page.goto("/start?step=workspace&locale=ko");
-  await page.getByRole("button", { name: "팀 만들기", exact: true }).click();
+  await page.goto("/start?intent=team&step=workspace&locale=ko");
   const name = "나".repeat(100);
-  await expect(page.getByLabel("팀 이름", { exact: true })).toHaveAttribute(
-    "maxlength",
-    "100",
-  );
+  const field = page.getByLabel("회사 또는 팀 이름", { exact: true });
+  await expect(field).toHaveAttribute("maxlength", "100");
   await expect(
     page.getByText(/첫 구매가 반영되면 이용기간이 시작됩니다/),
   ).toBeVisible();
@@ -169,28 +166,27 @@ test("B2B first-run creation retries its known team after destination failure an
     }
     return route.continue();
   });
-  await page.getByLabel("팀 이름", { exact: true }).fill(name);
+  await field.fill(name);
   await page.getByRole("button", { name: "팀 만들기", exact: true }).click();
+  // The team exists; only the hop failed. Retrying checks that same team.
   await expect(
     page.getByRole("button", { name: "생성한 팀 확인하기", exact: true }),
   ).toBeVisible();
-  await expect(page.getByLabel("팀 이름", { exact: true })).toBeDisabled();
+  await expect(field).toBeDisabled();
   await expect(
-    page.getByRole("button", { name: "취소", exact: true }),
+    page.getByRole("button", { name: "지금은 혼자 쓸게요", exact: true }),
   ).toBeDisabled();
   await page
     .getByRole("button", { name: "생성한 팀 확인하기", exact: true })
     .click();
   await expect(page).toHaveURL(/step=invite/);
   await expect(
-    page.getByRole("link", { name: "팀 홈으로 이동하기", exact: true }),
+    page.getByRole("heading", { name: "팀원을 초대해 주세요" }),
   ).toBeVisible();
-  await expect(page.getByLabel("이메일 주소", { exact: true })).toHaveCount(0);
   expect(creates).toBe(1);
   expect(failedDestination).toBe(true);
-  await page
-    .getByRole("link", { name: "팀 홈으로 이동하기", exact: true })
-    .click();
+  await page.getByRole("button", { name: "나중에 할게요", exact: true }).click();
+  await page.getByRole("button", { name: "나중에 결제할게요", exact: true }).click();
   await expect(
     page.getByText(/첫 이용권 반영 전에는 이용기간이 시작되지 않습니다/),
   ).toBeVisible();

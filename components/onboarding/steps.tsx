@@ -405,7 +405,7 @@ export function NameStep({
           value={name}
           autoFocus
           maxLength={team ? 100 : 80}
-          disabled={working}
+          disabled={working || creation.pending}
           placeholder={team ? copy("e.g. Lasker Studio", "예: 라스커 스튜디오") : copy("e.g. Jiwoo's edits", "예: 지우의 편집실")}
           onChange={(event) => {
             setName(event.target.value);
@@ -417,6 +417,9 @@ export function NameStep({
         <fieldset className="space-y-2.5">
           <legend className="text-[13px] font-medium">{copy("How big is your team?", "팀은 몇 명인가요?")}</legend>
           <Chips value={size} options={TEAM_SIZES} onChange={setSize} />
+          {capabilities?.newTeamPolicy === "b2b_v1" && (
+            <p className="text-[13px] text-muted text-pretty">{t("team.b2bCreationTerms")}</p>
+          )}
           {(size === "21-100" || size === "100+") && (
             <p className="text-[13px] text-muted">
               {copy("Rolling out to a larger team? ", "큰 팀에 도입하시나요? ")}
@@ -433,6 +436,11 @@ export function NameStep({
       {unavailable && (
         <Notice role="status">{t("team.error.WORKSPACE_CREATION_UNAVAILABLE")}</Notice>
       )}
+      {creation.pending && !creation.busy && (
+        <p role="status" className="text-sm text-muted">
+          {t("team.creationRetryHint")}
+        </p>
+      )}
       {(failed || creation.error) && (
         <Notice tone="danger" role="alert">
           {creation.error
@@ -446,7 +454,7 @@ export function NameStep({
       <StepActions
         secondary={
           team && (
-            <button type="button" className={quietButton} disabled={working} onClick={onPersonal}>
+            <button type="button" className={quietButton} disabled={working || creation.pending} onClick={onPersonal}>
               {copy("Not now — use it on my own", "지금은 혼자 쓸게요")}
             </button>
           )
@@ -456,7 +464,11 @@ export function NameStep({
             busy={working}
             disabled={!name.trim() || (team && (!capabilities || unavailable))}
           >
-            {team ? copy("Create team", "팀 만들기") : copy("Next", "다음")}
+            {team
+              ? creation.pending && !creation.busy
+                ? t("team.creationRetry")
+                : copy("Create team", "팀 만들기")
+              : copy("Next", "다음")}
           </SubmitButton>
         }
       />

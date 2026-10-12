@@ -280,9 +280,8 @@ test("own device retirement survives a lost response and keeps replacement capac
     d2 = await device(request, team.id, owner, project.id);
   await device(request, team.id, owner, project.id);
   const staffDevice = await device(request, team.id, staff, project.id);
-  // 내 등록 장치 lives on the team home, folded under 내 좌석 (2026-10-08).
+  // 내 등록 장치 shows on the team home once a device is registered.
   await signIn(page, owner.email, base);
-  await page.getByText("기간과 장치", { exact: true }).click();
   const devices = page.getByRole("region", { name: "내 등록 장치", exact: true });
   await expect(
     devices.getByText(staffDevice.deviceId.slice(0, 8), { exact: false }),
@@ -345,7 +344,6 @@ test("own device retirement survives a lost response and keeps replacement capac
   ).toBe(409);
   await d1.ack();
   await page.reload();
-  await page.getByText("기간과 장치", { exact: true }).click();
   await expect(row(d1.deviceId)).toHaveCount(0);
   await expect(devices.getByText("2 / 3", { exact: true })).toBeVisible();
   expect(

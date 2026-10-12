@@ -26,7 +26,6 @@ import {
   IconButton,
   inputClass,
   Kbd,
-  Select,
   Sheet,
   type Tone,
 } from "@/components/ui";
@@ -241,8 +240,6 @@ function ReviewScreen({
   // The Page header's meta line, joined with " · ".
   const facts = [
     `V${selected.ordinal} · ${c("회차", "Round")} ${selected.round}${current ? "" : ` · ${c("이전 검토(읽기 전용)", "Previous round (read-only)")}`}`,
-    data.approver &&
-      `${c("승인자", "Approver")} ${data.approver.person.name ?? unnamed}${data.approver.person.userId === data.currentUserId ? c(" (나)", " (you)") : ""}`,
     // Who sees it is worth a line only when it is not everyone in the
     // project: a chosen few, or outsiders added.
     data.audience && (data.review.audienceScope !== "project" || data.audience.length > 0) &&
@@ -264,9 +261,9 @@ function ReviewScreen({
           )}
           <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
             <h1 className="min-w-0 break-words text-balance text-2xl font-semibold tracking-tight">{data.review.title}</h1>
-            {/* No approval asked is the normal case, not a status to show. */}
-            {data.approval !== "no_approver" && (
-              <Badge tone={statusTone[data.approval]} dot={data.approval === "awaiting"}>
+            {/* In review is the normal case, not a status to show. */}
+            {(data.approval === "approved" || data.approval === "changes_requested") && (
+              <Badge tone={statusTone[data.approval]} dot={data.approval === "changes_requested"}>
                 {c(...approvalCopy[data.approval])}
               </Badge>
             )}
@@ -313,7 +310,7 @@ function ReviewScreen({
         <div className="space-y-1 text-[13px] text-muted">
           {notice && <p>{notice}</p>}
           {exactTarget && <p>{c("앱에서 선택한 영상 버전의 검토입니다.", "Review of the video version selected in the app.")}</p>}
-          {!data.review.audienceConfirmed && <p role="status">{c("검토 대상·승인자 확정 전입니다. 담당자가 대상을 확정하면 새 검토 회차가 시작됩니다.", "The audience and approver are unconfirmed. Confirming them opens a new review round.")}</p>}
+          {!data.review.audienceConfirmed && <p role="status">{c("검토 대상 확정 전이에요. 담당자가 대상을 확정하면 새 검토 회차가 시작돼요.", "The audience is unconfirmed. Confirming it opens a new review round.")}</p>}
           {selected.changeReason && <p>{c("회차 변경 사유", "Round-change reason")}: {selected.changeReason}</p>}
         </div>
       )}
@@ -376,7 +373,7 @@ function ReviewScreen({
 const statusTone: Record<ReviewApprovalState, Tone> = {
   approved: "success",
   changes_requested: "warning",
-  awaiting: "warning",
+  awaiting: "neutral",
   no_approver: "neutral",
   approver_inactive: "neutral",
 };
@@ -1279,10 +1276,11 @@ function ReplyForm({ scope, token, detail, parent, onDone, reload }: { scope: Re
 
 
 /**
- * 승인 (2026-10-08): one box, one question — "is this version good?". The
- * person asked sees 승인 / 수정 요청; the lead picks who is asked; the record
- * folds away. Reasons the server keeps are asked only where they say
- * something (what to change), and filled in for the rest.
+ * 상태 (status model, 2026-10-12 — Frame.io-style): one box, one question —
+ * "is this version good?". Anyone taking part in the project approves or
+ * asks for changes; the latest decision is the status. No named approver.
+ * Reasons the server keeps are asked only where they say something (what to
+ * change), and filled in for the rest.
  */
 function Approval({
   scope,
@@ -1301,9 +1299,7 @@ function Approval({
   const mutation = useRun();
   const current = detail.decisions.find((d) => d.current);
   const canCancel = !!current && detail.allowedActions.cancelDecision;
-  const assign = scope.kind === "project" && detail.allowedActions.setApprover;
-  if (!detail.allowedActions.decide && !assign && !detail.decisions.length && detail.approval !== "approver_inactive")
-    return null;
+  if (!detail.allowedActions.decide && !detail.decisions.length) return null;
   const decide = async (decision: "approved" | "changes_requested") => {
     // Pinned to what this screen shows; a newer version rejects it.
     const input = {
@@ -1323,29 +1319,31 @@ function Approval({
     await reload();
   };
   const unnamed = c("이름 없음", "Unnamed");
+  const status = current?.decision ?? null;
   return (
-    <section className={`${cardClass} max-h-[45%] shrink-0 space-y-3 overflow-y-auto p-5 text-[13px]`} aria-label={c("영상 승인", "Video approval")}>
+    <section className={`${cardClass} max-h-[45%] shrink-0 space-y-3 overflow-y-auto p-5 text-[13px]`} aria-label={c("영상 상태", "Video status")}>
       <CardHeader
-        title={c("승인", "Approval")}
+        title={c("상태", "Status")}
         action={
-          <span className="max-w-48 truncate text-xs text-muted">
-            {detail.approver
-              ? `${detail.approver.person.name ?? unnamed}${detail.approver.person.userId === detail.currentUserId ? c(" (나)", " (you)") : ""}`
-              : c("승인자 없음", "No approver")}
+          <span className="max-w-56 truncate text-xs text-muted">
+            {status && current
+              ? `${status === "approved" ? c("승인됨", "Approved") : c("수정 요청", "Changes requested")} · ${current.approver.name ?? unnamed}`
+              : c("검토 중", "In review")}
           </span>
         }
       />
-      {detail.approval === "approver_inactive" && (
-        <p className="text-muted">{c("승인자가 더 이상 이 프로젝트에 없습니다. 다시 지정해 주세요.", "The approver no longer has access. Choose someone else.")}</p>
-      )}
       {detail.allowedActions.decide && !asking && (
-        <div className="grid grid-cols-2 gap-2">
-          <Button variant="secondary" disabled={mutation.busy} onClick={() => setAsking(true)}>
-            {c("수정 요청", "Request changes")}
-          </Button>
-          <Button disabled={mutation.busy} onClick={() => void decide("approved")}>
-            {c("승인", "Approve")}
-          </Button>
+        <div className={`grid gap-2 ${status ? "grid-cols-1" : "grid-cols-2"}`}>
+          {status !== "changes_requested" && (
+            <Button variant="secondary" disabled={mutation.busy} onClick={() => setAsking(true)}>
+              {c("수정 요청", "Request changes")}
+            </Button>
+          )}
+          {status !== "approved" && (
+            <Button disabled={mutation.busy} onClick={() => void decide("approved")}>
+              {c("승인", "Approve")}
+            </Button>
+          )}
         </div>
       )}
       {detail.allowedActions.decide && asking && (
@@ -1376,13 +1374,12 @@ function Approval({
           </div>
         </form>
       )}
-      {assign && scope.kind === "project" && <ApproverPicker scope={scope} detail={detail} reload={reload} />}
       {mutation.error && <ReviewError code={mutation.error} retry={() => void reload()} />}
       {detail.decisions.length > 0 && (
         <details className="group">
           <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-xs text-muted hover:text-foreground [&::-webkit-details-marker]:hidden">
             <ChevronRight size={13} aria-hidden="true" className="transition-transform group-open:rotate-90" />
-            {c(`결정 기록 ${detail.decisions.length}`, `History (${detail.decisions.length})`)}
+            {c(`상태 기록 ${detail.decisions.length}`, `History (${detail.decisions.length})`)}
           </summary>
           <ol className="mt-2 space-y-1.5 text-xs">
             {detail.decisions.map((d) => (
@@ -1407,65 +1404,13 @@ function Approval({
               }}
             >
               <Button size="sm" type="submit" variant="secondary" disabled={mutation.busy}>
-                {c("결정 취소", "Cancel decision")}
+                {c("마지막 결정 취소", "Undo last decision")}
               </Button>
             </form>
           )}
         </details>
       )}
     </section>
-  );
-}
-
-/** The lead picks who approves, in place; changing it later needs no form. */
-function ApproverPicker({
-  scope,
-  detail,
-  reload,
-}: {
-  scope: ReviewScope & { kind: "project" };
-  detail: ReviewDetail;
-  reload: () => Promise<void>;
-}) {
-  const c = useCopy();
-  const read = useCallback(() => reviewsService.candidates(scope), [scope]);
-  const { data, error } = useLoader(read, 0);
-  const [userId, setUserId] = useState("");
-  const mutation = useRun();
-  const replacing = !!detail.approver;
-  const save = async (next: string) => {
-    setUserId(next);
-    if (!next) return;
-    const input = {
-      revision: detail.review.revision,
-      userId: next === CLEAR ? null : next,
-      // The record keeps a reason for a change of approver; this is it.
-      reason: replacing ? c("승인자 변경", "Approver changed") : "",
-    };
-    await mutation.run(input, (requestKey) => reviewsService.mutate(scope, "approver", { requestKey, ...input }));
-    setUserId("");
-    await reload();
-  };
-  return (
-    <div className="space-y-1">
-      <Select
-        value={userId}
-        disabled={mutation.busy}
-        onChange={(e) => void save(e.target.value)}
-        aria-label={c("승인자 선택", "Choose approver")}
-      >
-        <option value="">{replacing ? c("승인자 바꾸기…", "Change approver…") : c("승인자 지정…", "Choose an approver…")}</option>
-        {replacing && <option value={CLEAR}>{c("승인자 없이 진행", "No approver")}</option>}
-        {data?.candidates.map((p) => (
-          <option key={`${p.basis}:${p.userId}`} value={p.userId}>
-            {p.label}
-            {p.basis === "share" ? c(" · 공유 수신자", " · share recipient") : ""}
-          </option>
-        ))}
-      </Select>
-      {error && <ReviewError code={error} />}
-      {mutation.error && <ReviewError code={mutation.error} />}
-    </div>
   );
 }
 
@@ -1589,7 +1534,6 @@ function AudienceForm({ scope, detail, reload }: { scope: ReviewScope & { kind: 
   </form>;
 }
 
-const CLEAR = "clear";
 function ReplaceVersion({
   scope,
   detail,
