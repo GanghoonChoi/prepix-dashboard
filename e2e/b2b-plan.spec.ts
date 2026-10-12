@@ -8,7 +8,7 @@ import { api, account, allMail, json, shot } from "./b2b-review-helpers";
 // the PG double for every charge. Requires the preview harness with
 // B2B_TEST_NEW_TEAMS, B2B_TEST_PRODUCT and B2B_TEST_BILLING.
 const double = process.env.B2B_E2E_PG_DOUBLE_URL ?? "http://127.0.0.1:3547";
-const buyer = { businessName: "로컬 결제 주식회사", businessRegistrationNumber: "1234567890", representative: "로컬 대표", address: "서울 로컬구 1", receiptEmail: "finance@example.test" };
+const buyer = { businessName: "로컬 결제 주식회사", businessRegistrationNumber: "1234567890", representative: "로컬 대표", address: "서울 로컬구 1", contactPhone: "010-1234-5678" };
 
 test("plan and billing: one consent at checkout, seats bought by themselves, details and card from their line, cancel keeps the period", async ({ page, request }) => {
   test.setTimeout(240_000);
@@ -30,7 +30,7 @@ test("plan and billing: one consent at checkout, seats bought by themselves, det
   await checkout.getByLabel("사업자등록번호", { exact: true }).fill(buyer.businessRegistrationNumber);
   await checkout.getByLabel("대표자", { exact: true }).fill(buyer.representative);
   await checkout.getByLabel("사업장 주소", { exact: true }).fill(buyer.address);
-  await checkout.getByLabel("수신 연락처", { exact: true }).fill(buyer.receiptEmail);
+  await checkout.getByLabel("수신 연락처", { exact: true }).fill(buyer.contactPhone);
   await checkout.getByRole("checkbox", { name: /멤버가 늘면 이번 기간에 남은 날만큼 바로 결제하는 데 동의합니다/ }).check();
   await checkout.getByRole("button", { name: /카드 등록하고 .*원 결제/ }).click();
   await page.waitForURL(`${double}/billing-auth?**`);
@@ -71,10 +71,12 @@ test("plan and billing: one consent at checkout, seats bought by themselves, det
   const invoice = page.locator("section", { has: page.getByRole("heading", { name: "세금계산서 정보" }) });
   await invoice.getByRole("button", { name: "수정", exact: true }).click();
   const edit = page.getByRole("dialog", { name: "세금계산서 정보" });
-  await edit.getByLabel("수신 연락처", { exact: true }).fill("tax@example.test");
+  await expect(edit.getByLabel("수신 연락처", { exact: true })).toHaveValue("010-1234-5678");
+  await edit.getByLabel("수신 연락처", { exact: true }).fill("02 123 4567");
   await edit.getByRole("button", { name: "저장", exact: true }).click();
   await expect(edit).toHaveCount(0);
-  await expect(invoice).toContainText("tax@example.test");
+  await expect(invoice).toContainText("02-123-4567");
+  expect((await json(request.get(`${base}/billing`, { headers: h }))).profile).toMatchObject({ contactPhone: "021234567" });
 
   // The card changes through the same window, back to this page.
   const card = page.locator("section", { has: page.getByRole("heading", { name: "결제 수단" }) });

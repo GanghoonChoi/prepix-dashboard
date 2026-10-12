@@ -1,5 +1,6 @@
 "use client";
 import { kst, useWon } from "./billing-shared";
+import { formatPhone } from "@/lib/api/generated/b2b";
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -359,7 +360,8 @@ function Snapshot({ revision }: { revision: TeamStatementRevision }) {
               <div key={r.sourceOrderIds.join()} className="space-y-0.5 py-3 text-sm first:pt-0 last:pb-0">
                 <p className="font-medium">{r.buyer.businessName}</p>
                 <p className="text-[13px] text-muted tabular-nums">
-                  {r.buyer.businessRegistrationNumber} · {r.buyer.representative} · {r.buyer.receiptEmail}
+                  {r.buyer.businessRegistrationNumber} · {r.buyer.representative} ·{" "}
+                  {r.buyer.contactPhone ? formatPhone(r.buyer.contactPhone) : r.buyer.receiptEmail}
                 </p>
                 <p className="text-[13px] text-muted">
                   {r.buyer.address} · {c("주문", "Orders")} {r.sourceOrderIds.map((id) => id.slice(0, 8)).join(", ")}

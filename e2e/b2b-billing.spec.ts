@@ -34,7 +34,7 @@ const buyer = {
   businessRegistrationNumber: "1234567890",
   representative: "로컬 대표",
   address: "서울 로컬구 1",
-  receiptEmail: "finance@example.test",
+  contactPhone: "010-1234-5678",
 };
 
 /** A one-off checkout order made through the API: the window path the order
@@ -111,7 +111,7 @@ test("Business checkout: details, one card window, the first month charged once 
   await checkout.getByLabel("사업자등록번호", { exact: true }).fill(buyer.businessRegistrationNumber);
   await checkout.getByLabel("대표자", { exact: true }).fill(buyer.representative);
   await checkout.getByLabel("사업장 주소", { exact: true }).fill(buyer.address);
-  await checkout.getByLabel("수신 연락처", { exact: true }).fill(buyer.receiptEmail);
+  await checkout.getByLabel("수신 연락처", { exact: true }).fill(buyer.contactPhone);
   const pay = checkout.getByRole("button", { name: /카드 등록하고 .*원 결제/ });
   await expect(pay).toBeDisabled();
   await checkout.getByRole("checkbox", { name: /결제하는 데 동의합니다/ }).check();
@@ -186,7 +186,7 @@ test("card, invoice details, resume, refund reservation and account switch keep 
   await details.getByLabel("사업자등록번호", { exact: true }).fill(buyer.businessRegistrationNumber);
   await details.getByLabel("대표자", { exact: true }).fill(buyer.representative);
   await details.getByLabel("사업장 주소", { exact: true }).fill(buyer.address);
-  await details.getByLabel("수신 연락처", { exact: true }).fill(buyer.receiptEmail);
+  await details.getByLabel("수신 연락처", { exact: true }).fill(buyer.contactPhone);
   await details.getByRole("button", { name: "저장", exact: true }).click();
   await expect(section(page, "세금계산서 정보")).toContainText(buyer.businessName);
   // The card: consent, one window, back here; the one-time key leaves the address.

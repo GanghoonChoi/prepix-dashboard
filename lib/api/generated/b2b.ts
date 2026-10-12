@@ -386,8 +386,17 @@ export type TeamBuyer = {
   businessRegistrationNumber: string;
   representative: string;
   address: string;
-  receiptEmail: string;
+  // 수신 연락처: digits of a Korean phone number (2026-10-12). Copies saved
+  // before carry `receiptEmail` instead; new profiles always have a phone.
+  contactPhone?: string;
+  receiptEmail?: string;
 };
+/** "01012345678" → "010-1234-5678"; landlines and 15xx lines too. */
+export function formatPhone(digits: string): string {
+  if (digits.startsWith("02")) return digits.replace(/^(02)(\d{3,4})(\d{4})$/, "$1-$2-$3");
+  if (digits.length === 8) return digits.replace(/^(\d{4})(\d{4})$/, "$1-$2");
+  return digits.replace(/^(0\d{2})(\d{3,4})(\d{4})$/, "$1-$2-$3");
+}
 export type CreateTeamOrder = {
   requestKey: string;
   quoteId: string;
