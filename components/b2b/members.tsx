@@ -34,7 +34,7 @@ import {
 import { useI18n } from "@/lib/i18n/context";
 import { formatDate } from "@/lib/format";
 import { AddSeats } from "./add-seats";
-import { RecoverLead } from "./recover-lead";
+import { OwnershipControls } from "./ownership";
 import { changeInvitation, InviteForm, useInvitationStatus } from "./invitations";
 import { B2bError, errorCode, useCopy } from "./shared";
 import { roleSummary, TeamRoles } from "./team-roles";
@@ -68,8 +68,10 @@ export function TeamMembers() {
   const [appointing, setAppointing] = useState<TeamPerson | null>(null);
   const [withBilling, setWithBilling] = useState(true);
   const invite = useOverlayState();
-  const recover = useOverlayState();
   const appointDialog = useOverlayState();
+  // Handing over ownership starts from the row too: pick 소유자 for someone.
+  const [handover, setHandover] = useState<TeamPerson | null>(null);
+  const handoverDialog = useOverlayState();
   const buy = useOverlayState();
   const sequence = useRef(0);
   const id = data.workspace.id;
@@ -270,6 +272,11 @@ export function TeamMembers() {
                               {p.userId === data.currentUserId && <span className="text-muted">{c("(나)", "(You)")}</span>}
                               {p.kind === "external" && <Badge>{c("외부", "Guest")}</Badge>}
                               {p.billingAllowed && p.role !== "owner" && <Badge>{c("결제 권한", "Billing")}</Badge>}
+                              {data.pendingTransfer?.toUserId === p.userId && (
+                                <Badge tone="warning" dot>
+                                  {c("소유자 수락 대기", "Ownership pending")}
+                                </Badge>
+                              )}
                               {p.seat === "waiting" && (
                                 <Badge tone="warning" dot>
                                   {c("좌석 대기", "Waiting for seat")}
@@ -290,14 +297,18 @@ export function TeamMembers() {
                             value={p.role}
                             disabled={busy}
                             onChange={(e) => {
-                              const next = e.target.value as "admin" | "editor" | "reviewer";
-                              if (next === "admin") {
+                              const next = e.target.value as "owner" | "admin" | "editor" | "reviewer";
+                              if (next === "owner") {
+                                setHandover(p);
+                                handoverDialog.open();
+                              } else if (next === "admin") {
                                 setWithBilling(!!roster?.canDelegateBilling && !p.billingAllowed);
                                 setAppointing(p);
                                 appointDialog.open();
                               } else void setRole(p, next);
                             }}
                           >
+                            {owner && p.kind === "internal" && <option value="owner">{c("소유자", "Owner")}</option>}
                             {owner && p.kind === "internal" && <option value="admin">{c("관리자", "Admin")}</option>}
                             <option value="editor">{c("편집자", "Editor")}</option>
                             <option value="reviewer">{c("뷰어", "Viewer")}</option>
@@ -394,22 +405,20 @@ export function TeamMembers() {
             )}
           </section>
           <TeamRoles />
-          {/* A rare repair, out of the way: a project whose lead left. */}
-          {owner && (
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-              <Button variant="secondary" size="sm" onClick={recover.open}>
-                {c("담당자 복구", "Restore a lead")}
-              </Button>
-              <span className="text-xs text-muted">
-                {c("담당자가 떠난 프로젝트에 새 담당자를 지정해요.", "Name a new lead for a project whose lead left.")}
-              </span>
-            </div>
-          )}
+
         </div>
       )}
-      {owner && (
-        <Dialog state={recover} title={c("담당자 복구", "Restore a lead")} size="wide">
-          <RecoverLead people={people} />
+      {owner && handover && (
+        <Dialog state={handoverDialog} title={c("소유자 넘기기", "Hand over ownership")}>
+          <div className="space-y-3">
+            <p className="text-[13px] leading-5 text-muted">
+              {c(
+                `${handover.name || handover.email}님이 수락하면 소유자가 바뀌고, 나는 관리자가 돼요.`,
+                `Once ${handover.name || handover.email} accepts, they become the owner and you become an admin.`,
+              )}
+            </p>
+            <OwnershipControls initialTarget={handover.userId} bare onDone={() => void load()} />
+          </div>
         </Dialog>
       )}
       {appointing && (
@@ -422,11 +431,7 @@ export function TeamMembers() {
             )}
           </p>
           <p className="text-[13px] leading-5 text-muted">
-            {c(...roleSummary.admin)}{" "}
-            {c(
-              "멤버를 초대하고 역할을 바꾸고, 팀 설정을 관리해요. 다른 관리자 지정은 소유자만 할 수 있어요.",
-              "They invite people, change roles and manage team settings. Only the owner appoints other admins.",
-            )}
+            {c(...roleSummary.admin)}
           </p>
           {roster?.canDelegateBilling && !appointing.billingAllowed && (
             <label className="flex items-start gap-2.5 text-[13px] leading-5">

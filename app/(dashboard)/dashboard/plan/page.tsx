@@ -19,7 +19,7 @@ import { useI18n } from "@/lib/i18n/context";
 import { RefundRequestCard } from "@/components/dashboard/refund-request-card";
 import { legalUrl } from "@/lib/i18n/config";
 import { CouponDialog } from "@/components/dashboard/coupon-dialog";
-import { UsageCard } from "@/components/dashboard/usage-card";
+import { UsageSection } from "@/components/dashboard/usage-card";
 import { useSearchParams } from "next/navigation";
 import { couponService, type CouponBenefits } from "@/lib/api/services/coupon.service";
 import {
@@ -558,6 +558,11 @@ export default function PlanPage() {
           </div>
         )}
 
+        {/* What the plan gives and how much of it is left, in the same card. */}
+        <div className="mt-5 space-y-3 border-t border-border pt-4">
+          <h3 className="text-sm font-medium">{t("usage.title")}</h3>
+          <UsageSection />
+        </div>
         {/* The coupon row: what coupons give, and where to add one. Each
             benefit with when it runs out — a benefit with no date is how
             someone gets surprised by it ending. */}
@@ -623,8 +628,6 @@ export default function PlanPage() {
         </div>
       </Card>
 
-      {/* What the plan gives and how much is left, on the same page as the plan. */}
-      <UsageCard />
 
       {/* A filed refund request, with our reply. Sits above the plan cards
           because "what happened to my refund" outranks "what else could I buy". */}
