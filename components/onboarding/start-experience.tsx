@@ -35,7 +35,7 @@ import {
   type PreviewUpdate,
 } from "./steps";
 import { StartPreview, type PreviewState } from "./preview";
-import { Button, Notice } from "@/components/ui";
+import { Button, Notice, ProgressTracker } from "@/components/ui";
 
 type Row = WorkspaceList["workspaces"][number];
 
@@ -280,6 +280,28 @@ export function StartExperience() {
     ],
   };
 
+  // The same path as a checklist (affectUI's tracker), beside the preview. It
+  // opens on 계정 만들기 already ticked: the site's sign-up shows that step as
+  // the first one, so arriving here reads as the next line of the same list.
+  const stepLabel: Record<StartStep, [string, string]> = {
+    join: ["Your invitation", "초대 확인"],
+    use: ["How you'll use it", "사용 방식"],
+    profile: ["About you", "하는 일"],
+    workspace: intent === "team" ? ["Team workspace", "팀 워크스페이스"] : ["Your workspace", "워크스페이스 이름"],
+    invite: ["Invite your team", "팀원 초대"],
+    pay: ["Plan and payment", "결제"],
+    app: ["Desktop app", "앱 설치"],
+    edit: ["First edit", "첫 편집"],
+  };
+  const tracker = [
+    { id: "account", label: copy("Create your account", "계정 만들기"), done: true },
+    ...sequence.map((entry, index) => ({
+      id: entry,
+      label: copy(...stepLabel[entry]),
+      done: index < position,
+    })),
+  ];
+
   const previewState: PreviewState = {
     intent: hover ?? intent,
     name:
@@ -510,12 +532,22 @@ export function StartExperience() {
                 </motion.div>
               </AnimatePresence>
             </section>
-            <StartPreview state={previewState} />
+            <div className="relative hidden lg:grid">
+              <StartPreview state={previewState} />
+              {signedIn && step !== "edit" && !settling && (
+                <ProgressTracker
+                  className="absolute bottom-8 left-8 !w-[264px] shadow-[0_8px_30px_rgba(0,0,0,0.08)]"
+                  title={copy("Getting started", "시작하기")}
+                  steps={tracker}
+                  current={sequence[position]}
+                />
+              )}
+            </div>
           </div>
 
           {signedIn && step !== "edit" && (
             <ol
-              className="mt-6 flex items-center justify-center gap-2"
+              className="mt-6 flex items-center justify-center gap-2 lg:hidden"
               aria-label={copy("Getting started steps", "시작 단계")}
             >
               {sequence.map((entry, index) => (

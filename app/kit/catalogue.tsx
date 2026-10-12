@@ -17,6 +17,7 @@ import {
   MeterRow,
   Notice,
   PageHeader,
+  ProgressTracker,
   Poster,
   PropertyList,
   SearchField,
@@ -273,6 +274,10 @@ function Sheet() {
         </div>
       </Section>
 
+      <Section title="ProgressTracker (affectUI)">
+        <Tracker />
+      </Section>
+
       <Section title="EmptyState">
         <div className="grid gap-4 sm:grid-cols-2">
           <EmptyState icon={Film} title="아직 영상이 없어요" description="데스크톱 앱에서 공유하면 여기에 보여요." />
@@ -295,6 +300,37 @@ function Sheet() {
           </SettingRow>
         </DangerZone>
       </Section>
+    </div>
+  );
+}
+
+function Tracker() {
+  const [done, setDone] = useState<string[]>(["open"]);
+  const toggle = (id: string) =>
+    setDone((was) => (was.includes(id) ? was.filter((d) => d !== id) : [...was, id]));
+  return (
+    <div className="grid gap-4 sm:grid-cols-2">
+      <ProgressTracker
+        title="시작하기"
+        current="profile"
+        steps={[
+          { id: "account", label: "계정 만들기", done: true },
+          { id: "use", label: "사용 방식", done: true },
+          { id: "profile", label: "하는 일" },
+          { id: "workspace", label: "워크스페이스 이름" },
+          { id: "app", label: "앱 설치" },
+        ]}
+      />
+      <ProgressTracker
+        title="첫 컷까지"
+        onToggle={toggle}
+        steps={[
+          { id: "open", label: "Prepix를 열고 로그인하기", hint: "같은 이메일이나 Google 계정으로 로그인해요." },
+          { id: "project", label: "새 프로젝트 만들기", hint: "영상에 맞는 편집 방식을 골라요." },
+          { id: "import", label: "짧은 영상 불러오기" },
+          { id: "cut", label: "첫 컷 편집하기" },
+        ].map((s) => ({ ...s, done: done.includes(s.id) }))}
+      />
     </div>
   );
 }

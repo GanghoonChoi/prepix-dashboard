@@ -24,6 +24,7 @@ import {
   SummaryRows,
   buttonClass,
   inputClass,
+  ProgressTracker,
 } from "@/components/ui";
 
 /**
@@ -878,29 +879,52 @@ export function AppStep({
   );
 }
 
+/** Ticked steps of the first cut, kept in this browser between visits. */
+const FIRST_CUT_KEY = "px-first-cut";
+function readFirstCut(): string[] {
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(FIRST_CUT_KEY) ?? "[]");
+    return Array.isArray(saved) ? saved.filter((v): v is string => typeof v === "string") : [];
+  } catch {
+    return []; // private mode or a bad value — start unticked
+  }
+}
+
 export function EditStep({ homeHref, helpHref }: { homeHref: string; helpHref: string }) {
   const copy = useCopy();
-  const items: [string, string, string, string][] = [
-    ["Open Prepix and sign in", "Use the same email or Google account.", "Prepix를 열고 로그인하기", "같은 이메일이나 Google 계정으로 로그인해요."],
-    ["Create a project", "Pick the editing workflow that fits your video.", "새 프로젝트 만들기", "영상에 맞는 편집 방식을 골라요."],
-    ["Import a short clip", "Start with one clip. Importing doesn't share it.", "짧은 영상 불러오기", "영상 하나로 시작해요. 불러오기만으로는 공유되지 않아요."],
-    ["Make your first cut", "Play the result, tweak a cut, then export.", "첫 컷 편집하기", "결과를 재생하고 컷을 다듬은 뒤 내보내요."],
+  const items: [string, string, string, string, string][] = [
+    ["open", "Open Prepix and sign in", "Use the same email or Google account.", "Prepix를 열고 로그인하기", "같은 이메일이나 Google 계정으로 로그인해요."],
+    ["project", "Create a project", "Pick the editing workflow that fits your video.", "새 프로젝트 만들기", "영상에 맞는 편집 방식을 골라요."],
+    ["import", "Import a short clip", "Start with one clip. Importing doesn't share it.", "짧은 영상 불러오기", "영상 하나로 시작해요. 불러오기만으로는 공유되지 않아요."],
+    ["cut", "Make your first cut", "Play the result, tweak a cut, then export.", "첫 컷 편집하기", "결과를 재생하고 컷을 다듬은 뒤 내보내요."],
   ];
+  // These happen in the desktop app, which this page cannot see — so the
+  // person ticks them, and the ticks survive coming back to this page.
+  // This step only renders after the client has resolved the session, so
+  // reading storage in the initializer cannot disagree with a server render.
+  const [done, setDone] = useState<string[]>(readFirstCut);
+  const toggle = (id: string) =>
+    setDone((was) => {
+      const next = was.includes(id) ? was.filter((d) => d !== id) : [...was, id];
+      try {
+        localStorage.setItem(FIRST_CUT_KEY, JSON.stringify(next));
+      } catch {
+        /* not saved; still ticked for this visit */
+      }
+      return next;
+    });
   return (
     <div className="space-y-6">
-      <ol className="space-y-1">
-        {items.map(([en, enBody, ko, koBody], i) => (
-          <li key={en} className="flex gap-3 p-2.5">
-            <span className="grid size-6 shrink-0 place-items-center rounded-full bg-surface-secondary text-xs font-medium tabular-nums text-muted">
-              {i + 1}
-            </span>
-            <span>
-              <span className="block text-sm font-medium">{copy(en, ko)}</span>
-              <span className="block text-[13px] text-muted text-pretty">{copy(enBody, koBody)}</span>
-            </span>
-          </li>
-        ))}
-      </ol>
+      <ProgressTracker
+        title={copy("To your first cut", "첫 컷까지")}
+        onToggle={toggle}
+        steps={items.map(([id, en, enBody, ko, koBody]) => ({
+          id,
+          label: copy(en, ko),
+          hint: copy(enBody, koBody),
+          done: done.includes(id),
+        }))}
+      />
       <StepActions
         secondary={
           <a className={quietButton} href={helpHref}>
