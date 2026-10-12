@@ -109,7 +109,8 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
     )) as TeamHome;
     expect(home.currentUserId).toBe(owner.id);
     expect(home.workspaceId).toBe(team);
-    expect(home.projects.items.map((p) => p.id)).toEqual([own]);
+    // The owner sees the lead's private project too (2026-10-12).
+    expect(home.projects.items.map((p) => p.id).sort()).toEqual([own, privateProject].sort());
     expect(home.projects.hasMore).toBe(false);
     expect(home.transfers.items.map((t) => t.name)).toEqual([
       "내 원본 전송 준비.wav",
@@ -121,9 +122,11 @@ test("F03 live home: preparing, own periods/projects/source transfer, exact dest
     await expect(
       projects.getByRole("link", { name: /홈에서 여는 내 프로젝트/ }),
     ).toBeVisible();
+    // The owner sees every project of the team, private ones too (2026-10-12);
+    // the external guest below still does not.
     await expect(
-      O.page.getByText("홈에서 숨겨야 할 다른 프로젝트", { exact: true }),
-    ).toHaveCount(0);
+      projects.getByRole("link", { name: /홈에서 숨겨야 할 다른 프로젝트/ }),
+    ).toBeVisible();
     const transfer = O.page.getByRole("link", {
       name: /내 원본 전송 준비.wav/,
     });

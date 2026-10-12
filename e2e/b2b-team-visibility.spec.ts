@@ -5,7 +5,7 @@ import { api, media, account, fixture, invite, open, upload, videoReady, shot, j
 // SOT: prepix-backend backend/docs/b2b-team-visibility.md. Team-wide by
 // default, private on demand; a registered result is published to review as
 // soon as its review copy is ready, without a lead step.
-test("V: team-wide project, publish → review on team home, private stays hidden, narrowing ends a viewer's access", async ({ browser, request }) => {
+test("V: team-wide project, publish → review on team home, private stays hidden from non-members, narrowing ends a viewer's access", async ({ browser, request }) => {
   test.setTimeout(600_000);
   expect(media, "Set B2B_E2E_MEDIA_DIR").toBeTruthy();
   const [owner, lead, producer, member, client, maker] = await Promise.all(
@@ -99,7 +99,7 @@ test("V: team-wide project, publish → review on team home, private stays hidde
   M.page.on("request", (r) => { if (/\/(request-work|requests|people|publications|delivery)(\?|$)/.test(r.url())) work.push(r.url()); });
   await M.page.goto(base);
   await expect(M.page.getByRole("heading", { name: teamName, exact: true })).toBeVisible();
-  await expect(M.page.getByText("팀 공개 프로젝트를 열람 중입니다. 작업하려면 담당자에게 참여를 요청하세요.", { exact: true })).toBeVisible();
+  await expect(M.page.getByText("팀 공개 프로젝트를 열람 중입니다. 작업하려면 관리자에게 참여를 요청하세요.", { exact: true })).toBeVisible();
   for (const name of ["요청사항", "납품·프로젝트 완료", "등록된 결과", "참여자", "AI 작업", "앱에서 작업하기"])
     await expect(M.page.getByRole("link", { name, exact: true })).toHaveCount(0);
   await expect(M.page.getByRole("button", { name: "비공개로 바꾸기", exact: true })).toHaveCount(0);
@@ -121,24 +121,25 @@ test("V: team-wide project, publish → review on team home, private stays hidde
   await expect(K.page.getByRole("button", { name: "원본 다운로드", exact: true })).toBeVisible();
   await shot(K.page, "s10-team-maker-files");
 
-  // The owner (not participating) sees the team project, never the private one.
+  // Owners and admins see every project, private ones included (2026-10-12).
   const O = await open(browser, owner, home);
   // The home grid (2026-10-08): the project's card counts its video.
   const card = O.page.getByRole("region", { name: "프로젝트", exact: true }).getByRole("link", { name: new RegExp(teamName) });
   await expect(card).toBeVisible({ timeout: 30_000 });
   await expect(card).toContainText("영상 1");
-  const hidden = async (page: Page) => expect(page.locator("body")).not.toContainText(secretName);
-  await hidden(O.page);
   await O.page.goto(`${home}/projects`);
   await expect(O.page.getByRole("link", { name: new RegExp(teamName) })).toBeVisible();
-  await hidden(O.page);
-  await O.page.getByLabel("이름으로 검색", { exact: true }).fill("비밀");
-  await expect(O.page.getByText("참여한 프로젝트가 없습니다.", { exact: false })).toBeVisible();
-  await hidden(O.page);
-  expect((await request.get(`${api}/v2/workspaces/${team}/b2b/projects/${secretId}`, { headers: owner.headers })).status()).toBe(404);
-  await O.page.goto(`${home}/projects/${secretId}`);
-  await expect(O.page.getByText("프로젝트를 찾을 수 없거나 접근 권한이 없습니다.", { exact: true })).toBeVisible();
-  await hidden(O.page);
+  await expect(O.page.getByRole("link", { name: new RegExp(secretName) })).toBeVisible();
+  expect((await request.get(`${api}/v2/workspaces/${team}/b2b/projects/${secretId}`, { headers: owner.headers })).status()).toBe(200);
+  // A member who is not in the private project still never sees it.
+  const hidden = async (page: Page) => expect(page.locator("body")).not.toContainText(secretName);
+  await M.page.goto(`${home}/projects`);
+  await expect(M.page.getByRole("link", { name: new RegExp(teamName) })).toBeVisible();
+  await hidden(M.page);
+  expect((await request.get(`${api}/v2/workspaces/${team}/b2b/projects/${secretId}`, { headers: member.headers })).status()).toBe(404);
+  await M.page.goto(`${home}/projects/${secretId}`);
+  await expect(M.page.getByText("프로젝트를 찾을 수 없거나 접근 권한이 없습니다.", { exact: true })).toBeVisible();
+  await hidden(M.page);
 
   // The external client sees only the invited project.
   const C = await open(browser, client, `${home}/projects`);

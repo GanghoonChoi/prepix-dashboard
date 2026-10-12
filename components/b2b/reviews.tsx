@@ -135,11 +135,11 @@ const reviewErrors: Record<string, Copy> = {
     "This review version is unavailable now (trashed or deleted).",
   ],
   B2B_REVIEW_SHARE_EXPIRED: [
-    "공유 기간이 끝났습니다. 담당자에게 새 공유를 요청해 주세요.",
+    "공유 기간이 끝났습니다. 공유한 사람에게 새 공유를 요청해 주세요.",
     "This share expired. Ask the lead for a new share.",
   ],
   B2B_REVIEW_SHARE_REVOKED: [
-    "이 공유 접근은 종료되었습니다. 담당자에게 문의해 주세요.",
+    "이 공유 접근은 종료되었습니다. 공유한 사람에게 문의해 주세요.",
     "Access through this share ended. Contact the lead.",
   ],
   B2B_REVIEW_SHARE_ACCOUNT_MISMATCH: [
@@ -164,9 +164,9 @@ const reviewErrors: Record<string, Copy> = {
   ],
   B2B_REVIEW_AUDIENCE_REQUIRED: ["검토 대상을 선택해 주세요.", "Choose the review audience."],
   B2B_REVIEW_AUDIENCE_INVALID: ["선택한 사람의 현재 프로젝트 참여 상태가 바뀌었습니다. 대상을 다시 확인해 주세요.", "A selected person's folder participation changed. Check the audience again."],
-  B2B_REVIEW_AUDIENCE_CONFIRMATION_REQUIRED: ["담당자가 검토 대상을 확정해야 합니다.", "The lead must confirm the audience."],
+  B2B_REVIEW_AUDIENCE_CONFIRMATION_REQUIRED: ["검토 대상을 먼저 확정해야 합니다.", "The audience must be confirmed first."],
   B2B_REVIEW_SHARE_DOWNLOAD_NOT_ALLOWED: [
-    "원본 공유가 허용된 프로젝트에서, 원본을 받을 수 있는 담당자만 원본 다운로드를 허용할 수 있습니다.",
+    "원본 공유가 허용된 프로젝트에서, 프로젝트를 관리하는 사람만 원본 다운로드를 허용할 수 있습니다.",
     "Original downloads need a folder that allows sharing originals and your own download access.",
   ],
   B2B_REVIEW_SHARE_CONFIGURATION_REQUIRED: [
@@ -360,7 +360,7 @@ export function ReviewAudiencePicker({ scope, value, onChange, disabled, onValid
       ? !!data && !error && value.audienceUserIds.length > 0 && value.audienceUserIds.every(known)
       : value.audienceUserIds.every(external));
   }, [data, error, value, selected, external, onValidityChange]);
-  const roles = { lead: c("담당자", "Lead"), producer: c("편집자", "Editor"), reviewer: c("뷰어", "Viewer") };
+  const roles = { lead: c("올린 사람", "Creator"), producer: c("편집자", "Editor"), reviewer: c("뷰어", "Viewer") };
   const listed = data?.candidates.filter((person) => selected || person.external) ?? [];
   return (
     <fieldset disabled={disabled} className="space-y-3">

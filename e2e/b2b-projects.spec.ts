@@ -104,7 +104,7 @@ test("B2B preparing gate, private projects, lost-response retry, role handoff an
         requestKey: crypto.randomUUID(),
         name: "Private B2B project",
         brief: "Only invited people may see this brief",
-        // V: the owner-must-not-see assertions below are the private (v1) rule.
+        // Private: the editor's own project; the team owner still sees it.
         visibility: "private",
       },
     });
@@ -121,17 +121,15 @@ test("B2B preparing gate, private projects, lost-response retry, role handoff an
       await (await request.get(endpoint, { headers: editor.headers })).json()
     ).data;
     expect(list.projects).toHaveLength(1);
+    // Owners and admins see every project, private ones included (2026-10-12).
     await page.goto(`${base}/projects`);
     await expect(
-      page.getByText("참여한 프로젝트가 없습니다.", { exact: false }),
-    ).toBeVisible();
-    await expect(
       page.getByText("Private B2B project", { exact: true }),
-    ).toHaveCount(0);
+    ).toBeVisible();
     await page.goto(`${base}/projects/${projectId}`);
-    await expect(page.locator("main [role=alert]")).toContainText(
-      "접근 권한이 없습니다",
-    );
+    await expect(
+      page.getByRole("heading", { name: "Private B2B project", exact: true }),
+    ).toBeVisible();
     await editorPage.getByRole("link", { name: "멤버", exact: true }).click();
     await editorPage
       .getByLabel("초대 이메일", { exact: true })
@@ -171,16 +169,8 @@ test("B2B preparing gate, private projects, lost-response retry, role handoff an
     await expect(
       editorPage.locator("main").getByText(owner.email, { exact: true }),
     ).toBeVisible();
-    // Figma-like people list (2026-10-08): the row's menu makes a lead.
-    await editorPage
-      .locator(`[data-person="${owner.email}"]`)
-      .getByRole("button", { name: /작업$/ })
-      .click();
-    await editorPage
-      .getByRole("menuitem", { name: "담당자로 지정", exact: true })
-      .click();
-    // No longer the lead: nobody's role can be changed from this page.
-    await expect(editorPage.getByLabel(/ 역할$/)).toHaveCount(0);
+    // No lead handoff any more (2026-10-12): the team owner manages the
+    // project as it is, beside the editor who brought it in.
     await page.reload();
     await expect(
       page.getByRole("heading", { name: "Private B2B project", exact: true }),
@@ -409,7 +399,7 @@ test("B2B external invitation proves mailbox and preserves billing mutation on l
   }
 });
 
-test("B2B owner restores vacant lead without gaining private project content", async ({
+test("B2B owner restores a vacant lead and, as owner, sees the private project", async ({
   request,
 }) => {
   const owner = await account(request, "b2b-recover-owner");
@@ -442,7 +432,7 @@ test("B2B owner restores vacant lead without gaining private project content", a
         data: {
           requestKey: crypto.randomUUID(),
           name: "Private vacancy content",
-          brief: "Owner must never see this",
+          brief: "Private brief",
           visibility: "private",
         },
       })
@@ -484,7 +474,7 @@ test("B2B owner restores vacant lead without gaining private project content", a
   ).toBe(201);
   // Lead recovery left the web UI (2026-10-12); the server keeps it, and this
   // is the rule it still has to hold: the owner names a successor only for a
-  // vacant lead, and gains no project content by doing so.
+  // vacant lead. Owners and admins see private projects (2026-10-12).
   const recovery = `${endpoint}/projects/${project.id}/lead-recovery`;
   const refused = await request.get(recovery, { headers: owner.headers });
   expect(refused.status()).toBeGreaterThanOrEqual(400);
@@ -531,7 +521,7 @@ test("B2B owner restores vacant lead without gaining private project content", a
         headers: owner.headers,
       })
     ).status(),
-  ).toBe(404);
+  ).toBe(200);
   expect(
     (
       await (

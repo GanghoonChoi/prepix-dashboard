@@ -312,7 +312,7 @@ function ReviewScreen({
         <div className="space-y-1 text-[13px] text-muted">
           {notice && <p>{notice}</p>}
           {exactTarget && <p>{c("앱에서 선택한 영상 버전의 검토입니다.", "Review of the video version selected in the app.")}</p>}
-          {!data.review.audienceConfirmed && <p role="status">{c("검토 대상 확정 전이에요. 담당자가 대상을 확정하면 새 검토 회차가 시작돼요.", "The audience is unconfirmed. Confirming it opens a new review round.")}</p>}
+          {!data.review.audienceConfirmed && <p role="status">{c("검토 대상 확정 전이에요. 대상을 확정하면 새 검토 회차가 시작돼요.", "The audience is unconfirmed. Confirming it opens a new review round.")}</p>}
           {selected.changeReason && <p>{c("회차 변경 사유", "Round-change reason")}: {selected.changeReason}</p>}
         </div>
       )}

@@ -141,7 +141,7 @@ function ScopedProjectOverview({ projectId }: { projectId: string }) {
       {project.role === "viewer" && (
         <Notice role="note">
           {c(
-            "팀 공개 프로젝트를 열람 중입니다. 작업하려면 담당자에게 참여를 요청하세요.",
+            "팀 공개 프로젝트를 열람 중입니다. 작업하려면 관리자에게 참여를 요청하세요.",
             "You are viewing a team-wide project. Ask the lead to add you to work on it.",
           )}
         </Notice>
@@ -225,21 +225,21 @@ function VisibilitySection({
         {project.visibility === "team" ? (
           <p>
             {c(
-              "뷰어를 제외한 멤버는 팀 공용 클라우드처럼 자료를 올리고 받고 결과를 발행할 수 있습니다. 공개 범위·완료·공유 링크 관리는 담당자만 합니다. 영상의 승인·수정 요청은 참여자 누구나 할 수 있습니다. AI 사용은 자료별 권한을 따릅니다.",
+              "뷰어를 제외한 멤버는 팀 공용 클라우드처럼 자료를 올리고 받고 결과를 발행할 수 있습니다. 공개 범위와 공유 링크는 프로젝트를 올린 사람과 소유자·관리자가 관리합니다. 영상의 승인·수정 요청은 참여자 누구나 할 수 있습니다. AI 사용은 자료별 권한을 따릅니다.",
               "Members other than team reviewers can upload and download files and publish results, like a shared team cloud. Visibility, completion and share links stay with the lead; anyone taking part can approve a video or ask for changes. AI use follows per-file permissions.",
             )}
           </p>
         ) : (
           <p>
             {c(
-              "참여하지 않은 소유자·관리자에게도 보이지 않습니다. 발행 영상은 내부 참여자에게 자동 공개됩니다.",
-              "Owners and admins who don't participate can't see it either. Published videos open to internal participants automatically.",
+              "참여자와 소유자·관리자에게만 보입니다. 발행 영상은 내부 참여자에게 자동 공개됩니다.",
+              "Only participants and the team's owners and admins see it. Published videos open to internal participants automatically.",
             )}
           </p>
         )}
         <p>
           {c(
-            "외부 참여자는 자기가 발행한 결과의 회차와, 담당자가 회차에 추가하거나 공유 링크를 보낸 영상만 봅니다.",
+            "외부 참여자는 자기가 발행한 결과의 회차와, 관리하는 사람이 회차에 추가하거나 공유 링크를 보낸 영상만 봅니다.",
             "External participants see the rounds of results they published themselves, and others only when the lead adds them to the round or sends a share link.",
           )}
         </p>
@@ -546,29 +546,13 @@ export function ProjectParticipants({ projectId }: { projectId: string }) {
                         </Select>
                       ) : (
                         <span className="text-muted">
-                          {lead ? c("담당자", "Lead") : person.role === "producer" ? c("편집자", "Editor") : c("뷰어", "Viewer")}
+                          {lead ? c("올린 사람", "Creator") : person.role === "producer" ? c("편집자", "Editor") : c("뷰어", "Viewer")}
                         </span>
                       )}
                     </td>
                     <td className={`${tdClass} text-right`}>
                       {editable && !lead && (
                         <RowMenu label={c(`${name} 작업`, `Actions for ${name}`)}>
-                          {person.kind === "internal" && (
-                            <RowMenuItem
-                              disabled={busy}
-                              onClick={() =>
-                                void run((base) =>
-                                  b2bService.transferLead(id, projectId, {
-                                    ...base,
-                                    targetId: person.userId,
-                                    reason: "담당자 지정",
-                                  }),
-                                )
-                              }
-                            >
-                              {c("담당자로 지정", "Make lead")}
-                            </RowMenuItem>
-                          )}
                           <RowMenuItem
                             disabled={busy}
                             onClick={() =>
