@@ -28,6 +28,7 @@ import {
   useTeamBilling,
   useWon,
 } from "./billing-shared";
+import { formatPhone } from "@/lib/api/generated/b2b";
 import { runRecord, checkRecord, discardRecord, type BillingAction, type BillingRecord } from "@/lib/b2b-billing/operations";
 import { TeamLoading, TeamShell } from "@/components/workspaces/shared";
 import {
@@ -51,7 +52,7 @@ const fields: [keyof TeamBuyer, string, string, string, string][] = [
   ["businessRegistrationNumber", "사업자등록번호", "Registration number", "off", "text"],
   ["representative", "대표자", "Representative", "name", "text"],
   ["address", "사업장 주소", "Business address", "street-address", "text"],
-  ["receiptEmail", "수신 연락처", "Billing contact", "email", "email"],
+  ["contactPhone", "수신 연락처", "Contact phone", "tel", "tel"],
 ];
 const actionLabels: Record<BillingAction, [string, string]> = {
   order: ["주문", "Order"],
@@ -261,7 +262,7 @@ function Plan({
       businessRegistrationNumber: profile?.businessRegistrationNumber ?? "",
       representative: profile?.representative ?? "",
       address: profile?.address ?? "",
-      receiptEmail: profile?.receiptEmail ?? "",
+      contactPhone: profile?.contactPhone ? formatPhone(profile.contactPhone) : "",
     });
     profileDialog.open();
   };
@@ -530,7 +531,17 @@ function Plan({
             <dl>
               {fields.map(([key, ko, en]) => (
                 <Row key={key} label={c(ko, en)}>
-                  {profile[key]}
+                  {key !== "contactPhone" ? (
+                    profile[key]
+                  ) : profile.contactPhone ? (
+                    formatPhone(profile.contactPhone)
+                  ) : (
+                    // Saved before 2026-10-12, when the contact was an email.
+                    <>
+                      {profile.receiptEmail}
+                      <span className="block text-[13px] text-muted">{c("수정에서 전화번호로 바꿔 주세요.", "Edit to add a phone number.")}</span>
+                    </>
+                  )}
                 </Row>
               ))}
             </dl>
@@ -711,8 +722,9 @@ function Plan({
                   type={type}
                   autoComplete={auto}
                   required
-                  placeholder={key === "receiptEmail" ? c("세금계산서와 영수증을 받을 이메일", "Email for tax invoices and receipts") : undefined}
-                  value={draft[key]}
+                  inputMode={type === "tel" ? "tel" : undefined}
+                  placeholder={key === "contactPhone" ? "010-1234-5678" : undefined}
+                  value={draft[key] ?? ""}
                   disabled={!!busy}
                   onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
                 />

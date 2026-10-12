@@ -17,7 +17,7 @@ const buyer = {
   businessRegistrationNumber: "1234567890",
   representative: "로컬 대표",
   address: "서울 로컬구 1",
-  receiptEmail: "finance@example.test",
+  contactPhone: "01012345678",
 };
 const uuid = /^[0-9a-f-]{36}$/;
 function sql(query: string) {

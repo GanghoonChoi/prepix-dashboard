@@ -8,6 +8,7 @@ import {
   type TeamCommerce,
   type TeamOrder,
 } from "@/lib/api/services/b2b.service";
+import { formatPhone } from "@/lib/api/generated/b2b";
 import { TeamLoading } from "@/components/workspaces/shared";
 import { Button, Field, inputClass, SummaryRows } from "@/components/ui";
 import { AUTO_SEATS_CONSENT_VERSION, billingCode, BillingError, openBillingAuth, useWon, type useTeamBilling } from "./billing-shared";
@@ -22,7 +23,7 @@ const fields: [keyof Omit<TeamBuyer, "schemaVersion">, string, string, string][]
   ["businessRegistrationNumber", "사업자등록번호", "Registration number", "off"],
   ["representative", "대표자", "Representative", "name"],
   ["address", "사업장 주소", "Business address", "street-address"],
-  ["receiptEmail", "수신 연락처", "Billing contact", "email"],
+  ["contactPhone", "수신 연락처", "Contact phone", "tel"],
 ];
 /** Only back into onboarding; anything else stays on the plan page. */
 const safeReturn = (value: string | null) => (value && /^\/start(\?|$)/.test(value) ? value : null);
@@ -53,7 +54,7 @@ export function BusinessCheckout({
     businessRegistrationNumber: "",
     representative: "",
     address: "",
-    receiptEmail: "",
+    contactPhone: "",
   });
   const [consent, setConsent] = useState(false);
   const [step, setStep] = useState<"" | "card" | "charging" | "applying">("");
@@ -271,7 +272,8 @@ export function BusinessCheckout({
       {saved ? (
         <p className="text-[13px] leading-5 text-muted">
           {c("세금계산서", "Invoices")} · {saved.businessName} ·{" "}
-          {saved.businessRegistrationNumber.replace(/^(\d{3})(\d{2})(\d{5})$/, "$1-$2-$3")} · {saved.receiptEmail}
+          {saved.businessRegistrationNumber.replace(/^(\d{3})(\d{2})(\d{5})$/, "$1-$2-$3")} ·{" "}
+          {saved.contactPhone ? formatPhone(saved.contactPhone) : saved.receiptEmail}
         </p>
       ) : (
         <fieldset className="grid gap-4 sm:grid-cols-2" disabled={busy}>
@@ -283,9 +285,10 @@ export function BusinessCheckout({
                 className={inputClass}
                 autoComplete={auto}
                 required
-                inputMode={key === "businessRegistrationNumber" ? "numeric" : undefined}
-                placeholder={key === "businessRegistrationNumber" ? "000-00-00000" : undefined}
-                value={draft[key]}
+                type={key === "contactPhone" ? "tel" : "text"}
+                inputMode={key === "businessRegistrationNumber" ? "numeric" : key === "contactPhone" ? "tel" : undefined}
+                placeholder={key === "businessRegistrationNumber" ? "000-00-00000" : key === "contactPhone" ? "010-1234-5678" : undefined}
+                value={draft[key] ?? ""}
                 onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
               />
             </Field>

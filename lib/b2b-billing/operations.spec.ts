@@ -49,7 +49,7 @@ const record = (requestKey = "6f1f5b7e-0d7a-4a3c-9a52-2f7e0c1d9e10"): BillingRec
     businessRegistrationNumber: "1234567890",
     representative: "Owner",
     address: "Address",
-    receiptEmail: "finance@example.test",
+    contactPhone: "01012345678",
   },
 });
 test("client hash equals the server's canonical request hash", () => {
