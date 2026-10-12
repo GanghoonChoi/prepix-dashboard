@@ -8,6 +8,7 @@ import {
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import { inputClass } from "@/components/workspaces/shared";
 import { Button, Card, CardHeader, Field, Select } from "@/components/ui";
+import { roleSummary } from "./team-roles";
 import { B2bError, freeIntent, errorCode, useCopy } from "./shared";
 
 /**
@@ -124,6 +125,8 @@ export function InviteForm({
           {busy ? c("보내는 중…", "Sending…") : c("초대 보내기", "Send invitation")}
         </Button>
       </div>
+      {/* What the chosen role means, before the seat it costs. */}
+      {!projectId && <p className="text-[13px] leading-5">{c(...roleSummary[role])}</p>}
       <p className="text-xs leading-5 text-muted" data-testid="invite-seat-info">
         {viewer
           ? c("뷰어는 보고 코멘트만 합니다. 좌석이 필요 없어 무료입니다.", "Viewers watch and comment. They take no seat, so they are free.")

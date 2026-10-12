@@ -7,7 +7,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { File as FileIcon, FileCog, Film, FolderOpen } from "lucide-react";
+import { File as FileIcon, FileCog, Film, FolderOpen, Trash2 } from "lucide-react";
+import { useOverlayState } from "@heroui/react";
+import { Dialog } from "@/components/dialog";
 import { apiClient } from "@/lib/api/client";
 import {
   b2bService,
@@ -24,7 +26,6 @@ import { bytes } from "@/lib/workspaces/upload";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
   ConfirmDialog,
-  Details,
   EmptyState,
   TeamLoading,
   TeamShell,
@@ -113,6 +114,7 @@ function FilesView({ scope }: { scope: FileScope }) {
   }, [reload]);
   const downloads = useFileDownloads(scope, !!data, reload);
   const trash = useProjectTrash(scope, api, reload);
+  const trashList = useOverlayState();
   if (error) return <B2bError code={error} retry={() => void reload()} />;
   if (!data) return <TeamLoading />;
   const { project, capabilities, list } = data;
@@ -220,7 +222,13 @@ function FilesView({ scope }: { scope: FileScope }) {
       </section>
       {trash.error && <B2bError code={trash.error} />}
       {trash.entries.length > 0 && (
-        <Details summary={c(`최근 삭제한 파일 ${trash.entries.length}`, `Recently deleted ${trash.entries.length}`)}>
+        <Button variant="ghost" size="sm" className="-ml-2.5 text-muted" onClick={trashList.open}>
+          <Trash2 size={14} strokeWidth={1.75} aria-hidden="true" />
+          {c(`최근 삭제한 파일 ${trash.entries.length}`, `Recently deleted ${trash.entries.length}`)}
+        </Button>
+      )}
+      {trash.entries.length > 0 && (
+        <Dialog state={trashList} title={c("최근 삭제한 파일", "Recently deleted")}>
           <ul className="divide-y divide-border text-foreground" aria-label={c("최근 삭제한 파일", "Recently deleted")}>
             {trash.entries.map((entry) => (
               <li key={entry.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
@@ -237,14 +245,19 @@ function FilesView({ scope }: { scope: FileScope }) {
                   variant="secondary"
                   size="sm"
                   disabled={trash.busy}
-                  onClick={() => void trash.restore(entry)}
+                  onClick={() =>
+                    void trash.restore(entry).then(() => {
+                      // The last one back: nothing left to show.
+                      if (trash.entries.length <= 1) trashList.close();
+                    })
+                  }
                 >
                   {c("복원", "Restore")}
                 </Button>
               </li>
             ))}
           </ul>
-        </Details>
+        </Dialog>
       )}
       {trash.asking && (
         <ConfirmDialog

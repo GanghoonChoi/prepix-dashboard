@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { CreditCard } from "lucide-react";
-import { Details, TeamLoading, TeamShell } from "@/components/workspaces/shared";
+import { TeamLoading, TeamShell } from "@/components/workspaces/shared";
 import {
   Badge,
   Button,
@@ -14,6 +14,7 @@ import {
   SettingRow,
   SettingsSection,
   type Tone,
+  InfoTip,
 } from "@/components/ui";
 import type {
   TeamBuyer,
@@ -297,15 +298,12 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
             "승인되지 않은 설정이 있어 일부 결제 동작을 막았습니다.",
             "Some billing actions are blocked by unapproved settings.",
           )}
-          <div className="mt-1">
-            <Details summary={c("필요한 설정", "Required settings")}>
-              <ul className="list-disc pl-5 text-xs">
-                {r.missing.map((m) => (
-                  <li key={m}>{m}</li>
-                ))}
-              </ul>
-            </Details>
-          </div>
+          {/* The reason actions are blocked, so it is shown, not folded. */}
+          <ul className="mt-1 list-disc pl-5 text-xs" aria-label={c("필요한 설정", "Required settings")}>
+            {r.missing.map((m) => (
+              <li key={m}>{m}</li>
+            ))}
+          </ul>
         </Notice>
       )}
       {failure && <BillingError code={failure} />}
@@ -364,12 +362,12 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
             ])}
           />
           <CardFooter>
-            <Details>
+            <InfoTip label={c("저장한 사업자 정보는 어디에 쓰이나요?", "Where are these details used?")}>
               {c(
                 "이미 만든 주문과 증빙은 당시 정보를 유지합니다. 형식 확인은 법정 증빙 효력을 판정하지 않습니다.",
                 "Past orders and receipts keep their copy. Format checks do not decide legal validity.",
               )}
-            </Details>
+            </InfoTip>
             <Button type="submit" size="sm" disabled={!!lockedProfile || !!busy || !r.profileSchemaVersion}>
               {busy === "profile" ? c("저장 중…", "Saving…") : c("사업자 정보 저장", "Save business details")}
             </Button>
@@ -661,12 +659,12 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
               </label>
             )}
             <CardFooter>
-              <Details>
+              <InfoTip label={c("선구매한 기간과 부족한 좌석은 어떻게 되나요?", "What about a prepaid period or a shortfall?")}>
                 {c(
                   "이미 선구매한 다음 기간은 구매 조건을 유지하고 자동결제를 건너뜁니다. 지정하지 않은 부족분은 자동으로 구매하지 않습니다.",
                   "A prepaid next period keeps its terms and is skipped. Unspecified shortfalls are never bought automatically.",
                 )}
-              </Details>
+              </InfoTip>
               <Button type="submit" size="sm" disabled={!!lockedPlan || !!busy || (plan.mode === "automatic" && (!planConsent || plan.extraSeats === null))}>
                 {c("갱신 설정 저장", "Save renewal")}
               </Button>

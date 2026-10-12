@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   Check,
-  ChevronRight,
   Share2,
   Download,
   Maximize,
@@ -28,6 +27,7 @@ import {
   Kbd,
   Sheet,
   type Tone,
+  InfoTip,
 } from "@/components/ui";
 import { assertExactReviewEntry, checkExactReviewTarget, parseExactReviewTarget, type ExactReviewTarget } from "@/lib/b2b-reviews/exact-target";
 import { homeEnvironment } from "@/lib/b2b-home/home";
@@ -49,7 +49,9 @@ import {
 import { userService } from "@/lib/api/services/user.service";
 import { fileApi, fileError } from "@/lib/b2b-files/api";
 import { audienceInput, detailAudience, type ReviewRecord, type ReviewScope } from "@/lib/b2b-reviews/operations";
-import { Details, TeamLoading } from "@/components/workspaces/shared";
+import { TeamLoading } from "@/components/workspaces/shared";
+import { useOverlayState } from "@heroui/react";
+import { Dialog } from "@/components/dialog";
 import { accessEnded, errorCode, useCopy } from "./shared";
 import {
   approvalCopy,
@@ -698,14 +700,14 @@ function ReviewPlayer({
           </span>
         ))}
       </p>
-      <Details>
+      <InfoTip label={c("재생 주소 안내", "About playback links")} text={c("재생 주소 안내", "About playback links")}>
         <p>
           {c(
             "재생 주소는 최대 5분 동안 유효하며 만료 전에 현재 권한으로 다시 받아 이어서 재생합니다. 공유 회수나 참여 종료 뒤에는 새 주소가 발급되지 않지만, 이미 발급된 주소는 만료 시각(최대 5분)까지 남을 수 있습니다.",
             "Playback URLs last at most 5 minutes and are renewed with your current access. After a revoked share or ended participation no new URL is issued, but an already issued URL can remain usable until it expires (up to 5 minutes).",
           )}
         </p>
-      </Details>
+      </InfoTip>
     </div>
   );
 }
@@ -1294,6 +1296,7 @@ function Approval({
   reload: () => Promise<void>;
 }) {
   const c = useCopy();
+  const history = useOverlayState();
   const [asking, setAsking] = useState(false);
   const [reason, setReason] = useState("");
   const mutation = useRun();
@@ -1376,12 +1379,12 @@ function Approval({
       )}
       {mutation.error && <ReviewError code={mutation.error} retry={() => void reload()} />}
       {detail.decisions.length > 0 && (
-        <details className="group">
-          <summary className="inline-flex cursor-pointer list-none items-center gap-1 text-xs text-muted hover:text-foreground [&::-webkit-details-marker]:hidden">
-            <ChevronRight size={13} aria-hidden="true" className="transition-transform group-open:rotate-90" />
+        <>
+          <Button variant="ghost" size="xs" className="-ml-2.5 text-muted" onClick={history.open}>
             {c(`상태 기록 ${detail.decisions.length}`, `History (${detail.decisions.length})`)}
-          </summary>
-          <ol className="mt-2 space-y-1.5 text-xs">
+          </Button>
+          <Dialog state={history} title={c("상태 기록", "History")}>
+          <ol className="space-y-1.5 text-[13px]">
             {detail.decisions.map((d) => (
               <li key={d.id} className={d.current ? "" : "text-muted"}>
                 {d.decision === "approved" ? c("승인", "Approved") : c("수정 요청", "Changes requested")} ·{" "}
@@ -1408,7 +1411,8 @@ function Approval({
               </Button>
             </form>
           )}
-        </details>
+          </Dialog>
+        </>
       )}
     </section>
   );
@@ -1496,26 +1500,29 @@ function LeadTools({
 }) {
   const c = useCopy();
   const rare = detail.allowedActions.setAudience || detail.allowedActions.replaceVersion;
+  const advanced = useOverlayState();
   return (
     <section className="space-y-3" aria-label={c("검토 관리", "Review tools")}>
-      {/* Who sees this version and swapping the video: rare, so folded. */}
+      {/* Who sees this version and swapping the video: rare, so behind a
+          button; the dialog closes once one of them succeeds. */}
       {rare && (
-        <details className="group">
-          <summary className="inline-flex min-h-9 cursor-pointer list-none items-center gap-1 text-[13px] text-muted hover:text-foreground [&::-webkit-details-marker]:hidden">
-            <ChevronRight size={14} aria-hidden="true" className="transition-transform group-open:rotate-90" />
+        <>
+          <Button variant="secondary" size="sm" onClick={advanced.open}>
             {c("고급 설정", "Advanced")}
-          </summary>
-          <div className="mt-3 grid gap-3 xl:grid-cols-2 xl:items-start">
-            {detail.allowedActions.setAudience && <AudienceForm key={`audience:${detail.review.revision}`} scope={scope} detail={detail} reload={reload} />}
-            {detail.allowedActions.replaceVersion && <ReplaceVersion key={`replace:${detail.review.revision}`} scope={scope} detail={detail} reload={reload} />}
-          </div>
-        </details>
+          </Button>
+          <Dialog state={advanced} title={c("고급 설정", "Advanced")} size="wide">
+            <div className="grid gap-3 xl:grid-cols-2 xl:items-start">
+              {detail.allowedActions.setAudience && <AudienceForm key={`audience:${detail.review.revision}`} scope={scope} detail={detail} reload={reload} onDone={advanced.close} />}
+              {detail.allowedActions.replaceVersion && <ReplaceVersion key={`replace:${detail.review.revision}`} scope={scope} detail={detail} reload={reload} onDone={advanced.close} />}
+            </div>
+          </Dialog>
+        </>
       )}
     </section>
   );
 }
 
-function AudienceForm({ scope, detail, reload }: { scope: ReviewScope & { kind: "project" }; detail: ReviewDetail; reload: () => Promise<void> }) {
+function AudienceForm({ scope, detail, reload, onDone }: { scope: ReviewScope & { kind: "project" }; detail: ReviewDetail; reload: () => Promise<void>; onDone?: () => void }) {
   const c = useCopy();
   const [audience, setAudience] = useState<AudienceSelection>(() => detailAudience(detail));
   const [ready, setReady] = useState(false);
@@ -1523,8 +1530,9 @@ function AudienceForm({ scope, detail, reload }: { scope: ReviewScope & { kind: 
   return <form className={`${cardClass} min-w-0 space-y-3 p-5`} onSubmit={async (e) => {
     e.preventDefault();
     const input = { revision: detail.review.revision, ...audienceInput(audience), reason: "검토 대상 변경" };
-    await mutation.run(input, (requestKey) => reviewsService.mutate(scope, "audience", { requestKey, ...input }));
+    const done = await mutation.run(input, (requestKey) => reviewsService.mutate(scope, "audience", { requestKey, ...input }));
     await reload();
+    if (done) onDone?.();
   }}>
     <h2 className="text-base font-semibold">{c("검토 대상 변경", "Change review audience")}</h2>
     <p className="-mt-2 text-[13px] leading-5 text-muted">{c("바꾸면 새 회차가 열리고 다시 승인받아야 합니다.", "Changing it opens a new round that needs a fresh approval.")}</p>
@@ -1538,10 +1546,12 @@ function ReplaceVersion({
   scope,
   detail,
   reload,
+  onDone,
 }: {
   scope: ReviewScope & { kind: "project" };
   detail: ReviewDetail;
   reload: () => Promise<void>;
+  onDone?: () => void;
 }) {
   const c = useCopy();
   const [open, setOpen] = useState(false);
@@ -1595,6 +1605,7 @@ function ReplaceVersion({
             );
             if (done) setOpen(false);
             await reload();
+            if (done) onDone?.();
           }}
         >
           <ReviewAudiencePicker scope={scope} value={audience} onChange={setAudience} disabled={mutation.busy} onValidityChange={setAudienceReady} />

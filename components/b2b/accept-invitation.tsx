@@ -10,11 +10,10 @@ import {
 import { clearSignedIn } from "@/lib/account-hint";
 import { loginHref } from "@/lib/auth-entry";
 import {
-  Details,
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
-import { Button, buttonClass, Card, PropertyList } from "@/components/ui";
+import { Button, buttonClass, Card, PropertyList, InfoTip } from "@/components/ui";
 import { useI18n } from "@/lib/i18n/context";
 import { formatDate, formatTime } from "@/lib/format";
 import { B2bError, errorCode, useCopy } from "./shared";
@@ -139,14 +138,14 @@ export function AcceptInvitation({ token }: { token: string }) {
               ],
             ]}
           />
-          <Details>
+          <InfoTip label={c("이 초대로 받는 것", "What this invitation gives")} text={c("이 초대로 받는 것", "What this invitation gives")}>
             <p>
               {c(
                 "이 초대는 편집 이용권이나 AI 제공량을 지급하지 않습니다. 웹 검토와 허용된 자료 업로드·다운로드는 참여 권한에 따릅니다.",
                 "This invitation grants no editing licence or AI allowance. Web review and permitted uploads and downloads follow your participation rights.",
               )}
             </p>
-          </Details>
+          </InfoTip>
           {invite.accepted ? (
             <Link className={buttonClass()} href={href}>
               {c("참여한 업무 열기", "Open joined work")}

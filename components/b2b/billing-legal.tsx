@@ -2,8 +2,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
-import { Details } from "@/components/workspaces/shared";
-import { Button, Field, inputClass, Notice, PropertyList, SummaryRows } from "@/components/ui";
+import { Button, Field, inputClass, Notice, PropertyList, SummaryRows, InfoTip } from "@/components/ui";
 import type {
   B2bStatus,
   TeamRefundLine,
@@ -469,7 +468,7 @@ export function TeamTermination({
               {c("다음 결제만 멈추려면 자동결제 중지", "Only stop the next charge instead")}
             </Link>
           </div>
-          <Details>
+          <InfoTip label={c("자동결제 중지와 중도해지의 차이", "Stopping renewal vs. terminating")} text={c("둘의 차이", "The difference")}>
             <p>
               {c(
                 "자동결제 중지는 이번 이용기간 끝까지 쓰고 다음 결제만 멈춥니다. 환불은 없습니다.",
@@ -488,7 +487,7 @@ export function TeamTermination({
                 "After termination the team is read and export only, and the retention schedule starts from that moment.",
               )}
             </p>
-          </Details>
+          </InfoTip>
         </>
       ) : active && preview ? (
         <form

@@ -24,11 +24,11 @@ import {
   textareaClass,
   thClass,
   Toolbar,
+  InfoTip,
 } from "@/components/ui";
 import {
   Block,
   ConfirmDialog,
-  Details,
   inputClass,
   Notice,
   TeamLoading,
@@ -221,7 +221,7 @@ function VisibilitySection({
         )
       }
     >
-      <Details>
+      <InfoTip label={c("이 프로젝트에서 누가 무엇을 할 수 있나요?", "Who can do what in this project?")} text={c("누가 무엇을 할 수 있나요?", "Who can do what?")}>
         {project.visibility === "team" ? (
           <p>
             {c(
@@ -243,7 +243,7 @@ function VisibilitySection({
             "External participants see the rounds of results they published themselves, and others only when the lead adds them to the round or sends a share link.",
           )}
         </p>
-      </Details>
+      </InfoTip>
       {open && (
         <ConfirmDialog
           label={

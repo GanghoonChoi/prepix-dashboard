@@ -10,11 +10,10 @@ import {
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
   Block,
-  Details,
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
-import { buttonClass, PropertyList } from "@/components/ui";
+import { buttonClass, PropertyList, InfoTip } from "@/components/ui";
 import { formatDate, formatTime } from "@/lib/format";
 import { apiClient } from "@/lib/api/client";
 import { accessEnded } from "@/lib/api/session";
@@ -133,14 +132,14 @@ function Lifecycle({ scope }: { scope: Scope }) {
                     [c("서버 기준 현재 시각", "Server time"), at(view.serverTime)],
                   ]}
                 />
-                <Details>
+                <InfoTip label={c("날짜마다 무엇이 바뀌나요?", "What happens on each date?")} text={c("날짜마다 무엇이 바뀌나요?", "What happens on each date?")}>
                   <p>
                     {c(
                       "E부터 30일 미만은 기존 권한 안의 열람과 다운로드만, 30일부터 60일 미만은 복구 보관으로 자료를 열 수 없습니다. 60일부터 삭제를 시작하며 삭제가 시작되면 복구할 수 없습니다. 안내 메일의 실패나 재발송은 이 시각을 바꾸지 않습니다.",
                       "For under 30 days from E, reading and downloading within existing access remain. From day 30 to 60, content is in recovery storage and cannot be opened. Deletion starts from day 60 and then recovery is impossible. Notification failures never move these times.",
                     )}
                   </p>
-                </Details>
+                </InfoTip>
               </>
             ) : (
               <p className="text-[13px] text-muted">

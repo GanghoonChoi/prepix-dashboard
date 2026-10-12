@@ -12,7 +12,6 @@ import {
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
   ConfirmDialog,
-  Details,
   TeamLoading,
   TeamShell,
 } from "@/components/workspaces/shared";
@@ -38,6 +37,7 @@ import { AddSeats } from "./add-seats";
 import { RecoverLead } from "./recover-lead";
 import { changeInvitation, InviteForm, useInvitationStatus } from "./invitations";
 import { B2bError, errorCode, useCopy } from "./shared";
+import { roleSummary, TeamRoles } from "./team-roles";
 
 /**
  * 멤버, the way Figma's people list works (2026-10-08): one table of who is
@@ -63,7 +63,13 @@ export function TeamMembers() {
   const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState("");
   const [removing, setRemoving] = useState<TeamPerson | null>(null);
+  // Making someone an admin asks first, and offers 결제 권한 with it: an admin
+  // who cannot see the plan is the half-admin people did not understand.
+  const [appointing, setAppointing] = useState<TeamPerson | null>(null);
+  const [withBilling, setWithBilling] = useState(true);
   const invite = useOverlayState();
+  const recover = useOverlayState();
+  const appointDialog = useOverlayState();
   const buy = useOverlayState();
   const sequence = useRef(0);
   const id = data.workspace.id;
@@ -147,6 +153,28 @@ export function TeamMembers() {
     });
     // Short of a seat now: offer to pay for it at once.
     if (next !== "reviewer" && canBill && after?.seats?.waiting) buy.open();
+  };
+  const appoint = async (p: TeamPerson, billing: boolean) => {
+    let changed = false;
+    const after = await run(async () => {
+      await change(p, "admin", "관리자 지정");
+      changed = true;
+      if ((p.seat ?? "none") === "none") await turnOnSeat(p);
+    });
+    // The role moved the row's revision, so the grant uses the reread row.
+    const fresh = after?.people.find((x) => x.userId === p.userId);
+    if (changed && billing && fresh && !fresh.billingAllowed)
+      await run(() =>
+        b2bService.changeAffiliation(id, fresh.userId, {
+          requestKey: crypto.randomUUID(),
+          revision: fresh.revision,
+          kind: fresh.kind,
+          billingAllowed: true,
+          reason: "결제 권한 주기",
+        }),
+      );
+    appointDialog.close();
+    if (canBill && after?.seats?.waiting) buy.open();
   };
   // The owner cannot be changed here, nor can you change yourself, and only
   // the owner manages admins (the server enforces all three).
@@ -261,7 +289,14 @@ export function TeamMembers() {
                             aria-label={c(`${p.name || p.email} 역할`, `Role of ${p.name || p.email}`)}
                             value={p.role}
                             disabled={busy}
-                            onChange={(e) => void setRole(p, e.target.value as "admin" | "editor" | "reviewer")}
+                            onChange={(e) => {
+                              const next = e.target.value as "admin" | "editor" | "reviewer";
+                              if (next === "admin") {
+                                setWithBilling(!!roster?.canDelegateBilling && !p.billingAllowed);
+                                setAppointing(p);
+                                appointDialog.open();
+                              } else void setRole(p, next);
+                            }}
                           >
                             {owner && p.kind === "internal" && <option value="admin">{c("관리자", "Admin")}</option>}
                             <option value="editor">{c("편집자", "Editor")}</option>
@@ -335,7 +370,8 @@ export function TeamMembers() {
                       </td>
                       <td className={`${tdClass} hidden md:table-cell`} />
                       <td className={`${tdClass} text-right`}>
-                        {editable && (
+                        {/* An admin's invitation is the owner's to resend or cancel. */}
+                        {editable && (owner || row.teamRole !== "admin") && (
                           <RowMenu label={c(`${row.email} 초대 작업`, `Invitation actions for ${row.email}`)}>
                             {row.deliveryState !== "held" && (
                               <RowMenuItem disabled={busy} onClick={() => void run(() => changeInvitation(id, row, "resend"))}>
@@ -357,17 +393,79 @@ export function TeamMembers() {
               <EmptyState frame="none" title={c("검색과 맞는 사람이 없습니다.", "No one matches your search.")} />
             )}
           </section>
+          <TeamRoles />
           {/* A rare repair, out of the way: a project whose lead left. */}
           {owner && (
-            <div className="pt-4">
-              <Details summary={c("담당자 복구", "Restore a lead")}>
-                <div className="text-foreground">
-                  <RecoverLead people={people} />
-                </div>
-              </Details>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <Button variant="secondary" size="sm" onClick={recover.open}>
+                {c("담당자 복구", "Restore a lead")}
+              </Button>
+              <span className="text-xs text-muted">
+                {c("담당자가 떠난 프로젝트에 새 담당자를 지정해요.", "Name a new lead for a project whose lead left.")}
+              </span>
             </div>
           )}
         </div>
+      )}
+      {owner && (
+        <Dialog state={recover} title={c("담당자 복구", "Restore a lead")} size="wide">
+          <RecoverLead people={people} />
+        </Dialog>
+      )}
+      {appointing && (
+        <Dialog state={appointDialog} title={c("관리자로 지정", "Make admin")}>
+          <div className="space-y-4">
+          <p className="text-sm font-medium">
+            {c(
+              `${appointing.name || appointing.email}님을 관리자로 지정할까요?`,
+              `Make ${appointing.name || appointing.email} an admin?`,
+            )}
+          </p>
+          <p className="text-[13px] leading-5 text-muted">
+            {c(...roleSummary.admin)}{" "}
+            {c(
+              "멤버를 초대하고 역할을 바꾸고, 팀 설정을 관리해요. 다른 관리자 지정은 소유자만 할 수 있어요.",
+              "They invite people, change roles and manage team settings. Only the owner appoints other admins.",
+            )}
+          </p>
+          {roster?.canDelegateBilling && !appointing.billingAllowed && (
+            <label className="flex items-start gap-2.5 text-[13px] leading-5">
+              <input
+                type="checkbox"
+                className="mt-0.5 size-4 accent-[var(--foreground)]"
+                checked={withBilling}
+                onChange={(e) => setWithBilling(e.target.checked)}
+              />
+              <span>
+                <span className="font-medium">{c("플랜과 결제도 맡기기", "Also let them manage plan and billing")}</span>
+                <span className="block text-muted">
+                  {c(
+                    "결제 권한을 함께 줘요. 좌석 추가와 결제 정보, 이용명세서를 다룰 수 있어요.",
+                    "Gives billing permission too: adding seats, payment details and statements.",
+                  )}
+                </span>
+              </span>
+            </label>
+          )}
+          <p className="text-xs text-muted">
+            {c("관리자도 편집 좌석을 써요(유료).", "Admins hold an editing seat (paid).")}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              aria-busy={busy}
+              disabled={busy}
+              onClick={() =>
+                void appoint(appointing, !!roster?.canDelegateBilling && !appointing.billingAllowed && withBilling)
+              }
+            >
+              {c("관리자로 지정", "Make admin")}
+            </Button>
+            <Button variant="secondary" disabled={busy} onClick={appointDialog.close}>
+              {c("취소", "Cancel")}
+            </Button>
+          </div>
+          </div>
+        </Dialog>
       )}
       <Dialog state={invite} title={c("멤버 초대", "Invite people")}>
         <InviteForm onSent={async () => void (await load())} />

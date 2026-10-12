@@ -19,7 +19,7 @@ import { useI18n } from "@/lib/i18n/context";
 import { RefundRequestCard } from "@/components/dashboard/refund-request-card";
 import { legalUrl } from "@/lib/i18n/config";
 import { CouponDialog } from "@/components/dashboard/coupon-dialog";
-import { BillingHeader } from "@/components/dashboard/billing-header";
+import { UsageCard } from "@/components/dashboard/usage-card";
 import { useSearchParams } from "next/navigation";
 import { couponService, type CouponBenefits } from "@/lib/api/services/coupon.service";
 import {
@@ -28,12 +28,14 @@ import {
   Card,
   Field,
   Notice,
+  PageHeader,
   buttonClass,
   cardClass,
   textareaClass,
   type Tone,
+  InfoTip,
 } from "@/components/ui";
-import { Block, Details } from "@/components/workspaces/shared";
+import { Block } from "@/components/workspaces/shared";
 import { formatDay, formatMoney } from "@/lib/format";
 
 export default function PlanPage() {
@@ -462,7 +464,7 @@ export default function PlanPage() {
 
   return (
     <div>
-      <BillingHeader />
+      <PageHeader title={t("plan.sectionTitle")} />
       <div className="space-y-8">
 
       {justUpgraded && (
@@ -621,6 +623,9 @@ export default function PlanPage() {
         </div>
       </Card>
 
+      {/* What the plan gives and how much is left, on the same page as the plan. */}
+      <UsageCard />
+
       {/* A filed refund request, with our reply. Sits above the plan cards
           because "what happened to my refund" outranks "what else could I buy". */}
       {refundPending && refundOffer?.pendingThreadId && (
@@ -768,9 +773,9 @@ export default function PlanPage() {
               </a>
               {t("plan.consentSuffix")}
             </p>
-            <Details summary={t("plan.refundTerms")}>
+            <InfoTip label={t("plan.refundTerms")} text={t("plan.refundTerms")}>
               <p>{t("plan.purchaseNotice")}</p>
-            </Details>
+            </InfoTip>
           </div>
         </Block>
       )}

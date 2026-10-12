@@ -9,10 +9,9 @@ import {
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import {
   Block,
-  Details,
   inputClass,
 } from "@/components/workspaces/shared";
-import { Button, Field, Select, textareaClass } from "@/components/ui";
+import { Button, Field, Select, textareaClass, InfoTip } from "@/components/ui";
 import { B2bError, freeIntent, errorCode, useCopy } from "./shared";
 export function RecoverLead({ people }: { people: TeamPerson[] }) {
   const { data } = useWorkspace()!;
@@ -195,14 +194,14 @@ export function RecoverLead({ people }: { people: TeamPerson[] }) {
           )}
         </div>
       </form>
-      <Details>
+      <InfoTip label={c("언제 지정할 수 있나요?", "When can I use this?")} text={c("언제 지정할 수 있나요?", "When can I use this?")}>
         <p>
           {c(
             "담당자 참여가 종료되었거나 계정이 정지된 프로젝트에만 지정할 수 있습니다. 이미 참여를 수락한 내부 참여자만 후임이 될 수 있고, 소유자에게 프로젝트 자료 접근이 추가되지 않습니다.",
             "Only for projects whose lead has left or is suspended. The successor must be an internal participant who already accepted. The owner gains no content access.",
           )}
         </p>
-      </Details>
+      </InfoTip>
     </Block>
   );
 }

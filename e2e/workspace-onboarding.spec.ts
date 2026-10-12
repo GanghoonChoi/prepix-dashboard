@@ -477,13 +477,15 @@ test("account pages stay reachable for an account with no workspace", async ({
   for (const path of [
     "/dashboard/settings",
     "/dashboard/plan",
-    "/dashboard/usage",
     "/dashboard",
   ]) {
     await page.goto(`${path}?locale=ko`);
     await expect(page).toHaveURL(new RegExp(`${path}\\?`));
     await expect(page.locator("main")).toBeVisible();
   }
+  // 사용량 is a section of 플랜과 결제 now; its old address lands there.
+  await page.goto("/dashboard/usage?locale=ko");
+  await expect(page).toHaveURL(/\/dashboard\/plan/);
   // And the list itself says the server is behind — it does not ask the user
   // to repair it by creating one. The wording moved (it used to explain the
   // database invariant to the reader); what must hold is that the empty list
