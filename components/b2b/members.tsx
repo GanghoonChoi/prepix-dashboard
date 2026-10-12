@@ -30,6 +30,9 @@ import {
   tdClass,
   thClass,
   Toolbar,
+  SortHeader,
+  sortRows,
+  useSort,
 } from "@/components/ui";
 import { useI18n } from "@/lib/i18n/context";
 import { formatDate } from "@/lib/format";
@@ -55,6 +58,7 @@ export function TeamMembers() {
   const { lang } = useI18n();
   const status = useInvitationStatus();
   const [roster, setRoster] = useState<TeamPeople | null>(null);
+  const [sort, sortBy] = useSort<"name" | "role" | "active">({ key: "role", dir: "asc" });
   const [invites, setInvites] = useState<Invitation[]>([]);
   // Two errors: the list failing to load, and an action failing. A reread
   // after a failed action must not wipe what went wrong.
@@ -122,9 +126,12 @@ export function TeamMembers() {
   const q = query.trim().toLowerCase();
   const match = (text: string) => !q || text.toLowerCase().includes(q);
   const rank = { owner: 0, admin: 1, editor: 2, reviewer: 3 } as const;
-  const shown = people
-    .filter((p) => match(`${p.name ?? ""} ${p.email}`))
-    .sort((a, b) => rank[a.role] - rank[b.role] || (a.name || a.email).localeCompare(b.name || b.email, lang));
+  const shown = sortRows(
+    sortRows(people.filter((p) => match(`${p.name ?? ""} ${p.email}`)), { key: "name", dir: "asc" }, (p) => p.name || p.email, lang),
+    sort,
+    (p, key) => (key === "role" ? rank[p.role] : key === "active" ? (p.lastActiveAt ? Date.parse(p.lastActiveAt) : null) : p.name || p.email),
+    lang,
+  );
   const pending = invites.filter((i) => match(i.email));
 
   const run = async (work: () => Promise<unknown>) => {
@@ -260,14 +267,9 @@ export function TeamMembers() {
               <table className={`${tableClass} min-w-[32rem] table-fixed`}>
                 <thead>
                   <tr>
-                    <th className={thClass}>{c("이름", "Name")}</th>
-                    <th className={`${thClass} w-32`}>
-                      <span className="inline-flex items-center gap-1">
-                        {c("역할", "Role")}
-                        <RolesTip />
-                      </span>
-                    </th>
-                    <th className={`${thClass} hidden w-28 md:table-cell`}>{c("최근 활동", "Last active")}</th>
+                    <SortHeader column="name" label={c("이름", "Name")} sort={sort} onSort={sortBy} />
+                    <SortHeader column="role" label={c("역할", "Role")} sort={sort} onSort={sortBy} className="w-32" extra={<RolesTip />} />
+                    <SortHeader column="active" label={c("최근 활동", "Last active")} sort={sort} onSort={sortBy} className="hidden w-28 md:table-cell" />
                     <th className={`${thClass} relative w-12`}>
                       <span className="sr-only">{c("작업", "Actions")}</span>
                     </th>

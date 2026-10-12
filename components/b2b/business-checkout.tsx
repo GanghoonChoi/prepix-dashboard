@@ -260,7 +260,7 @@ export function BusinessCheckout({
             <span key="seats">
               {c(`${seats}석`, `${seats} seats`)}
               <span className="ml-2 text-muted">
-                {c(`멤버 ${wanted ?? 1}명 · 뷰어 무료`, `${wanted ?? 1} members · viewers free`)}
+                {c(`멤버 ${wanted ?? 1}명`, `${wanted ?? 1} members`)}
               </span>
             </span>,
           ],

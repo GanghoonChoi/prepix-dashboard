@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { File as FileIcon, FileCog, Film, FolderOpen, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, File as FileIcon, FileCog, Film, FolderOpen, Trash2 } from "lucide-react";
 import { useOverlayState } from "@heroui/react";
 import { Dialog } from "@/components/dialog";
 import { apiClient } from "@/lib/api/client";
@@ -31,10 +31,9 @@ import {
   TeamShell,
 } from "@/components/workspaces/shared";
 import { RowMenu, RowMenuItem } from "@/components/workspaces/row-menu";
-import { Badge, Button, numClass, SearchField, Toolbar, type Tone } from "@/components/ui";
+import { Badge, Button, numClass, SearchField, sortRows, Toolbar, useSort, type Sort, type Tone } from "@/components/ui";
 import { useI18n } from "@/lib/i18n/context";
 import { formatDate, formatDay } from "@/lib/format";
-import { FileTransfers } from "./file-transfers";
 import { B2bError, errorCode, useCopy, previewStateCopy, projectFrame, projectsDenial } from "./shared";
 
 export function ProjectFiles({ projectId }: { projectId: string }) {
@@ -71,6 +70,7 @@ function FilesView({ scope }: { scope: FileScope }) {
     [query, setQuery] = useState(""),
     [search, setSearch] = useState(""),
     [cursor, setCursor] = useState<string>();
+  const [sort, sortBy] = useSort<"name" | "size">({ key: "name", dir: "asc" });
   const serial = useRef(0),
     readController = useRef<AbortController | null>(null);
   const reload = useCallback(async () => {
@@ -117,15 +117,11 @@ function FilesView({ scope }: { scope: FileScope }) {
   const trashList = useOverlayState();
   if (error) return <B2bError code={error} retry={() => void reload()} />;
   if (!data) return <TeamLoading />;
-  const { project, capabilities, list } = data;
+  const { project, list } = data;
   return (
     <TeamShell {...projectFrame(scope.workspaceId, project, c, lang)}>
-      <FileTransfers
-        scope={scope}
-        capabilities={capabilities}
-        versions={list.versions}
-        changed={() => void reload()}
-      />
+      {/* 자료 arrive from the app (publish, share); the web lists, downloads
+          and removes them — there is no web upload (2026-10-12). */}
       <FileDownloads downloads={downloads} />
       <section
         className="space-y-2"
@@ -158,14 +154,14 @@ function FilesView({ scope }: { scope: FileScope }) {
             title={
               search
                 ? c("검색 결과가 없습니다.", "No matching files.")
-                : c("아직 보관된 자료가 없습니다.", "No files yet.")
+                : c("아직 자료가 없어요. 앱에서 공유하면 여기에 나타나요.", "No files yet. Files shared from the app show up here.")
             }
           />
         ) : (
           <>
-          <FileListHead />
+          <FileListHead sort={sort} onSort={sortBy} />
           <ul>
-            {list.versions.map((version) => (
+            {sortRows(list.versions, sort, (v, key) => (key === "name" ? v.name : v.size), lang).map((version) => (
               <li className={fileRowClass} key={version.id}>
                 <VersionHeader
                   version={version}
@@ -453,12 +449,24 @@ const fileGrid =
 /** Actions and details under a row line up with the file name, not the icon. */
 export const fileRowClass = "space-y-1.5 border-b border-border py-2.5 md:[&>*:not(:first-child)]:pl-12";
 
-export function FileListHead() {
+export function FileListHead({ sort, onSort }: { sort: Sort<"name" | "size">; onSort: (key: "name" | "size") => void }) {
   const c = useCopy();
+  const head = (key: "name" | "size", label: string, right = false) => (
+    <button
+      type="button"
+      onClick={() => onSort(key)}
+      aria-label={c(`${label} 기준 정렬`, `Sort by ${label}`)}
+      className={`inline-flex items-center gap-1 rounded-md hover:text-foreground focus-visible:outline-2 focus-visible:outline-focus ${right ? "justify-self-end" : "justify-self-start"} ${sort.key === key ? "text-foreground" : ""}`}
+    >
+      {label}
+      {sort.key === key &&
+        (sort.dir === "asc" ? <ChevronUp size={13} strokeWidth={2} aria-hidden="true" /> : <ChevronDown size={13} strokeWidth={2} aria-hidden="true" />)}
+    </button>
+  );
   return (
-    <div aria-hidden="true" className={`${fileGrid} hidden h-10 border-b border-border text-xs font-medium text-muted md:grid`}>
-      <span>{c("이름", "Name")}</span>
-      <span className="text-right">{c("크기·종류", "Size · kind")}</span>
+    <div className={`${fileGrid} hidden h-10 border-b border-border text-xs font-medium text-muted md:grid`}>
+      {head("name", c("이름", "Name"))}
+      {head("size", c("크기·종류", "Size · kind"), true)}
       <span>{c("미리보기", "Preview")}</span>
       <span />
     </div>

@@ -24,15 +24,9 @@ test("V: an external client does not see an automatically published round until 
   // The producer stores and registers a result; it publishes by itself.
   const P = await open(browser, producer, `${base}/files`);
   await P.page.waitForURL((url) => url.pathname === `${base}/files`);
-  let uploadId = "";
-  P.page.on("response", async (response) => {
-    if (response.url() === `${root}/uploads` && response.request().method() === "POST" && response.status() === 201)
-      uploadId = (await response.json()).data.upload.id;
-  });
-  await P.page.getByRole("combobox", { name: "자료 종류", exact: true }).selectOption("output");
-  await upload(P.page, "cut-v1.mp4");
+  // A result stored the way the app's publish does (the web has no upload).
+  const uploadId = await upload(request, producer, team, projectId, "cut-v1.mp4", { kind: "output" });
   await expect.poll(async () => (await json(request.get(`${root}/files`, { headers: producer.headers }))).versions.length, { timeout: 90_000 }).toBe(1);
-  await expect.poll(() => uploadId).toBeTruthy();
   const version = (await json(request.get(`${root}/files`, { headers: producer.headers }))).versions[0];
   const list = await json(request.get(`${root}/publications`, { headers: producer.headers }));
   const registered = await request.post(`${root}/publications`, { headers: producer.headers, data: {
@@ -118,15 +112,9 @@ test("V: an external maker sees the round of their own publication; another clie
 
   const V = await open(browser, vendor, `${base}/files`);
   await V.page.waitForURL((url) => url.pathname === `${base}/files`);
-  let uploadId = "";
-  V.page.on("response", async (response) => {
-    if (response.url() === `${root}/uploads` && response.request().method() === "POST" && response.status() === 201)
-      uploadId = (await response.json()).data.upload.id;
-  });
-  await V.page.getByRole("combobox", { name: "자료 종류", exact: true }).selectOption("output");
-  await upload(V.page, "cut-v1.mp4");
+  // A result stored the way the app's publish does (the web has no upload).
+  const uploadId = await upload(request, vendor, team, projectId, "cut-v1.mp4", { kind: "output" });
   await expect.poll(async () => (await json(request.get(`${root}/files`, { headers: vendor.headers }))).versions.length, { timeout: 90_000 }).toBe(1);
-  await expect.poll(() => uploadId).toBeTruthy();
   const version = (await json(request.get(`${root}/files`, { headers: vendor.headers }))).versions[0];
   const list = await json(request.get(`${root}/publications`, { headers: vendor.headers }));
   const registered = await request.post(`${root}/publications`, { headers: vendor.headers, data: {

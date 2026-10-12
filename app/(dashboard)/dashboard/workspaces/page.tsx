@@ -12,6 +12,9 @@ import {
   tableClass,
   tdClass,
   thClass,
+  SortHeader,
+  sortRows,
+  useSort,
 } from "@/components/ui";
 import { formatDay } from "@/lib/format";
 import { useI18n } from "@/lib/i18n/context";
@@ -208,8 +211,14 @@ function Spaces({
   rows: WorkspaceList["workspaces"];
   onChange: () => Promise<void>;
 }) {
-  const { t } = useI18n();
-  const ordered = personalFirst(rows);
+  const { t, lang } = useI18n();
+  const [sort, sortBy] = useSort<"name" | "role">({ key: "name", dir: "asc" });
+  // The personal space stays on top; teams follow the chosen order.
+  const ranked = personalFirst(rows);
+  const ordered = [
+    ...ranked.filter((row) => isPersonal(row)),
+    ...sortRows(ranked.filter((row) => !isPersonal(row)), sort, (row, key) => (key === "name" ? row.name : t(`team.role.${row.role}`)), lang),
+  ];
   const teams = ordered.filter((row) => !isPersonal(row));
   return (
     <div>
@@ -217,12 +226,8 @@ function Spaces({
         <table className={tableClass}>
           <thead>
             <tr>
-              <th scope="col" className={thClass}>
-                {t("team.col.name")}
-              </th>
-              <th scope="col" className={`${thClass} hidden w-56 sm:table-cell`}>
-                {t("team.col.role")}
-              </th>
+              <SortHeader column="name" label={t("team.col.name")} sort={sort} onSort={sortBy} />
+              <SortHeader column="role" label={t("team.col.role")} sort={sort} onSort={sortBy} className="hidden w-56 sm:table-cell" />
               <th scope="col" className={`${thClass} w-12`} />
             </tr>
           </thead>

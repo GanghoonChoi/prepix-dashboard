@@ -7,7 +7,7 @@ import {
 } from "@/lib/api/services/b2b.service";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import { inputClass } from "@/components/workspaces/shared";
-import { Button, Card, CardHeader, Field, Select } from "@/components/ui";
+import { Button, Field, Select } from "@/components/ui";
 import { roleSummary } from "./team-roles";
 import { B2bError, freeIntent, errorCode, useCopy } from "./shared";
 
@@ -177,22 +177,19 @@ export async function changeInvitation(
 }
 
 /** A project's invitations, inline on its people page. */
-export function InvitationPanel({
-  projectId,
-  editable,
-}: {
-  projectId: string;
-  editable: boolean;
-}) {
+/**
+ * A project's open invitations, polled, with resend and cancel — shown as
+ * rows of the project's people table (like 멤버), the form in a dialog.
+ */
+export function useProjectInvitations(projectId: string, enabled: boolean) {
   const { data } = useWorkspace()!;
-  const c = useCopy();
-  const status = useInvitationStatus();
   const id = data.workspace.id;
   const [rows, setRows] = useState<Invitation[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const sequence = useRef(0);
   const load = useCallback(async () => {
+    if (!enabled) return;
     const request = ++sequence.current;
     try {
       const result = await b2bService.invitations(id, projectId);
@@ -203,7 +200,7 @@ export function InvitationPanel({
         setError(errorCode(e));
       }
     }
-  }, [id, projectId]);
+  }, [id, projectId, enabled]);
   useEffect(() => {
     const requests = sequence;
     const first = window.setTimeout(() => void load(), 0);
@@ -214,7 +211,6 @@ export function InvitationPanel({
       requests.current++;
     };
   }, [load]);
-  const live = rows.filter((row) => !row.acceptedAt && !row.revokedAt);
   const act = async (row: Invitation, action: "resend" | "revoke") => {
     setBusy(true);
     setError("");
@@ -227,41 +223,7 @@ export function InvitationPanel({
       await load();
     }
   };
-  return (
-    <Card>
-      <CardHeader title={c("프로젝트 초대", "Project invitations")} />
-      <div className="space-y-4">
-        {editable && <InviteForm projectId={projectId} onSent={load} />}
-        {error && <B2bError code={error} />}
-        {live.length > 0 && (
-          <ul className="divide-y divide-border border-t border-border">
-            {live.map((row) => (
-              <li key={row.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                <div className="min-w-0">
-                  <p className="break-all text-sm font-medium">{row.email}</p>
-                  <p className="mt-0.5 text-xs text-muted">
-                    {row.projectRole === "reviewer" ? c("뷰어", "Viewer") : c("편집자", "Editor")} · {status(row)}
-                  </p>
-                </div>
-                {editable && (
-                  <div className="flex gap-2">
-                    {row.deliveryState !== "held" && (
-                      <Button variant="secondary" size="sm" disabled={busy} onClick={() => void act(row, "resend")}>
-                        {c("다시 보내기", "Resend")}
-                      </Button>
-                    )}
-                    <Button variant="secondary" size="sm" disabled={busy} onClick={() => void act(row, "revoke")}>
-                      {c("초대 취소", "Cancel invitation")}
-                    </Button>
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </Card>
-  );
+  return { live: rows.filter((row) => !row.acceptedAt && !row.revokedAt), error, busy, load, act };
 }
 
 /** Free seats in the current paid period, for the team invite form. Null

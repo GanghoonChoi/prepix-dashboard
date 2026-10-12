@@ -15,4 +15,5 @@ export * from "./media";
 export * from "./overlay";
 export * from "./progress-tracker";
 export * from "./info-tip";
+export * from "./sort";
 export { ago } from "@/lib/format";

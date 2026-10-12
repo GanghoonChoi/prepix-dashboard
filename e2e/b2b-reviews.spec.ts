@@ -43,9 +43,9 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   const base = `/dashboard/workspaces/${team}/projects/${projectId}`;
   const root = `${api}/v2/workspaces/${team}/b2b/projects/${projectId}`;
 
-  // Real upload through the existing file flow (ClamD double, real ffprobe).
+  // Real upload through the app's file flow (ClamD double, real ffprobe).
   const P = await open(browser, producer, `${base}/files`);
-  await upload(P.page, "cut-v1.mp4");
+  await upload(request, producer, team, projectId, "cut-v1.mp4");
   await expect
     .poll(
       async () =>
@@ -54,7 +54,7 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
       { timeout: 60_000 },
     )
     .toBe(1);
-  await upload(P.page, "long-cut.mp4");
+  await upload(request, producer, team, projectId, "long-cut.mp4");
   await expect
     .poll(
       async () =>
@@ -342,7 +342,7 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
 
   // A new version opens round 2: nothing carries over, decisions do not apply.
   await P.page.goto(`${base}/files`);
-  await upload(P.page, "cut-v2.mp4", "cut-v1.mp4");
+  await upload(request, producer, team, projectId, "cut-v2.mp4", { newVersionOf: "cut-v1.mp4" });
   await expect
     .poll(
       async () =>

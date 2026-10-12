@@ -78,7 +78,7 @@ function wav(size: number) {
   return value;
 }
 
-test("real private upload resumes after reload, verifies immutable content and survives cancellation response loss", async ({
+test("stored files: ranged download resumes after reload, versions join their series, trash restores", async ({
   page,
   request,
 }) => {
@@ -122,6 +122,37 @@ test("real private upload resumes after reload, verifies immutable content and s
     caps.uploadsEnabled,
     "Start the explicit B2B_TEST_FILES local harness",
   ).toBe(true);
+  // 자료 arrive from the app, not the web (2026-10-12): stored through the API.
+  const store = async (name: string, data: Buffer, existingAssetId?: string) => {
+    const begin = await request.post(`${root}/uploads`, {
+      headers: user.headers,
+      data: {
+        requestKey: randomUUID(),
+        name,
+        kind: "original",
+        size: data.length,
+        sha256: createHash("sha256").update(data).digest("hex"),
+        scope: "uploader_and_steward",
+        ...(existingAssetId ? { existingAssetId } : {}),
+      },
+    });
+    expect(begin.status(), await begin.text()).toBe(201);
+    const stored = (await begin.json()).data.upload as { id: string; partSize: number };
+    for (let offset = 0, number = 1; offset < data.length; offset += stored.partSize, number++) {
+      const part = data.subarray(offset, offset + stored.partSize);
+      const signed = await request.post(`${root}/uploads/${stored.id}/parts`, {
+        headers: user.headers,
+        data: { number, checksum: createHash("sha256").update(part).digest("base64") },
+      });
+      expect(signed.status(), await signed.text()).toBe(201);
+      const ticket = (await signed.json()).data as { url: string; headers: Record<string, string> };
+      expect((await request.put(ticket.url, { headers: ticket.headers, data: part })).status()).toBe(200);
+    }
+    expect((await request.post(`${root}/uploads/${stored.id}/complete`, { headers: user.headers, data: {} })).status()).toBe(201);
+    await expect
+      .poll(async () => (await (await request.get(`${root}/uploads/${stored.id}`, { headers: user.headers })).json()).data.upload.state, { timeout: 45000 })
+      .toBe("ready");
+  };
   const target = `/dashboard/workspaces/${team.id}/projects/${project.id}/files`;
   await page.goto(`/login?locale=ko&returnTo=${encodeURIComponent(target)}`);
   await page.getByLabel("이메일", { exact: true }).fill(user.email);
@@ -131,96 +162,10 @@ test("real private upload resumes after reload, verifies immutable content and s
     page.getByRole("heading", { name: "프로젝트 자료", exact: true }),
   ).toBeVisible();
   const content = wav(16 * 1024 * 1024 + 16044);
-  let held = false,
-    partTwoSeen!: () => void,
-    releasePartTwo!: () => void;
-  const secondPart = new Promise<void>((resolve) => {
-      partTwoSeen = resolve;
-    }),
-    release = new Promise<void>((resolve) => {
-      releasePartTwo = resolve;
-    });
-  const signedParts: number[] = [];
-  await page.route("**/uploads/*/parts", async (route) => {
-    const number = route.request().postDataJSON().number;
-    signedParts.push(number);
-    if (number === 2 && !held) {
-      held = true;
-      partTwoSeen();
-      await release;
-    }
-    try {
-      await route.continue();
-    } catch {
-      /* aborted transport after pause */
-    }
-  });
-  await page.getByLabel("보관할 파일", { exact: true }).setInputFiles({
-    name: "original.wav",
-    mimeType: "audio/wav",
-    buffer: content,
-  });
-  await page
-    .getByRole("button", { name: "팀에 보관 시작", exact: true })
-    .click();
-  await secondPart;
-  await page.getByRole("button", { name: "일시 중단", exact: true }).click();
-  releasePartTwo();
-  await expect(
-    page.getByRole("button", { name: "일시 중단", exact: true }),
-  ).toHaveCount(0);
+  await store("original.wav", content);
   await page.reload();
-  await expect(
-    page.getByLabel("original.wav 원본 선택 후 재개", { exact: true }),
-  ).toBeVisible();
-  const before = signedParts.length;
-  const source = page.getByLabel("original.wav 원본 선택 후 재개", {
-    exact: true,
-  });
-  await source.focus();
-  await expect
-    .poll(() =>
-      source.evaluate((el) => getComputedStyle(el.parentElement!).outlineStyle),
-    )
-    .toBe("solid");
-  await page.keyboard.press("Tab");
-  await expect(
-    page.getByRole("button", { name: "등록 결과 확인", exact: true }),
-  ).toBeFocused();
-  await page
-    .getByLabel("original.wav 원본 선택 후 재개", { exact: true })
-    .setInputFiles({
-      name: "original.wav",
-      mimeType: "audio/wav",
-      buffer: Buffer.alloc(content.length, 19),
-    });
-  await expect(
-    page.getByText("처음 등록한 파일과 내용이 다릅니다.", { exact: false }),
-  ).toBeVisible();
-  expect(signedParts).toHaveLength(before);
-  await page
-    .getByLabel("original.wav 원본 선택 후 재개", { exact: true })
-    .setInputFiles({
-      name: "renamed.wav",
-      mimeType: "audio/wav",
-      buffer: content,
-    });
-  await expect
-    .poll(
-      async () =>
-        (
-          await (
-            await request.get(`${root}/files`, { headers: user.headers })
-          ).json()
-        ).data.versions.length,
-      { timeout: 45000 },
-    )
-    .toBe(1);
-  expect(signedParts.slice(before)).toEqual([2]);
-  await page.reload();
-  await expect(
-    page.getByText("보관됨 · 미리보기 미생성", { exact: false }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "original.wav", exact: true })).toBeVisible();
+  await expect(page.getByText("미리보기 미생성", { exact: true }).first()).toBeVisible();
   const catalogue = (
     await (await request.get(`${root}/files`, { headers: user.headers })).json()
   ).data.versions;
@@ -381,32 +326,10 @@ test("real private upload resumes after reload, verifies immutable content and s
   await expect(
     page.getByRole("region", { name: "원본 수령", exact: true }),
   ).toHaveCount(0);
-  await page
-    .getByRole("button", { name: "전송 기록 닫기", exact: true })
-    .click();
   // Existing series and a same-name new asset are explicit, distinct choices.
   const small = wav(16044);
-  await page
-    .getByRole("combobox", { name: "등록 방식", exact: true })
-    .selectOption(catalogue[0].assetId);
-  await page.getByLabel("보관할 파일", { exact: true }).setInputFiles({
-    name: "revision.wav",
-    mimeType: "audio/wav",
-    buffer: small,
-  });
-  await page
-    .getByRole("button", { name: "팀에 보관 시작", exact: true })
-    .click();
-  await expect
-    .poll(
-      async () =>
-        (
-          await (
-            await request.get(`${root}/files`, { headers: user.headers })
-          ).json()
-        ).data.versions.length,
-    )
-    .toBe(2);
+  await store("revision.wav", small, catalogue[0].assetId);
+
   await page.reload();
   const second = (
     await (await request.get(`${root}/files`, { headers: user.headers })).json()
@@ -417,35 +340,12 @@ test("real private upload resumes after reload, verifies immutable content and s
   expect(
     second.find((v: { id: string }) => v.id === catalogue[0].id).sha256,
   ).toBe(catalogue[0].sha256);
-  await page
-    .getByRole("button", { name: "전송 기록 닫기", exact: true })
-    .click();
   const usedBefore = (
     await (
       await request.get(`${root}/files/capabilities`, { headers: user.headers })
     ).json()
   ).data.storage.usedBytes;
-  await page
-    .getByRole("combobox", { name: "등록 방식", exact: true })
-    .selectOption("");
-  await page.getByLabel("보관할 파일", { exact: true }).setInputFiles({
-    name: "original.wav",
-    mimeType: "audio/wav",
-    buffer: small,
-  });
-  await page
-    .getByRole("button", { name: "팀에 보관 시작", exact: true })
-    .click();
-  await expect
-    .poll(
-      async () =>
-        (
-          await (
-            await request.get(`${root}/files`, { headers: user.headers })
-          ).json()
-        ).data.versions.length,
-    )
-    .toBe(3);
+  await store("original.wav", small);
   await page.reload();
   const third = (
     await (await request.get(`${root}/files`, { headers: user.headers })).json()
@@ -462,9 +362,6 @@ test("real private upload resumes after reload, verifies immutable content and s
       ).json()
     ).data.storage.usedBytes,
   ).toBe(usedBefore);
-  await page
-    .getByRole("button", { name: "전송 기록 닫기", exact: true })
-    .click();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({
     path: "/tmp/prepix-b2b-files-mobile.png",
@@ -475,69 +372,6 @@ test("real private upload resumes after reload, verifies immutable content and s
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
-  // Lose a genuine begin reply after its server reservation. The durable key
-  // still resolves the same upload after reload; cancel uses that original key.
-  let loseBegin = true;
-  await page.route(`**/projects/${project.id}/uploads`, async (route) => {
-    if (route.request().method() === "POST" && loseBegin) {
-      loseBegin = false;
-      await route.fetch();
-      await route.abort("failed");
-    } else await route.continue();
-  });
-  await page.getByLabel("보관할 파일", { exact: true }).setInputFiles({
-    name: "uncertain.wav",
-    mimeType: "audio/wav",
-    buffer: wav(16044),
-  });
-  await page
-    .getByRole("button", { name: "팀에 보관 시작", exact: true })
-    .click();
-  await expect(
-    page.getByRole("button", { name: "전송 취소", exact: true }),
-  ).toBeVisible();
-  await page.reload();
-  const cancelKeys: string[] = [];
-  await page.route("**/uploads/requests/*/cancel", async (route) => {
-    cancelKeys.push(route.request().url());
-    if (cancelKeys.length === 1) {
-      await route.fetch();
-      await route.abort("failed");
-    } else await route.continue();
-  });
-  await page.getByRole("button", { name: "전송 취소", exact: true }).click();
-  await expect(
-    page.getByRole("button", { name: "취소 결과 재확인", exact: true }),
-  ).toBeVisible();
-  await page
-    .getByRole("button", { name: "취소 결과 재확인", exact: true })
-    .click();
-  await expect(
-    page.getByText("취소 확인됨 · 임시 자료 정리는 별도 진행", {
-      exact: false,
-    }),
-  ).toBeVisible();
-  expect(cancelKeys[0]).toBe(cancelKeys[1]);
-  await expect
-    .poll(
-      async () =>
-        (
-          await (
-            await request.get(`${root}/files/capabilities`, {
-              headers: user.headers,
-            })
-          ).json()
-        ).data.storage.reservedBytes,
-      { timeout: 20000 },
-    )
-    .toBe("0");
-  expect(
-    (
-      await (
-        await request.get(`${root}/files`, { headers: user.headers })
-      ).json()
-    ).data.versions,
-  ).toHaveLength(3);
   // Delete moves a file to the trash; 최근 삭제한 파일 brings it back (2026-10-08).
   const versionCount = async () =>
     (

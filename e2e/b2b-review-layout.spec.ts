@@ -19,14 +19,9 @@ test("review workspace: playhead-following comments, 요청/해결됨, version m
   // The lead stores a result and registers it; it is published to review.
   const L = await open(browser, lead, `${base}/files`);
   await L.page.waitForURL((u) => u.pathname === `${base}/files`);
-  let uploadId = "";
-  L.page.on("response", async (r) => {
-    if (r.url() === `${root}/uploads` && r.request().method() === "POST" && r.status() === 201) uploadId = (await r.json()).data.upload.id;
-  });
-  await L.page.getByRole("combobox", { name: "자료 종류", exact: true }).selectOption("output");
-  await upload(L.page, "cut-v1.mp4");
+  // Stored the way the app's publish does (the web has no upload).
+  const uploadId = await upload(request, lead, team, projectId, "cut-v1.mp4", { kind: "output" });
   await expect.poll(async () => (await json(request.get(`${root}/files`, { headers: lead.headers }))).versions.length, { timeout: 90_000 }).toBe(1);
-  await expect.poll(() => uploadId).toBeTruthy();
   const version = (await json(request.get(`${root}/files`, { headers: lead.headers }))).versions[0];
   const list = await json(request.get(`${root}/publications`, { headers: lead.headers }));
   const registered = await request.post(`${root}/publications`, { headers: lead.headers, data: {

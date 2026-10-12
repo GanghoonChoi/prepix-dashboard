@@ -9,7 +9,6 @@ import { useWorkspace } from "@/components/workspaces/workspace-context";
 import { TeamShell, SpaceBadge } from "@/components/workspaces/shared";
 import {
   Button,
-  Card,
   CardFooter,
   DangerZone,
   Field,
@@ -363,18 +362,11 @@ export default function Page() {
             </div>
           </SettingsSection>
         )}
-        {/* Leaving is the irreversible act, so only someone who CAN leave sees
-            the red frame; an owner reads how to hand over first, and deleting
-            the team is theirs alone. The shared leave section brings its own
-            heading, so it gets just the frame. */}
+        {/* The owner deletes (handing over is above); everyone else leaves.
+            The shared leave section brings its own heading. */}
         {!personal && b2b?.enrolled &&
           (data.role === "owner" ? (
-            <>
-              <Card>
-                <LeaveTeam />
-              </Card>
-              <DeleteTeam />
-            </>
+            <DeleteTeam />
           ) : (
             <DangerZone>
               <LeaveTeam />

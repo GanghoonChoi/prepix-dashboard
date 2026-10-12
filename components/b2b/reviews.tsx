@@ -19,6 +19,9 @@ import {
   thClass,
   Toolbar,
   type Tone,
+  SortHeader,
+  sortRows,
+  useSort,
 } from "@/components/ui";
 import { useI18n } from "@/lib/i18n/context";
 import type {
@@ -360,7 +363,7 @@ export function ReviewAudiencePicker({ scope, value, onChange, disabled, onValid
       ? !!data && !error && value.audienceUserIds.length > 0 && value.audienceUserIds.every(known)
       : value.audienceUserIds.every(external));
   }, [data, error, value, selected, external, onValidityChange]);
-  const roles = { lead: c("올린 사람", "Creator"), producer: c("편집자", "Editor"), reviewer: c("뷰어", "Viewer") };
+  const roles = { lead: c("관리자", "Manager"), producer: c("편집자", "Editor"), reviewer: c("뷰어", "Viewer") };
   const listed = data?.candidates.filter((person) => selected || person.external) ?? [];
   return (
     <fieldset disabled={disabled} className="space-y-3">
@@ -610,6 +613,7 @@ function ReviewListInner({ projectId, heading }: { projectId: string; heading?: 
   const [audience, setAudience] = useState<AudienceSelection>(projectAudience);
   const [audienceReady, setAudienceReady] = useState(false);
   const [view, setView] = useVideoView();
+  const [sort, sortBy] = useSort<"title" | "version" | "publisher" | "state" | "updated">({ key: "updated", dir: "desc" });
   if (!list) return error ? <ReviewError code={error} retry={() => void load()} /> : <TeamLoading />;
   const base = `/dashboard/workspaces/${team}/projects/${projectId}`;
   const comments = (n: number) => c(`코멘트 ${n}`, `${n} comments`);
@@ -709,16 +713,18 @@ function ReviewListInner({ projectId, heading }: { projectId: string; heading?: 
         <table className={`${tableClass} table-fixed`}>
           <thead>
             <tr>
-              <th className={thClass}>{c("제목", "Title")}</th>
-              <th className={`${thClass} hidden w-[14%] sm:table-cell`}>{c("버전", "Version")}</th>
-              <th className={`${thClass} hidden w-[18%] md:table-cell`}>{c("발행", "Published by")}</th>
-              <th className={`${thClass} w-32`}>{c("상태", "State")}</th>
-              <th className={`${thClass} hidden w-28 lg:table-cell`}>{c("업데이트", "Updated")}</th>
+              <SortHeader column="title" label={c("제목", "Title")} sort={sort} onSort={sortBy} />
+              <SortHeader column="version" label={c("버전", "Version")} sort={sort} onSort={sortBy} className="hidden w-[14%] sm:table-cell" />
+              <SortHeader column="publisher" label={c("발행", "Published by")} sort={sort} onSort={sortBy} className="hidden w-[18%] md:table-cell" />
+              <SortHeader column="state" label={c("상태", "State")} sort={sort} onSort={sortBy} className="w-32" />
+              <SortHeader column="updated" label={c("업데이트", "Updated")} sort={sort} onSort={sortBy} className="hidden w-28 lg:table-cell" />
               <th className={`${thClass} w-10`}><span className="sr-only">{c("열기", "Open")}</span></th>
             </tr>
           </thead>
           <tbody>
-            {list.reviews.map((r) => (
+            {sortRows(list.reviews, sort, (r, key) =>
+              key === "title" ? r.title : key === "version" ? r.ordinal : key === "publisher" ? r.publisher?.name : key === "state" ? r.approval : Date.parse(r.updatedAt),
+            lang).map((r) => (
               <tr
                 key={r.id}
                 className={rowClass}
