@@ -245,7 +245,10 @@ export default function DashboardPage() {
                   <Meter value={pct} tone="neutral" />
                   <span className="mt-2 block">
                     {[
-                      usage?.periodEnd ? t("dashboard.resets", { date: day(usage.periodEnd) }) : null,
+                      // Free's hour is once, not monthly — nothing resets.
+                      usage?.periodEnd && plan !== "free"
+                        ? t("dashboard.resets", { date: day(usage.periodEnd) })
+                        : null,
                       bonusMinutes > 0 ? t("dashboard.bonusIncluded", { minutes: String(bonusMinutes) }) : null,
                     ]
                       .filter(Boolean)

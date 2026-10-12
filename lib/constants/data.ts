@@ -39,7 +39,7 @@ export const PLAN_COPY: Record<Lang, Record<string, PlanCopy>> = {
     free: {
       description: "Get started with AI video editing.",
       features: [
-        "60 min of AI processing / month",
+        "60 min of AI processing, first 14 days",
         "Rough cut generation",
         "Outputs up to 5 min · 720p",
         "2 projects",
@@ -80,7 +80,7 @@ export const PLAN_COPY: Record<Lang, Record<string, PlanCopy>> = {
     free: {
       description: "AI 영상 편집을 시작해보세요.",
       features: [
-        "월 60분 AI 처리",
+        "가입 후 14일간 60분 AI 처리",
         "러프컷 생성",
         "최대 5분 · 720p 출력",
         "프로젝트 2개",
