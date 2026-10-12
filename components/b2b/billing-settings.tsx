@@ -36,6 +36,7 @@ import { billingTabs,
   useTeamBilling,
 } from "./billing-shared";
 import { definitivelyRejected, useCopy } from "./shared";
+import { AutoSeats } from "./auto-seats";
 
 const fields: [keyof TeamBuyer, string, string, string][] = [
   ["businessName", "상호", "Business name", "organization"],
@@ -672,6 +673,7 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
           </form>
         </div>
       </SettingsSection>
+      {api && <AutoSeats billing={billing} api={api} reload={reload} />}
     </TeamShell>
   );
 }
