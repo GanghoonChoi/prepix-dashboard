@@ -14,7 +14,7 @@ import {
   type ArchiveSortKey,
 } from "@/lib/workspaces/archive-view";
 import { posterKey } from "@/lib/workspaces/poster-cache";
-import { AssetActions, type ArchiveHandlers } from "./asset-actions";
+import { AssetActions, folderDropProps, SelectBox, type ArchiveHandlers } from "./asset-actions";
 import { statePill, typeIcon } from "./asset-grid";
 import {
   ago,
@@ -91,6 +91,7 @@ export function AssetList({
   onOpenFolder,
   onPreview,
   onFreeUpSpace,
+  onSelectAll,
   handlers,
 }: {
   folders: Folder[];
@@ -104,16 +105,33 @@ export function AssetList({
   onOpenFolder: (folder: Folder) => void;
   onPreview: (asset: Asset) => void;
   onFreeUpSpace: () => void;
+  /** Pick every file shown, or none when all are picked. */
+  onSelectAll: () => void;
   handlers: ArchiveHandlers;
 }) {
   const { lang } = useI18n();
   const c = (ko: string, en: string) => (lang === "ko" ? ko : en);
+  const picked = assets.filter((a) => handlers.selected.has(a.id)).length;
 
   return (
     <div className="overflow-x-auto">
       <table className={`${tableClass} min-w-[36rem]`}>
         <thead>
           <tr>
+            <th scope="col" className={`${thClass} w-10`}>
+              {assets.length > 0 && (
+                <input
+                  type="checkbox"
+                  aria-label={c("모든 파일 선택", "Select all files")}
+                  className="size-4 cursor-pointer accent-foreground"
+                  checked={picked > 0 && picked === assets.length}
+                  ref={(box) => {
+                    if (box) box.indeterminate = picked > 0 && picked < assets.length;
+                  }}
+                  onChange={onSelectAll}
+                />
+              )}
+            </th>
             <SortHeader column="name" label={c("이름", "Name")} sort={sort} onSort={onSort} />
             <SortHeader column="size" label={c("크기", "Size")} align="right" sort={sort} onSort={onSort} />
             <SortHeader column="createdAt" label={c("올린 날짜", "Uploaded")} sort={sort} onSort={onSort} />
@@ -128,10 +146,12 @@ export function AssetList({
         <tbody>
           {folders.map((folder) => (
             <tr key={folder.id} className={rowClass}>
+              <td className="border-b border-border" />
               <td colSpan={4} className="border-b border-border p-0">
                 <button
-                  className="flex min-h-14 w-full items-center gap-3 text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-focus"
+                  className="flex min-h-14 w-full items-center gap-3 rounded-md text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-focus data-[drop-target]:bg-surface-secondary data-[drop-target]:outline-2 data-[drop-target]:outline-foreground"
                   onClick={() => onOpenFolder(folder)}
+                  {...folderDropProps(folder.id, handlers)}
                 >
                   <span className="grid h-9 w-16 shrink-0 place-items-center rounded-md bg-surface-secondary text-muted">
                     <FolderClosed size={16} strokeWidth={1.75} aria-hidden="true" />
@@ -152,7 +172,13 @@ export function AssetList({
             const pill = statePill(asset, handlers.now, c);
             const Icon = typeIcon(asset.name);
             return (
-              <tr key={asset.id} className="group transition-colors hover:bg-surface">
+              <tr
+                key={asset.id}
+                className={`group transition-colors hover:bg-surface ${handlers.selected.has(asset.id) ? "bg-surface" : ""}`}
+              >
+                <td className={`${tdClass} w-10`}>
+                  <SelectBox asset={asset} handlers={handlers} />
+                </td>
                 <td className={tdClass}>
                   <div className="flex items-center gap-3">
                     <span className="relative grid h-9 w-16 shrink-0 place-items-center overflow-hidden rounded-md bg-surface-secondary text-muted ring-1 ring-border">

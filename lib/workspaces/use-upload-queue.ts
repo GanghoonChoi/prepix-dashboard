@@ -28,7 +28,8 @@ export type UploadQueue = {
   summary: ReturnType<typeof queueSummary>;
   /** Something is running or waiting — used to guard navigation and folders. */
   busy: boolean;
-  enqueue: (files: File[], resuming?: Asset) => void;
+  /** `folderId` overrides the open folder (a dropped folder, a folder card). */
+  enqueue: (files: File[], options?: { resuming?: Asset; folderId?: string }) => void;
   pause: (entry: Transfer) => void;
   resume: (entry: Transfer) => void;
   /**
@@ -42,6 +43,9 @@ export type UploadQueue = {
   /** Stop everything, for when the archive itself is gone. */
   abortAll: () => void;
 };
+
+/** Files in flight at once. Each still sends its parts one by one. */
+const PARALLEL = 3;
 
 export function useUploadQueue({
   workspaceId,
@@ -71,8 +75,14 @@ export function useUploadQueue({
   const resumeAssets = useRef(new Map<string, Asset>());
   const destinations = useRef(new Map<string, string | undefined>());
   const cancelled = useRef(new Set<string>());
-  const pumping = useRef(false);
+  const workers = useRef(0);
   const alive = useRef(true);
+  // The running loop calls whatever `reload` is current, not the one bound to
+  // the folder that was open when it started.
+  const reloadRef = useRef(reload);
+  useEffect(() => {
+    reloadRef.current = reload;
+  }, [reload]);
 
   const commit = useCallback((next: Transfer[]) => {
     queue.current = next;
@@ -86,8 +96,14 @@ export function useUploadQueue({
   );
 
   const abortAll = useCallback(() => {
+    // Waiting rows pause too, or the loop would start them next.
+    commit(
+      queue.current.map((entry) =>
+        entry.state === "queued" ? { ...entry, state: "paused" } : entry,
+      ),
+    );
     for (const abort of controllers.current.values()) abort.abort();
-  }, []);
+  }, [commit]);
 
   useEffect(() => {
     alive.current = true;
@@ -99,19 +115,21 @@ export function useUploadQueue({
   }, []);
 
   /**
-   * Work the queue one file at a time, and never let one file end it.
+   * Work the queue PARALLEL files at a time, and never let one file end it.
    *
    * The loop this replaces shared a single AbortController and a single catch:
    * a throw on file 3 skipped files 4..N entirely and left them with no status,
    * and "pause" aborted the whole batch and told the user to re-pick the rest
    * by hand. Each row now owns its abort and its verdict, and a failure is a
-   * `continue`.
+   * `continue`. A row is claimed (state leaves "queued") before the first
+   * await, so two workers never take the same file.
    */
-  const pump = useCallback(async () => {
-    if (pumping.current) return;
-    pumping.current = true;
+  const work = useCallback(async () => {
     try {
       for (;;) {
+        // Unmounted: the page that showed this queue is gone, so nothing new
+        // starts where nobody can see it or stop it.
+        if (!alive.current) break;
         const entry = nextQueued(queue.current);
         if (!entry) break;
         const file = handles.current.get(entry.id);
@@ -148,7 +166,11 @@ export function useUploadQueue({
             onCreated: (asset) => {
               resumeAssets.current.set(entry.id, asset);
               update(entry.id, { assetId: asset.id });
-              void reload();
+              // Cancelled while the server was creating it: tell the server,
+              // or the half-made upload keeps its storage reservation.
+              if (cancelled.current.has(entry.id))
+                void cloudService.cancel(workspaceId, asset.id).catch(() => {});
+              void reloadRef.current();
             },
           });
           update(entry.id, { state: "done", sent: entry.total });
@@ -164,12 +186,19 @@ export function useUploadQueue({
         } finally {
           controllers.current.delete(entry.id);
         }
-        await reload();
+        if (alive.current) await reloadRef.current();
       }
     } finally {
-      pumping.current = false;
+      workers.current--;
     }
-  }, [workspaceId, update, reload]);
+  }, [workspaceId, update]);
+
+  const pump = useCallback(() => {
+    while (workers.current < PARALLEL && alive.current && nextQueued(queue.current)) {
+      workers.current++;
+      void work();
+    }
+  }, [work]);
 
   /**
    * A rejected file is marked in the queue, not a verdict on the selection.
@@ -177,12 +206,14 @@ export function useUploadQueue({
    * the one that was refused.
    */
   const enqueue = useCallback(
-    (selected: File[], resuming?: Asset) => {
+    (selected: File[], options: { resuming?: Asset; folderId?: string } = {}) => {
       if (!canEdit || !uploadsEnabled || !selected.length) return;
+      const { resuming } = options;
+      const destination = "folderId" in options ? options.folderId : folderId;
       const added: Transfer[] = selected.map((file) => {
         const entryId = crypto.randomUUID();
         handles.current.set(entryId, file);
-        destinations.current.set(entryId, folderId);
+        destinations.current.set(entryId, destination);
         if (resuming) resumeAssets.current.set(entryId, resuming);
         const rejected = fileRejection(file, maxFileBytes);
         return {
@@ -227,13 +258,21 @@ export function useUploadQueue({
       } catch {
         /* the asset row keeps its own cancel button for a retry */
       }
-      await reload();
+      await reloadRef.current();
     },
-    [workspaceId, update, reload],
+    [workspaceId, update],
   );
 
   const clearSettled = useCallback(() => {
-    commit(queue.current.filter((entry) => !isSettled(entry.state)));
+    const [gone, kept] = [
+      queue.current.filter((entry) => isSettled(entry.state)),
+      queue.current.filter((entry) => !isSettled(entry.state)),
+    ];
+    // Their File handles go with them; a cleared row is never resumed.
+    for (const entry of gone)
+      for (const map of [handles, controllers, digests, resumeAssets, destinations])
+        map.current.delete(entry.id);
+    commit(kept);
   }, [commit]);
 
   const summary = queueSummary(transfers);

@@ -1,4 +1,5 @@
 "use client";
+import type { DragEvent } from "react";
 import { Download } from "lucide-react";
 import {
   cloudService,
@@ -37,7 +38,60 @@ export type ArchiveHandlers = {
   onResume: (asset: Asset) => void;
   onAction: (key: string, run: () => Promise<unknown>) => void;
   onConfirm: (label: string, run: () => Promise<unknown>) => void;
+  /** Picked files, by id; `range` extends from the last pick (shift-click). */
+  selected: Set<string>;
+  onSelect: (asset: Asset, range: boolean) => void;
+  /** Files dragged over a folder land in it, not in the open one. Null when
+   * uploads are off, so folders are not drop targets at all. */
+  folderDrop: {
+    over: string | null;
+    onOver: (folderId: string | null) => void;
+    onDrop: (folderId: string, data: DataTransfer) => void;
+  } | null;
 };
+
+/** Drag handlers that make a folder tile or row a drop target. */
+export function folderDropProps(folderId: string, handlers: ArchiveHandlers) {
+  const drop = handlers.folderDrop;
+  if (!drop) return {};
+  const files = (e: DragEvent) => e.dataTransfer.types.includes("Files");
+  return {
+    "data-drop-target": drop.over === folderId || undefined,
+    onDragOver: (e: DragEvent) => {
+      if (!files(e)) return;
+      e.preventDefault();
+      if (drop.over !== folderId) drop.onOver(folderId);
+    },
+    onDragLeave: (e: DragEvent) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) drop.onOver(null);
+    },
+    onDrop: (e: DragEvent) => {
+      if (!files(e)) return;
+      // Ours, not the page's: the window handler would upload here too.
+      e.preventDefault();
+      e.stopPropagation();
+      drop.onDrop(folderId, e.dataTransfer);
+    },
+  };
+}
+
+/** The pick box on a tile or row. */
+export function SelectBox({ asset, handlers, className = "" }: { asset: Asset; handlers: ArchiveHandlers; className?: string }) {
+  const { lang } = useI18n();
+  return (
+    <input
+      type="checkbox"
+      aria-label={lang === "ko" ? `${asset.name} 선택` : `Select ${asset.name}`}
+      className={`size-4 cursor-pointer accent-foreground ${className}`}
+      checked={handlers.selected.has(asset.id)}
+      onChange={() => {}}
+      onClick={(e) => {
+        e.stopPropagation();
+        handlers.onSelect(asset, e.shiftKey);
+      }}
+    />
+  );
+}
 
 /**
  * One visible action, the rest behind a kebab.

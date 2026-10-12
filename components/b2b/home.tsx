@@ -10,7 +10,7 @@ import {
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import { apiClient } from "@/lib/api/client";
 import { useOverlayState } from "@heroui/react";
-import { FolderOpen, Lock, UserPlus } from "lucide-react";
+import { Folder, FolderOpen, Lock, UserPlus } from "lucide-react";
 import {
   b2bService,
   type B2bStatus,
@@ -371,7 +371,7 @@ function ScopedHome({
               {data.projects.items.map((p) => (
                 <li key={p.id}>
                   <Link href={projectLink(p.id)} className="group block outline-none">
-                    <Poster url={p.posterUrl} className={posterLinkClass}>
+                    <Poster url={p.posterUrl} icon={Folder} className={posterLinkClass}>
                       {!!p.unread && (
                         <span className="absolute right-2 top-2 size-2 rounded-full bg-accent ring-2 ring-background">
                           <span className="sr-only">{c("새 소식", "New")}</span>

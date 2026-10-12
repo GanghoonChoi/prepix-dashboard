@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, FolderOpen } from "lucide-react";
+import { ChevronRight, Folder, FolderOpen } from "lucide-react";
 import {
   ago,
   Button,
@@ -29,7 +29,6 @@ import {
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import { ReviewWorkPanel } from "./review-work";
 import { LeaveTeam } from "./leave-team";
-import { Poster } from "./reviews";
 import { TeamLoading, TeamShell } from "@/components/workspaces/shared";
 import {
   B2bError,
@@ -274,9 +273,7 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
                       href={`${base}/${p.id}`}
                       onClick={persist}
                     >
-                      {/* The list carries no poster yet: the frame keeps the
-                          rows the shape of the home grid's tiles. */}
-                      <Poster className="h-9 w-16 shrink-0" />
+                      <Folder size={18} strokeWidth={1.75} aria-hidden="true" className="shrink-0 text-muted" />
                       <h2 className="truncate text-[13px] font-medium">{p.name}</h2>
                     </Link>
                   </td>

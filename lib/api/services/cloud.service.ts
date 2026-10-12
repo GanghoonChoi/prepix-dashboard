@@ -86,10 +86,12 @@ export const cloudService = {
     get<CloudCapabilities>(
       w ? `${base(w)}/cloud-capabilities` : "/workspaces/capabilities/cloud",
     ),
-  archive: (w: string, params?: { folderId?: string; cursor?: string }) => {
+  /** `trashed` lists the trash (every folder); otherwise one folder's files. */
+  archive: (w: string, params?: { folderId?: string; cursor?: string; trashed?: boolean }) => {
     const query = new URLSearchParams();
     if (params?.folderId) query.set("folderId", params.folderId);
     if (params?.cursor) query.set("cursor", params.cursor);
+    if (params?.trashed) query.set("trashed", "true");
     const qs = query.toString();
     return get<ArchiveDetail>(`${base(w)}/archive${qs ? `?${qs}` : ""}`);
   },
