@@ -179,6 +179,13 @@ export const reviewsService = {
     }
   },
   pending: (s: ReviewScope) => store.list(s),
+  /** 0104: the memo on a version of this review; empty clears it. Setting a
+   * value is idempotent, so a lost reply is answered by saving again. */
+  setNote: (s: ReviewScope & { kind: "project" }, versionId: string, note: string) =>
+    post<ReviewMutationResult>(s, `${root(s)}/reviews/${e(s.reviewId)}/versions/${e(versionId)}/note`, {
+      requestKey: crypto.randomUUID(),
+      note,
+    }),
   list: (s: ReviewScope, query: { search?: string; cursor?: string }) =>
     get<ReviewList>(
       s,

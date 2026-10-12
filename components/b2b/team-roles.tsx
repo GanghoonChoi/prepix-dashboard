@@ -54,7 +54,7 @@ const CAN: Record<TeamRole, [string, string][]> = {
   ],
   reviewer: [
     ["참여한 프로젝트 영상 보기", "Watch projects they're in"],
-    ["코멘트, 승인·수정 요청", "Comment, approve, request changes"],
+    ["코멘트, 승인", "Comment, approve"],
   ],
 };
 

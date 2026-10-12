@@ -105,7 +105,7 @@ for (const kind of ["old-round", "invalid-link", "wrong-response", "late-query-c
     if(kind === "old-round") {
       await expect(page.getByRole("heading",{name:"Original exact review"})).toBeVisible();
       await expect(page.getByText(/이전 검토\(읽기 전용\)/)).toBeVisible();
-      await expect(page.getByRole("button",{name:"V2 · 현재 검토",exact:true})).toBeDisabled();
+      await expect(page.getByRole("option",{name:"V2 · 현재 검토",exact:true})).toBeDisabled();
       await page.evaluate(()=>window.dispatchEvent(new Event("focus")));
       // Every re-read of the REVIEW stays pinned to the app's round. Other reads
       // on the page (the version's download permission) are not review reads.
