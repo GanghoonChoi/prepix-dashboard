@@ -122,8 +122,8 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   expect(
     await L.page.locator("video").evaluate((v: HTMLVideoElement) => Math.round(v.duration)),
   ).toBe(6);
-  // The playback-URL policy opens from the "?" under the shortcuts.
-  await L.page.getByRole("button", { name: "재생 주소 안내", exact: true }).click();
+  // The playback-URL policy sits with the shortcuts, behind the "?" under the video.
+  await L.page.getByRole("button", { name: "단축키", exact: true }).click();
   await expect(
     L.page.getByText("이미 발급된 주소는 만료 시각(최대 5분)까지 남을 수 있습니다", { exact: false }),
   ).toBeVisible();
@@ -230,8 +230,10 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
 
   // Status model (2026-10-12): no named approver — it starts in review and
   // anyone taking part (the producer too) may approve or ask for changes.
+  // 2026-10-12: 승인 is one button in the header; 수정 요청 is what comments are.
   await L.page.goto(reviewUrl);
-  await expect(L.page.getByText("검토 중", { exact: true }).first()).toBeVisible();
+  await expect(L.page.getByRole("button", { name: "승인", exact: true })).toBeVisible();
+  await expect(L.page.getByRole("button", { name: /수정 요청/ })).toHaveCount(0);
   await P.page.reload();
   await expect(P.page.getByRole("button", { name: "승인", exact: true })).toBeVisible();
   const C = await open(browser, client, reviewUrl);
@@ -244,21 +246,13 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
     )
     .toBe("approved");
 
-  // A non-participant owner sees nothing: no title, no count.
+  // Owners and admins see every project, private ones too (2026-10-12),
+  // without taking part in it.
   expect(
     (await request.get(`${root}/reviews/${reviewId}`, { headers: owner.headers })).status(),
-  ).toBe(404);
-  const ownerWork = await json(
-    request.get(`${api}/v2/workspaces/${team}/b2b/review-work`, { headers: owner.headers }),
-  );
-  expect(ownerWork.cards).toHaveLength(0);
-  expect(ownerWork.counts.awaiting + ownerWork.counts.approvals).toBe(0);
+  ).toBe(200);
   const O = await open(browser, owner, reviewUrl);
-  await expect(
-    O.page.getByText("검토를 찾을 수 없거나 볼 수 있는 범위가 아닙니다.", { exact: false })
-      .or(O.page.getByRole("alert").filter({ hasText: /찾을 수 없|접근/ })),
-  ).toBeVisible({ timeout: 30_000 });
-  await expect(O.page.getByText("1차 편집 검토", { exact: false })).toHaveCount(0);
+  await expect(O.page.getByRole("heading", { name: "1차 편집 검토", exact: true })).toBeVisible({ timeout: 30_000 });
   await O.close();
 
   // Restricted share to an outsider: 7-day default, download off. Sharing
@@ -359,8 +353,9 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
     .toBe(3);
   // The lead's series grant from V1 already covers the new version.
   await L.page.goto(reviewUrl);
-  // Swapping the video is folded under 고급 설정 (2026-10-08).
-  await L.page.getByText("고급 설정", { exact: true }).click();
+  // Swapping the video is folded under 더보기 → 고급 설정 (2026-10-12).
+  await L.page.getByRole("button", { name: "더보기", exact: true }).click();
+  await L.page.getByRole("menuitem", { name: "고급 설정", exact: true }).click();
   await L.page.getByRole("button", { name: "버전 선택", exact: true }).click();
   await L.page.getByRole("radio", { name: /· V2$/ }).check();
   await expect(L.page.getByText("검토본 준비됨", { exact: true })).toBeVisible({ timeout: 120_000 });
@@ -384,7 +379,7 @@ test("F14/F15: real review copy, playback and seek, range comments, one approver
   expect(round1.comments.map((c: { body: string }) => c.body).sort()).toEqual(
     ["여기 무음 구간을 줄여 주세요", "클라이언트 의견: 로고가 늦게 나옵니다"].sort(),
   );
-  await L.page.getByRole("button", { name: /V1 · 이전 검토/ }).click();
+  await L.page.getByRole("combobox", { name: "버전", exact: true }).selectOption({ label: "V1 · 이전 검토" });
   await expect(L.page.getByText("이전 검토(읽기 전용)", { exact: false })).toBeVisible();
   await expect(L.page.getByRole("button", { name: "코멘트 남기기", exact: true })).toHaveCount(0);
 

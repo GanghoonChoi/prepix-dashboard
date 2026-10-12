@@ -1,5 +1,5 @@
 "use client";
-import { Fragment, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref, type RefObject } from "react";
+import { Fragment, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type Ref, type RefObject } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -7,10 +7,15 @@ import {
   Check,
   Share2,
   Download,
+  FileDown,
   Maximize,
   MessageSquare,
+  NotebookPen,
   Pause,
+  Pencil,
   Play,
+  Settings2,
+  Undo2,
   Volume2,
   VolumeX,
   X,
@@ -19,21 +24,21 @@ import {
   Avatar,
   Badge,
   Button,
+  buttonClass,
   cardClass,
-  CardHeader,
   EmptyState,
   IconButton,
   inputClass,
   Kbd,
+  Select,
   Sheet,
-  type Tone,
   InfoTip,
 } from "@/components/ui";
+import { RowMenu, RowMenuItem } from "@/components/workspaces/row-menu";
 import { assertExactReviewEntry, checkExactReviewTarget, parseExactReviewTarget, type ExactReviewTarget } from "@/lib/b2b-reviews/exact-target";
 import { homeEnvironment } from "@/lib/b2b-home/home";
 import { useI18n } from "@/lib/i18n/context";
 import type {
-  ReviewApprovalState,
   ReviewComment,
   ReviewDetail,
   ReviewShare,
@@ -54,7 +59,6 @@ import { useOverlayState } from "@heroui/react";
 import { Dialog } from "@/components/dialog";
 import { accessEnded, errorCode, useCopy } from "./shared";
 import {
-  approvalCopy,
   kst,
   previewCopy,
   ReviewError,
@@ -71,13 +75,15 @@ import { notificationApi } from "@/lib/b2b-notifications/notifications";
 
 // SOT: prepix-backend backend/docs/b2b-reviews.md (S14/S15)
 //
-// Laid out like Frame.io (2026-10-07): the video and its timeline on the left,
-// the feedback beside it, the lead's tools under the video. Keyboard first —
-// Space/K play, J/L ±5s, ←/→ ±1s, I/O mark a range, C to comment.
+// Laid out like Frame.io and Dropbox Replay (2026-10-12): one window-tall
+// workspace — the video and its timeline on the left, the comments beside it
+// with the box to write in at their foot, everything rare behind 더보기.
+// Keyboard first — Space/K play, J/L ±5s, ←/→ ±1s, I/O mark a range, C to
+// comment.
 type Copy = (ko: string, en: string) => string;
 const RENEW_BEFORE_MS = 30_000;
-// The Segmented track's look on controls whose roles stay toggle buttons
-// (aria-pressed): the comment filter and the round switcher.
+// The Segmented track's look on a control whose roles stay toggle buttons
+// (aria-pressed): the 요청 / 해결됨 filter.
 const track = "inline-flex flex-wrap rounded-md bg-surface-secondary p-0.5";
 const segment =
   "inline-flex h-7 items-center justify-center rounded-[5px] px-2.5 text-[13px] text-muted transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus disabled:opacity-40 disabled:hover:text-muted aria-pressed:bg-background aria-pressed:font-medium aria-pressed:text-foreground aria-pressed:shadow-[0_1px_2px_rgba(0,0,0,0.08)]";
@@ -216,6 +222,12 @@ function ReviewScreen({
   // 공유 (2026-10-08): showing this version to someone outside the team is
   // one button at the top, like a review tool's Share, not a card below.
   const [sharing, setSharing] = useState(false);
+  const advanced = useOverlayState();
+  const decision = useRun();
+  const download = useVersionDownload(
+    scope.kind === "project" ? scope : null,
+    data?.rounds.find((r) => r.round === data.selectedRound)?.versionId,
+  );
   const seek = useCallback((ms: number, commentId?: string) => {
     // Paused on the frame the feedback is about, not playing past it.
     const v = video.current;
@@ -227,6 +239,13 @@ function ReviewScreen({
     setTime(ms);
     if (commentId) setFocused(commentId);
   }, []);
+  // Where the video is now. Read from the element, not from the last
+  // timeupdate: right after a scrub the seek may still be loading, and a
+  // comment sent in that moment belongs to the new place (2026-10-12).
+  const playhead = useCallback(
+    () => (video.current ? Math.round(video.current.currentTime * 1000) : now.current),
+    [],
+  );
   useReviewKeys(video, composer);
 
   if (!data)
@@ -239,7 +258,7 @@ function ReviewScreen({
   const current = data.selectedRound === data.review.round;
   const top = data.comments.filter((m) => !m.parentId);
   const unnamed = c("이름 없음", "Unnamed");
-  // The Page header's meta line, joined with " · ".
+  // The meta line under the title, joined with " · ".
   const facts = [
     `V${selected.ordinal} · ${c("회차", "Round")} ${selected.round}${current ? "" : ` · ${c("이전 검토(읽기 전용)", "Previous round (read-only)")}`}`,
     // Who sees it is worth a line only when it is not everyone in the
@@ -249,81 +268,148 @@ function ReviewScreen({
         ? c("프로젝트 내부 전체 공개", "Everyone internal on the project") + (data.audience.length ? c(" · 외부 ", " · external ") + data.audience.map((p) => p.name ?? unnamed).join(", ") : "")
         : data.audience.map((p) => p.name ?? unnamed).join(", ")}`,
   ].filter(Boolean);
+  // 상태 (2026-10-12): one question is left — is this the cut? What to change
+  // is the comments' job (요청 / 해결됨), so 수정 요청 left the screen; 승인
+  // stays, as one button, because sign-off is what a comment cannot say (the
+  // bell, 확인할 영상 and delivery evidence read it).
+  const decided = data.decisions.find((d) => d.current);
+  const approved = decided?.decision === "approved" ? decided : null;
+  const approve = async () => {
+    // Pinned to what this screen shows; a newer version rejects it.
+    const input = {
+      revision: data.review.revision,
+      round: data.review.round,
+      versionId: data.review.versionId,
+      decision: "approved" as const,
+      reason: "",
+    };
+    await decision.run(input, (requestKey) =>
+      reviewsService.mutate(scope, "decide", { requestKey, ...input }, undefined, token),
+    );
+    await load();
+  };
+  const unapprove = async () => {
+    if (!approved) return;
+    const input = { revision: data.review.revision, reason: "승인 취소" };
+    await decision.run(input, (requestKey) =>
+      reviewsService.mutate(scope, "cancel", { requestKey, ...input }, approved.id, token),
+    );
+    await load();
+  };
+  const rare =
+    scope.kind === "project" && !exactTarget && (data.allowedActions.setAudience || data.allowedActions.replaceVersion);
   return (
-    <div className="space-y-4 text-foreground">
-      {/* The kit's Page header, composed here: its actions are this screen's
-          own controls (round switcher, download, share). */}
-      <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3 pb-2">
-        <div className="min-w-0">
+    // A desktop gets a workspace, not a page: the header, then the player and
+    // the comments side by side, each as tall as the window (Frame.io,
+    // Dropbox Replay). The comment list scrolls on its own, the box to write
+    // in stays at its foot. A phone keeps the video on top while the
+    // comments scroll under it.
+    <div className="flex flex-col gap-3 text-foreground lg:h-[calc(100dvh-6rem)]">
+      <header className="space-y-1">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
           {back && (
-            <Link href={back} className="mb-3 inline-flex items-center gap-1 text-[13px] text-muted transition-colors hover:text-foreground">
-              <ArrowLeft size={14} strokeWidth={1.75} aria-hidden="true" />
-              {c("영상 목록", "All videos")}
+            <Link
+              href={back}
+              aria-label={c("영상 목록", "All videos")}
+              title={c("영상 목록", "All videos")}
+              className={`${buttonClass({ variant: "ghost", size: "sm", icon: true })} -ml-1.5 text-muted`}
+            >
+              <ArrowLeft size={16} strokeWidth={1.75} aria-hidden="true" />
             </Link>
           )}
-          <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1">
-            <h1 className="min-w-0 break-words text-balance text-2xl font-semibold tracking-tight">{data.review.title}</h1>
-            {/* In review is the normal case, not a status to show. */}
-            {(data.approval === "approved" || data.approval === "changes_requested") && (
-              <Badge tone={statusTone[data.approval]} dot={data.approval === "changes_requested"}>
-                {c(...approvalCopy[data.approval])}
-              </Badge>
+          <h1 className="min-w-0 truncate text-lg font-semibold tracking-tight">{data.review.title}</h1>
+          {approved && (
+            <span title={`${approved.approver.name ?? unnamed} · ${kst(approved.decidedAt)}`}>
+              <Badge tone="success">{c("승인됨", "Approved")}</Badge>
+            </span>
+          )}
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            {data.rounds.length > 1 && (
+              <Select
+                size="sm"
+                wrapperClassName="w-auto"
+                className="pr-8 font-medium"
+                aria-label={c("버전", "Version")}
+                value={data.selectedRound}
+                onChange={(e) => setRound(Number(e.target.value))}
+              >
+                {[...data.rounds].reverse().map((r) => (
+                  <option key={r.round} value={r.round} disabled={!!exactTarget && r.round !== exactTarget.round}>
+                    V{r.ordinal} · {r.current ? c("현재 검토", "Current") : c("이전 검토", "Previous")}
+                  </option>
+                ))}
+              </Select>
             )}
+            {data.allowedActions.decide && !approved && (
+              <Button size="sm" disabled={decision.busy} onClick={() => void approve()}>
+                <Check size={14} strokeWidth={2} aria-hidden="true" />
+                {c("승인", "Approve")}
+              </Button>
+            )}
+            {scope.kind === "project" && !exactTarget && (data.allowedActions.share || data.allowedActions.setAudience) && (
+              <Button size="sm" variant="secondary" onClick={() => setSharing(true)}>
+                <Share2 size={14} strokeWidth={1.75} aria-hidden="true" />
+                {c("공유", "Share")}
+              </Button>
+            )}
+            {scope.kind === "share" && data.allowedActions.download && <SharedDownload scope={scope} token={token ?? null} />}
+            <RowMenu label={c("더보기", "More")}>
+              {download.allowed && (
+                <RowMenuItem onClick={() => void download.run()}>
+                  <Download size={14} strokeWidth={1.75} aria-hidden="true" />
+                  {c("이 버전 받기", "Download this version")}
+                </RowMenuItem>
+              )}
+              {top.length > 0 && (
+                <RowMenuItem onClick={() => exportComments(data, c)}>
+                  <FileDown size={14} strokeWidth={1.75} aria-hidden="true" />
+                  {c("코멘트 CSV로 내보내기", "Export comments as CSV")}
+                </RowMenuItem>
+              )}
+              {approved && data.allowedActions.cancelDecision && (
+                <RowMenuItem onClick={() => void unapprove()}>
+                  <Undo2 size={14} strokeWidth={1.75} aria-hidden="true" />
+                  {c("승인 취소", "Withdraw approval")}
+                </RowMenuItem>
+              )}
+              {rare && (
+                <RowMenuItem onClick={advanced.open}>
+                  <Settings2 size={14} strokeWidth={1.75} aria-hidden="true" />
+                  {c("고급 설정", "Advanced")}
+                </RowMenuItem>
+              )}
+            </RowMenu>
           </div>
-          <p className="mt-1.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-muted">
-            {/* The dot beside the fact, not in it: "현재 검토 대상: …" stays one
-                text node that e2e and screen readers find by its exact words. */}
-            {facts.map((fact, i) => (
-              <Fragment key={i}>
-                {i > 0 && <span aria-hidden="true">·</span>}
-                <span className="min-w-0 break-words">{fact}</span>
-              </Fragment>
-            ))}
-          </p>
         </div>
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          {data.rounds.length > 1 && (
-            <nav className={track} aria-label={c("검토 회차", "Review rounds")}>
-              {data.rounds.map((r) => (
-                <button
-                  key={r.round}
-                  type="button"
-                  aria-pressed={r.round === data.selectedRound}
-                  disabled={!!exactTarget && r.round !== exactTarget.round}
-                  className={segment}
-                  onClick={() => setRound(r.round)}
-                >
-                  V{r.ordinal} · {r.current ? c("현재 검토", "Current") : c("이전 검토", "Previous")}
-                </button>
-              ))}
-            </nav>
-          )}
-          {scope.kind === "project" && <VersionDownload key={selected.versionId} scope={scope} versionId={selected.versionId} />}
-          {scope.kind === "project" && !exactTarget && (data.allowedActions.share || data.allowedActions.setAudience) && (
-            <Button variant="secondary" onClick={() => setSharing(true)}>
-              <Share2 size={14} strokeWidth={1.75} aria-hidden="true" />
-              {c("공유", "Share")}
-            </Button>
-          )}
-          {scope.kind === "share" && data.allowedActions.download && <SharedDownload scope={scope} token={token ?? null} />}
-        </div>
+        <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted">
+          {/* The dot beside the fact, not in it: "현재 검토 대상: …" stays one
+              text node that e2e and screen readers find by its exact words. */}
+          {facts.map((fact, i) => (
+            <Fragment key={i}>
+              {i > 0 && <span aria-hidden="true">·</span>}
+              <span className="min-w-0 break-words">{fact}</span>
+            </Fragment>
+          ))}
+        </p>
+        {(notice || exactTarget || !data.review.audienceConfirmed || selected.changeReason) && (
+          <div className="space-y-0.5 text-xs text-muted">
+            {notice && <p>{notice}</p>}
+            {exactTarget && <p>{c("앱에서 선택한 영상 버전의 검토입니다.", "Review of the video version selected in the app.")}</p>}
+            {!data.review.audienceConfirmed && <p role="status">{c("검토 대상 확정 전이에요. 대상을 확정하면 새 검토 회차가 시작돼요.", "The audience is unconfirmed. Confirming it opens a new review round.")}</p>}
+            {selected.changeReason && <p>{c("회차 변경 사유", "Round-change reason")}: {selected.changeReason}</p>}
+          </div>
+        )}
       </header>
-      {(notice || exactTarget || !data.review.audienceConfirmed || selected.changeReason) && (
-        <div className="space-y-1 text-[13px] text-muted">
-          {notice && <p>{notice}</p>}
-          {exactTarget && <p>{c("앱에서 선택한 영상 버전의 검토입니다.", "Review of the video version selected in the app.")}</p>}
-          {!data.review.audienceConfirmed && <p role="status">{c("검토 대상 확정 전이에요. 대상을 확정하면 새 검토 회차가 시작돼요.", "The audience is unconfirmed. Confirming it opens a new review round.")}</p>}
-          {selected.changeReason && <p>{c("회차 변경 사유", "Round-change reason")}: {selected.changeReason}</p>}
-        </div>
-      )}
       {scope.reviewId !== NO_REVIEW && <ReviewPending scope={scope} token={token} currentRound={data.review.round} onConfirmed={() => void load()} />}
       {stale && <ReviewError code={error} retry={() => void load()} />}
       {pendingError && <ReviewError code={pendingError} retry={() => void load()} />}
+      {decision.error && <ReviewError code={decision.error} retry={() => void load()} />}
+      {download.error && <ReviewError code={download.error} />}
 
-      {/* Three cells, so a phone reads video → feedback → tools, while a
-          desktop keeps the feedback beside the video for the whole page. */}
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)] lg:items-start">
-        <div className="min-w-0">
+      <div className="grid gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_320px] xl:grid-cols-[minmax(0,1fr)_380px]">
+        {/* The grid cell itself is sticky on a phone, so the video stays in
+            view while the comments under it scroll. */}
+        <div className="z-20 -mx-4 min-w-0 bg-background px-4 pb-2 max-lg:sticky max-lg:top-12 sm:-mx-6 sm:px-6 lg:mx-0 lg:min-h-0 lg:px-0 lg:pb-0">
           <ReviewPlayer
             key={`${scope.reviewId}:${data.selectedRound}`}
             scope={scope}
@@ -338,28 +424,19 @@ function ReviewScreen({
             onMarker={(m) => seek(m.startMs, m.id)}
           />
         </div>
-        <aside className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-16 lg:row-span-2 lg:max-h-[calc(100dvh-5.5rem)]">
-          <Approval scope={scope} token={token} detail={data} reload={load} />
-          <Comments
-            scope={scope}
-            token={token}
-            detail={data}
-            pending={pending}
-            now={now}
-            time={time}
-            focused={focused}
-            composer={composer}
-            pause={() => video.current?.pause()}
-            onSeek={seek}
-            reload={load}
-          />
-        </aside>
-        {/* P (2026-10-07): the publisher of this item shares it outside the team too (allowedActions.share). */}
-        {!exactTarget && scope.kind === "project" && (data.allowedActions.setAudience || data.allowedActions.replaceVersion) && (
-          <div className="min-w-0 pt-2 lg:col-start-1">
-            <LeadTools scope={scope} detail={data} reload={load} />
-          </div>
-        )}
+        <Comments
+          scope={scope}
+          token={token}
+          detail={data}
+          pending={pending}
+          playhead={playhead}
+          time={time}
+          focused={focused}
+          composer={composer}
+          pause={() => video.current?.pause()}
+          onSeek={seek}
+          reload={load}
+        />
       </div>
       {sharing && scope.kind === "project" && (
         <Sheet title={c("공유", "Share")} onClose={() => setSharing(false)}>
@@ -368,17 +445,19 @@ function ReviewScreen({
           </div>
         </Sheet>
       )}
+      {/* Who sees this version and swapping the video: rare, so behind 더보기;
+          the dialog closes once one of them succeeds. */}
+      {rare && scope.kind === "project" && (
+        <Dialog state={advanced} title={c("고급 설정", "Advanced")} size="wide">
+          <div className="grid gap-3 xl:grid-cols-2 xl:items-start">
+            {data.allowedActions.setAudience && <AudienceForm key={`audience:${data.review.revision}`} scope={scope} detail={data} reload={load} onDone={advanced.close} />}
+            {data.allowedActions.replaceVersion && <ReplaceVersion key={`replace:${data.review.revision}`} scope={scope} detail={data} reload={load} onDone={advanced.close} />}
+          </div>
+        </Dialog>
+      )}
     </div>
   );
 }
-
-const statusTone: Record<ReviewApprovalState, Tone> = {
-  approved: "success",
-  changes_requested: "warning",
-  awaiting: "neutral",
-  no_approver: "neutral",
-  approver_inactive: "neutral",
-};
 
 /** Player shortcuts, ignored while typing (a range slider is not typing). */
 function useReviewKeys(video: RefObject<HTMLVideoElement | null>, composer: RefObject<ComposerHandle | null>) {
@@ -499,7 +578,7 @@ function ReviewPlayer({
   }, [source, issue]);
   if (!ready)
     return (
-      <div className="grid aspect-video place-items-center rounded-lg bg-black p-6 text-center text-sm text-white/80" aria-live="polite">
+      <div className="grid aspect-video place-items-center rounded-lg bg-black p-6 text-center text-sm text-white/80 lg:aspect-auto lg:h-full" aria-live="polite">
         <div className="space-y-3">
           <p>{previewCopy(detail.preview, c)}</p>
           {detail.preview.state === "failed" && detail.preview.failureCode && (
@@ -537,17 +616,20 @@ function ReviewPlayer({
   const pct = (ms: number) => (length ? Math.min(100, (ms / length) * 100) : 0);
   const icon = "grid size-8 place-items-center rounded-md text-white/85 transition-colors hover:bg-white/10 hover:text-white";
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-2 lg:h-full lg:min-h-0">
       {ended ? (
         <ReviewError code={ended} />
       ) : (
+        // On a desktop the stage is as tall as the picture, and shrinks
+        // (the picture kept whole, object-contain) only when the window is
+        // shorter than that.
         <div
           ref={stage}
-          className="flex flex-col overflow-hidden rounded-lg bg-black text-white [&:fullscreen]:rounded-none [&:fullscreen_video]:aspect-auto [&:fullscreen_video]:min-h-0 [&:fullscreen_video]:flex-1"
+          className="flex flex-col overflow-hidden rounded-lg bg-black text-white lg:min-h-0 [&:fullscreen]:rounded-none [&:fullscreen_video]:aspect-auto [&:fullscreen_video]:min-h-0 [&:fullscreen_video]:flex-1"
         >
           <video
             ref={video}
-            className="aspect-video w-full cursor-pointer bg-black"
+            className="aspect-video w-full cursor-pointer bg-black object-contain lg:min-h-0"
             playsInline
             preload="metadata"
             src={source?.url}
@@ -609,7 +691,11 @@ function ReviewPlayer({
                 value={Math.min(pos, length)}
                 onChange={(e) => {
                   const v = video.current;
-                  if (v) v.currentTime = Number(e.target.value) / 1000;
+                  const ms = Number(e.target.value);
+                  if (v) v.currentTime = ms / 1000;
+                  // Shown at once, not when the seek has loaded.
+                  setPos(ms);
+                  onTime(ms);
                 }}
                 aria-label={c("재생 위치", "Playback position")}
                 aria-valuetext={clock(pos)}
@@ -679,35 +765,38 @@ function ReviewPlayer({
         </div>
       )}
       {error && <ReviewError code={error} retry={() => void issue(true)} />}
-      <p className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted">
-        {(
-          [
-            [["Space"], c("재생", "play")],
-            [["J", "L"], c("5초", "5s")],
-            [["←", "→"], c("1초", "1s")],
-            [["I", "O"], c("구간", "range")],
-            [["C"], c("코멘트", "comment")],
-          ] as const
-        ).map(([keys, label]) => (
-          <span key={label} className="inline-flex items-center gap-1">
-            {keys.map((k, i) => (
-              <span key={k} className="inline-flex items-center gap-0.5">
-                {i > 0 && "/"}
-                <Kbd>{k}</Kbd>
-              </span>
+      {/* Shortcuts are for a keyboard; on a phone the line is not drawn. */}
+      <div className="hidden justify-end lg:flex">
+        <InfoTip label={c("단축키와 재생 안내", "Shortcuts and playback")} text={c("단축키", "Shortcuts")} className="text-xs">
+          <ul className="space-y-1.5">
+            {(
+              [
+                [["Space", "K"], c("재생 · 일시정지", "Play · pause")],
+                [["J", "L"], c("5초 뒤로 · 앞으로", "Back · forward 5s")],
+                [["←", "→"], c("1초 뒤로 · 앞으로", "Back · forward 1s")],
+                [["I", "O"], c("구간 시작 · 끝", "Range in · out")],
+                [["C"], c("코멘트 쓰기", "Write a comment")],
+                [["M"], c("소리 끄기 · 켜기", "Mute · unmute")],
+              ] as const
+            ).map(([keys, label]) => (
+              <li key={label} className="flex items-center justify-between gap-3">
+                <span>{label}</span>
+                <span className="flex gap-1">
+                  {keys.map((k) => (
+                    <Kbd key={k}>{k}</Kbd>
+                  ))}
+                </span>
+              </li>
             ))}
-            {label}
-          </span>
-        ))}
-      </p>
-      <InfoTip label={c("재생 주소 안내", "About playback links")} text={c("재생 주소 안내", "About playback links")}>
-        <p>
-          {c(
-            "재생 주소는 최대 5분 동안 유효하며 만료 전에 현재 권한으로 다시 받아 이어서 재생합니다. 공유 회수나 참여 종료 뒤에는 새 주소가 발급되지 않지만, 이미 발급된 주소는 만료 시각(최대 5분)까지 남을 수 있습니다.",
-            "Playback URLs last at most 5 minutes and are renewed with your current access. After a revoked share or ended participation no new URL is issued, but an already issued URL can remain usable until it expires (up to 5 minutes).",
-          )}
-        </p>
-      </InfoTip>
+          </ul>
+          <p>
+            {c(
+              "재생 주소는 최대 5분 동안 유효하며 만료 전에 현재 권한으로 다시 받아 이어서 재생합니다. 공유 회수나 참여 종료 뒤에는 새 주소가 발급되지 않지만, 이미 발급된 주소는 만료 시각(최대 5분)까지 남을 수 있습니다.",
+              "Playback URLs last at most 5 minutes and are renewed with your current access. After a revoked share or ended participation no new URL is issued, but an already issued URL can remain usable until it expires (up to 5 minutes).",
+            )}
+          </p>
+        </InfoTip>
+      </div>
     </div>
   );
 }
@@ -717,7 +806,8 @@ function useAgo() {
   return (iso: string) => {
     const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
     const rtf = new Intl.RelativeTimeFormat(lang === "ko" ? "ko-KR" : "en-US", { numeric: "auto" });
-    if (minutes < 1) return rtf.format(0, "minute");
+    // rtf.format(0, "minute") reads "현재 분" in Korean.
+    if (minutes < 1) return lang === "ko" ? "방금" : "just now";
     if (minutes < 60) return rtf.format(-minutes, "minute");
     if (minutes < 1440) return rtf.format(-Math.round(minutes / 60), "hour");
     if (minutes < 10080) return rtf.format(-Math.round(minutes / 1440), "day");
@@ -748,12 +838,153 @@ function exportComments(detail: ReviewDetail, c: Copy) {
   URL.revokeObjectURL(a.href);
 }
 
+/** Long text folds to a few lines with 더 보기, so one essay does not push
+ * every other comment out of the panel. */
+function Clamp({ lines, className = "", children }: { lines: 3 | 4; className?: string; children: ReactNode }) {
+  const c = useCopy();
+  const box = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [over, setOver] = useState(false);
+  useLayoutEffect(() => {
+    const n = box.current;
+    if (!n || open) return;
+    // Measured again whenever the box changes size (a narrower panel, an
+    // edited comment), not on every render.
+    const measure = () => setOver(n.scrollHeight > n.clientHeight + 1);
+    measure();
+    const watch = new ResizeObserver(measure);
+    watch.observe(n);
+    return () => watch.disconnect();
+  }, [open]);
+  return (
+    <>
+      <div ref={box} className={`${className} ${open ? "" : lines === 3 ? "line-clamp-3" : "line-clamp-4"}`}>
+        {children}
+      </div>
+      {(over || open) && (
+        <button type="button" className="text-xs font-medium text-muted hover:text-foreground" onClick={() => setOpen((v) => !v)}>
+          {open ? c("접기", "Show less") : c("더 보기", "Show more")}
+        </button>
+      )}
+    </>
+  );
+}
+
+/**
+ * 버전 메모 (2026-10-12): what changed in this version, written by whoever
+ * shares it (the project's managers or the publisher), above the comments
+ * on it. The gray tray with a white card is affectUI's ChangeSummary look.
+ */
+function VersionNote({
+  scope,
+  detail,
+  reload,
+}: {
+  scope: ReviewScope;
+  detail: ReviewDetail;
+  reload: () => Promise<void>;
+}) {
+  const c = useCopy();
+  const ago = useAgo();
+  const shown = detail.rounds.find((r) => r.round === detail.selectedRound)!;
+  const note = shown.note;
+  const canEdit = scope.kind === "project" && detail.allowedActions.editNote;
+  const [text, setText] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  if (!note && !canEdit) return null;
+  const title = c(`V${shown.ordinal} 메모`, `V${shown.ordinal} note`);
+  const save = async () => {
+    if (scope.kind !== "project" || text === null) return;
+    setBusy(true);
+    setError("");
+    try {
+      await reviewsService.setNote(scope, shown.versionId, text);
+      setText(null);
+      await reload();
+    } catch (e) {
+      setError(errorCode(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (text !== null)
+    return (
+      <form
+        className="space-y-2 border-b border-border p-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void save();
+        }}
+      >
+        <textarea
+          autoFocus
+          className={`${inputClass} min-h-20 resize-none [field-sizing:content]`}
+          value={text}
+          maxLength={2000}
+          aria-label={title}
+          placeholder={c("이 버전에서 바뀐 점, 봐 줬으면 하는 부분", "What changed in this version, what to look at")}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setText(null);
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+              e.preventDefault();
+              void save();
+            }
+          }}
+        />
+        <div className="flex justify-end gap-2">
+          <Button size="sm" variant="secondary" onClick={() => setText(null)}>
+            {c("취소", "Cancel")}
+          </Button>
+          <Button size="sm" type="submit" disabled={busy}>
+            {c("메모 저장", "Save note")}
+          </Button>
+        </div>
+        {error && <ReviewError code={error} />}
+      </form>
+    );
+  if (!note)
+    return (
+      <div className="border-b border-border px-3 py-2">
+        <Button variant="ghost" size="xs" className="-ml-1 text-muted" onClick={() => setText("")}>
+          <NotebookPen size={13} strokeWidth={1.75} aria-hidden="true" />
+          {c(`V${shown.ordinal}에 메모 남기기`, `Add a note to V${shown.ordinal}`)}
+        </Button>
+      </div>
+    );
+  return (
+    <section aria-label={title} className="border-b border-border p-2">
+      <div className="rounded-lg bg-surface-secondary p-1">
+        <div className="flex items-center gap-1.5 px-2 pb-1 pt-0.5 text-xs">
+          <NotebookPen size={13} strokeWidth={1.75} aria-hidden="true" className="text-muted" />
+          <span className="font-medium">{title}</span>
+          <span className="min-w-0 truncate text-muted" title={kst(note.at)}>
+            {note.by.name ?? c("이름 없음", "Unnamed")} · {ago(note.at)}
+          </span>
+          <span className="flex-1" />
+          {canEdit && (
+            <IconButton size="xs" label={c("메모 수정", "Edit note")} onClick={() => setText(note.body)}>
+              <Pencil size={12} strokeWidth={1.75} aria-hidden="true" />
+            </IconButton>
+          )}
+        </div>
+        <div className="rounded-md bg-background px-3 py-2 shadow-[0_1px_2px_rgba(0,0,0,0.06)]">
+          <Clamp lines={3} className="whitespace-pre-wrap break-words text-[13px] leading-5">
+            {note.body}
+          </Clamp>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Comments({
   scope,
   token,
   detail,
   pending,
-  now,
+  playhead,
   time,
   focused,
   composer,
@@ -765,7 +996,7 @@ function Comments({
   token?: string | null;
   detail: ReviewDetail;
   pending: ReviewRecord[];
-  now: RefObject<number>;
+  playhead: () => number;
   time: number;
   focused: string | null;
   composer: Ref<ComposerHandle>;
@@ -774,50 +1005,37 @@ function Comments({
   reload: () => Promise<void>;
 }) {
   const c = useCopy();
-  const [filter, setFilter] = useState<"all" | "open">("all");
+  // 요청 / 해결됨 (2026-10-12): a comment is a request until someone ticks it.
+  const [filter, setFilter] = useState<"open" | "resolved">("open");
   const sending = pending.filter((r) => r.action === "comment" && r.input.round === detail.selectedRound);
   const top = detail.comments.filter((m) => !m.parentId);
-  const open = top.filter((m) => !m.resolved).length;
-  const shown = filter === "open" ? top.filter((m) => !m.resolved) : top;
+  const open = top.filter((m) => !m.resolved);
+  const done = top.filter((m) => m.resolved);
+  const shown = filter === "open" ? open : done;
   return (
-    <section className={`${cardClass} flex min-h-0 flex-1 flex-col overflow-hidden`} aria-label={c("코멘트", "Comments")}>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
-        <h2 className="text-base font-semibold">
-          {c("코멘트", "Comments")} <span className="font-normal tabular-nums text-muted">{top.length}</span>
-        </h2>
-        <div className="flex items-center gap-1">
-          <div className={track} role="group" aria-label={c("코멘트 보기", "Comment filter")}>
-            {(
-              [
-                ["all", c("전체", "All")],
-                ["open", `${c("남은 것", "Open")} ${open}`],
-              ] as const
-            ).map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                aria-pressed={filter === key}
-                onClick={() => setFilter(key)}
-                className={segment}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          {top.length > 0 && (
-            <IconButton
-              onClick={() => exportComments(detail, c)}
-              label={c("코멘트 CSV로 내보내기", "Export comments as CSV")}
-              title={c("CSV로 내보내기", "Export as CSV")}
-            >
-              <Download size={14} strokeWidth={1.75} aria-hidden="true" />
-            </IconButton>
-          )}
+    <section
+      aria-label={c("코멘트", "Comments")}
+      className="flex min-w-0 flex-col rounded-lg border border-border bg-background lg:min-h-0 lg:overflow-hidden"
+    >
+      <VersionNote key={`${detail.selectedRound}`} scope={scope} detail={detail} reload={reload} />
+      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+        <div className={track} role="group" aria-label={c("코멘트 보기", "Comment filter")}>
+          {(
+            [
+              ["open", c("요청", "Requests"), open.length],
+              ["resolved", c("해결됨", "Resolved"), done.length],
+            ] as const
+          ).map(([key, label, count]) => (
+            <button key={key} type="button" aria-pressed={filter === key} onClick={() => setFilter(key)} className={segment}>
+              {label}{" "}
+              <span className="ml-0.5 tabular-nums text-muted">{count}</span>
+            </button>
+          ))}
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
         {sending.map((r) => (
-          <article key={r.input.requestKey} className="border-b border-dashed border-border px-4 py-3 text-sm" aria-live="polite">
+          <article key={r.input.requestKey} className="border-b border-dashed border-border px-3 py-2.5 text-sm" aria-live="polite">
             <p className="text-xs text-muted">
               {timecode(r.input.startMs as number)} · {c("전송 확인 대기 — 아직 공개되지 않았습니다", "Awaiting confirmation — not published yet")}
             </p>
@@ -828,7 +1046,18 @@ function Comments({
           <EmptyState
             frame="none"
             icon={MessageSquare}
-            title={top.length ? c("남은 코멘트가 없습니다.", "Nothing left open.") : c("이 회차에 코멘트가 없습니다.", "No comments in this round.")}
+            title={
+              filter === "resolved"
+                ? c("해결된 코멘트가 없어요.", "Nothing resolved yet.")
+                : top.length
+                  ? c("남은 요청이 없어요.", "No open requests.")
+                  : c("아직 코멘트가 없어요.", "No comments yet.")
+            }
+            description={
+              filter === "open" && !top.length && detail.allowedActions.comment
+                ? c("영상을 보다가 장면에 의견을 남겨 보세요.", "Pause on a moment and leave feedback.")
+                : undefined
+            }
           />
         ) : (
           <ul className="divide-y divide-border">
@@ -850,33 +1079,46 @@ function Comments({
         )}
       </div>
       {detail.allowedActions.comment && (
-        <Composer ref={composer} scope={scope} token={token} detail={detail} now={now} time={time} pause={pause} reload={reload} />
+        <Composer
+          ref={composer}
+          scope={scope}
+          token={token}
+          detail={detail}
+          playhead={playhead}
+          time={time}
+          pause={pause}
+          reload={reload}
+          onPosted={() => setFilter("open")}
+        />
       )}
     </section>
   );
 }
 
 /** Unsent text is a per-account/service/review/round draft on this device;
- * it never shows as a published comment. Until a time is set (I, the start
- * button, or starting to type) the comment follows the playhead. */
+ * it never shows as a published comment. The comment sits where the playhead
+ * is — while typing too, so scrubbing moves it (2026-10-12) — until I/O or
+ * the 시작점/끝점 buttons fix a time or a range. */
 function Composer({
   ref,
   scope,
   token,
   detail,
-  now,
+  playhead,
   time,
   pause,
   reload,
+  onPosted,
 }: {
   ref: Ref<ComposerHandle>;
   scope: ReviewScope;
   token?: string | null;
   detail: ReviewDetail;
-  now: RefObject<number>;
+  playhead: () => number;
   time: number;
   pause: () => void;
   reload: () => Promise<void>;
+  onPosted: () => void;
 }) {
   const c = useCopy();
   const round = detail.selectedRound;
@@ -890,7 +1132,7 @@ function Composer({
   const typed = useRef(false);
   const field = useRef<HTMLTextAreaElement>(null);
   const duration = detail.preview.durationMs ?? 0;
-  const at = () => Math.min(now.current, Math.max(0, duration - 1));
+  const at = () => Math.min(playhead(), Math.max(0, duration - 1));
   const markIn = () => {
     const s = at();
     setStart(s);
@@ -899,10 +1141,11 @@ function Composer({
   };
   const markOut = () => {
     const s = pinned ? startMs : at();
-    if (now.current > s) {
+    const t = playhead();
+    if (t > s) {
       setStart(s);
       setPinned(true);
-      setEnd(Math.min(now.current, duration));
+      setEnd(Math.min(t, duration));
     }
   };
   useImperativeHandle(ref, () => ({
@@ -921,12 +1164,15 @@ function Composer({
         .then((d) => {
           if (!live) return;
           // A discarded pending comment returns here, but never over text
-          // the user is typing.
+          // the user is typing. A range was set on purpose and comes back;
+          // a single time follows the playhead again.
           if (d && !typed.current) {
             setBody(d.body);
-            setStart(d.startMs);
-            setEnd(d.endMs);
-            setPinned(true);
+            if (d.endMs !== null) {
+              setStart(d.startMs);
+              setEnd(d.endMs);
+              setPinned(true);
+            }
           }
           setLoaded(true);
         })
@@ -968,22 +1214,46 @@ function Composer({
       setBody("");
       setEnd(null);
       setPinned(false);
+      onPosted();
       await reviewStore.saveDraft(scope, round, null).catch(() => {});
     }
     await reload();
   };
   return (
     <form
-      className="shrink-0 space-y-2 p-3"
+      className="shrink-0 border-t border-border bg-background p-2 max-lg:sticky max-lg:bottom-0 max-lg:z-10"
       onSubmit={(e) => {
         e.preventDefault();
         void submit();
       }}
     >
-      {/* The review composer is the one card here with a shadow. */}
-      <div className="rounded-lg border border-border bg-background shadow-sm transition-colors focus-within:border-foreground/40">
-        <div className="flex flex-wrap items-center gap-1 px-2 pt-2">
-          <span className={`${timeChip} mr-1 bg-surface-secondary`}>
+      <div className="rounded-lg border border-border bg-background transition-colors focus-within:border-foreground/40">
+        <textarea
+          ref={field}
+          className="block max-h-40 min-h-[4.5rem] w-full resize-none bg-transparent px-3 pb-1 pt-2.5 text-sm leading-6 outline-none [field-sizing:content] placeholder:text-muted disabled:opacity-50"
+          value={body}
+          maxLength={2000}
+          rows={2}
+          disabled={mutation.busy}
+          aria-label={c("코멘트 내용", "Comment text")}
+          placeholder={c(`${clock(shownStart)}에 의견 남기기`, `Comment at ${clock(shownStart)}`)}
+          // Writing stops the video on the frame being talked about; the
+          // time still follows the playhead if they scrub on.
+          onFocus={pause}
+          onChange={(e) => setBody(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && body.trim() && !mutation.busy) {
+              e.preventDefault();
+              void submit();
+            }
+          }}
+        />
+        <div className="flex flex-wrap items-center gap-1 px-2 pb-2">
+          <span
+            className={`${timeChip} mr-0.5 ${pinned ? "bg-foreground/10" : "bg-surface-secondary"}`}
+            aria-live="off"
+            title={pinned ? c("고정된 위치", "Fixed time") : c("재생 위치를 따라가요", "Follows the playhead")}
+          >
             {clock(shownStart)}
             {endMs !== null && ` – ${clock(endMs)}`}
           </span>
@@ -993,43 +1263,20 @@ function Composer({
           <Button variant="ghost" size="xs" onClick={markOut} aria-label={c("현재 위치를 끝으로", "End at playhead")} title="O">
             {c("끝점", "Out")}
           </Button>
-          {endMs !== null && (
-            <IconButton size="xs" onClick={() => setEnd(null)} label={c("구간 해제", "Clear range")}>
+          {pinned && (
+            <IconButton
+              size="xs"
+              onClick={() => {
+                setEnd(null);
+                setPinned(false);
+              }}
+              label={endMs !== null ? c("구간 해제", "Clear range") : c("시작점 해제", "Clear start")}
+            >
               <X size={12} aria-hidden="true" />
             </IconButton>
           )}
-        </div>
-        <textarea
-          ref={field}
-          className="block min-h-16 w-full resize-none bg-transparent px-3 py-2 text-sm leading-6 outline-none placeholder:text-muted disabled:opacity-50"
-          value={body}
-          maxLength={2000}
-          rows={2}
-          disabled={mutation.busy}
-          aria-label={c("코멘트 내용", "Comment text")}
-          placeholder={c("이 장면에 대한 의견을 남겨 주세요", "Leave feedback on this moment")}
-          onFocus={() => {
-            // Typing pins the comment to the frame on screen, and holds it there.
-            pause();
-            if (!pinned) {
-              setStart(at());
-              setPinned(true);
-            }
-          }}
-          onChange={(e) => setBody(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && body.trim() && !mutation.busy) {
-              e.preventDefault();
-              void submit();
-            }
-          }}
-        />
-        <div className="flex items-center justify-between gap-2 px-2 pb-2 pl-3">
-          <span className="hidden items-center gap-1.5 text-xs text-muted sm:inline-flex">
-            <Kbd>⌘↵</Kbd>
-            {c("보내기 · 초안은 이 기기에만 저장", "to send · drafts stay on this device")}
-          </span>
-          <span className="sm:hidden" />
+          <span className="flex-1" />
+          <Kbd className="hidden sm:inline-flex">⌘↵</Kbd>
           <Button type="submit" size="sm" disabled={mutation.busy || !body.trim()} aria-busy={mutation.busy || undefined}>
             {mutation.busy ? c("전송 중", "Sending") : c("코멘트 남기기", "Post comment")}
           </Button>
@@ -1066,6 +1313,8 @@ function CommentItem({
   const ago = useAgo();
   const [mode, setMode] = useState<"" | "edit" | "reply">("");
   const [history, setHistory] = useState(false);
+  // A long thread shows its latest reply; the rest open on request.
+  const [thread, setThread] = useState(false);
   const mutation = useRun();
   const row = useRef<HTMLLIElement>(null);
   useEffect(() => {
@@ -1079,91 +1328,100 @@ function CommentItem({
     );
     await reload();
   };
+  const folded = replies.length > 2 && !thread;
+  const visible = folded ? replies.slice(-1) : replies;
   return (
-    <li
-      ref={row}
-      className={`group px-4 py-3 transition-colors ${active || focused ? "bg-surface-secondary" : ""} ${m.resolved ? "opacity-60" : ""}`}
-    >
-      <div className="flex gap-2.5">
-        <Avatar id={m.author.userId} name={m.author.name ?? "?"} size={24} />
-        <div className="min-w-0 flex-1 space-y-1">
-          <div className="flex min-h-6 items-center gap-1.5">
-            <span className="truncate text-[13px] font-medium">{m.author.name ?? c("이름 없음", "Unnamed")}</span>
-            <span className="shrink-0 text-xs text-muted" title={kst(m.createdAt)}>{ago(m.createdAt)}</span>
-            {m.revision > 1 && <span className="shrink-0 text-xs text-muted">· {c("수정됨", "Edited")}</span>}
-            <span className="flex-1" />
-            {canAct ? (
-              <IconButton
-                size="xs"
-                onClick={() => void resolve()}
-                disabled={mutation.busy}
-                aria-pressed={!!m.resolved}
-                label={m.resolved ? c("완료 취소", "Reopen") : c("완료로 표시", "Mark done")}
-                className="-my-0.5 aria-pressed:bg-success/10 aria-pressed:text-success-ink"
-              >
-                <Check size={14} strokeWidth={2} aria-hidden="true" />
-              </IconButton>
-            ) : (
-              m.resolved && <Check size={14} className="text-success-ink" aria-label={c("완료", "Done")} />
+    <li ref={row} className={`group px-3 py-2.5 transition-colors ${active || focused ? "bg-surface-secondary" : ""}`}>
+      <div className="flex min-h-6 items-center gap-2">
+        <Avatar id={m.author.userId} name={m.author.name ?? "?"} size={20} />
+        <span className="truncate text-[13px] font-medium">{m.author.name ?? c("이름 없음", "Unnamed")}</span>
+        <span className="shrink-0 text-xs text-muted" title={kst(m.createdAt)}>
+          {ago(m.createdAt)}
+          {m.revision > 1 && ` · ${c("수정됨", "Edited")}`}
+        </span>
+        <span className="flex-1" />
+        {canAct ? (
+          <IconButton
+            size="xs"
+            onClick={() => void resolve()}
+            disabled={mutation.busy}
+            aria-pressed={!!m.resolved}
+            label={m.resolved ? c("요청으로 되돌리기", "Reopen") : c("해결로 표시", "Mark resolved")}
+            title={m.resolved ? c("요청으로 되돌리기", "Reopen") : c("해결로 표시", "Mark resolved")}
+            className="-my-0.5 rounded-full border border-border aria-pressed:border-transparent aria-pressed:bg-success/15 aria-pressed:text-success-ink"
+          >
+            <Check size={12} strokeWidth={2.25} aria-hidden="true" />
+          </IconButton>
+        ) : (
+          m.resolved && <Check size={14} className="text-success-ink" aria-label={c("해결됨", "Resolved")} />
+        )}
+      </div>
+      <div className="mt-1 space-y-1 pl-7">
+        {mode === "edit" ? (
+          <EditForm scope={scope} token={token} comment={m} onDone={() => setMode("")} reload={reload} />
+        ) : (
+          <Clamp lines={4} className="text-sm leading-6">
+            <button
+              type="button"
+              className={`${timeChip} mr-1.5 align-[1px] transition-colors hover:bg-surface-tertiary focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus ${active || focused ? "bg-surface-tertiary" : "bg-surface-secondary"}`}
+              aria-label={span(m)}
+              onClick={() => onSeek(m.startMs, m.id)}
+            >
+              {clock(m.startMs)}
+              {m.endMs !== null && ` – ${clock(m.endMs)}`}
+            </button>
+            <span className="whitespace-pre-wrap break-words">{m.body}</span>
+          </Clamp>
+        )}
+        {m.resolved && (
+          <p className="text-xs text-muted">
+            {c(`${m.resolved.by.name ?? "이름 없음"} 님이 해결함`, `Resolved by ${m.resolved.by.name ?? "someone"}`)}
+          </p>
+        )}
+        {history && (
+          <ol className="space-y-1 text-xs text-muted">
+            {m.history.map((h) => (
+              <li key={h.number}>
+                {h.number}. {kst(h.createdAt)} — <span className="whitespace-pre-wrap">{h.body}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+        {replies.length > 0 && (
+          <ul className="mt-1.5 space-y-2 border-l border-border pl-3">
+            {folded && (
+              <li>
+                <button type="button" className="text-xs font-medium text-muted hover:text-foreground" onClick={() => setThread(true)}>
+                  {c(`이전 답글 ${replies.length - 1}개 보기`, `Show ${replies.length - 1} earlier replies`)}
+                </button>
+              </li>
+            )}
+            {visible.map((r) => (
+              <Reply key={r.id} scope={scope} token={token} comment={r} reload={reload} />
+            ))}
+          </ul>
+        )}
+        {mode !== "edit" && (canAct || m.canEdit || m.revision > 1) && mode !== "reply" && (
+          <div className="-ml-2 flex flex-wrap gap-0.5">
+            {canAct && (
+              <Button variant="ghost" size="xs" className="text-muted" onClick={() => setMode("reply")}>
+                {c("답글", "Reply")}
+              </Button>
+            )}
+            {m.canEdit && (
+              <Button variant="ghost" size="xs" className="text-muted" onClick={() => setMode("edit")}>
+                {c("수정", "Edit")}
+              </Button>
+            )}
+            {m.revision > 1 && (
+              <Button variant="ghost" size="xs" className="text-muted" onClick={() => setHistory((v) => !v)}>
+                {c("수정 이력", "Edit history")}
+              </Button>
             )}
           </div>
-          <button
-            type="button"
-            className={`${timeChip} transition-colors hover:bg-surface-tertiary focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus ${active || focused ? "bg-surface-tertiary" : "bg-surface-secondary"}`}
-            aria-label={span(m)}
-            onClick={() => onSeek(m.startMs, m.id)}
-          >
-            {clock(m.startMs)}
-            {m.endMs !== null && ` – ${clock(m.endMs)}`}
-          </button>
-          {mode === "edit" ? (
-            <EditForm scope={scope} token={token} comment={m} onDone={() => setMode("")} reload={reload} />
-          ) : (
-            <p className="whitespace-pre-wrap break-words text-sm leading-6">{m.body}</p>
-          )}
-          {m.resolved && (
-            <p className="text-xs text-muted">
-              {c(`${m.resolved.by.name ?? "이름 없음"} 님이 완료로 표시`, `Marked done by ${m.resolved.by.name ?? "someone"}`)}
-            </p>
-          )}
-          {history && (
-            <ol className="space-y-1 text-xs text-muted">
-              {m.history.map((h) => (
-                <li key={h.number}>
-                  {h.number}. {kst(h.createdAt)} — <span className="whitespace-pre-wrap">{h.body}</span>
-                </li>
-              ))}
-            </ol>
-          )}
-          {replies.length > 0 && (
-            <ul className="mt-2 space-y-2.5 border-l border-border pl-3">
-              {replies.map((r) => (
-                <Reply key={r.id} scope={scope} token={token} comment={r} reload={reload} />
-              ))}
-            </ul>
-          )}
-          {mode !== "edit" && (
-            <div className="-ml-2.5 flex flex-wrap gap-1">
-              {canAct && mode !== "reply" && (
-                <Button variant="ghost" size="xs" onClick={() => setMode("reply")}>
-                  {c("답글", "Reply")}
-                </Button>
-              )}
-              {m.canEdit && (
-                <Button variant="ghost" size="xs" onClick={() => setMode("edit")}>
-                  {c("수정", "Edit")}
-                </Button>
-              )}
-              {m.revision > 1 && (
-                <Button variant="ghost" size="xs" onClick={() => setHistory((v) => !v)}>
-                  {c("수정 이력", "Edit history")}
-                </Button>
-              )}
-            </div>
-          )}
-          {mode === "reply" && <ReplyForm scope={scope} token={token} detail={detail} parent={m} onDone={() => setMode("")} reload={reload} />}
-          {mutation.error && <ReviewError code={mutation.error} />}
-        </div>
+        )}
+        {mode === "reply" && <ReplyForm scope={scope} token={token} detail={detail} parent={m} onDone={() => setMode("")} reload={reload} />}
+        {mutation.error && <ReviewError code={mutation.error} />}
       </div>
     </li>
   );
@@ -1176,19 +1434,24 @@ function Reply({ scope, token, comment: r, reload }: { scope: ReviewScope; token
   return (
     <li className="space-y-0.5">
       <div className="flex items-center gap-1.5">
+        <Avatar id={r.author.userId} name={r.author.name ?? "?"} size={16} />
         <span className="truncate text-[13px] font-medium">{r.author.name ?? c("이름 없음", "Unnamed")}</span>
-        <span className="shrink-0 text-xs text-muted" title={kst(r.createdAt)}>{ago(r.createdAt)}</span>
-        {r.revision > 1 && <span className="shrink-0 text-xs text-muted">· {c("수정됨", "Edited")}</span>}
+        <span className="shrink-0 text-xs text-muted" title={kst(r.createdAt)}>
+          {ago(r.createdAt)}
+          {r.revision > 1 && ` · ${c("수정됨", "Edited")}`}
+        </span>
+        {r.canEdit && !editing && (
+          <Button variant="ghost" size="xs" className="ml-auto text-muted" onClick={() => setEditing(true)}>
+            {c("수정", "Edit")}
+          </Button>
+        )}
       </div>
       {editing ? (
         <EditForm scope={scope} token={token} comment={r} onDone={() => setEditing(false)} reload={reload} />
       ) : (
-        <p className="whitespace-pre-wrap break-words text-sm leading-6">{r.body}</p>
-      )}
-      {r.canEdit && !editing && (
-        <Button variant="ghost" size="xs" className="-ml-2.5" onClick={() => setEditing(true)}>
-          {c("수정", "Edit")}
-        </Button>
+        <Clamp lines={4} className="whitespace-pre-wrap break-words text-sm leading-6">
+          {r.body}
+        </Clamp>
       )}
     </li>
   );
@@ -1277,185 +1540,37 @@ function ReplyForm({ scope, token, detail, parent, onDone, reload }: { scope: Re
 }
 
 
-/**
- * 상태 (status model, 2026-10-12 — Frame.io-style): one box, one question —
- * "is this version good?". Anyone taking part in the project approves or
- * asks for changes; the latest decision is the status. No named approver.
- * Reasons the server keeps are asked only where they say something (what to
- * change), and filled in for the rest.
- */
-function Approval({
-  scope,
-  token,
-  detail,
-  reload,
-}: {
-  scope: ReviewScope;
-  token?: string | null;
-  detail: ReviewDetail;
-  reload: () => Promise<void>;
-}) {
-  const c = useCopy();
-  const history = useOverlayState();
-  const [asking, setAsking] = useState(false);
-  const [reason, setReason] = useState("");
-  const mutation = useRun();
-  const current = detail.decisions.find((d) => d.current);
-  const canCancel = !!current && detail.allowedActions.cancelDecision;
-  if (!detail.allowedActions.decide && !detail.decisions.length) return null;
-  const decide = async (decision: "approved" | "changes_requested") => {
-    // Pinned to what this screen shows; a newer version rejects it.
-    const input = {
-      revision: detail.review.revision,
-      round: detail.review.round,
-      versionId: detail.review.versionId,
-      decision,
-      reason: decision === "approved" ? "" : reason.trim(),
-    };
-    const done = await mutation.run(input, (requestKey) =>
-      reviewsService.mutate(scope, "decide", { requestKey, ...input }, undefined, token),
-    );
-    if (done) {
-      setReason("");
-      setAsking(false);
-    }
-    await reload();
-  };
-  const unnamed = c("이름 없음", "Unnamed");
-  const status = current?.decision ?? null;
-  return (
-    <section className={`${cardClass} max-h-[45%] shrink-0 space-y-3 overflow-y-auto p-5 text-[13px]`} aria-label={c("영상 상태", "Video status")}>
-      <CardHeader
-        title={c("상태", "Status")}
-        action={
-          <span className="max-w-56 truncate text-xs text-muted">
-            {status && current
-              ? `${status === "approved" ? c("승인됨", "Approved") : c("수정 요청", "Changes requested")} · ${current.approver.name ?? unnamed}`
-              : c("검토 중", "In review")}
-          </span>
-        }
-      />
-      {detail.allowedActions.decide && !asking && (
-        <div className={`grid gap-2 ${status ? "grid-cols-1" : "grid-cols-2"}`}>
-          {status !== "changes_requested" && (
-            <Button variant="secondary" disabled={mutation.busy} onClick={() => setAsking(true)}>
-              {c("수정 요청", "Request changes")}
-            </Button>
-          )}
-          {status !== "approved" && (
-            <Button disabled={mutation.busy} onClick={() => void decide("approved")}>
-              {c("승인", "Approve")}
-            </Button>
-          )}
-        </div>
-      )}
-      {detail.allowedActions.decide && asking && (
-        <form
-          className="space-y-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void decide("changes_requested");
-          }}
-        >
-          <textarea
-            className={`${inputClass} min-h-16 resize-none`}
-            rows={3}
-            autoFocus
-            value={reason}
-            maxLength={2000}
-            placeholder={c("무엇을 고치면 될까요?", "What should change?")}
-            aria-label={c("수정 요청 내용", "What to change")}
-            onChange={(e) => setReason(e.target.value)}
-          />
-          <div className="flex justify-end gap-2">
-            <Button size="sm" variant="secondary" onClick={() => setAsking(false)}>
-              {c("취소", "Cancel")}
-            </Button>
-            <Button size="sm" type="submit" disabled={mutation.busy || !reason.trim()}>
-              {c("수정 요청 보내기", "Send")}
-            </Button>
-          </div>
-        </form>
-      )}
-      {mutation.error && <ReviewError code={mutation.error} retry={() => void reload()} />}
-      {detail.decisions.length > 0 && (
-        <>
-          <Button variant="ghost" size="xs" className="-ml-2.5 text-muted" onClick={history.open}>
-            {c(`상태 기록 ${detail.decisions.length}`, `History (${detail.decisions.length})`)}
-          </Button>
-          <Dialog state={history} title={c("상태 기록", "History")}>
-          <ol className="space-y-1.5 text-[13px]">
-            {detail.decisions.map((d) => (
-              <li key={d.id} className={d.current ? "" : "text-muted"}>
-                {d.decision === "approved" ? c("승인", "Approved") : c("수정 요청", "Changes requested")} ·{" "}
-                {d.approver.name ?? unnamed} · {kst(d.decidedAt)}
-                {d.reason && ` · ${d.reason}`}
-                {d.cancelled && ` · ${c("취소됨", "Cancelled")}: ${d.cancelled.reason}`}
-              </li>
-            ))}
-          </ol>
-          {canCancel && (
-            <form
-              className="mt-2"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                const input = { revision: detail.review.revision, reason: "결정 취소" };
-                await mutation.run(input, (requestKey) =>
-                  reviewsService.mutate(scope, "cancel", { requestKey, ...input }, current!.id, token),
-                );
-                await reload();
-              }}
-            >
-              <Button size="sm" type="submit" variant="secondary" disabled={mutation.busy}>
-                {c("마지막 결정 취소", "Undo last decision")}
-              </Button>
-            </form>
-          )}
-          </Dialog>
-        </>
-      )}
-    </section>
-  );
-}
-
 /** P (2026-10-07): teammates download what was published into the folder —
  * the exact version this round plays, through the folder's files download
- * (short-lived attachment URL). Shown only when the files API says this
- * account may download it. */
-function VersionDownload({ scope, versionId }: { scope: ReviewScope & { kind: "project" }; versionId: string }) {
-  const c = useCopy();
-  const [allowed, setAllowed] = useState(false);
+ * (short-lived attachment URL). Offered (in 더보기) only when the files API
+ * says this account may download it. */
+function useVersionDownload(scope: (ReviewScope & { kind: "project" }) | null, versionId: string | undefined) {
+  const [verdict, setVerdict] = useState<{ versionId: string; allowed: boolean } | null>(null);
   const [error, setError] = useState("");
   useEffect(() => {
+    if (!scope || !versionId) return;
     let live = true;
     fileApi(scope)
       .version(versionId)
-      .then(({ version }) => live && setAllowed(version.allowedActions.download))
-      .catch(() => live && setAllowed(false));
+      .then(({ version }) => live && setVerdict({ versionId, allowed: version.allowedActions.download }))
+      .catch(() => live && setVerdict({ versionId, allowed: false }));
     return () => {
       live = false;
     };
   }, [scope, versionId]);
-  if (!allowed) return null;
-  return (
-    <div className="flex flex-wrap items-center gap-2 text-sm">
-      <Button
-        variant="secondary"
-        onClick={async () => {
-          setError("");
-          try {
-            window.location.assign((await fileApi(scope).download(versionId)).url);
-          } catch (e) {
-            setError(fileError(e));
-          }
-        }}
-      >
-        <Download size={14} strokeWidth={1.75} aria-hidden="true" />
-        {c("이 버전 받기", "Download this version")}
-      </Button>
-      {error && <ReviewError code={error} />}
-    </div>
-  );
+  return {
+    allowed: !!scope && !!versionId && verdict?.versionId === versionId && verdict.allowed,
+    error,
+    run: async () => {
+      if (!scope || !versionId) return;
+      setError("");
+      try {
+        window.location.assign((await fileApi(scope).download(versionId)).url);
+      } catch (e) {
+        setError(fileError(e));
+      }
+    },
+  };
 }
 
 function SharedDownload({ scope, token }: { scope: ReviewScope; token: string | null }) {
@@ -1486,39 +1601,6 @@ function SharedDownload({ scope, token }: { scope: ReviewScope; token: string | 
       )}
       {error && <ReviewError code={error} />}
     </div>
-  );
-}
-
-function LeadTools({
-  scope,
-  detail,
-  reload,
-}: {
-  scope: ReviewScope & { kind: "project" };
-  detail: ReviewDetail;
-  reload: () => Promise<void>;
-}) {
-  const c = useCopy();
-  const rare = detail.allowedActions.setAudience || detail.allowedActions.replaceVersion;
-  const advanced = useOverlayState();
-  return (
-    <section className="space-y-3" aria-label={c("검토 관리", "Review tools")}>
-      {/* Who sees this version and swapping the video: rare, so behind a
-          button; the dialog closes once one of them succeeds. */}
-      {rare && (
-        <>
-          <Button variant="secondary" size="sm" onClick={advanced.open}>
-            {c("고급 설정", "Advanced")}
-          </Button>
-          <Dialog state={advanced} title={c("고급 설정", "Advanced")} size="wide">
-            <div className="grid gap-3 xl:grid-cols-2 xl:items-start">
-              {detail.allowedActions.setAudience && <AudienceForm key={`audience:${detail.review.revision}`} scope={scope} detail={detail} reload={reload} onDone={advanced.close} />}
-              {detail.allowedActions.replaceVersion && <ReplaceVersion key={`replace:${detail.review.revision}`} scope={scope} detail={detail} reload={reload} onDone={advanced.close} />}
-            </div>
-          </Dialog>
-        </>
-      )}
-    </section>
   );
 }
 

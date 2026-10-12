@@ -225,8 +225,8 @@ function VisibilitySection({
         {project.visibility === "team" ? (
           <p>
             {c(
-              "뷰어를 제외한 멤버는 팀 공용 클라우드처럼 자료를 올리고 받고 결과를 발행할 수 있습니다. 공개 범위와 공유 링크는 프로젝트를 올린 사람과 소유자·관리자가 관리합니다. 영상의 승인·수정 요청은 참여자 누구나 할 수 있습니다. AI 사용은 자료별 권한을 따릅니다.",
-              "Members other than team reviewers can upload and download files and publish results, like a shared team cloud. Visibility, completion and share links stay with the lead; anyone taking part can approve a video or ask for changes. AI use follows per-file permissions.",
+              "뷰어를 제외한 멤버는 팀 공용 클라우드처럼 자료를 올리고 받고 결과를 발행할 수 있습니다. 공개 범위와 공유 링크는 프로젝트를 올린 사람과 소유자·관리자가 관리합니다. 영상 승인은 참여자 누구나 할 수 있습니다. AI 사용은 자료별 권한을 따릅니다.",
+              "Members other than team viewers can upload and download files and publish results, like a shared team cloud. Visibility and share links stay with whoever brought the project in and the owner and admins; anyone taking part can approve a video. AI use follows per-file permissions.",
             )}
           </p>
         ) : (

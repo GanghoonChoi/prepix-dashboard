@@ -1850,6 +1850,8 @@ export type ReviewRound = {
   closedAt: string | null;
   current: boolean;
   changeReason: string | null;
+  /** 0104: the version's memo (what changed), or null. */
+  note: { body: string; by: { userId: string; name: string | null }; at: string } | null;
 };
 export type ReviewComment = {
   id: string;
@@ -1929,6 +1931,8 @@ export type ReviewDetail = {
     retryPreview: boolean;
     download: boolean;
     setAudience: boolean;
+    /** 0104: write the memo of the versions in this review. */
+    editNote: boolean;
   };
 };
 export type ReviewPlayback = TeamPreviewPlayback;
@@ -1977,6 +1981,8 @@ export type CreateReviewComment = Mutation & {
 };
 // Top-level comments only; anyone who may comment on the round may resolve.
 export type ResolveReviewComment = Mutation & { resolved: boolean };
+/** An empty note clears it. */
+export type ReviewVersionNote = Mutation & { note: string };
 export type EditReviewComment = RevisionMutation & { body: string };
 // `revision` pins the exact comment text the converter saw.
 export type ConvertReviewComment = Mutation & {

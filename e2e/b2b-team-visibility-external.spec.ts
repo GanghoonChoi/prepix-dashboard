@@ -69,7 +69,8 @@ test("V: an external client does not see an automatically published round until 
   // The lead opens a round to the client: the audience form starts from the
   // current (project) round, and the client is ticked as an external.
   const L = await open(browser, lead, `${base}/reviews/${reviewId}`);
-  await L.page.getByText("고급 설정", { exact: true }).click();
+  await L.page.getByRole("button", { name: "더보기", exact: true }).click();
+  await L.page.getByRole("menuitem", { name: "고급 설정", exact: true }).click();
   const audience = L.page.getByRole("heading", { name: "검토 대상 변경", exact: true }).locator("..");
   await expect(audience.getByRole("radio", { name: "프로젝트 내부 전체 공개", exact: true })).toBeChecked({ timeout: 30_000 });
   await expect(audience.getByText("외부 참여자에게도 이 회차 공개 (선택)", { exact: true })).toBeVisible();
@@ -90,7 +91,7 @@ test("V: an external client does not see an automatically published round until 
   await expect(C.page.getByRole("link", { name: /고객 전 내부 검토/ })).toBeVisible({ timeout: 30_000 });
   await C.page.getByRole("link", { name: /고객 전 내부 검토/ }).click();
   await expect(C.page.getByText(/V1 · 회차 2/)).toBeVisible({ timeout: 30_000 });
-  await expect(C.page.getByRole("navigation", { name: "검토 회차", exact: true })).toHaveCount(0);
+  await expect(C.page.getByRole("combobox", { name: "버전", exact: true })).toHaveCount(0);
   await expect(C.page.locator("body")).not.toContainText(internal);
   await shot(C.page, "s14-client-opened-round");
   // Internal members keep both rounds.
