@@ -132,7 +132,7 @@ const messages: Record<string, [string, string]> = {
   B2B_REFUND_AI_IN_USE: ["사용·예약된 AI 제공량은 환불할 수 없습니다.", "Used or reserved AI cannot be refunded."],
   B2B_REFUND_AMOUNT_CHANGED: ["사용량이 바뀌어 환불 금액이 달라졌습니다. 다시 확인해 주세요.", "Usage changed the refund amount. Review it again."],
   B2B_REFUND_EXCEEDS_BALANCE: ["원결제 잔액을 넘는 환불은 할 수 없습니다. 운영 확인이 필요합니다.", "The refund exceeds the original payment balance."],
-  B2B_TERMINATION_REQUIRED: ["진행 중인 이용기간의 기본 상품은 중도해지로 환불합니다. 플랜과 결제의 중도해지를 이용해 주세요.", "The running period's base plan is refunded through mid-term termination. Use termination on plan and billing."],
+  B2B_TERMINATION_REQUIRED: ["진행 중인 이용기간의 기본 요금 환불은 운영팀에 문의해 주세요.", "For a refund of the running period's base plan, contact support."],
   B2B_TERMINATION_NOT_ACTIVE: ["지금 진행 중인 이용기간이 없어 중도해지할 것이 없습니다.", "There is no running period to terminate."],
   B2B_TERMINATION_NOT_OFFERED: ["승인된 환불 기준이 이 기간의 중도해지 환불을 제공하지 않습니다. 운영팀에 문의해 주세요.", "The approved refund policy offers no termination refund for this period. Contact support."],
   B2B_REASON_REQUIRED: ["사유를 입력해 주세요.", "Enter a reason."],
@@ -178,17 +178,8 @@ export const billingCode = (e: unknown) =>
 /** One topic, three pages: the plan, the billing details it runs on, and the
  * monthly statements it produces. They used to be two sidebar entries and a
  * button, with no way across from statements back to the plan. */
-export const billingTabs = (
-  workspaceId: string,
-  c: (ko: string, en: string) => string,
-) => {
-  const base = `/dashboard/workspaces/${workspaceId}`;
-  return [
-    { href: `${base}/plan`, label: c("개요", "Overview") },
-    { href: `${base}/plan/settings`, label: c("결제 정보", "Billing details") },
-    { href: `${base}/statements`, label: c("월 이용명세서", "Statements") },
-  ];
-};
+/** The words beside 멤버 추가 자동결제; the server accepts only this version. */
+export const AUTO_SEATS_CONSENT_VERSION = "auto-seats-2026-10-12";
 
 export function useTeamBilling(workspaceId: string) {
   const store = useMemo(() => new BrowserBillingStore(), []);

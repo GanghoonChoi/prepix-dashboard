@@ -342,8 +342,8 @@ export function BillingOrder({ workspaceId, orderId }: { workspaceId: string; or
             {order.state === "applied" && !openRefund && !pendingRefund && (refundable.length === 0 && !canBase ? (
               <p className="text-[13px] text-muted">
                 {c(
-                  "이 주문에는 따로 환불할 추가 항목이 없습니다. 진행 중인 기간은 플랜과 결제의 중도해지로 환불합니다.",
-                  "This order has no add-on items to refund. A running period is refunded through termination on plan and billing.",
+                  "이 주문에는 따로 환불할 추가 항목이 없습니다. 진행 중인 기간의 환불은 운영팀에 문의해 주세요.",
+                  "This order has no add-on items to refund. For a running period, contact support.",
                 )}
               </p>
             ) : (
@@ -441,8 +441,8 @@ export function BillingOrder({ workspaceId, orderId }: { workspaceId: string; or
             ))}
             <InfoTip label={c("환불은 어떻게 처리되나요?", "How refunds work")} text={c("환불은 어떻게 처리되나요?", "How refunds work")}>
               {c(
-                "요청하면 미사용분을 먼저 예약하고, 운영자 확인 뒤 원결제를 취소합니다. 배정 해제나 자동결제 중지는 환불이 아닙니다.",
-                "A request reserves the unused part first; the original payment is cancelled after operations review. Unassigning or stopping renewal is not a refund.",
+                "요청하면 미사용분을 먼저 예약하고, 운영자 확인 뒤 원결제를 취소합니다. 배정 해제나 구독 해지는 환불이 아닙니다.",
+                "A request reserves the unused part first; the original payment is cancelled after operations review. Unassigning or cancelling the subscription is not a refund.",
               )}
             </InfoTip>
           </div>

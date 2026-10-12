@@ -90,14 +90,8 @@ test("a late payment return cannot clear the query of the next client-side view"
     }).toBe("applied");
   } finally { release(); }
 });
-async function saveProfile(page: Page) {
-  await page.getByLabel("상호", { exact: true }).fill(buyer.businessName);
-  await page.getByLabel("사업자등록번호", { exact: true }).fill(buyer.businessRegistrationNumber);
-  await page.getByLabel("대표자", { exact: true }).fill(buyer.representative);
-  await page.getByLabel("사업장 주소", { exact: true }).fill(buyer.address);
-  await page.getByLabel("증빙 수신 이메일", { exact: true }).fill(buyer.receiptEmail);
-  await page.getByRole("button", { name: "사업자 정보 저장", exact: true }).click();
-}
+/** A titled card on the plan page (플랜과 결제 is one page since 2026-10-12). */
+const section = (page: Page, title: string) => page.locator("section", { has: page.getByRole("heading", { name: title, exact: true }) });
 
 test("Business checkout: details, one card window, the first month charged once despite a lost reply, then back to /start", async ({ page, request }) => {
   const owner = await account(request, "billing-buy");
@@ -117,10 +111,10 @@ test("Business checkout: details, one card window, the first month charged once 
   await checkout.getByLabel("사업자등록번호", { exact: true }).fill(buyer.businessRegistrationNumber);
   await checkout.getByLabel("대표자", { exact: true }).fill(buyer.representative);
   await checkout.getByLabel("사업장 주소", { exact: true }).fill(buyer.address);
-  await checkout.getByLabel("증빙 수신 이메일", { exact: true }).fill(buyer.receiptEmail);
+  await checkout.getByLabel("수신 연락처", { exact: true }).fill(buyer.receiptEmail);
   const pay = checkout.getByRole("button", { name: /카드 등록하고 .*원 결제/ });
   await expect(pay).toBeDisabled();
-  await checkout.getByRole("checkbox", { name: /자동결제하는 데 동의합니다/ }).check();
+  await checkout.getByRole("checkbox", { name: /결제하는 데 동의합니다/ }).check();
   // The charge succeeds but its reply is lost: the retry asks for the same order.
   let charges = 0;
   await page.route(new RegExp(`/workspaces/${id}/b2b/billing/charge$`), async (route) => {
@@ -154,27 +148,16 @@ test("Business checkout: details, one card window, the first month charged once 
   expect(invitations.find((i: { email: string }) => i.email === invited).deliveryState).not.toBe("held");
   // The plan page now points at People instead of a second checkout.
   await page.goto(`/dashboard/workspaces/${id}/plan`);
-  await expect(page.getByRole("link", { name: "멤버로 이동", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "멤버 관리", exact: true })).toBeVisible();
   await expect(page.getByTestId("business-checkout")).toHaveCount(0);
 });
 
-test("card registration, renewal plan, refund reservation and account switch keep teams and accounts apart", async ({ page, request }) => {
+test("card, invoice details, resume, refund reservation and account switch keep teams and accounts apart", async ({ page, request }) => {
   const owner = await account(request, "billing-card");
   const id = await team(request, owner.headers);
-  await login(page, owner.email, `/dashboard/workspaces/${id}/plan/settings`);
-  await saveProfile(page);
-  await expect(page.getByLabel("상호", { exact: true })).toBeEnabled();
-  await page.getByRole("checkbox", { name: /월 자동결제에 이 카드를 사용하는 데 동의합니다/ }).check();
-  await page.getByRole("button", { name: "카드 등록", exact: true }).click();
-  await page.waitForURL(`${double}/billing-auth?**`);
-  await page.getByRole("link", { name: "카드 등록 완료" }).click();
-  await page.waitForURL(`**/plan/settings**`);
-  await expect(page.getByText("결제 수단을 등록했습니다.")).toBeVisible();
-  await expect(page.getByText("43301234****123*")).toBeVisible();
-  expect(page.url()).not.toContain("authKey");
-  // Buy the first month through the API double, then add a seat for the refund.
   const h = owner.headers,
     base = `${api}/v2/workspaces/${id}/b2b`;
+  // Buy the first month through the window double, then add a seat for the refund.
   const product = (await (await request.get(`${base}/commerce`, { headers: h })).json()).data.product;
   const buy = async (target: string, extra: number, sourcePeriodId?: string) => {
     const quote = (await (await request.post(`${base}/commerce/quotes`, { headers: h, data: { requestKey: crypto.randomUUID(), productVersion: product.version, target, sourcePeriodId, renewal: "one_off", extraSeats: extra, aiPacks: 0, storagePacks: 0 } })).json()).data.quote;
@@ -193,15 +176,37 @@ test("card registration, renewal plan, refund reservation and account switch kee
   await buy("initial", 0);
   const period = (await (await request.get(`${base}/commerce`, { headers: h })).json()).data.currentPeriod;
   const addition = await buy("current", 2, period.id);
-  // Renewal: switching to automatic needs explicit consent and never charges.
-  await page.reload();
-  const renewal = page.getByRole("combobox", { name: "갱신 방식", exact: true });
-  await expect(renewal).toBeEnabled({ timeout: 30_000 });
-  await renewal.selectOption("automatic");
-  await page.getByLabel("다음 기간 추가 좌석 (최대)", { exact: true }).fill("1");
-  await page.getByRole("checkbox", { name: /매월 기간 종료 전에 등록 카드로 결제하는 데 동의합니다/ }).check();
-  await page.getByRole("button", { name: "갱신 설정 저장", exact: true }).click();
-  await expect(page.getByRole("button", { name: "자동결제 중지", exact: true })).toBeVisible();
+  await login(page, owner.email, `/dashboard/workspaces/${id}/plan`);
+  const plan = section(page, "Business");
+  await expect(plan).toContainText("자동결제가 꺼져 있어요");
+  // Invoice details from their own line.
+  await section(page, "세금계산서 정보").getByRole("button", { name: "입력", exact: true }).click();
+  const details = page.getByRole("dialog", { name: "세금계산서 정보" });
+  await details.getByLabel("상호", { exact: true }).fill(buyer.businessName);
+  await details.getByLabel("사업자등록번호", { exact: true }).fill(buyer.businessRegistrationNumber);
+  await details.getByLabel("대표자", { exact: true }).fill(buyer.representative);
+  await details.getByLabel("사업장 주소", { exact: true }).fill(buyer.address);
+  await details.getByLabel("수신 연락처", { exact: true }).fill(buyer.receiptEmail);
+  await details.getByRole("button", { name: "저장", exact: true }).click();
+  await expect(section(page, "세금계산서 정보")).toContainText(buyer.businessName);
+  // The card: consent, one window, back here; the one-time key leaves the address.
+  await section(page, "결제 수단").getByRole("button", { name: "등록", exact: true }).click();
+  const add = page.getByRole("dialog", { name: "카드 등록" });
+  await add.getByRole("checkbox", { name: /월 자동결제에 이 카드를 사용하는 데 동의합니다/ }).check();
+  await add.getByRole("button", { name: "카드 입력", exact: true }).click();
+  await page.waitForURL(`${double}/billing-auth?**`);
+  await page.getByRole("link", { name: "카드 등록 완료" }).click();
+  await page.waitForURL(`**/plan?registration=**`);
+  await expect(page.getByText("카드를 등록했어요.")).toBeVisible();
+  await expect(page.getByText("43301234****123*")).toBeVisible();
+  await expect.poll(() => page.url()).not.toContain("authKey");
+  // Resuming takes explicit consent and charges nothing by itself.
+  await plan.getByRole("button", { name: "구독 다시 시작", exact: true }).click();
+  const resume = page.getByRole("dialog", { name: "구독 다시 시작" });
+  await resume.getByRole("checkbox").check();
+  await resume.getByRole("button", { name: "다시 시작", exact: true }).click();
+  await expect(plan).toContainText("이용 중");
+  await expect(plan).not.toContainText("자동결제가 꺼져 있어요");
   const orders = (await (await request.get(`${base}/commerce/orders`, { headers: h })).json()).data;
   expect(orders.items).toHaveLength(2);
   // Refund one seat of the addition: reserved first, refunded after the operator.
@@ -220,19 +225,19 @@ test("card registration, renewal plan, refund reservation and account switch kee
   await page.reload();
   await expect(page.locator('[data-refund-state="refunded"]')).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto(`/dashboard/workspaces/${id}/plan/settings`);
-  await expect(page.getByLabel("상호", { exact: true })).toHaveValue(buyer.businessName);
+  await page.goto(`/dashboard/workspaces/${id}/plan`);
+  await expect(section(page, "세금계산서 정보")).toContainText(buyer.businessName);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.screenshot({ path: "test-results/billing-settings-390.png", fullPage: true });
+  await page.screenshot({ path: "test-results/billing-plan-390.png", fullPage: true });
   // Another account in the same browser never sees this team's business data.
   const other = await account(request, "billing-other");
   const otherTeam = await team(request, other.headers);
   await page.evaluate(() => localStorage.clear());
-  await login(page, other.email, `/dashboard/workspaces/${otherTeam}/plan/settings`);
-  await expect(page.getByLabel("상호", { exact: true })).toHaveValue("");
+  await login(page, other.email, `/dashboard/workspaces/${otherTeam}/plan`);
+  await expect(page.getByTestId("business-checkout").getByLabel("상호", { exact: true })).toHaveValue("");
   await expect(page.getByText(buyer.businessName)).toHaveCount(0);
   await expect(page.getByText("43301234****123*")).toHaveCount(0);
-  await page.goto(`/dashboard/workspaces/${id}/plan/settings`);
+  await page.goto(`/dashboard/workspaces/${id}/plan`);
   await expect(page.getByText(buyer.businessName)).toHaveCount(0);
 });
 
