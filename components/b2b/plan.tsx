@@ -8,6 +8,7 @@ import { billingTabs,
   BillingError,
   billingCode,
   kst,
+  kstDay,
   orderLabels,
   orderTones,
   refundLabels,
@@ -67,6 +68,18 @@ export function B2bPlan({
   const target = !status.team.periodEndsAt ? "initial" : lapsed ? "restore" : null;
   const card = view?.methods.find((m) => m.state === "active");
   const ends = status.team.periodEndsAt;
+  const starts = status.team.periodStartsAt;
+  // When the card is charged next: the period's charge time (E minus the
+  // lead) until it passes, then the renewal day itself.
+  const next = view?.renewal.firstChargeAt;
+  const renewal =
+    !ends || lapsed || !view
+      ? undefined
+      : view.renewal.mode !== "automatic"
+        ? c(`${kstDay(ends, lang)}에 끝나요 · 자동결제 꺼짐`, `Ends ${kstDay(ends, lang)} · auto-pay off`)
+        : next && next > view.serverTime && !view.renewal.upcomingSkipped
+          ? c(`다음 결제 ${kstDay(next, lang)}`, `Next charge ${kstDay(next, lang)}`)
+          : c(`${kstDay(ends, lang)}에 자동 갱신`, `Renews ${kstDay(ends, lang)}`);
   return (
     <TeamShell title={c("플랜과 결제", "Plan and billing")} tabs={billingTabs(workspace.id, c)}>
       <RenewalConsentCard billing={billing} />
@@ -76,13 +89,17 @@ export function B2bPlan({
           { label: c("플랜", "Plan"), value: "Business", foot: <StateBadge state={status.team.currentState} /> },
           {
             label: c("팀 이용기간", "Team period"),
-            // The exact instant, not a day: the period end is exclusive.
-            value: ends ? (
-              <span className="text-base">{c(`${kst(ends)}까지`, `Until ${kst(ends)}`)}</span>
-            ) : (
-              "—"
-            ),
-            foot: ends ? undefined : c("아직 구매한 기간이 없습니다.", "No period purchased yet."),
+            // Days, like every renewal date people know; the period runs to
+            // the minute it started (exclusive), which the title keeps.
+            value:
+              starts && ends ? (
+                <span className="text-base" title={c(`${kst(ends)}까지 (한국 시간)`, `Until ${kst(ends, "en")} KST`)}>
+                  {kstDay(starts, lang, ends)} – {kstDay(ends, lang, starts)}
+                </span>
+              ) : (
+                "—"
+              ),
+            foot: ends ? renewal : c("아직 구매한 기간이 없습니다.", "No period purchased yet."),
           },
           {
             label: c("결제수단", "Payment method"),

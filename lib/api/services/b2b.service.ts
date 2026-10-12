@@ -221,6 +221,9 @@ export const b2bService = {
     ),
   leave: (id: string, input: ChangeInvitation) =>
     post<{ left: true; requestId: string }>(`${base(id)}/leave`, input),
+  /** Owner only, before the first payment; revision = the team's. */
+  deleteTeam: (id: string, input: ChangeInvitation) =>
+    post<{ deleted: true; requestId: string }>(`${base(id)}/delete`, input),
   changeTeamMember: (id: string, userId: string, input: ChangeTeamMember) =>
     post<{ revision: number; requestId: string }>(
       `${base(id)}/members/${e(userId)}/action`,

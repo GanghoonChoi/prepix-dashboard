@@ -25,12 +25,23 @@ export function useWon() {
 }
 // Billing instants stay on Korea time (the PG, the statements and the legal
 // deadlines all count in KST); minutes, never seconds.
-export const kst = (value: string) =>
-  new Intl.DateTimeFormat("ko-KR", {
+export const kst = (value: string, lang = "ko") =>
+  new Intl.DateTimeFormat(lang === "en" ? "en-US" : "ko-KR", {
     timeZone: "Asia/Seoul",
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(value));
+/** A billing day on Korea time, no minute: "11월 12일" / "Nov 12" (the year
+ * only when it differs from `other`'s). */
+export const kstDay = (value: string, lang = "ko", other?: string) => {
+  const year = (v: string) => new Date(Date.parse(v) + 9 * 3_600_000).getUTCFullYear();
+  return new Intl.DateTimeFormat(lang === "en" ? "en-US" : "ko-KR", {
+    timeZone: "Asia/Seoul",
+    year: other && year(other) !== year(value) ? "numeric" : undefined,
+    month: lang === "en" ? "short" : "long",
+    day: "numeric",
+  }).format(new Date(value));
+};
 
 // Payment declined, receipt unknown, not applied, operations check and refund
 // in progress are distinct states; none of them is shown as success.

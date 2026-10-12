@@ -523,14 +523,14 @@ export function BillingSettings({ workspaceId }: { workspaceId: string }) {
         }
       >
         <div className="space-y-4">
-          {billing.renewal.mode === "automatic" && billing.renewal.firstChargeAt && (
+          {billing.renewal.mode === "automatic" && billing.renewal.firstChargeAt && billing.renewal.firstChargeAt > billing.serverTime && (
             <p role="status" className="text-[13px] leading-5">
               {billing.renewal.upcomingSkipped
                 ? c(
                     `결제 직전에 동의해 이번 기간은 자동결제하지 않습니다. 이번 기간을 이어 쓰려면 한 번 직접 구매해 주세요. 자동결제는 그다음 기간(${kst(billing.renewal.firstChargeAt)} 이후)부터 시작합니다.`,
                     `You consented too close to the charge, so this period is not charged automatically. Buy it once yourself to continue; automatic payment starts with the following period (after ${kst(billing.renewal.firstChargeAt)}).`,
                   )
-                : c(`첫 자동결제는 ${kst(billing.renewal.firstChargeAt)} 이후에 진행됩니다.`, `The first automatic charge happens after ${kst(billing.renewal.firstChargeAt)}.`)}
+                : c(`다음 자동결제는 ${kst(billing.renewal.firstChargeAt)} 이후에 진행됩니다.`, `The next automatic charge happens after ${kst(billing.renewal.firstChargeAt, "en")}.`)}
             </p>
           )}
           {billing.renewal.pausedReason && (

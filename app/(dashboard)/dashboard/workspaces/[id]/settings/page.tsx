@@ -1,6 +1,6 @@
 "use client";
 import { OwnershipControls } from "@/components/b2b/ownership";
-import { LeaveTeam } from "@/components/b2b/leave-team";
+import { DeleteTeam, LeaveTeam } from "@/components/b2b/leave-team";
 import { AccessDenied } from "@/components/b2b/shared";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -364,13 +364,17 @@ export default function Page() {
           </SettingsSection>
         )}
         {/* Leaving is the irreversible act, so only someone who CAN leave sees
-            the red frame; an owner only reads why they can't yet. The shared
-            leave section brings its own heading, so it gets just the frame. */}
+            the red frame; an owner reads how to hand over first, and deleting
+            the team is theirs alone. The shared leave section brings its own
+            heading, so it gets just the frame. */}
         {!personal && b2b?.enrolled &&
           (data.role === "owner" ? (
-            <Card>
-              <LeaveTeam />
-            </Card>
+            <>
+              <Card>
+                <LeaveTeam />
+              </Card>
+              <DeleteTeam />
+            </>
           ) : (
             <DangerZone>
               <LeaveTeam />

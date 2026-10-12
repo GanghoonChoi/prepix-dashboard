@@ -260,6 +260,18 @@ const errors: Record<string, [string, string]> = {
     "팀 소유자만 이 변경을 할 수 있습니다.",
     "Only the team owner can make this change.",
   ],
+  B2B_TEAM_DELETE_PAID: [
+    "결제한 팀은 바로 삭제할 수 없어요. 플랜과 결제에서 해지해 주세요.",
+    "A paid team cannot be deleted at once. Terminate it in Plan & billing.",
+  ],
+  B2B_TEAM_HAS_CONTENT: [
+    "팀에 프로젝트나 파일이 있어 바로 삭제할 수 없어요.",
+    "This team has projects or files, so it cannot be deleted at once.",
+  ],
+  B2B_PAYMENT_PENDING: [
+    "확인 중인 결제가 있어요. 결과가 나온 뒤 다시 시도해 주세요.",
+    "A payment is still being checked. Try again once it settles.",
+  ],
   B2B_OWNER_PROTECTED: [
     "소유자는 소유권 이전을 완료한 뒤 참여를 종료할 수 있습니다.",
     "Complete ownership transfer before ending the owner's participation.",

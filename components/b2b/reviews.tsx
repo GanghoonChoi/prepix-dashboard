@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Film, LayoutGrid, List } from "lucide-react";
+import { ChevronRight, Film, LayoutGrid, List, type LucideIcon } from "lucide-react";
 import {
   ago,
   Badge as UiBadge,
@@ -783,18 +783,21 @@ export const posterLinkClass =
  * beside it names the video. `badge` sits top-left; children overlay it. */
 export function Poster({
   url,
+  icon,
   className = "",
   badge,
   children,
 }: {
   url?: string | null;
+  /** Placeholder while there is no picture; the kit's default otherwise. */
+  icon?: LucideIcon;
   className?: string;
   badge?: ReactNode;
   children?: ReactNode;
 }) {
   const [broken, setBroken] = useState(false);
   return (
-    <KitPoster className={className}>
+    <KitPoster icon={icon} className={className}>
       {url && !broken && (
         // eslint-disable-next-line @next/next/no-img-element -- signed, short-lived storage URL
         <img src={url} alt="" loading="lazy" className="absolute inset-0 size-full object-cover" onError={() => setBroken(true)} />
