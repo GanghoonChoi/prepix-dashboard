@@ -86,7 +86,7 @@ test("a team has no web AI entry: team AI runs in the app on the person's seat",
   );
 });
 
-test("a team's nav is folders, people, billing and settings", () => {
+test("a team's nav is folders, people, usage, billing and settings", () => {
   const b2b = {
     enabled: true,
     enrolled: true,
@@ -108,6 +108,7 @@ test("a team's nav is folders, people, billing and settings", () => {
     base,
     `${base}/projects`,
     `${base}/members`,
+    `${base}/usage`,
     `${base}/plan`,
     `${base}/settings`,
   ]);

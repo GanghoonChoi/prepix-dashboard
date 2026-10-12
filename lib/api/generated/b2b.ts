@@ -191,6 +191,25 @@ export type TeamPerson = {
 /** assigned: holds a seat; releasing: being returned (devices to confirm);
  * waiting: wants one and none is free; none: reviewer, or turned off. */
 export type SeatState = "assigned" | "releasing" | "waiting" | "none";
+/** 사용량 (2026-10-12): the team's AI pool this period — the per-seat value ×
+ * the period's seats — and who used how much of it. Inference seconds;
+ * `usedSeconds` includes holds of work still running. */
+export type TeamAiUsageView = {
+  period: { id: string; startsAt: string; endsAt: string } | null;
+  perSeatSeconds: number;
+  seats: number;
+  poolSeconds: number;
+  usedSeconds: number;
+  people: {
+    userId: string;
+    name: string | null;
+    email: string;
+    role: "owner" | "admin" | "editor" | "reviewer" | null;
+    /** false: left the team this period; their use still counts. */
+    member: boolean;
+    usedSeconds: number;
+  }[];
+};
 export type TeamPeople = {
   people: TeamPerson[];
   canDelegateBilling: boolean;

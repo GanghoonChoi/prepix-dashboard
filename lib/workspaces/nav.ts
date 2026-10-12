@@ -21,6 +21,7 @@ export type NavIcon =
   | "archive"
   | "folder"
   | "members"
+  | "usage"
   | "plan"
   | "settings";
 export type NavLink = {
@@ -163,6 +164,20 @@ export function workspaceLinks(
               en: "Members",
               group: "team",
               icon: "members",
+            },
+          ] as const)
+        : []),
+      // 사용량 (2026-10-12): the team's one AI pool and who used it, beside
+      // the people it is shared by. Managers, in the same states as 멤버.
+      ...(status.allowedActions.manage &&
+      !["preparing", "deleting", "deleted"].includes(status.team.currentState)
+        ? ([
+            {
+              href: `${base}/usage`,
+              ko: "사용량",
+              en: "Usage",
+              group: "team",
+              icon: "usage",
             },
           ] as const)
         : []),

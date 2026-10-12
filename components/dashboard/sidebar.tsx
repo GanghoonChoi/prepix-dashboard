@@ -13,6 +13,7 @@ import {
   Settings,
   UserRound,
   Users,
+  Gauge,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -37,6 +38,7 @@ export const NAV_ICONS: Record<NavIcon, LucideIcon> = {
   archive: Archive,
   folder: Folder,
   members: Users,
+  usage: Gauge,
   plan: CreditCard,
   settings: Settings,
 };

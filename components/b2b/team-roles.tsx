@@ -61,8 +61,8 @@ const CAN: Record<TeamRole, [string, string][]> = {
 /** The sidebar each role gets — workspaceLinks() in lib/workspaces/nav.ts;
  * the pages behind the missing entries refuse them too. */
 const MENU: Record<TeamRole, [string, string]> = {
-  owner: ["홈 · 프로젝트 · 멤버 · 플랜과 결제 · 설정", "Home · Projects · Members · Plan & billing · Settings"],
-  admin: ["홈 · 프로젝트 · 멤버 · 설정 (+ 플랜과 결제)", "Home · Projects · Members · Settings (+ Plan & billing)"],
+  owner: ["홈 · 프로젝트 · 멤버 · 사용량 · 플랜과 결제 · 설정", "Home · Projects · Members · Usage · Plan & billing · Settings"],
+  admin: ["홈 · 프로젝트 · 멤버 · 사용량 · 설정 (+ 플랜과 결제)", "Home · Projects · Members · Usage · Settings (+ Plan & billing)"],
   editor: ["홈 · 프로젝트", "Home · Projects"],
   reviewer: ["프로젝트 (공유받은 것만)", "Projects (shared ones only)"],
 };
