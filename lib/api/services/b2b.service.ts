@@ -19,6 +19,7 @@ import type {
   InvitationPreview,
   IssueInvitation,
   ChangeInvitation,
+  TeamAiUsageView,
   TeamPeople,
   ChangeAffiliation,
   ChangeTeamMember,
@@ -150,6 +151,8 @@ export const b2bService = {
       input,
     ),
   members: (id: string) => get<TeamPeople>(`${base(id)}/members`),
+  /** 사용량: the team's AI pool this period and who used it (managers). */
+  teamUsage: (id: string) => get<TeamAiUsageView>(`${base(id)}/team-usage`),
   status: (id: string) => get<B2bStatus>(`${base(id)}/status`),
   // S26/S32. The account header makes the server refuse a stale account's read.
   lifecycle: (id: string, account: string) =>
