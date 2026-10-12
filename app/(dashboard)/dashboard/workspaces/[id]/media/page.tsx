@@ -1,8 +1,10 @@
 "use client";
 import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useOverlayState } from "@heroui/react";
+import { useRouter } from "next/navigation";
 import {
   ChevronRight,
+  Download,
   FolderPlus,
   LayoutGrid,
   List,
@@ -10,6 +12,7 @@ import {
   Trash2,
   Upload,
   UploadCloud,
+  X,
 } from "lucide-react";
 import { Dialog } from "@/components/dialog";
 import {
@@ -28,6 +31,7 @@ import { bytes } from "@/lib/workspaces/upload";
 import { contentGone } from "@/lib/workspaces/errors";
 import { type Transfer } from "@/lib/workspaces/queue";
 import { useUploadQueue } from "@/lib/workspaces/use-upload-queue";
+import { dropEntries, folderPaths, pathKey, readDrop } from "@/lib/workspaces/drop";
 import {
   isPlayable,
   nextSort,
@@ -109,6 +113,15 @@ function Content({ id }: { id: string }) {
   const editDialog = useOverlayState();
   const [query, setQuery] = useState("");
   const [dragging, setDragging] = useState(false);
+  // The folder tile or row a drag is over, if any: the drop lands there.
+  const [dropOver, setDropOver] = useState<string | null>(null);
+  // Where an in-app link would have gone while uploads still run.
+  const [leaveTo, setLeaveTo] = useState<string | null>(null);
+  const leaveDialog = useOverlayState({
+    isOpen: !!leaveTo,
+    onOpenChange: (open) => !open && setLeaveTo(null),
+  });
+  const router = useRouter();
   const [editing, setEditing] = useState<Asset | null>(null);
   const [editName, setEditName] = useState("");
   const [editFolder, setEditFolder] = useState("");
@@ -173,18 +186,29 @@ function Content({ id }: { id: string }) {
     [],
   );
 
+  // Only the newest list request may paint: opening folder A then B quickly
+  // must never show A's files under B's breadcrumb.
+  const loads = useRef(0);
+  const loadFailed = useRef(false);
   const load = useCallback(async () => {
+    const mine = ++loads.current;
     try {
-      const next = await cloudService.archive(id, { folderId });
-      if (alive.current) {
+      // The trash is its own listing: the folder list never carries trashed files.
+      const next = await cloudService.archive(id, { folderId, trashed: trash });
+      if (alive.current && mine === loads.current) {
         setData(next);
+        if (loadFailed.current) {
+          loadFailed.current = false;
+          setError("");
+        }
         // Every role uploads, so the "which space am I in" stamp cannot depend
         // on being a manager. A failed detail costs the stamp, not the page.
         setTeam(await workspaceService.detail(id).catch(() => null));
       }
     } catch (e) {
-      if (alive.current) {
+      if (alive.current && mine === loads.current) {
         const code = cloudErrorCode(e);
+        loadFailed.current = true;
         setError(code);
         // A failed refresh keeps the archive on screen and the queue running.
         // Only a code that says the archive is gone tears it down (§5.1).
@@ -197,7 +221,7 @@ function Content({ id }: { id: string }) {
     // `queue` is created below and is stable across renders; listing it here
     // would be a cycle for no benefit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, folderId]);
+  }, [id, folderId, trash]);
 
   const queue = useUploadQueue({
     workspaceId: id,
@@ -253,9 +277,11 @@ function Content({ id }: { id: string }) {
     if (!cursor || busy) return;
     setBusy("more");
     setError("");
+    const before = loads.current;
     try {
-      const more = await cloudService.archive(id, { folderId, cursor });
-      if (alive.current)
+      const more = await cloudService.archive(id, { folderId, cursor, trashed: trash });
+      // A reload (another folder, a poll) since then owns the list now.
+      if (alive.current && before === loads.current)
         setData((prev) =>
           prev ? { ...more, assets: [...prev.assets, ...more.assets] } : more,
         );
@@ -266,18 +292,63 @@ function Content({ id }: { id: string }) {
     }
   }
 
+  // The signed URL answers `Content-Disposition: attachment`, so following it
+  // downloads in place; the page never navigates away.
+  async function startDownload(asset: Asset) {
+    const result = await cloudService.download(id, asset.id);
+    const link = document.createElement("a");
+    link.href = result.url;
+    link.rel = "noopener noreferrer";
+    link.download = result.name;
+    document.body.append(link);
+    link.click();
+    link.remove();
+  }
   async function download(asset: Asset) {
-    await action(asset.id, async () => {
-      const result = await cloudService.download(id, asset.id);
-      const link = document.createElement("a");
-      link.href = result.url;
-      link.rel = "noopener noreferrer";
-      link.download = result.name;
-      document.body.append(link);
-      link.click();
-      link.remove();
+    if (busy) return;
+    setBusy(asset.id);
+    setError("");
+    try {
+      await startDownload(asset);
       setNotice(c("원본 다운로드를 시작했습니다.", "Original download started."));
-    });
+    } catch (e) {
+      setError(cloudErrorCode(e));
+    } finally {
+      setBusy("");
+    }
+  }
+  /**
+   * One file after another, each with a fresh 60-second URL. Back-to-back
+   * download navigations get dropped by browsers, so they are spaced; the
+   * first time, the browser asks once to allow several downloads.
+   */
+  async function downloadMany(assets: Asset[]) {
+    if (busy || !assets.length) return;
+    setBusy("bulk");
+    setError("");
+    let failed = 0;
+    for (const [i, asset] of assets.entries()) {
+      setNotice(c(`다운로드 ${i + 1}/${assets.length}`, `Downloading ${i + 1} of ${assets.length}`));
+      try {
+        await startDownload(asset);
+      } catch {
+        failed++;
+      }
+      if (i < assets.length - 1) await new Promise((done) => setTimeout(done, 800));
+    }
+    if (!alive.current) return;
+    setBusy("");
+    setNotice(
+      failed
+        ? c(
+            `${assets.length - failed}개 다운로드를 시작했고 ${failed}개는 실패했습니다.`,
+            `Started ${assets.length - failed} downloads; ${failed} failed.`,
+          )
+        : c(
+            `${assets.length}개 다운로드를 시작했습니다. 브라우저가 여러 파일 다운로드를 물으면 허용해 주세요.`,
+            `Started ${assets.length} downloads. If the browser asks about multiple downloads, allow it.`,
+          ),
+    );
   }
 
   const cancelUploadLabel = c(
@@ -332,46 +403,155 @@ function Content({ id }: { id: string }) {
   );
   const canUpload =
     !!data?.canEdit && !!data.capabilities.uploadsEnabled && !trash;
-  // Drop anywhere on the page (Frame.io, Drive): a drag that carries files
-  // dims the page and names where they will land. A depth count, because
-  // every child the pointer crosses fires its own enter and leave.
-  const enqueue = queue.enqueue;
+  /**
+   * What a drop carried, uploaded with its folders: a dropped folder becomes
+   * a folder here (sub-folders too), and each file lands in its own. `target`
+   * is the folder the drop was on — the open one, or a folder tile.
+   */
+  async function uploadDrop(entries: (FileSystemEntry | File)[], target: string | undefined) {
+    let dropped;
+    try {
+      dropped = await readDrop(entries);
+    } catch {
+      setError("UPLOAD_DROP_UNREADABLE");
+      return;
+    }
+    if (!alive.current || !dropped.length) return;
+    const made = new Map<string, string | undefined>([[pathKey([]), target]]);
+    const paths = folderPaths(dropped);
+    if (paths.length) {
+      setNotice(c("폴더를 만드는 중…", "Creating folders…"));
+      try {
+        for (const path of paths)
+          made.set(
+            pathKey(path),
+            (await cloudService.folder(id, path[path.length - 1], made.get(pathKey(path.slice(0, -1))))).id,
+          );
+      } catch (e) {
+        setNotice("");
+        setError(cloudErrorCode(e));
+        return;
+      }
+      void load();
+    }
+    const groups = new Map<string, File[]>();
+    for (const { file, path } of dropped) groups.set(pathKey(path), [...(groups.get(pathKey(path)) ?? []), file]);
+    for (const [key, group] of groups) queue.enqueue(group, { folderId: made.get(key) });
+  }
+  const cannotUpload = trash
+    ? c("휴지통에는 올릴 수 없습니다. 모든 파일로 돌아가 올려 주세요.", "You can't upload into the trash. Go back to All files.")
+    : c("이 아카이브에 올릴 권한이 없습니다.", "You can't upload to this archive.");
+  // The window listener is bound once; what a drop does follows each render.
+  const onPageDrop = useRef<(data: DataTransfer) => void>(() => {});
   useEffect(() => {
-    if (!canUpload) return;
-    let depth = 0;
-    const carriesFiles = (e: DragEvent) => !!e.dataTransfer?.types.includes("Files");
-    const enter = (e: DragEvent) => {
-      if (!carriesFiles(e)) return;
-      depth++;
-      setDragging(true);
+    onPageDrop.current = (dropped) => {
+      if (!canUpload) return setNotice(cannotUpload);
+      void uploadDrop(dropEntries(dropped), folderId);
     };
-    const leave = (e: DragEvent) => {
-      if (!carriesFiles(e)) return;
-      depth = Math.max(0, depth - 1);
-      if (!depth) setDragging(false);
+  });
+  const allowDrop = useRef(false);
+  useEffect(() => {
+    allowDrop.current = canUpload;
+  }, [canUpload]);
+  /**
+   * Drop anywhere on the page (Frame.io, Drive). Every file drag is caught,
+   * even where nothing may be uploaded — otherwise the browser opens the file
+   * and the archive is gone. The overlay hides a beat after the last
+   * `dragover` (they fire every ~50 ms while a drag is over the page), which
+   * no enter/leave count can get stuck on.
+   */
+  const ready = !!data;
+  useEffect(() => {
+    if (!ready) return;
+    let idle: ReturnType<typeof setTimeout> | undefined;
+    const carriesFiles = (e: DragEvent) => !!e.dataTransfer?.types.includes("Files");
+    const end = () => {
+      clearTimeout(idle);
+      setDragging(false);
+      setDropOver(null);
     };
     const over = (e: DragEvent) => {
-      if (carriesFiles(e)) e.preventDefault();
+      if (!carriesFiles(e)) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = allowDrop.current ? "copy" : "none";
+      setDragging(allowDrop.current);
+      clearTimeout(idle);
+      idle = setTimeout(end, 200);
     };
     const drop = (e: DragEvent) => {
       if (!carriesFiles(e)) return;
       e.preventDefault();
-      depth = 0;
-      setDragging(false);
-      enqueue(Array.from(e.dataTransfer?.files ?? []));
+      end();
+      if (e.dataTransfer) onPageDrop.current(e.dataTransfer);
     };
-    window.addEventListener("dragenter", enter);
-    window.addEventListener("dragleave", leave);
     window.addEventListener("dragover", over);
     window.addEventListener("drop", drop);
     return () => {
-      window.removeEventListener("dragenter", enter);
-      window.removeEventListener("dragleave", leave);
-      window.removeEventListener("drop", drop);
       window.removeEventListener("dragover", over);
-      setDragging(false);
+      window.removeEventListener("drop", drop);
+      end();
     };
-  }, [canUpload, enqueue]);
+  }, [ready]);
+
+  /**
+   * Picked files, for downloading or trashing several at once. A pick belongs
+   * to the folder (or trash) it was made in, and only counts files on screen.
+   */
+  const scope = `${folderId ?? ""}:${trash}`;
+  const [picks, setPicks] = useState<{ scope: string; ids: Set<string> }>({ scope, ids: new Set() });
+  const anchor = useRef<string | null>(null);
+  const selected = useMemo(
+    () => new Set(picks.scope === scope ? files.filter((a) => picks.ids.has(a.id)).map((a) => a.id) : []),
+    [picks, scope, files],
+  );
+  const pick = (ids: Set<string>) => setPicks({ scope, ids });
+  function onSelect(asset: Asset, range: boolean) {
+    const next = new Set(selected);
+    const from = range && anchor.current ? files.findIndex((a) => a.id === anchor.current) : -1;
+    const to = files.findIndex((a) => a.id === asset.id);
+    if (from >= 0 && to >= 0)
+      for (const a of files.slice(Math.min(from, to), Math.max(from, to) + 1)) next.add(a.id);
+    else if (next.has(asset.id)) next.delete(asset.id);
+    else next.add(asset.id);
+    anchor.current = asset.id;
+    pick(next);
+  }
+  const picking = selected.size > 0;
+  useEffect(() => {
+    if (!picking) return;
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPicks((prev) => ({ ...prev, ids: new Set() }));
+    };
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [picking]);
+  const pickedFiles = files.filter((a) => selected.has(a.id));
+  const usable = (a: Asset) => a.state === "ready" && new Date(a.expiresAt).getTime() > now;
+  const downloadable = data?.canDownload ? pickedFiles.filter((a) => !a.trashedAt && usable(a)) : [];
+  const trashable = data?.canEdit && !trash ? pickedFiles.filter((a) => a.state === "ready") : [];
+  const restorable = data?.canEdit && trash ? pickedFiles.filter(usable) : [];
+
+  /**
+   * Leaving mid-upload. The queue lives on this page, so an in-app link would
+   * stop it without a word (a reload already asks, via beforeunload). Links
+   * are caught before Next's router sees them and asked about first.
+   */
+  const uploading = queue.busy;
+  useEffect(() => {
+    if (!uploading) return;
+    const click = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const link = (e.target as Element | null)?.closest?.("a[href]");
+      if (!(link instanceof HTMLAnchorElement) || link.target === "_blank" || link.hasAttribute("download")) return;
+      const to = new URL(link.href, location.href);
+      if (to.origin !== location.origin || to.pathname === location.pathname) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setLeaveTo(to.pathname + to.search + to.hash);
+    };
+    document.addEventListener("click", click, true);
+    return () => document.removeEventListener("click", click, true);
+  }, [uploading]);
 
   // Only what a player could actually open, in the order on screen — the
   // modal's prev/next walks this, not the raw list, so it never lands on a row
@@ -441,6 +621,19 @@ function Content({ id }: { id: string }) {
     },
     onAction: (key, run) => void action(key, run),
     onConfirm: (label, run) => setConfirm({ label, run }),
+    selected,
+    onSelect,
+    folderDrop: canUpload
+      ? {
+          over: dropOver,
+          onOver: setDropOver,
+          onDrop: (folder, dropped) => {
+            setDragging(false);
+            setDropOver(null);
+            void uploadDrop(dropEntries(dropped), folder);
+          },
+        }
+      : null,
   };
 
   const crumb =
@@ -655,14 +848,11 @@ function Content({ id }: { id: string }) {
               multiple
               hidden
               onChange={(e) => {
-                const selected = Array.from(e.target.files ?? []);
+                const chosen = Array.from(e.target.files ?? []);
                 e.target.value = "";
                 const resuming = resume.current;
                 resume.current = undefined;
-                queue.enqueue(
-                  resuming ? selected.slice(0, 1) : selected,
-                  resuming,
-                );
+                queue.enqueue(resuming ? chosen.slice(0, 1) : chosen, { resuming });
               }}
             />
             {!data.capabilities.uploadsEnabled && data.canEdit && (
@@ -682,6 +872,65 @@ function Content({ id }: { id: string }) {
               </Notice>
             )}
 
+            {picking && (
+              // Sticky, so a long list keeps its actions in reach.
+              <div
+                role="region"
+                aria-label={c("선택한 파일", "Selected files")}
+                className="sticky top-2 z-20 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-overlay px-3 py-2 shadow-[0_8px_30px_rgba(0,0,0,0.08)]"
+              >
+                <p className="mr-auto text-[13px] font-medium tabular-nums">
+                  {c(`${selected.size}개 선택`, `${selected.size} selected`)}
+                </p>
+                {downloadable.length > 0 && (
+                  <Button size="sm" variant="secondary" disabled={!!busy} aria-busy={busy === "bulk"} onClick={() => void downloadMany(downloadable)}>
+                    <Download size={14} strokeWidth={1.75} aria-hidden="true" />
+                    {c(`다운로드 ${downloadable.length}`, `Download ${downloadable.length}`)}
+                  </Button>
+                )}
+                {trashable.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={!!busy}
+                    onClick={() =>
+                      setConfirm({
+                        label: c(
+                          `${trashable.length}개 파일을 휴지통으로 옮길까요? 팀원의 다운로드가 중단됩니다.`,
+                          `Move ${trashable.length} files to trash? Team members will no longer be able to download them.`,
+                        ),
+                        run: async () => {
+                          for (const a of trashable) await cloudService.update(id, a.id, { trashed: true });
+                          pick(new Set());
+                        },
+                      })
+                    }
+                  >
+                    <Trash2 size={14} strokeWidth={1.75} aria-hidden="true" />
+                    {c("휴지통으로", "Move to trash")}
+                  </Button>
+                )}
+                {restorable.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={!!busy}
+                    onClick={() =>
+                      void action("bulk", async () => {
+                        for (const a of restorable) await cloudService.update(id, a.id, { trashed: false });
+                        pick(new Set());
+                      })
+                    }
+                  >
+                    {c(`복구 ${restorable.length}`, `Restore ${restorable.length}`)}
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" onClick={() => pick(new Set())}>
+                  <X size={14} strokeWidth={1.75} aria-hidden="true" />
+                  {c("선택 해제", "Clear")}
+                </Button>
+              </div>
+            )}
             {empty ? (
               needle ? (
                 <EmptyState
@@ -737,6 +986,7 @@ function Content({ id }: { id: string }) {
                 onOpenFolder={(folder) => setPath([...path, folder])}
                 onPreview={openPreview}
                 onFreeUpSpace={() => setTrash(true)}
+                onSelectAll={() => pick(new Set(selected.size === files.length ? [] : files.map((a) => a.id)))}
                 handlers={handlers}
               />
             )}
@@ -755,15 +1005,45 @@ function Content({ id }: { id: string }) {
           </section>
           <TransferPanel queue={queue} onCancel={cancelTransfer} />
           {dragging && (
-            <div className="pointer-events-none fixed inset-0 z-50 grid place-items-center bg-background/70 p-6 backdrop-blur-sm">
-              <div className="flex flex-col items-center gap-3 rounded-lg border-2 border-dashed border-foreground/40 bg-background px-10 py-12 text-center">
-                <UploadCloud size={28} strokeWidth={1.5} aria-hidden="true" />
-                <p className="text-sm font-medium">
-                  {c(`'${here}'에 놓아서 업로드`, `Drop to upload to '${here}'`)}
-                </p>
-              </div>
+            // An outline and a label, not a veil: the folder tiles under it
+            // are drop targets and have to stay visible.
+            <div className="pointer-events-none fixed inset-2 z-50 rounded-xl border-2 border-dashed border-foreground/50">
+              <p
+                role="status"
+                className="absolute bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background shadow-lg"
+              >
+                <UploadCloud size={16} strokeWidth={1.75} aria-hidden="true" />
+                {(() => {
+                  const into = (dropOver && subfolders.find((f) => f.id === dropOver)?.name) || here;
+                  return c(`'${into}'에 놓아서 업로드`, `Drop to upload to '${into}'`);
+                })()}
+              </p>
             </div>
           )}
+          <Dialog state={leaveDialog} title={c("업로드를 멈추고 이동할까요?", "Stop uploading and leave?")}>
+            <div className="space-y-4">
+              <p className="text-sm leading-6">
+                {c(
+                  "아직 올리는 중인 파일이 있습니다. 이동하면 남은 업로드가 멈추고, 나중에 같은 파일을 골라 이어 올릴 수 있습니다.",
+                  "Files are still uploading. Leaving stops them; you can resume later by choosing the same files.",
+                )}
+              </p>
+              <div className="flex justify-end gap-2">
+                <Button variant="secondary" onClick={() => setLeaveTo(null)}>
+                  {c("계속 올리기", "Keep uploading")}
+                </Button>
+                <Button
+                  variant="danger"
+                  onClick={() => {
+                    queue.abortAll();
+                    if (leaveTo) router.push(leaveTo);
+                  }}
+                >
+                  {c("멈추고 이동", "Stop and leave")}
+                </Button>
+              </div>
+            </div>
+          </Dialog>
           <Dialog state={folderDialog} title={c("새 폴더", "New folder")}>
             <form
               className="space-y-4"

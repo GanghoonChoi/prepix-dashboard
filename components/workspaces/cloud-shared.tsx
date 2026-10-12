@@ -119,13 +119,22 @@ const messages: Record<string, [string, string]> = {
     "저장소가 알려준 조각 크기를 사용할 수 없습니다. 이 업로드를 취소하고 새로 시작하세요.",
     "The storage service returned an unusable part size. Cancel this upload and start a new one.",
   ],
+  UPLOAD_DROP_UNREADABLE: [
+    "끌어온 파일이나 폴더를 읽지 못했습니다. 업로드 버튼으로 골라 주세요.",
+    "The dropped files or folders could not be read. Choose them with Upload.",
+  ],
+  UPLOAD_FILE_EMPTY: ["빈 파일은 올릴 수 없습니다.", "Empty files cannot be uploaded."],
+  UPLOAD_FILE_TOO_LARGE: [
+    "파일당 크기 제한을 넘었습니다.",
+    "This file is over the per-file size limit.",
+  ],
   UPLOAD_FILE_INVALID: [
     "비어 있는 파일이거나 파일 크기 제한을 초과했습니다.",
     "This file is empty or exceeds the file size limit.",
   ],
   UPLOAD_TRANSFER_FAILED: [
-    "전송이 중단되었습니다. 같은 파일을 선택하면 완료된 부분부터 이어 올립니다.",
-    "Transfer was interrupted. Select the same file to resume completed parts.",
+    "전송이 중단되었습니다. 이어 올리면 완료된 부분부터 다시 보냅니다.",
+    "Transfer was interrupted. Resume to continue from the completed parts.",
   ],
   UPLOAD_INCOMPLETE: [
     "일부 파일 조각이 누락되었습니다. 이어 올리기를 다시 시도하세요.",

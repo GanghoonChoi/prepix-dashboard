@@ -47,9 +47,12 @@ export function fileRejection(
   file: { size: number },
   maxFileBytes: number,
 ): string | undefined {
-  return file.size === 0 || file.size > maxFileBytes
-    ? "UPLOAD_FILE_INVALID"
-    : undefined;
+  // Two codes: "empty" and "too large" ask for different fixes.
+  return file.size === 0
+    ? "UPLOAD_FILE_EMPTY"
+    : file.size > maxFileBytes
+      ? "UPLOAD_FILE_TOO_LARGE"
+      : undefined;
 }
 
 export function isActive(state: TransferState) {

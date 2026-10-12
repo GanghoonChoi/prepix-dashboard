@@ -47,7 +47,8 @@ test("one rejected file is marked in the queue and the rest still upload", () =>
     ["sidecar.xml", "huge.mov"],
   );
   // Every rejection names itself; none of them is a verdict on the selection.
-  assert.equal(queue[1].error, "UPLOAD_FILE_INVALID");
+  assert.equal(queue[1].error, "UPLOAD_FILE_EMPTY");
+  assert.equal(queue[3].error, "UPLOAD_FILE_TOO_LARGE");
   assert.equal(nextQueued(queue)?.name, "a.mov");
   assert.equal(queueSummary(queue).waiting, 2);
 });

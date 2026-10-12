@@ -7,7 +7,7 @@ import { bytes } from "@/lib/workspaces/upload";
 import { storageLabel } from "@/lib/workspaces/asset-state";
 import { isPlayable } from "@/lib/workspaces/archive-view";
 import { posterKey } from "@/lib/workspaces/poster-cache";
-import { AssetActions, type ArchiveHandlers } from "./asset-actions";
+import { AssetActions, folderDropProps, SelectBox, type ArchiveHandlers } from "./asset-actions";
 
 const VIDEO = /\.(mp4|m4v|mov|webm|mxf|avi|mkv)$/i;
 const AUDIO = /\.(wav|mp3|aac|m4a|flac|aif|aiff)$/i;
@@ -68,7 +68,8 @@ export function AssetGrid({
               <button
                 key={folder.id}
                 onClick={() => onOpenFolder(folder)}
-                className="group flex h-14 items-center gap-3 rounded-lg border border-border bg-background px-3 text-left text-[13px] transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                {...folderDropProps(folder.id, handlers)}
+                className="group flex h-14 items-center gap-3 rounded-lg border border-border bg-background px-3 text-left text-[13px] transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus data-[drop-target]:border-foreground data-[drop-target]:bg-surface-secondary"
               >
                 <span className="grid size-8 shrink-0 place-items-center rounded-md bg-surface-secondary text-muted transition-colors group-hover:text-foreground">
                   <FolderClosed size={16} strokeWidth={1.75} aria-hidden="true" />
@@ -91,26 +92,45 @@ export function AssetGrid({
               const poster = posters.get(key);
               const duration = durations.get(key);
               const pill = statePill(asset, handlers.now, c);
+              const picked = handlers.selected.has(asset.id);
+              // Once anything is picked, a click on a card picks it too
+              // (Photos, Drive) instead of opening the player.
+              const picking = handlers.selected.size > 0;
               return (
                 <figure key={asset.id} className="group min-w-0">
                   <Poster
                     src={poster}
                     duration={duration}
-                    badge={pill && <Badge>{pill}</Badge>}
-                    className="transition-colors group-hover:border-foreground/25"
+                    className={`transition-colors group-hover:border-foreground/25 ${picked ? "border-foreground ring-2 ring-foreground" : ""}`}
                   >
-                    {playable && (
+                    {pill && (
+                      <span className="absolute bottom-2 left-2">
+                        <Badge>{pill}</Badge>
+                      </span>
+                    )}
+                    {(playable || picking) && (
                       <button
-                        onClick={() => onPreview(asset)}
-                        aria-label={c(`${asset.name} 재생`, `Play ${asset.name}`)}
+                        onClick={(e) => (picking ? handlers.onSelect(asset, e.shiftKey) : onPreview(asset))}
+                        // While picking, the whole frame is a mouse target for
+                        // the checkbox, which stays the one named control.
+                        {...(picking
+                          ? { "aria-hidden": true, tabIndex: -1 }
+                          : { "aria-label": c(`${asset.name} 재생`, `Play ${asset.name}`) })}
                         className="absolute inset-0 grid place-items-center bg-black/0 transition-colors hover:bg-black/20 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-focus"
                       >
                         {/* A round play glyph, the one shape everybody reads as "play". */}
-                        <span className="grid size-11 place-items-center rounded-full bg-black/55 text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-                          <Play size={18} strokeWidth={2} className="translate-x-px" aria-hidden="true" />
-                        </span>
+                        {!picking && (
+                          <span className="grid size-11 place-items-center rounded-full bg-black/55 text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                            <Play size={18} strokeWidth={2} className="translate-x-px" aria-hidden="true" />
+                          </span>
+                        )}
                       </button>
                     )}
+                    <span
+                      className={`absolute left-2 top-2 grid size-7 place-items-center rounded-md bg-background/90 backdrop-blur transition-opacity focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100 ${picking ? "opacity-100" : "opacity-0"}`}
+                    >
+                      <SelectBox asset={asset} handlers={handlers} />
+                    </span>
                     {/* Actions sit on the frame's corner: there when you point
                         at the card or tab into it, out of the way otherwise. */}
                     <div className="absolute right-2 top-2 rounded-md bg-background/90 opacity-0 backdrop-blur transition-opacity focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100">
