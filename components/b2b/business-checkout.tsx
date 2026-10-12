@@ -10,7 +10,7 @@ import {
 } from "@/lib/api/services/b2b.service";
 import { TeamLoading } from "@/components/workspaces/shared";
 import { Button, Field, inputClass, SummaryRows } from "@/components/ui";
-import { billingCode, BillingError, openBillingAuth, useWon, type useTeamBilling } from "./billing-shared";
+import { AUTO_SEATS_CONSENT_VERSION, billingCode, BillingError, openBillingAuth, useWon, type useTeamBilling } from "./billing-shared";
 import { useCopy } from "./shared";
 
 type Product = Extract<TeamCommerce, { configured: true }>["product"];
@@ -22,7 +22,7 @@ const fields: [keyof Omit<TeamBuyer, "schemaVersion">, string, string, string][]
   ["businessRegistrationNumber", "사업자등록번호", "Registration number", "off"],
   ["representative", "대표자", "Representative", "name"],
   ["address", "사업장 주소", "Business address", "street-address"],
-  ["receiptEmail", "증빙 수신 이메일", "Receipt email", "email"],
+  ["receiptEmail", "수신 연락처", "Billing contact", "email"],
 ];
 /** Only back into onboarding; anything else stays on the plan page. */
 const safeReturn = (value: string | null) => (value && /^\/start(\?|$)/.test(value) ? value : null);
@@ -110,6 +110,10 @@ export function BusinessCheckout({
           consentVersion,
           productVersion: product.version,
         });
+        // The same tick covers members added later (Claude Team style).
+        await api
+          .changeAutoSeats({ requestKey: crypto.randomUUID(), enabled: true, consentVersion: AUTO_SEATS_CONSENT_VERSION })
+          .catch(() => undefined);
         await reload();
         const { quote } = await b2bService.purchaseQuote(workspaceId, {
           requestKey: crypto.randomUUID(),
@@ -266,7 +270,7 @@ export function BusinessCheckout({
 
       {saved ? (
         <p className="text-[13px] leading-5 text-muted">
-          {c("증빙", "Receipts")} · {saved.businessName} ·{" "}
+          {c("세금계산서", "Invoices")} · {saved.businessName} ·{" "}
           {saved.businessRegistrationNumber.replace(/^(\d{3})(\d{2})(\d{5})$/, "$1-$2-$3")} · {saved.receiptEmail}
         </p>
       ) : (
@@ -299,8 +303,8 @@ export function BusinessCheckout({
         />
         <span>
           {c(
-            `매월 결제일에 등록한 카드로, 뷰어를 뺀 멤버 수만큼 자동결제하는 데 동의합니다. 플랜에서 언제든 해지할 수 있습니다. (동의 ${readiness.autoPayConsentVersion ?? "-"})`,
-            `I agree to monthly automatic charges to this card for every member but viewers. Cancel any time on the plan page. (consent ${readiness.autoPayConsentVersion ?? "-"})`,
+            "매월 결제일에 등록한 카드로 뷰어를 뺀 멤버 수만큼 자동결제하고, 멤버가 늘면 이번 기간에 남은 날만큼 바로 결제하는 데 동의합니다. 플랜에서 언제든 해지할 수 있습니다.",
+            "I agree to monthly charges to this card for every member but viewers, and to an immediate charge for the days left when members are added. Cancel any time on the plan page.",
           )}
         </span>
       </label>

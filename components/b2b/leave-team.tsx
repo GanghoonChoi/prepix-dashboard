@@ -127,8 +127,8 @@ export function DeleteTeam() {
         description={
           !ended
             ? c(
-                "결제한 팀은 바로 삭제되지 않아요. 플랜과 결제에서 해지하면 이용기간이 끝난 뒤 30일 동안 읽기 전용, 이후 30일 동안 복구할 수 있고, 그다음 모든 자료가 삭제돼요.",
-                "A paid team is not deleted at once. Terminate it in Plan & billing: after the period ends it is read-only for 30 days, restorable for 30 more, and then everything is deleted.",
+                "결제한 팀은 바로 삭제되지 않아요. 플랜과 결제에서 구독을 해지하면 이번 이용기간까지 쓰고, 그 뒤 30일 동안 읽기 전용, 30일 더 복구할 수 있고, 그다음 모든 자료가 삭제돼요.",
+                "A paid team is not deleted at once. Cancel the subscription in Plan & billing: it works until the period ends, is read-only for 30 days, restorable for 30 more, and then everything is deleted.",
               )
             : c(
                 `이용기간이 끝난 팀이에요. ${formatDate(new Date(Date.parse(ended) + 60 * DAY), lang)} 이후 모든 자료가 삭제돼요. 그 전에는 플랜과 결제에서 복구할 수 있어요.`,

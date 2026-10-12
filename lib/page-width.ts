@@ -13,8 +13,7 @@ const RULES: [RegExp, PageWidth][] = [
   [/^\/dashboard\/(b2b-)?invitations\//, "narrow"],
   [/^\/dashboard\/workspaces\/new(\/|$)/, "narrow"],
   [new RegExp(`${team}/settings(/|$)`), "narrow"],
-  [new RegExp(`${team}/plan/(settings|orders)(/|$)`), "narrow"],
-  [new RegExp(`${team}/statements/[^/]+`), "narrow"],
+  [new RegExp(`${team}/(plan|statements)(/|$)`), "narrow"],
 ];
 
 export function pageWidth(pathname: string): PageWidth {

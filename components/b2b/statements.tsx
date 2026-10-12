@@ -1,5 +1,5 @@
 "use client";
-import { billingTabs, kst, useWon } from "./billing-shared";
+import { kst, useWon } from "./billing-shared";
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -220,7 +220,10 @@ export function TeamStatements() {
   if (!b2b?.enrolled) return <B2bError code="B2B_TEAM_NOT_FOUND" />;
   if (!allowed) return <B2bError code="B2B_BILLING_PERMISSION_REQUIRED" />;
   return (
-    <TeamShell title={c("플랜과 결제", "Plan and billing")} tabs={billingTabs(scope.workspaceId, c)}>
+    <TeamShell
+      title={c("월 이용명세서", "Monthly statements")}
+      back={{ href: `/dashboard/workspaces/${scope.workspaceId}/plan`, label: c("플랜과 결제", "Plan and billing") }}
+    >
       {/* Said once, here: the month pages no longer repeat it. */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-[13px] text-muted">
