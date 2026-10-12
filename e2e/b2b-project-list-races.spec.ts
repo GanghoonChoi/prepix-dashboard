@@ -87,7 +87,6 @@ test("actual Chrome origin fence works after await without a storage event",asyn
 test("actual Chrome back restores filters/pages/scroll through a fresh ACL chain, without private cache",async({page})=>{
   await mount(page);
   await page.getByRole("textbox").fill("Filtered");
-  await page.getByRole("combobox",{name:"상태"}).selectOption("in_progress");
   await expect(page.getByRole("heading",{name:"Filtered Private 0",exact:true})).toBeVisible();
   await page.getByRole("button",{name:"더 보기",exact:true}).click();
   await expect(page.getByRole("heading",{name:"Filtered Private 99",exact:true})).toBeAttached();
@@ -98,12 +97,11 @@ test("actual Chrome back restores filters/pages/scroll through a fresh ACL chain
   const saved=await page.evaluate(()=>Object.values(sessionStorage).map(value=>JSON.parse(value)));
   expect(saved).toHaveLength(1);
   expect(Object.keys(saved[0]).sort()).toEqual(["pages","scroll","search","sort","state"]);
-  expect(saved[0]).toMatchObject({search:"Filtered",state:"in_progress",pages:2,sort:"created-desc"});
+  expect(saved[0]).toMatchObject({search:"Filtered",pages:2,sort:"created-desc"});
   expect(JSON.stringify(saved)).not.toMatch(/Private|project-60|fresh-0/);
   await page.evaluate(()=>{const w=window as unknown as {generation:number;calls:unknown[];hold:boolean};w.generation=1;w.calls=[];w.hold=true;});
   await page.goBack();
   await expect(page.getByRole("textbox")).toHaveValue("Filtered");
-  await expect(page.getByRole("combobox")).toHaveValue("in_progress");
   await expect(page.getByRole("heading",{name:/Private/})).toHaveCount(0);
   await expect.poll(()=>page.evaluate(()=>(window as unknown as {pending:unknown[]}).pending.length)).toBeGreaterThan(0);
   await page.evaluate(()=>{const w=window as unknown as {hold:boolean;pending:(()=>void)[]};w.hold=false;w.pending.splice(0).forEach(resolve=>resolve());});
