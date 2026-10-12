@@ -682,7 +682,7 @@ test("B2B ownership uses consent and verification, retries lost responses and re
       },
     );
     await successorPage
-      .getByRole("button", { name: "본인 확인 후 소유권 수락", exact: true })
+      .getByRole("button", { name: "본인 확인하고 수락", exact: true })
       .click();
     await expect(
       successorPage.getByRole("button", {
@@ -704,7 +704,7 @@ test("B2B ownership uses consent and verification, retries lost responses and re
       .getByLabel("현재 비밀번호", { exact: true })
       .fill(password);
     await successorPage
-      .getByRole("button", { name: "본인 확인 후 소유권 수락", exact: true })
+      .getByRole("button", { name: "본인 확인하고 수락", exact: true })
       .click();
     await expect(
       successorPage
