@@ -196,15 +196,15 @@ export function SpaceIcon({
 }
 
 /**
- * The personal workspace is named after the account on the server, which is
- * fine as a record and wrong as a title — "gildong's workspace" in a list next
- * to "Studio team" reads like one more team. So a personal space is titled by
- * what it is, and a team by what it is called.
+ * Every space is titled by what it is called — the personal one too, since
+ * /start asks for its name (user decision 2026-10-12). What kind it is stays
+ * beside the name (the switcher's icon, SpaceBadge's "개인 공간"), so a renamed
+ * personal space never reads like one more team.
  */
 export function useSpaceName() {
   const { t } = useI18n();
   return (workspace: { name: string; type?: string }) =>
-    isPersonal(workspace) ? t("team.kind.personal") : workspace.name;
+    workspace.name.trim() || t(isPersonal(workspace) ? "team.kind.personal" : "team.kind.team");
 }
 
 /**

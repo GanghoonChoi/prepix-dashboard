@@ -39,7 +39,10 @@ test("F02: switching personal <-> team and team A <-> team B writes no rows", as
   const a = await team(request, owner, `Switch A ${randomUUID().slice(0, 6)}`);
   const b = await team(request, owner, `Switch B ${randomUUID().slice(0, 6)}`);
   const names = await json(request.get(`${api}/v2/workspaces`, { headers: owner.headers }));
-  const nameOf = (id: string) => (names.workspaces as { id: string; name: string }[]).find((w) => w.id === id)!.name;
+  const rows = names.workspaces as { id: string; name: string; type?: string }[];
+  const nameOf = (id: string) => rows.find((w) => w.id === id)!.name;
+  // The personal space is listed by its own name now.
+  const mine = rows.find((w) => w.type === "personal")!.name;
   const pool = new pg.Pool({ connectionString: dbUrl, max: 1 });
   const counts = async () => {
     const tables = (await pool.query("select table_schema s, table_name t from information_schema.tables where table_schema not in ('pg_catalog','information_schema','drizzle') and table_type='BASE TABLE' order by 1,2")).rows as { s: string; t: string }[];
@@ -59,10 +62,10 @@ test("F02: switching personal <-> team and team A <-> team B writes no rows", as
     };
     // One warm-up lap first: opening a space for the first time may legitimately lazy-create its own rows.
     // The assertion is about switching, so measure the laps after that.
-    for (const label of [nameOf(a), "개인 공간", nameOf(b), nameOf(a)]) await pick(label);
+    for (const label of [nameOf(a), mine, nameOf(b), nameOf(a)]) await pick(label);
     const before = await counts();
     const path: string[] = [];
-    for (const label of [nameOf(b), "개인 공간", nameOf(a), nameOf(b), nameOf(a), "개인 공간"]) {
+    for (const label of [nameOf(b), mine, nameOf(a), nameOf(b), nameOf(a), mine]) {
       await pick(label);
       path.push(new URL(S.page.url()).pathname);
     }

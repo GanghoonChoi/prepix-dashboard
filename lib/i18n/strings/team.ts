@@ -90,7 +90,7 @@ export const team = {
     "team.acceptPending": "Accept invitation",
     "team.verifyTitle": "Verify your email address",
     "team.verifyBody":
-      "Open the link we sent to your account's email address. Verifying lets you accept team invitations.",
+      "Open the link we sent. You'll need it to recover your password and to join teams.",
     "team.verifyPending":
       "{count} invitation(s) are waiting. Verify your email to join.",
     "team.verifyResend": "Resend verification email",
@@ -286,7 +286,7 @@ export const team = {
     "team.acceptPending": "초대 수락",
     "team.verifyTitle": "이메일 주소를 인증해 주세요",
     "team.verifyBody":
-      "계정 이메일 주소로 보낸 링크를 열어주세요. 인증하면 팀 초대를 수락할 수 있습니다.",
+      "보낸 링크를 열면 끝나요. 비밀번호 찾기와 팀 초대에 필요해요.",
     "team.verifyPending":
       "받은 팀 초대가 {count}개 있습니다. 이메일을 인증하면 참여할 수 있습니다.",
     "team.verifyResend": "인증 메일 다시 보내기",

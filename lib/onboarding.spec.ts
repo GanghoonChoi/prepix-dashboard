@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseEmails, readStartState, seatPlan, startHref } from "./onboarding";
+import { parseEmails, readStartState, seatPlan, startHref, teamStartHref } from "./onboarding";
 
 const id = "0b6f7c1e-2a3b-4c5d-8e9f-0a1b2c3d4e5f";
 
@@ -63,4 +63,13 @@ test("addresses pasted from a mail client keep only the address", () => {
     emails: [],
     invalid: ["a@b..kr", "x@y"],
   });
+});
+
+test("every \"make a team\" goes through /start's team path when first run is on", () => {
+  const before = process.env.NEXT_PUBLIC_START_ONBOARDING;
+  process.env.NEXT_PUBLIC_START_ONBOARDING = "1";
+  assert.equal(teamStartHref("ko"), "/start?locale=ko&step=workspace&intent=team");
+  process.env.NEXT_PUBLIC_START_ONBOARDING = "";
+  assert.equal(teamStartHref("ko"), "/dashboard/workspaces/new");
+  process.env.NEXT_PUBLIC_START_ONBOARDING = before;
 });

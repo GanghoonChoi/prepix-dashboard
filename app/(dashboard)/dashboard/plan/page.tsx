@@ -14,6 +14,7 @@ import { Dialog } from "@/components/dialog";
 import { useToast } from "@/components/toast";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import Link from "next/link";
+import { startHref } from "@/lib/onboarding";
 import { useI18n } from "@/lib/i18n/context";
 import { RefundRequestCard } from "@/components/dashboard/refund-request-card";
 import { legalUrl } from "@/lib/i18n/config";
@@ -464,7 +465,24 @@ export default function PlanPage() {
       <BillingHeader />
       <div className="space-y-8">
 
-      {justUpgraded && <Notice tone="success" role="status">{t("plan.paymentReceived")}</Notice>}
+      {justUpgraded && (
+        <Notice
+          tone="success"
+          role="status"
+          action={
+            process.env.NEXT_PUBLIC_START_ONBOARDING === "1" && (
+              <Link
+                className="font-medium text-foreground underline underline-offset-4"
+                href={startHref({ step: "app", workspace: null, intent: null, next: null }, lang)}
+              >
+                {t("plan.nextApp")}
+              </Link>
+            )
+          }
+        >
+          {t("plan.paymentReceived")}
+        </Notice>
+      )}
 
       {/* Current plan, and what coupons add to it — one object, not two. */}
       <Card>

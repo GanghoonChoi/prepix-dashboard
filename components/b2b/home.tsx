@@ -33,10 +33,14 @@ import {
   AvatarStack,
   Badge,
   Button,
+  buttonClass,
   CardHeader,
   EmptyState,
   Notice,
+  ProgressTracker,
+  type TrackerStep,
 } from "@/components/ui";
+import { startHref } from "@/lib/onboarding";
 import { useI18n } from "@/lib/i18n/context";
 import { href as notificationHref } from "@/lib/b2b-notifications/notifications";
 import { B2bError, StateBadge, errorCode, useCopy } from "./shared";
@@ -91,26 +95,26 @@ function ScopedHome({
   const [data, setData] = useState<TeamHome | null>(null),
     [error, setError] = useState("");
   // Invitations typed in /start wait for the first payment; say how many.
-  const [held, setHeld] = useState(0);
-  const preparing = status.team.currentState === "preparing";
+  // Any invitation at all ticks "invite your team" off the first-run list.
+  const [held, setHeld] = useState(0),
+    [invited, setInvited] = useState(false);
+  const manage = status.allowedActions.manage;
   useEffect(() => {
-    if (!preparing) return;
+    if (!manage) return;
     let live = true;
     void b2bService
       .invitations(workspace.id)
-      .then(
-        (r) =>
-          live &&
-          setHeld(
-            r.invitations.filter((i) => i.deliveryState === "held" && !i.revokedAt)
-              .length,
-          ),
-      )
+      .then((r) => {
+        if (!live) return;
+        const open = r.invitations.filter((i) => !i.revokedAt);
+        setInvited(open.length > 0);
+        setHeld(open.filter((i) => i.deliveryState === "held").length);
+      })
       .catch(() => undefined);
     return () => {
       live = false;
     };
-  }, [workspace.id, preparing]);
+  }, [workspace.id, manage]);
   const lifetime = useRef<AbortController | null>(null),
     sequence = useRef(0);
   const load = useCallback(async () => {
@@ -184,6 +188,25 @@ function ScopedHome({
           ? c("편집 좌석이 없어 앱에서는 보기만 할 수 있어요.", "You don't have an editing seat, so the app is view-only.")
           : null;
   const link = "font-medium text-foreground underline underline-offset-4";
+  // A new team's first three things, in /start's order, until something is
+  // shared: the one place a manager sees what is left after /start.
+  const shared = !!data?.projects.items.length;
+  const starting =
+    process.env.NEXT_PUBLIC_START_ONBOARDING === "1" &&
+    manage &&
+    !!data &&
+    !shared &&
+    (state === "preparing" || state === "active");
+  const firstRun: TrackerStep[] = [
+    { id: "invite", label: c("팀원 초대하기", "Invite your team"), done: invited },
+    { id: "pay", label: c("결제하기", "Pay for the team"), done: state !== "preparing" },
+    {
+      id: "share",
+      label: c("앱 설치하고 첫 영상 공유하기", "Get the app and share a first video"),
+      done: shared,
+    },
+  ];
+  const next = firstRun.find((s) => !s.done)?.id;
   return (
     <TeamShell
       title={workspace.name}
@@ -207,6 +230,8 @@ function ScopedHome({
         <Notice
           tone={state === "preparing" ? "neutral" : "warning"}
           action={
+            // The first-run list below carries the same links.
+            !(starting && state === "preparing") && (
             <span className="flex flex-wrap gap-x-3 gap-y-1">
               {state === "preparing" ? (
                 status.allowedActions.billing && (
@@ -230,6 +255,7 @@ function ScopedHome({
                 </Link>
               )}
             </span>
+            )
           }
         >
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -257,6 +283,28 @@ function ScopedHome({
             </span>
           </span>
         </Notice>
+      )}
+      {starting && next && (
+        <div className="flex max-w-sm flex-col items-start gap-3">
+          <ProgressTracker title={c("다음 할 일", "Next steps")} steps={firstRun} current={next} />
+          {next === "pay" ? (
+            status.allowedActions.billing && (
+              <Link className={buttonClass()} href={`${base}/plan`}>{c("결제하기", "Pay")}</Link>
+            )
+          ) : next === "invite" ? (
+            state === "active" ? (
+              <Button onClick={invite.open}>{c("팀원 초대", "Invite people")}</Button>
+            ) : (
+              <Link className={buttonClass()} href={startHref({ step: "invite", workspace: workspace.id, intent: "team", next: null }, lang)}>
+                {c("팀원 초대", "Invite people")}
+              </Link>
+            )
+          ) : (
+            <Link className={buttonClass()} href={startHref({ step: "app", workspace: workspace.id, intent: null, next: null }, lang)}>
+              {c("앱 설치하기", "Get the app")}
+            </Link>
+          )}
+        </div>
       )}
       <OwnershipOffer />
       {error && <B2bError code={error} retry={() => void load()} />}

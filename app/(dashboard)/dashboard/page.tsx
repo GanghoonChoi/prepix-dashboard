@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { teamStartHref } from "@/lib/onboarding";
 import { Skeleton } from "@heroui/react";
 import {
   ArrowRight,
@@ -175,7 +176,7 @@ export default function DashboardPage() {
           {
             label: t("dashboard.createTeam"),
             hint: t("dashboard.createTeamHint"),
-            href: "/dashboard/workspaces",
+            href: teamStartHref(lang),
             Icon: Users,
           },
         ]

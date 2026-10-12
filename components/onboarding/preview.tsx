@@ -36,7 +36,7 @@ export function StartPreview({ state }: { state: PreviewState }) {
   return (
     <aside
       aria-hidden="true"
-      className="relative hidden overflow-hidden border-l border-border bg-surface lg:flex lg:items-center lg:justify-end lg:py-12 lg:pl-12"
+      className="relative flex min-h-0 flex-1 items-center justify-end overflow-hidden py-10 pl-12"
     >
       {/* Dot grid fading out from the centre, and one soft light above it. */}
       <div className="pointer-events-none absolute inset-0 [background-image:radial-gradient(var(--surface-tertiary)_1px,transparent_1px)] [background-size:22px_22px] [mask-image:radial-gradient(ellipse_at_center,black_35%,transparent_75%)]" />
@@ -89,7 +89,7 @@ function WorkspaceWindow({ state }: { state: PreviewState }) {
   return (
     <div className={windowClass}>
       <WindowBar label="dashboard.prepix.ai" />
-      <div className="grid h-[440px] grid-cols-[184px_minmax(0,1fr)]">
+      <div className="grid h-[380px] grid-cols-[184px_minmax(0,1fr)]">
         <div className="space-y-4 border-r border-border bg-surface p-3">
           <div className="flex items-center gap-2.5 rounded-lg p-1.5">
             <motion.span

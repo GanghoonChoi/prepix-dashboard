@@ -44,56 +44,50 @@ export function VerifyEmailNotice() {
       active = false;
     };
   }, [teamsEnabled]);
+  // One line above the page, not a card that pushes everything down: every new
+  // account sees it on every screen until the link is opened.
   return (
     <section
       // Named, so it is a real landmark a screen reader can jump to rather than
       // an anonymous <section> that exposes no role at all.
       aria-labelledby="verify-email-heading"
-      className="flex gap-3 rounded-lg border border-border bg-surface p-5"
+      className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-border bg-surface px-4 py-2.5 text-[13px]"
     >
-      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-surface-secondary text-muted">
-        <MailCheck size={16} strokeWidth={1.75} aria-hidden="true" />
-      </span>
-      <div className="min-w-0 flex-1 space-y-3">
-        <div>
-          <h2 id="verify-email-heading" className="text-sm font-semibold">
-            {t("team.verifyTitle")}
-          </h2>
-          <p className="mt-1 text-[13px] leading-5 text-muted">{t("team.verifyBody")}</p>
-        </div>
-        {pending > 0 && (
-          <p className="text-[13px] leading-5">
-            {t("team.verifyPending", { count: pending })}
-          </p>
-        )}
-        {error && <TeamError code={error} />}
+      <MailCheck size={16} strokeWidth={1.75} aria-hidden="true" className="shrink-0 text-muted" />
+      <p className="min-w-0 flex-1 leading-5">
+        <span id="verify-email-heading" role="heading" aria-level={2} className="font-semibold">
+          {t("team.verifyTitle")}
+        </span>{" "}
+        <span className="text-muted">{t("team.verifyBody")}</span>
+        {pending > 0 && <span className="block">{t("team.verifyPending", { count: pending })}</span>}
         {state === "sent" && (
-          <p role="status" className="text-[13px]">
+          <span role="status" className="block">
             {t("team.verifySent")}
-          </p>
+          </span>
         )}
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={state === "sending"}
-          aria-busy={state === "sending"}
-          onClick={async () => {
-            setState("sending");
-            setError("");
-            try {
-              await authService.requestEmailVerification();
-              setState("sent");
-            } catch (e) {
-              // A 429 is the expected answer to an impatient second click, and
-              // says "wait", not "failed".
-              setError(workspaceError(e));
-              setState("idle");
-            }
-          }}
-        >
-          {t(state === "sending" ? "team.verifySending" : "team.verifyResend")}
-        </Button>
-      </div>
+      </p>
+      {error && <TeamError code={error} />}
+      <Button
+        variant="secondary"
+        size="sm"
+        disabled={state === "sending"}
+        aria-busy={state === "sending"}
+        onClick={async () => {
+          setState("sending");
+          setError("");
+          try {
+            await authService.requestEmailVerification();
+            setState("sent");
+          } catch (e) {
+            // A 429 is the expected answer to an impatient second click, and
+            // says "wait", not "failed".
+            setError(workspaceError(e));
+            setState("idle");
+          }
+        }}
+      >
+        {t(state === "sending" ? "team.verifySending" : "team.verifyResend")}
+      </Button>
     </section>
   );
 }

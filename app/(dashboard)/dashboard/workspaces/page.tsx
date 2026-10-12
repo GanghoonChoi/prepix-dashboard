@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { teamStartHref } from "@/lib/onboarding";
 import { useRouter } from "next/navigation";
 import { ChevronRight, Mail } from "lucide-react";
 import {
@@ -84,7 +85,7 @@ export default function WorkspacesPage() {
         status !== "unreachable" &&
         capabilities?.enabled &&
         capabilities.canCreate && (
-          <Link href="/dashboard/workspaces/new" className={buttonClass({ variant: "secondary" })}>
+          <Link href={teamStartHref(lang)} className={buttonClass({ variant: "secondary" })}>
             {t("team.makeTeam")}
           </Link>
         )
@@ -265,9 +266,9 @@ function SpaceName({
       <span className={`min-w-0 truncate font-medium ${muted ? "text-muted" : ""}`}>
         {name}
       </span>
-      {/* The personal row is already called 개인 공간; only a team needs its
-          kind said. */}
-      {!personal && <Badge>{t("team.kind.team")}</Badge>}
+      {/* Both say their kind: a personal space has its own name now, and
+          "<name>의 워크스페이스" with no kind beside it reads like a team. */}
+      <Badge>{t(personal ? "team.kind.personal" : "team.kind.team")}</Badge>
     </>
   );
 }

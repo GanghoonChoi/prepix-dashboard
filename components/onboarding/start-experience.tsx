@@ -532,15 +532,19 @@ export function StartExperience() {
                 </motion.div>
               </AnimatePresence>
             </section>
-            <div className="relative hidden lg:grid">
+            {/* The preview over the tracker, never under it: a card floating on
+                the drawing hid its member row and the seats it was showing. */}
+            <div className="hidden border-l border-border bg-surface lg:flex lg:flex-col">
               <StartPreview state={previewState} />
               {signedIn && step !== "edit" && !settling && (
-                <ProgressTracker
-                  className="absolute bottom-8 left-8 !w-[264px] shadow-[0_8px_30px_rgba(0,0,0,0.08)]"
-                  title={copy("Getting started", "시작하기")}
-                  steps={tracker}
-                  current={sequence[position]}
-                />
+                <div className="px-12 pb-10">
+                  <ProgressTracker
+                    className="!w-[264px] shadow-[0_8px_30px_rgba(0,0,0,0.08)]"
+                    title={copy("Getting started", "시작하기")}
+                    steps={tracker}
+                    current={sequence[position]}
+                  />
+                </div>
               )}
             </div>
           </div>
