@@ -20,6 +20,7 @@ import { RefundRequestCard } from "@/components/dashboard/refund-request-card";
 import { legalUrl } from "@/lib/i18n/config";
 import { CouponDialog } from "@/components/dashboard/coupon-dialog";
 import { UsageSection } from "@/components/dashboard/usage-card";
+import { PaymentHistory } from "@/components/dashboard/payment-history";
 import { useSearchParams } from "next/navigation";
 import { couponService, type CouponBenefits } from "@/lib/api/services/coupon.service";
 import {
@@ -782,6 +783,8 @@ export default function PlanPage() {
           </div>
         </Block>
       )}
+
+      <PaymentHistory />
 
       <CouponDialog
         state={couponModal}

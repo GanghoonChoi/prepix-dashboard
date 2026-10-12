@@ -270,6 +270,9 @@ export function billingApi(scope: Omit<BillingScope, "userId"> & { userId: strin
     orders: (cursor?: string) =>
       get<TeamOrderList>(`${base}/commerce/orders${cursor ? `?cursor=${e(cursor)}` : ""}`),
     order: (orderId: string) => get<{ order: TeamOrder }>(`${base}/commerce/orders/${e(orderId)}`),
+    /** The card company's slip for a paid order (Toss asks the buyer to verify). */
+    pgReceipt: (orderId: string) =>
+      get<{ url: string; verification: boolean }>(`${base}/commerce/orders/${e(orderId)}/pg-receipt`),
     createOrder: (input: CreateTeamOrder) =>
       send<{ orderId: string; providerOrderId: string; expiresAt: string; requestId: string }>("POST", `${base}/commerce/orders`, input),
     checkout: (orderId: string) => get<TeamCheckout>(`${base}/commerce/orders/${e(orderId)}/checkout`),
