@@ -239,7 +239,7 @@ function ScopedProjects({ scope: initialScope }: { scope: ProjectListScope }) {
                     "No projects yet. A project shared from the app shows up here.",
                   )
                 : c(
-                    "초대된 프로젝트가 없습니다. 프로젝트 담당자에게 문의하세요.",
+                    "초대된 프로젝트가 없습니다. 관리자에게 문의하세요.",
                     "There are no invited projects. Contact your project lead.",
                   )
             }

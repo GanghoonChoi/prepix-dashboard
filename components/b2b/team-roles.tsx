@@ -8,7 +8,9 @@ import { useCopy } from "./shared";
  * Every line is a rule the backend enforces (prepix-backend, checked
  * 2026-10-12): managers are internal owners and admins (b2b-core `manager()`);
  * only the owner appoints admins or hands over ownership (members.service,
- * ownership.service); 플랜과 결제 needs 결제 권한, which the owner always has
+ * ownership.service); owners and admins see and manage every project, and
+ * whoever brought a project in manages it too (b2b-core `managesProject`,
+ * 2026-10-12); 플랜과 결제 needs 결제 권한, which the owner always has
  * and can give an admin (b2b-core `requireBilling`); viewers get no archive
  * (cloud.service) and no paid seat (licences.service).
  */
@@ -38,14 +40,14 @@ const CAN: Record<TeamRole, [string, string][]> = {
   ],
   admin: [
     ["멤버 초대, 역할 변경", "Invite people, change roles"],
+    ["모든 프로젝트 보기·관리 (비공개 포함)", "See and manage every project, private too"],
     ["팀 설정", "Team settings"],
-    ["프로젝트 만들기, 영상 올리기", "Create projects, upload"],
     ["플랜과 결제 (결제 권한이 있을 때)", "Plan and billing (with billing permission)"],
   ],
   editor: [
-    ["프로젝트 만들기", "Create projects"],
-    ["영상·자료 올리기", "Upload videos and files"],
-    ["콘텐츠 아카이브", "Content archive"],
+    ["앱에서 프로젝트 올리기", "Bring projects in from the app"],
+    ["자기가 올린 프로젝트 관리", "Manage the projects they brought in"],
+    ["영상·자료 올리기, 콘텐츠 아카이브", "Upload videos and files, content archive"],
   ],
   reviewer: [
     ["참여한 프로젝트 영상 보기", "Watch projects they're in"],

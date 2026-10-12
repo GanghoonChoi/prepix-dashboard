@@ -23,7 +23,7 @@ export const stateLabels: Record<TeamState | ProjectState, [string, string]> = {
   archived: ["보관", "Archived"],
 };
 export const roleLabels: Record<ProjectRole | "viewer", [string, string]> = {
-  lead: ["담당자", "Lead"],
+  lead: ["올린 사람", "Creator"],
   // Figma-like: an editor makes, a viewer watches and comments.
   producer: ["편집자", "Editor"],
   reviewer: ["뷰어", "Viewer"],
@@ -105,7 +105,7 @@ const invitationErrors: Record<string, [string, string]> = {
     "This invitation is unavailable.",
   ],
   INVITATION_EXPIRED: [
-    "초대가 만료되었습니다. 담당자에게 다시 초대해 달라고 요청하세요.",
+    "초대가 만료되었습니다. 초대한 사람에게 다시 초대해 달라고 요청하세요.",
     "The invitation expired. Ask the lead for a new invitation.",
   ],
   INVITATION_REVOKED: ["취소된 초대입니다.", "This invitation was cancelled."],
@@ -130,7 +130,7 @@ const invitationErrors: Record<string, [string, string]> = {
     "Invitation delivery is not configured. Contact a team administrator.",
   ],
   B2B_PROJECT_LEAD_TRANSFER_REQUIRED: [
-    "담당자 역할을 이전한 뒤 참여 구분을 변경해 주세요.",
+    "직접 올린 프로젝트가 있는 멤버는 외부 참여자로 바꿀 수 없습니다.",
     "Transfer the lead role before changing affiliation.",
   ],
   B2B_EXTERNAL_ADMIN_DENIED: [
@@ -317,7 +317,7 @@ const errors: Record<string, [string, string]> = {
     "Reopen the completed folder before changing it.",
   ],
   B2B_PROJECT_LEAD_REQUIRED: [
-    "프로젝트 담당자만 변경할 수 있습니다.",
+    "프로젝트를 올린 사람이나 소유자·관리자만 변경할 수 있습니다.",
     "Only the folder lead can make this change.",
   ],
   B2B_PROJECT_VISIBILITY_CONFIRMATION_REQUIRED: [
@@ -330,7 +330,7 @@ const errors: Record<string, [string, string]> = {
   ],
   B2B_REASON_REQUIRED: ["사유를 입력해 주세요.", "Enter a reason."],
   B2B_PROJECT_LEAD_PROTECTED: [
-    "담당자는 후임에게 역할을 이전한 뒤 변경할 수 있습니다.",
+    "프로젝트를 올린 사람의 역할은 바꿀 수 없습니다.",
     "Transfer the lead role before changing this participant.",
   ],
   B2B_INTERNAL_SUCCESSOR_REQUIRED: [
@@ -414,7 +414,7 @@ const denials: Record<string, { found: boolean; reason: [string, string] }> = {
   B2B_PROJECT_PARTICIPATION_REQUIRED: {
     found: true,
     reason: [
-      "팀 공개 프로젝트를 열람 중입니다. 작업하려면 담당자에게 참여를 요청하세요.",
+      "팀 공개 프로젝트를 열람 중입니다. 작업하려면 관리자에게 참여를 요청하세요.",
       "You are viewing a team-wide project. Ask the lead to add you to work on it.",
     ],
   },
