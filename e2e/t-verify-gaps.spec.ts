@@ -6,7 +6,7 @@ import { account, fixture, open, upload, videoReady, json, password, type Accoun
 /**
  * Lane T verification gaps, against a LOCAL stack (API + DB + web).
  *   F02  switching space writes no rows
- *   F09  the trash screen shows the exact KST restore deadline (trashedAt + 30 days)
+ *   F09  최근 삭제한 파일 shows the KST day the restore window ends (trashedAt + 30 days)
  *   FL12 a web review never asks for the original, only the review copy
  *   FL01 a reload in the middle of login keeps the original destination
  *
@@ -54,7 +54,9 @@ test("F02: switching personal <-> team and team A <-> team B writes no rows", as
     const S = await open(browser, owner, "/dashboard/workspaces");
     await expect(S.page.getByRole("heading", { name: "워크스페이스", level: 1 })).toBeVisible();
     await S.page.waitForLoadState("networkidle");
-    const switcher = () => S.page.locator('aside button[aria-haspopup="menu"]:visible').first();
+    // data-space marks the space switcher; until the list loads it is plain text,
+    // and the first haspopup button in the sidebar is the account menu.
+    const switcher = () => S.page.locator('aside button[aria-haspopup="menu"][data-space]:visible');
     const pick = async (label: string) => {
       await switcher().click();
       await S.page.locator('[role="menu"]:visible').getByText(label, { exact: false }).first().click();
@@ -142,54 +144,53 @@ function wav(size: number) {
   return value;
 }
 
-/** A library-only original owned by `user` (the steward), uploaded through the real transfer flow. */
-async function libraryOriginal(request: Parameters<typeof account>[0], user: Account, libraryRoot: string, name: string) {
+/** An original owned by `user` (the steward) under `root`, uploaded through the real transfer flow. */
+async function storedOriginal(request: Parameters<typeof account>[0], user: Account, root: string, name: string) {
   const content = wav(32044);
-  const begin = await request.post(`${libraryRoot}/uploads`, { headers: user.headers, data: { requestKey: randomUUID(), name, kind: "original", size: content.length, sha256: createHash("sha256").update(content).digest("hex"), scope: "uploader_and_steward" } });
+  const begin = await request.post(`${root}/uploads`, { headers: user.headers, data: { requestKey: randomUUID(), name, kind: "original", size: content.length, sha256: createHash("sha256").update(content).digest("hex"), scope: "uploader_and_steward" } });
   expect(begin.status(), await begin.text()).toBe(201);
   const upload = (await begin.json()).data.upload as { id: string; partSize: number; versionId: string };
   for (let offset = 0, number = 1; offset < content.length; offset += upload.partSize, number++) {
     const part = content.subarray(offset, offset + upload.partSize);
-    const signed = await request.post(`${libraryRoot}/uploads/${upload.id}/parts`, { headers: user.headers, data: { number, checksum: createHash("sha256").update(part).digest("base64") } });
+    const signed = await request.post(`${root}/uploads/${upload.id}/parts`, { headers: user.headers, data: { number, checksum: createHash("sha256").update(part).digest("base64") } });
     expect(signed.status(), await signed.text()).toBe(201);
     const target = (await signed.json()).data;
     expect((await request.put(target.url, { headers: target.headers, data: part })).status()).toBe(200);
   }
-  expect((await request.post(`${libraryRoot}/uploads/${upload.id}/complete`, { headers: user.headers, data: {} })).status()).toBe(201);
-  await expect.poll(async () => (await json(request.get(`${libraryRoot}/uploads/${upload.id}`, { headers: user.headers }))).upload.state, { timeout: 30_000 }).toBe("ready");
+  expect((await request.post(`${root}/uploads/${upload.id}/complete`, { headers: user.headers, data: {} })).status()).toBe(201);
+  await expect.poll(async () => (await json(request.get(`${root}/uploads/${upload.id}`, { headers: user.headers }))).upload.state, { timeout: 30_000 }).toBe("ready");
   return upload.versionId;
 }
 
-test("F09: the trash screen shows the exact KST restore deadline (trashedAt + 30 days)", async ({ browser, request }) => {
+// The library screen was retired on 2026-10-08: a deleted file now waits in its
+// project's 최근 삭제한 파일, which names the day (no time, design system §1).
+test("F09: 최근 삭제한 파일 shows the KST day the 30-day restore window ends", async ({ browser, request }) => {
   test.setTimeout(300_000);
-  const { leader, teamId } = await lead(request, "f09");
+  const { leader, teamId, project } = await lead(request, "f09");
   const lib = `${api}/v2/workspaces/${teamId}/b2b`;
-  const versionId = await libraryOriginal(request, leader, `${lib}/library`, "restore-deadline.wav");
-  const got = await request.get(`${lib}/library/files/${versionId}`, { headers: leader.headers });
-  expect(got.status(), await got.text()).toBe(200);
-  const revision = (await got.json()).data.version.assetRevision as number;
-  const trashed = await request.post(`${lib}/file-trash`, { headers: leader.headers, data: { requestKey: randomUUID(), versionId, revision, reason: "삭제 시험", fromLibrary: true } });
+  const root = `${lib}/projects/${project}`;
+  const versionId = await storedOriginal(request, leader, root, "restore-deadline.wav");
+  const version = ((await json(request.get(`${root}/files`, { headers: leader.headers }))).versions as { id: string; assetRevision: number; referenceRevision: number }[]).find((v) => v.id === versionId)!;
+  // As 삭제 does it: take the file out of the project, then into the trash.
+  const unlinked = await request.post(`${root}/files/${versionId}/unlink`, { headers: leader.headers, data: { requestKey: randomUUID(), revision: version.referenceRevision, reason: "삭제 시험" } });
+  expect(unlinked.status(), await unlinked.text()).toBe(201);
+  const trashed = await request.post(`${lib}/file-trash`, { headers: leader.headers, data: { requestKey: randomUUID(), versionId, revision: version.assetRevision, reason: "삭제 시험", fromLibrary: true, sourceProjectId: project } });
   expect(trashed.status(), await trashed.text()).toBe(201);
   const listed = (await json(request.get(`${lib}/file-trash`, { headers: leader.headers }))).entries as { restoreUntil: string; trashedAt: string; version: { id: string } }[];
   const row = listed.find((e) => e.version.id === versionId)!;
   expect(Date.parse(row.restoreUntil) - Date.parse(row.trashedAt)).toBe(30 * 86_400_000);
   const want = kst(row.restoreUntil);
-  const L = await open(browser, leader, `/dashboard/workspaces/${teamId}/library`);
-  const shown = L.page.getByTestId(`trash-file-${versionId}`);
-  await expect(shown).toBeVisible();
-  const text = (await shown.innerText()).replace(/\s+/g, " ");
-  // ko-KR: "2026. 11. 6. 오후 2:05:33" in Asia/Seoul.
-  const m = text.match(/(\d{4})\. (\d{1,2})\. (\d{1,2})\. (오전|오후) (\d{1,2}):(\d{2}):\d{2}/);
-  expect(m, text).toBeTruthy();
-  const hour24 = (Number(m![5]) % 12) + (m![4] === "오후" ? 12 : 0);
-  expect([Number(m![1]), Number(m![2]), Number(m![3]), hour24, Number(m![6])]).toEqual([want.y, want.m, want.d, want.h, want.min]);
+  const L = await open(browser, leader, `/dashboard/workspaces/${teamId}/projects/${project}/files`);
+  await L.page.getByRole("button", { name: /^최근 삭제한 파일/ }).click();
+  const shown = L.page.getByRole("list", { name: "최근 삭제한 파일" }).getByRole("listitem").filter({ hasText: "restore-deadline.wav" });
+  await expect(shown).toContainText(`${want.m}월 ${want.d}일까지 복원할 수 있습니다`);
   await L.close();
 });
 
 test("FL01: a deep link opened logged out, reloaded in the middle of login, still lands on the destination", async ({ browser, request }) => {
   test.setTimeout(180_000);
   const { leader, teamId } = await lead(request, "fl01");
-  const destination = `/dashboard/workspaces/${teamId}/library`;
+  const destination = `/dashboard/workspaces/${teamId}/members`;
   const context = await browser.newContext({ locale: "ko-KR" });
   const page: Page = await context.newPage();
   await page.goto(`${web}${destination}`);

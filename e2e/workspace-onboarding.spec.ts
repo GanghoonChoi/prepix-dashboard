@@ -546,7 +546,7 @@ test("first run offers a waiting invitation and skipping it goes on to the first
   // panel, not a redirect, and signing in from it comes straight back.
   await page.goto("/start?locale=ko");
   await page
-    .getByRole("link", { name: "기존 계정으로 로그인", exact: true })
+    .getByRole("link", { name: "이미 계정이 있어요", exact: true })
     .click();
   await login(page, email);
   await expect(page).toHaveURL(/\/start\b/);
@@ -558,7 +558,8 @@ test("first run offers a waiting invitation and skipping it goes on to the first
   await expect(
     page.getByRole("heading", { name: "Prepix를 어떻게 쓰실 건가요?" })
   ).toBeVisible();
-  // Landing on your OWN space, not on the team that invited you — and titled
-  // by what it is rather than by the account that owns it.
-  await expect(page.getByText(email.split("@")[0])).toHaveCount(0);
+  // Landing on your OWN space, not on the team that invited you. (The personal
+  // space has its own name now, drawn in the preview, so the account name may
+  // appear there.)
+  await expect(page.getByText("Join offer team")).toHaveCount(0);
 });

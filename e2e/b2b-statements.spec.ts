@@ -255,7 +255,8 @@ test("S25 statements: lost issue response recovers by the same key, verified PDF
   await expect(financePage.getByRole("link", { name: /확정/ })).toBeVisible();
   expect((await delegate(false, 1)).status()).toBe(201);
   await financePage.getByRole("button", { name: "최신 상태 확인" }).click();
-  await expect(financePage.getByRole("alert")).toBeVisible();
+  // Inside main: Next's route announcer is a role=alert too.
+  await expect(financePage.getByRole("main").getByRole("alert")).toBeVisible();
   await expect(financePage.getByRole("link", { name: /확정/ })).toHaveCount(0);
   const denied = await request.get(`${currentApi}/statements/revisions/${corrected.revisions[0].id}/pdf`, {
     headers: finance.headers,
