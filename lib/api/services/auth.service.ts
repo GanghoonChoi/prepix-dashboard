@@ -1,5 +1,6 @@
 import { apiClient } from "../client";
 import { clearSignedIn } from "@/lib/account-hint";
+import { readAttributionId } from "@/lib/device-connect";
 import { purgeReviewLocalData } from "@/lib/b2b-reviews/operations";
 
 export interface LoginRequest {
@@ -49,8 +50,18 @@ export const authService = {
     return response.data.data;
   },
 
+  /*
+    `register` and `googleLogin` both carry the website's `px_aid` cookie when
+    the browser has one, so the backend can record which web visit an account
+    came from (`user_signed_up`). Read here rather than by each caller, so no
+    sign-up door forgets it. A property only — never an alias or merge.
+  */
   register: async (data: RegisterRequest): Promise<RegisterResponse> => {
-    const response = await apiClient.post("/auth/register", data);
+    const attributionId = readAttributionId();
+    const response = await apiClient.post("/auth/register", {
+      ...data,
+      ...(attributionId ? { attributionId } : {}),
+    });
     return response.data.data;
   },
 
@@ -60,7 +71,11 @@ export const authService = {
   },
 
   googleLogin: async (idToken: string): Promise<LoginResponse> => {
-    const response = await apiClient.post("/auth/google", { idToken });
+    const attributionId = readAttributionId();
+    const response = await apiClient.post("/auth/google", {
+      idToken,
+      ...(attributionId ? { attributionId } : {}),
+    });
     return response.data.data;
   },
 
