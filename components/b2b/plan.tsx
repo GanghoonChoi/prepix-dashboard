@@ -237,21 +237,28 @@ function Plan({
   const r = view.readiness;
   const plan = view.renewal;
   const team = status.team;
-  const product = commerce?.configured ? (commerce.currentPeriod?.product ?? commerce.product) : null;
+  // What is sold now: the price line, the renewal estimate and the consent
+  // all name it. A team that bought this period on older terms (the launch
+  // product: 2 seats) renews on these, after its re-consent.
+  const product = commerce?.configured ? commerce.product : null;
   const period = commerce?.configured ? commerce.currentPeriod : null;
+  // Seats are counted on the terms this period was bought with.
+  const bought = period?.product ?? product;
   const lapsed = ["read_only", "recovery", "deletion_due"].includes(team.currentState);
   const target = !team.periodEndsAt ? "initial" : lapsed ? "restore" : null;
   const running = team.currentState === "active";
   const card = view.methods.find((m) => m.state === "active");
   const automatic = plan.mode === "automatic";
   const ends = team.periodEndsAt;
-  const seats = product && period ? product.base.seats + period.extraSeats : null;
+  const seats = bought && period ? bought.base.seats + period.extraSeats : null;
+  // Seats beyond the current product's minimum, at its price.
+  const extraNow = product && seats !== null ? Math.max(0, seats - product.base.seats) : 0;
   // The renewal bills members but viewers, never past the consented seats;
-  // today's paid seats are the honest estimate (VAT included).
+  // today's paid seats at today's price are the honest estimate (VAT included).
   const estimate =
-    product && period
+    product && seats !== null
       ? Math.round(
-          (product.base.supplyKrw + product.extraSeat.supplyKrw * Math.min(plan.extraSeats ?? 0, period.extraSeats)) *
+          (product.base.supplyKrw + product.extraSeat.supplyKrw * Math.min(plan.extraSeats ?? extraNow, extraNow)) *
             (1 + product.settlement.vatBasisPoints / 10_000),
         )
       : null;
@@ -302,7 +309,7 @@ function Plan({
       revision: plan.revision,
       mode: "automatic",
       methodId: card.id,
-      extraSeats: Math.max(plan.extraSeats ?? 0, period.extraSeats),
+      extraSeats: Math.max(plan.extraSeats ?? 0, extraNow),
       aiPacks: 0,
       storagePacks: plan.storagePacks,
       retainedUserIds: plan.retainedUserIds,
