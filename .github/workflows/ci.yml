@@ -1,0 +1,187 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec eslint .
+      - run: pnpm exec tsc --noEmit
+      - run: pnpm test
+      # The public values production builds with (Vercel bakes NEXT_PUBLIC_* in at build time).
+      - run: pnpm build
+        env:
+          NEXT_PUBLIC_API_URL: https://api.prepix.ai
+          NEXT_PUBLIC_START_ONBOARDING: "1"
+
+  # Real Chrome against the backend's local harness (scripts/workspaces-preview.cjs):
+  # real Nest/JWT API, PostgreSQL, S3 (moto), ffmpeg previews, captured mail and the
+  # local PG double. No spec reaches a real provider. The harness has two modes
+  # that no single flag set covers, so each runs in its own job on its own database.
+  e2e:
+    name: e2e (${{ matrix.mode }})
+    # Fork PRs get no secrets, so they cannot check out the private backend.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [default, new-teams]
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: prepix_test
+          POSTGRES_PASSWORD: prepix_test
+          POSTGRES_DB: prepix_onboarding
+        # 55860 is one of the ports the backend's lifecycle fixture accepts.
+        ports: ["55860:5432"]
+        options: >-
+          --health-cmd "pg_isready -U prepix_test -d prepix_onboarding"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      s3:
+        image: motoserver/moto:latest
+        ports: ["3900:5000"]
+    env:
+      WORKSPACES_TEST_DATABASE_URL: postgres://prepix_test:prepix_test@127.0.0.1:55860/prepix_onboarding
+      B2B_E2E_API_URL: http://127.0.0.1:3308
+      B2B_E2E_WEB_URL: http://localhost:3001
+      B2B_E2E_PG_DOUBLE_URL: http://127.0.0.1:3547
+      B2B_E2E_FIXTURE_DIR: ${{ github.workspace }}/prepix-backend/backend/scripts
+      B2B_E2E_MEDIA_DIR: ${{ github.workspace }}/media
+      B2B_TEST_STORAGE_ENDPOINT: http://127.0.0.1:3900
+      TEAM_TEST_STORAGE: "true"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: prepix-dashboard
+      # The specs reach the backend's fixtures at ../prepix-backend.
+      - uses: actions/checkout@v7
+        with:
+          repository: Lasker01/prepix-backend
+          ref: main
+          ssh-key: ${{ secrets.BACKEND_DEPLOY_KEY }}
+          path: prepix-backend
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: |
+            prepix-dashboard/pnpm-lock.yaml
+            prepix-backend/backend/pnpm-lock.yaml
+      - name: ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null
+
+      - name: build backend
+        working-directory: prepix-backend/backend
+        run: pnpm install --frozen-lockfile && npx nest build
+      - name: install dashboard
+        working-directory: prepix-dashboard
+        run: pnpm install --frozen-lockfile
+
+      - name: bucket and media
+        env:
+          AWS_ACCESS_KEY_ID: prepix_local_test
+          AWS_SECRET_ACCESS_KEY: prepix_local_test_secret
+          AWS_DEFAULT_REGION: us-east-1
+        run: |
+          s3="aws --endpoint-url $B2B_TEST_STORAGE_ENDPOINT s3api"
+          for i in $(seq 1 30); do $s3 list-buckets >/dev/null 2>&1 && break; sleep 1; done
+          $s3 create-bucket --bucket prepix-team-local
+          # Range headers exposed, or verified downloads never fire a download event.
+          $s3 put-bucket-cors --bucket prepix-team-local --cors-configuration '{"CORSRules":[{"AllowedOrigins":["*"],"AllowedMethods":["GET","PUT","POST","HEAD","DELETE"],"AllowedHeaders":["*"],"ExposeHeaders":["ETag","Content-Range","Content-Length","Accept-Ranges","Content-Type","Content-Disposition","x-amz-checksum-sha256"],"MaxAgeSeconds":3000}]}'
+          mkdir -p "$B2B_E2E_MEDIA_DIR" && cd "$B2B_E2E_MEDIA_DIR"
+          clip() { ffmpeg -loglevel error -f lavfi -i "$1=duration=$2:size=640x360:rate=25" -f lavfi -i "sine=frequency=$3:duration=$2" -c:v libx264 -pix_fmt yuv420p -c:a aac -shortest "$4"; }
+          clip testsrc 6 440 cut-v1.mp4
+          clip testsrc2 6 660 cut-v2.mp4
+          clip testsrc 10 880 long-cut.mp4
+
+      - name: start harness
+        working-directory: prepix-backend/backend
+        run: |
+          export B2B_TEST_ENABLED=true B2B_TEST_LAUNCH_DEFAULTS=true
+          export B2B_TEST_BACKUP_DIR="$RUNNER_TEMP/ledger" && mkdir -p "$B2B_TEST_BACKUP_DIR"
+          export B2B_TEST_FILES=true B2B_TEST_FFPROBE_PATH="$(which ffprobe)"
+          export B2B_TEST_PREVIEW=true B2B_TEST_FFMPEG_PATH="$(which ffmpeg)" B2B_TEST_PREVIEW_MAX_SECONDS=8
+          if [ "${{ matrix.mode }}" = new-teams ]; then
+            export B2B_TEST_NEW_TEAMS=true B2B_TEST_STATEMENTS=true B2B_TEST_DEVICES=true B2B_TEST_ORDERS=true
+            export B2B_TEST_BILLING=true B2B_TEST_PG_DOUBLE_PORT=3547
+            export B2B_TEST_NOTIFICATIONS=true B2B_TEST_NOTIFICATION_CAPTURE_DIR="$RUNNER_TEMP/notif" && mkdir -p "$B2B_TEST_NOTIFICATION_CAPTURE_DIR"
+          fi
+          nohup node scripts/workspaces-preview.cjs > "$RUNNER_TEMP/harness.log" 2>&1 &
+          for i in $(seq 1 90); do grep -q "API ready" "$RUNNER_TEMP/harness.log" && exit 0; sleep 1; done
+          cat "$RUNNER_TEMP/harness.log"; exit 1
+      # `next dev`, as the suite is written for: only a development build accepts the
+      # harness's http://127.0.0.1 storage URLs (lib/b2b-files/download-engine.ts).
+      - name: start dashboard
+        working-directory: prepix-dashboard
+        env:
+          NEXT_PUBLIC_API_URL: http://127.0.0.1:3308
+          NEXT_PUBLIC_START_ONBOARDING: "1"
+        run: |
+          nohup pnpm dev > "$RUNNER_TEMP/web.log" 2>&1 &
+          for i in $(seq 1 90); do curl -sf -o /dev/null "$B2B_E2E_WEB_URL/login" && break; sleep 1; done
+          # Dev compiles a route on first request; warm every page so the first spec to
+          # visit one is not judged on compile time.
+          find app -name page.tsx | sed -E 's#^app##; s#/page.tsx$##; s#/\([^)]*\)##g; s#\[[^]]*\]#x#g' |
+            while read -r route; do curl -s -o /dev/null -m 120 "$B2B_E2E_WEB_URL${route:-/}"; done
+          curl -sf -o /dev/null "$B2B_E2E_WEB_URL/login" || { cat "$RUNNER_TEMP/web.log"; exit 1; }
+
+      - name: playwright
+        working-directory: prepix-dashboard
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/report.json
+          # b2b-legal-floor sets time and usage with `docker exec <container> psql`.
+          B2B_E2E_PG_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          pnpm exec playwright test --project ${{ matrix.mode }} --reporter=list,json
+          # A skip here means the harness is missing something the spec needs. Only an
+          # explicit test.fixme (ci-quarantine) may stay unrun.
+          node -e '
+            const bad = [];
+            const walk = (s) => {
+              for (const x of s.suites ?? []) walk(x);
+              for (const spec of s.specs ?? [])
+                for (const t of spec.tests)
+                  if (t.status === "skipped" && !t.annotations.some((a) => a.type === "fixme"))
+                    bad.push(`${spec.file}: ${spec.title}`);
+            };
+            require(process.argv[1]).suites.forEach(walk);
+            if (bad.length) { console.log("::error::skipped without a ci-quarantine fixme:\n" + bad.join("\n")); process.exit(1); }
+          ' "$PLAYWRIGHT_JSON_OUTPUT_NAME"
+
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-${{ matrix.mode }}
+          path: |
+            ${{ runner.temp }}/report.json
+            ${{ runner.temp }}/harness.log
+            ${{ runner.temp }}/web.log
+            prepix-dashboard/test-results
+          retention-days: 7
