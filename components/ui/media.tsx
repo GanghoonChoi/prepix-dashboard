@@ -39,7 +39,7 @@ export function Poster({
           <Icon size={20} strokeWidth={1.5} aria-hidden="true" />
         </span>
       )}
-      {badge && <span className="absolute left-2 top-2">{badge}</span>}
+      {badge && <span className="absolute left-2 top-2 flex rounded-md bg-background shadow-sm">{badge}</span>}
       {duration != null && (
         <span className="absolute bottom-2 right-2 rounded bg-black/70 px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-white">
           {formatClock(duration)}
