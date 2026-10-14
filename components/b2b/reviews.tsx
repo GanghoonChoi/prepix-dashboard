@@ -808,7 +808,7 @@ export function Poster({
         // eslint-disable-next-line @next/next/no-img-element -- signed, short-lived storage URL
         <img src={url} alt="" loading="lazy" className="absolute inset-0 size-full object-cover" onError={() => setBroken(true)} />
       )}
-      {badge && <span className="absolute left-2 top-2">{badge}</span>}
+      {badge && <span className="absolute left-2 top-2 flex rounded-md bg-background shadow-sm">{badge}</span>}
       {children}
     </KitPoster>
   );
