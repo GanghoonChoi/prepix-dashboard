@@ -7,8 +7,8 @@ import { useCopy } from "./shared";
 
 /**
  * 클라우드 추가결제 for the card company's review login (backend
- * PAYMENTS_DEMO_ACCOUNTS): our real pay page, prorated like a real quote,
- * nothing charged. Everyone else gets nothing here — the server decides, so
+ * PAYMENTS_DEMO_ACCOUNTS): our real pay page at www.prepix.ai's price
+ * (100GB 월 5,800원, VAT 별도, no proration), nothing charged. Everyone else gets nothing here — the server decides, so
  * the list never ships to the browser. Live storage packs have no payment
  * route yet, so there is no non-demo twin of this card.
  */
@@ -27,7 +27,10 @@ export function DemoStorage({ workspaceId }: { workspaceId: string }) {
   }, []);
   if (!pack) return null;
 
-  const tb = pack.bytes / 1e12;
+  const size = (n: number) => {
+    const gb = (n * pack.bytes) / 1e9;
+    return gb >= 1000 ? `${gb / 1000}TB` : `${gb}GB`;
+  };
   const open = async () => {
     setBusy(true);
     setFailed(false);
@@ -48,8 +51,8 @@ export function DemoStorage({ workspaceId }: { workspaceId: string }) {
           {failed
             ? c("결제 페이지를 열지 못했어요. 다시 시도해 주세요.", "Could not open the checkout. Try again.")
             : c(
-                `${tb}TB당 ₩${pack.supplyKrw.toLocaleString("ko-KR")} (VAT 별도) · 남은 이용기간만큼 결제 · 데모라 실제로 결제되지 않아요`,
-                `₩${pack.supplyKrw.toLocaleString("ko-KR")} per ${tb}TB (VAT extra) · prorated to this period · demo, nothing is charged`,
+                `${size(1)}당 월 ₩${pack.supplyKrw.toLocaleString("ko-KR")} (VAT 별도) · Business 정기 결제일에 함께 갱신 · 데모라 실제로 결제되지 않아요`,
+                `₩${pack.supplyKrw.toLocaleString("ko-KR")} per ${size(1)} a month (VAT extra) · renews with Business · demo, nothing is charged`,
               )}
         </p>
       </div>
@@ -61,9 +64,9 @@ export function DemoStorage({ workspaceId }: { workspaceId: string }) {
           onChange={(e) => setPacks(Number(e.target.value))}
           disabled={busy}
         >
-          {[1, 2, 3, 5, 10].map((n) => (
+          {[1, 5, 10].map((n) => (
             <option key={n} value={n}>
-              {n * tb}TB
+              {size(n)}
             </option>
           ))}
         </select>
