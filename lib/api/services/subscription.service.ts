@@ -155,14 +155,16 @@ export const subscriptionService = {
     return response.data.data;
   },
 
-  /** Card-company review accounts only: the real pay page, nothing charged. */
-  demo: async (): Promise<{ available: boolean }> => {
+  /** Card-company review accounts only: a team's storage on the real pay page, nothing charged. */
+  demo: async (): Promise<
+    { available: false } | { available: true; storagePack: { bytes: number; supplyKrw: number } }
+  > => {
     const response = await apiClient.get("/subscriptions/demo");
     return response.data.data;
   },
 
-  demoCheckout: async (planId: string): Promise<{ checkoutUrl: string }> => {
-    const response = await apiClient.post("/subscriptions/demo-checkout", { planId, interval: "month" });
+  demoCheckout: async (workspaceId: string, packs: number): Promise<{ checkoutUrl: string }> => {
+    const response = await apiClient.post("/subscriptions/demo-checkout", { workspaceId, packs });
     return response.data.data;
   },
 
