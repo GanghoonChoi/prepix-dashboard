@@ -25,6 +25,7 @@ import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useI18n } from "@/lib/i18n/context";
 import { downloadUrl } from "@/lib/i18n/config";
 import { useCurrentSpace } from "@/components/dashboard/current-space";
+import { DemoCheckout } from "@/components/dashboard/demo-checkout";
 import { isPersonal } from "@/lib/workspaces/kind";
 import {
   ago,
@@ -207,6 +208,8 @@ export default function DashboardPage() {
           <ArrowRight size={14} className="shrink-0 text-muted" aria-hidden="true" />
         </Link>
       )}
+
+      <DemoCheckout />
 
       {loadError && (
         <Notice

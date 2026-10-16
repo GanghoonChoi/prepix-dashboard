@@ -155,6 +155,17 @@ export const subscriptionService = {
     return response.data.data;
   },
 
+  /** Card-company review accounts only: the real pay page, nothing charged. */
+  demo: async (): Promise<{ available: boolean }> => {
+    const response = await apiClient.get("/subscriptions/demo");
+    return response.data.data;
+  },
+
+  demoCheckout: async (planId: string): Promise<{ checkoutUrl: string }> => {
+    const response = await apiClient.post("/subscriptions/demo-checkout", { planId, interval: "month" });
+    return response.data.data;
+  },
+
   changePlan: async (newPlanId: string, interval: BillingInterval = "month") => {
     const response = await apiClient.post("/subscriptions/change-plan", {
       newPlanId,
