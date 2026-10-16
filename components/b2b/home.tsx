@@ -49,6 +49,7 @@ import { Poster, posterLinkClass } from "./reviews";
 import { OwnershipOffer } from "./ownership";
 import { LeaveTeam } from "./leave-team";
 import { MyDevices } from "./devices";
+import { DemoStorage } from "./demo-storage";
 const transfers: Record<string, [string, string]> = {
   preparing: ["전송 준비", "Preparing"],
   uploading: ["전송 중", "Uploading"],
@@ -283,6 +284,9 @@ function ScopedHome({
             </span>
           </span>
         </Notice>
+      )}
+      {state === "active" && status.allowedActions.billing && (
+        <DemoStorage workspaceId={workspace.id} />
       )}
       {starting && next && (
         <div className="flex max-w-sm flex-col items-start gap-3">
