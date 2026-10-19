@@ -58,6 +58,8 @@ export const plan: Record<Lang, Record<string, string>> = {
     "plan.refundGuideUsed":
       "Once you've used a paid service, or 14 days have passed since payment, change-of-mind refunds aren't available.",
     "plan.refundGuideMore": "View full refund policy",
+    "plan.tabPlan": "Plan",
+    "plan.tabPayments": "Payment history",
     "plan.footnote": "Light and Creator include VAT, Business excludes VAT · Unused minutes do not roll over",
     "plan.purchaseConsent": "By subscribing you agree to our",
     "plan.termsLink": "Terms of Service",
@@ -147,6 +149,8 @@ export const plan: Record<Lang, Record<string, string>> = {
     "plan.refundGuideUsed":
       "유료 서비스를 사용했거나 결제 후 14일이 지난 경우에는 단순 변심 환불이 불가합니다.",
     "plan.refundGuideMore": "자세한 환불 정책 보기",
+    "plan.tabPlan": "플랜",
+    "plan.tabPayments": "결제내역",
     "plan.footnote": "Light·Creator 부가세 포함, Business 부가세 별도 · 남은 처리량은 다음 달로 이월되지 않습니다",
     "plan.purchaseConsent": "구독하시면",
     "plan.termsLink": "이용약관",

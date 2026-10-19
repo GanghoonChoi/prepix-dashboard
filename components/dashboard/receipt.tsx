@@ -34,7 +34,7 @@ export function Receipt({ id }: { id: string }) {
   }, [id]);
 
   const back = (
-    <Link href="/dashboard/plan" className={buttonClass({ variant: "ghost", size: "sm" })}>
+    <Link href="/dashboard/plan/payments" className={buttonClass({ variant: "ghost", size: "sm" })}>
       <ArrowLeft size={14} strokeWidth={1.75} aria-hidden="true" />
       {c("결제내역", "Payment history")}
     </Link>

@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
-import { Block } from "@/components/workspaces/shared";
-import { Badge, buttonClass, tableClass, tdClass, thClass } from "@/components/ui";
+import { Skeleton } from "@heroui/react";
+import { Badge, EmptyState, buttonClass, tableClass, tdClass, thClass } from "@/components/ui";
 import { formatDate, formatMoney } from "@/lib/format";
 import { useI18n } from "@/lib/i18n/context";
 import { PLAN_NAMES } from "@/lib/constants/data";
@@ -37,8 +37,20 @@ export async function openPgReceipt(id: string) {
 }
 
 /**
+ * 플랜과 결제's two tabs (2026-10-19): the plan, and 결제내역 on its own page,
+ * as billing pages split them on Vercel and Slack — the plan cards and a year
+ * of payments were too much for one page.
+ */
+export function planTabs(t: (key: string) => string) {
+  return [
+    { href: "/dashboard/plan", label: t("plan.tabPlan") },
+    { href: "/dashboard/plan/payments", label: t("plan.tabPayments"), match: "/dashboard/plan/receipts" },
+  ];
+}
+
+/**
  * 결제내역 (2026-10-13): every payment of the personal plan, newest first, with
- * Prepix's own receipt and the card company's slip. Absent until there is one.
+ * Prepix's own receipt and the card company's slip.
  */
 export function PaymentHistory() {
   const { lang } = useI18n();
@@ -56,10 +68,11 @@ export function PaymentHistory() {
     };
   }, []);
 
-  if (!rows?.length) return null;
+  if (!rows) return <Skeleton className="h-40 w-full rounded-md" />;
+  if (!rows.length) return <EmptyState title={c("아직 결제내역이 없어요", "No payments yet")} />;
   const toss = rows.some((r) => r.provider === "tosspayments" && r.hasPgReceipt);
   return (
-    <Block title={c("결제내역", "Payment history")} label={c("결제내역", "Payment history")}>
+    <section aria-label={c("결제내역", "Payment history")}>
       <div className="overflow-x-auto">
         <table className={tableClass}>
           <thead>
@@ -131,6 +144,6 @@ export function PaymentHistory() {
           )}
         </p>
       )}
-    </Block>
+    </section>
   );
 }

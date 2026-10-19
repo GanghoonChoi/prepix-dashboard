@@ -20,7 +20,7 @@ import { RefundRequestCard } from "@/components/dashboard/refund-request-card";
 import { legalUrl } from "@/lib/i18n/config";
 import { CouponDialog } from "@/components/dashboard/coupon-dialog";
 import { UsageSection } from "@/components/dashboard/usage-card";
-import { PaymentHistory } from "@/components/dashboard/payment-history";
+import { planTabs } from "@/components/dashboard/payment-history";
 import { useSearchParams } from "next/navigation";
 import { couponService, type CouponBenefits } from "@/lib/api/services/coupon.service";
 import {
@@ -30,6 +30,7 @@ import {
   Field,
   Notice,
   PageHeader,
+  PageTabs,
   buttonClass,
   textareaClass,
   type Tone,
@@ -445,6 +446,7 @@ export default function PlanPage() {
     // Boxes and the lines inside them a step darker than the app default.
     <div className="[--border:color-mix(in_srgb,var(--foreground)_15%,var(--background))]">
       <PageHeader title={t("plan.sectionTitle")} />
+      <PageTabs tabs={planTabs(t)} />
       <div className="space-y-8">
 
       {justUpgraded && (
@@ -761,7 +763,6 @@ export default function PlanPage() {
         </Block>
       )}
 
-      <PaymentHistory />
 
       <CouponDialog
         state={couponModal}
