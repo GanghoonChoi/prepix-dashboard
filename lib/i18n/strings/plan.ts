@@ -72,8 +72,8 @@ export const plan: Record<Lang, Record<string, string>> = {
     "plan.upgradeTitle": "Upgrade to {plan}",
     "plan.upgradeBody":
       "Pay {amount} today and you move to {plan} right away. The extra {minutes} minutes can be used until {until}, and your next payment date stays {next}.",
-    "plan.upgradeNoRefund":
-      "The upgrade difference is not refunded for a change of mind, even if unused. A switch back to {from} can be scheduled from your next payment date.",
+    "plan.upgradeRefund":
+      "For refunds the difference goes with this period's payment of {date}: if nothing has been used since, it comes back in full within 7 days of that payment and 50% within 14 days; once used, or after that, it doesn't. A switch back to {from} can be scheduled from your next payment date.",
     "plan.upgradeCharge": "Charged now to your saved payment method.",
     "plan.upgradeConfirm": "Pay {amount} and upgrade",
     "plan.scheduleTitle": "Switch to {plan} from your next payment",
@@ -107,7 +107,7 @@ export const plan: Record<Lang, Record<string, string>> = {
     "plan.requestRefundReview": "Request a refund review",
     "plan.reviewModalTitle": "Request a refund review",
     "plan.reviewModalBody":
-      "Unused payments are refunded at 50% between day 8 and day 14. Our team checks your payment date and usage, then replies — usually within 3 business days. The rate is set by the date you send this, not the date we get to it.",
+      "Unused payments, upgrade differences included, are refunded at 50% between day 8 and day 14. Our team checks your payment date and usage, then replies — usually within 3 business days. The rate is set by the date you send this, not the date we get to it.",
     "plan.reviewDayCount": "Day {days} since your payment.",
     "plan.reviewNoteLabel": "Anything we should know (optional)",
     "plan.reviewNotePlaceholder": "e.g. what went wrong, or what you expected",
@@ -116,7 +116,7 @@ export const plan: Record<Lang, Record<string, string>> = {
     "plan.reviewFiledToast": "Request received. We'll reply in the app shortly.",
     "plan.refundModalTitle": "Request a refund",
     "plan.refundModalBody":
-      "We'll refund this period's subscription payment in full and cancel your subscription immediately. Full refunds are available through day 7, while the credits that payment bought are still unused.",
+      "We'll refund this period's subscription payment, any upgrade difference included, in full and cancel your subscription immediately. Full refunds are available through day 7, while the credits that payment bought are still unused.",
     "plan.processing": "Processing...",
     "plan.refundAndCancel": "Refund & cancel",
   },
@@ -187,8 +187,8 @@ export const plan: Record<Lang, Record<string, string>> = {
     "plan.upgradeTitle": "{plan}로 업그레이드",
     "plan.upgradeBody":
       "오늘 {amount}을 결제하면 {plan}로 즉시 바뀌어요. 추가 {minutes}분은 {until}까지 쓸 수 있고, 다음 정기 결제일은 {next}이에요.",
-    "plan.upgradeNoRefund":
-      "업그레이드 차액은 미사용이어도 단순 변심 환불되지 않아요. {from}로의 변경은 다음 정기 결제일부터 적용되도록 예약할 수 있어요.",
+    "plan.upgradeRefund":
+      "업그레이드 차액은 이번 기간 구독 결제({date})와 같은 환불 기준을 따라요. 그 뒤로 사용 이력이 없으면 결제 후 7일 이내 전액, 14일 이내 50%를 돌려드리고, 사용했거나 14일이 지나면 환불되지 않아요. {from}로의 변경은 다음 정기 결제일부터 적용되도록 예약할 수 있어요.",
     "plan.upgradeCharge": "등록된 결제수단으로 바로 결제돼요.",
     "plan.upgradeConfirm": "{amount} 결제하고 업그레이드",
     "plan.scheduleTitle": "다음 결제일부터 {plan}로 변경",
@@ -221,7 +221,7 @@ export const plan: Record<Lang, Record<string, string>> = {
     "plan.requestRefundReview": "환불 검토 요청",
     "plan.reviewModalTitle": "환불 검토 요청",
     "plan.reviewModalBody":
-      "미사용 결제는 8일차부터 14일차까지 실제 결제금액의 50%가 환불 대상입니다. 고객지원팀이 결제일과 이용 내역을 확인한 뒤 처리하며, 보통 3영업일 이내에 결과를 안내드립니다. 환불률은 요청을 보내신 날짜를 기준으로 정해지며, 저희가 확인한 날짜로 바뀌지 않습니다.",
+      "미사용 결제는 8일차부터 14일차까지 실제 결제금액의 50%가 환불 대상입니다. 업그레이드 차액도 같은 비율로 함께 환불돼요. 고객지원팀이 결제일과 이용 내역을 확인한 뒤 처리하며, 보통 3영업일 이내에 결과를 안내드립니다. 환불률은 요청을 보내신 날짜를 기준으로 정해지며, 저희가 확인한 날짜로 바뀌지 않습니다.",
     "plan.reviewDayCount": "결제 후 {days}일차입니다.",
     "plan.reviewNoteLabel": "전달할 내용이 있다면 적어주세요 (선택)",
     "plan.reviewNotePlaceholder": "예: 어떤 문제가 있었는지, 무엇을 기대하셨는지",
@@ -230,7 +230,7 @@ export const plan: Record<Lang, Record<string, string>> = {
     "plan.reviewFiledToast": "요청이 접수됐어요. 곧 앱에서 답변드릴게요.",
     "plan.refundModalTitle": "환불 요청",
     "plan.refundModalBody":
-      "이번 기간의 구독 결제를 전액 환불하고 구독을 즉시 해지해 드려요. 전액 환불은 결제 후 7일차까지, 해당 결제로 받은 크레딧을 아직 사용하지 않았을 때 가능합니다.",
+      "이번 기간의 구독 결제(업그레이드 차액 포함)를 전액 환불하고 구독을 즉시 해지해 드려요. 전액 환불은 결제 후 7일차까지, 해당 결제로 받은 크레딧을 아직 사용하지 않았을 때 가능합니다.",
     "plan.processing": "처리 중...",
     "plan.refundAndCancel": "환불 및 해지",
   },
