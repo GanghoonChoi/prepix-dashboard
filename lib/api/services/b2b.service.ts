@@ -24,6 +24,7 @@ import type {
   ChangeAffiliation,
   ChangeTeamMember,
   SeatState,
+  SetMemberAiLimit,
   SetMemberSeat,
   RecoverProjectLead,
   ProjectLeadRecovery,
@@ -236,6 +237,12 @@ export const b2bService = {
   setSeat: (id: string, userId: string, input: SetMemberSeat) =>
     post<{ seat: SeatState; requestId: string }>(
       `${base(id)}/members/${e(userId)}/seat`,
+      input,
+    ),
+  /** 멤버별 AI 한도: cap one person's share of the team pool; null lifts it. */
+  setAiLimit: (id: string, userId: string, input: SetMemberAiLimit) =>
+    post<{ limitSeconds: number | null; requestId: string }>(
+      `${base(id)}/members/${e(userId)}/ai-limit`,
       input,
     ),
   leadRecovery: (id: string, projectId: string) =>
