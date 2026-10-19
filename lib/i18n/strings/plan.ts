@@ -58,6 +58,30 @@ export const plan: Record<Lang, Record<string, string>> = {
     "plan.refundGuideUsed":
       "Once you've used a paid service, or 14 days have passed since payment, change-of-mind refunds aren't available.",
     "plan.refundGuideMore": "View full refund policy",
+    "plan.upgradeTo": "Upgrade to {name}",
+    "plan.switchAtRenewal": "Switch from next payment",
+    "plan.scheduledFrom": "Starts {date}",
+    "plan.keepCurrent": "Keep {plan}",
+    "plan.scheduledLine": "Switches to {plan} on {date}",
+    "plan.upgradedToast": "You're on {plan} now — the added minutes are ready to use.",
+    "plan.scheduledToast": "{plan} starts on {date}.",
+    "plan.keptToast": "You'll stay on {plan}.",
+    "plan.priceChanged": "The price changed. Check the new amount and try again.",
+    "plan.paymentDeclined": "The payment was declined. Check your payment method.",
+    "plan.switchFailed": "Couldn't change your plan.",
+    "plan.upgradeTitle": "Upgrade to {plan}",
+    "plan.upgradeBody":
+      "Pay {amount} today and you move to {plan} right away. The extra {minutes} minutes can be used until {until}, and your next payment date stays {next}.",
+    "plan.upgradeNoRefund":
+      "The upgrade difference is not refunded for a change of mind, even if unused. A switch back to {from} can be scheduled from your next payment date.",
+    "plan.upgradeCharge": "Charged now to your saved payment method.",
+    "plan.upgradeConfirm": "Pay {amount} and upgrade",
+    "plan.scheduleTitle": "Switch to {plan} from your next payment",
+    "plan.scheduleBody":
+      "You keep {current} and its remaining minutes until {until}. On {next} we charge {plan} at {price} and give you {minutes} new minutes.",
+    "plan.scheduleNoCarry":
+      "Remaining minutes don't carry over, and scheduling the switch doesn't refund this period's payment.",
+    "plan.scheduleConfirm": "Schedule switch",
     "plan.tabPlan": "Plan",
     "plan.tabPayments": "Payment history",
     "plan.footnote": "Light and Creator include VAT, Business excludes VAT · Unused minutes do not roll over",
@@ -92,7 +116,7 @@ export const plan: Record<Lang, Record<string, string>> = {
     "plan.reviewFiledToast": "Request received. We'll reply in the app shortly.",
     "plan.refundModalTitle": "Request a refund",
     "plan.refundModalBody":
-      "We'll refund your most recent payment in full and cancel your subscription immediately. Full refunds are available through day 7, while the credits that payment bought are still unused.",
+      "We'll refund this period's subscription payment in full and cancel your subscription immediately. Full refunds are available through day 7, while the credits that payment bought are still unused.",
     "plan.processing": "Processing...",
     "plan.refundAndCancel": "Refund & cancel",
   },
@@ -149,6 +173,29 @@ export const plan: Record<Lang, Record<string, string>> = {
     "plan.refundGuideUsed":
       "유료 서비스를 사용했거나 결제 후 14일이 지난 경우에는 단순 변심 환불이 불가합니다.",
     "plan.refundGuideMore": "자세한 환불 정책 보기",
+    "plan.upgradeTo": "{name}로 업그레이드",
+    "plan.switchAtRenewal": "다음 결제일부터 변경",
+    "plan.scheduledFrom": "{date}부터 적용",
+    "plan.keepCurrent": "{plan} 계속 이용",
+    "plan.scheduledLine": "{date}부터 {plan}로 바뀌어요",
+    "plan.upgradedToast": "{plan}로 바꿨어요. 추가된 처리량을 바로 쓸 수 있어요.",
+    "plan.scheduledToast": "{date}부터 {plan}로 바뀌어요.",
+    "plan.keptToast": "{plan}를 계속 이용해요.",
+    "plan.priceChanged": "금액이 바뀌었어요. 새 금액을 확인하고 다시 시도해 주세요.",
+    "plan.paymentDeclined": "결제가 승인되지 않았어요. 결제수단을 확인해 주세요.",
+    "plan.switchFailed": "플랜을 바꾸지 못했어요.",
+    "plan.upgradeTitle": "{plan}로 업그레이드",
+    "plan.upgradeBody":
+      "오늘 {amount}을 결제하면 {plan}로 즉시 바뀌어요. 추가 {minutes}분은 {until}까지 쓸 수 있고, 다음 정기 결제일은 {next}이에요.",
+    "plan.upgradeNoRefund":
+      "업그레이드 차액은 미사용이어도 단순 변심 환불되지 않아요. {from}로의 변경은 다음 정기 결제일부터 적용되도록 예약할 수 있어요.",
+    "plan.upgradeCharge": "등록된 결제수단으로 바로 결제돼요.",
+    "plan.upgradeConfirm": "{amount} 결제하고 업그레이드",
+    "plan.scheduleTitle": "다음 결제일부터 {plan}로 변경",
+    "plan.scheduleBody":
+      "{until}까지 {current} 권한과 남은 처리량을 그대로 이용할 수 있어요. {next}에 {plan} {price}을 결제하고 {minutes}분을 새로 드려요.",
+    "plan.scheduleNoCarry": "남은 처리량은 이월되지 않고, 변경 예약만으로 이번 결제분이 환불되지는 않아요.",
+    "plan.scheduleConfirm": "변경 예약",
     "plan.tabPlan": "플랜",
     "plan.tabPayments": "결제내역",
     "plan.footnote": "Light·Creator 부가세 포함, Business 부가세 별도 · 남은 처리량은 다음 달로 이월되지 않습니다",
@@ -183,7 +230,7 @@ export const plan: Record<Lang, Record<string, string>> = {
     "plan.reviewFiledToast": "요청이 접수됐어요. 곧 앱에서 답변드릴게요.",
     "plan.refundModalTitle": "환불 요청",
     "plan.refundModalBody":
-      "가장 최근 결제를 전액 환불하고 구독을 즉시 해지해 드려요. 전액 환불은 결제 후 7일차까지, 해당 결제로 받은 크레딧을 아직 사용하지 않았을 때 가능합니다.",
+      "이번 기간의 구독 결제를 전액 환불하고 구독을 즉시 해지해 드려요. 전액 환불은 결제 후 7일차까지, 해당 결제로 받은 크레딧을 아직 사용하지 않았을 때 가능합니다.",
     "plan.processing": "처리 중...",
     "plan.refundAndCancel": "환불 및 해지",
   },

@@ -13,7 +13,7 @@ const modes: Record<string, string[]> = {
   default: [
     "api-session-mutations", "api-session-races", "archive-preview", "b2b-home-races",
     "b2b-project-list-races", "b2b-projects", "b2b-review-exact-target", "b2b-statements-races",
-    "payment-receipts", "upload-queue", "verify-email", "workspace-kinds", "workspace-onboarding",
+    "payment-receipts", "plan-switch", "upload-queue", "verify-email", "workspace-kinds", "workspace-onboarding",
   ],
   "new-teams": [
     "b2b-audience", "b2b-billing", "b2b-files", "b2b-home", "b2b-legal-floor", "b2b-licences",

@@ -92,7 +92,8 @@ export function PaymentHistory() {
                   <td className={`${tdClass} whitespace-nowrap tabular-nums`}>{formatDate(r.paidAt, lang)}</td>
                   <td className={tdClass}>
                     <div className="whitespace-nowrap">
-                      Prepix {PLAN_NAMES[r.plan] ?? r.plan} · {r.interval === "year" ? c("연간", "Annual") : c("월간", "Monthly")}
+                      Prepix {PLAN_NAMES[r.plan] ?? r.plan} ·{" "}
+                      {r.kind === "upgrade" ? c("업그레이드 차액", "Upgrade difference") : r.interval === "year" ? c("연간", "Annual") : c("월간", "Monthly")}
                     </div>
                     <div className="text-xs text-muted">
                       {r.method === "kakaopay" ? c("카카오페이", "KakaoPay") : c("카드", "Card")}
