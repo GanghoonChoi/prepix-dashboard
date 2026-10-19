@@ -1,18 +1,26 @@
 @import "@heroui/styles/css";
 
 @theme inline {
-  /*
-   * Geist for Latin, then the platform's Korean face. Geist has no Hangul, so
-   * without the fallback list Korean text would drop to whatever the browser
-   * picks first — usually a serif on Windows.
-   */
-  --font-sans: var(--font-geist-sans), "Pretendard Variable", Pretendard,
-    -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic",
-    system-ui, sans-serif;
+  /* --font-face below picks Satoshi or Pretendard by language. */
+  --font-sans: var(--font-face), -apple-system, BlinkMacSystemFont,
+    "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
   --color-success-ink: var(--success-ink);
   --color-warning-ink: var(--warning-ink);
   --color-danger-ink: var(--danger-ink);
+}
+
+/*
+ * One face per language, the same rule as prepix.ai (its design-system/
+ * tokens.ts): English in Satoshi, Korean in Pretendard, Latin included, so a
+ * Korean sentence is never set in two faces. Satoshi has no Hangul, so a Korean
+ * name on an English page still lands in Pretendard.
+ */
+:root {
+  --font-face: Satoshi, var(--font-pretendard);
+}
+:root:lang(ko) {
+  --font-face: var(--font-pretendard);
 }
 
 /*
