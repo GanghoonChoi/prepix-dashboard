@@ -52,8 +52,13 @@ export const plan: Record<Lang, Record<string, string>> = {
       "Are you sure? You'll keep access to your paid features until the end of your billing period.",
     "plan.keepPlan": "Keep plan",
     "plan.cancelling": "Cancelling...",
-    "plan.purchaseNotice":
-      "If you don't use the paid service after payment, we refund 100% through day 7 and 50% of the amount actually paid between day 8 and day 14. Once paid credits or paid-only features have been used, no change-of-mind refund is available. Refunds are calculated on the amount actually paid after any discount. Statutory rights and Paddle's own refund policy still apply.",
+    "plan.refundGuideTitle": "Refunds",
+    "plan.refundGuideIntro": "If you haven't used any paid service, refunds after payment are as follows.",
+    "plan.refundGuideFull": "Within 7 days: 100% of the amount paid",
+    "plan.refundGuideHalf": "Days 8–14: 50% of the amount paid",
+    "plan.refundGuideUsed":
+      "Once you've used a paid service, or 14 days have passed since payment, change-of-mind refunds aren't available.",
+    "plan.refundGuideMore": "View full refund policy",
     "plan.purchaseConsent": "By subscribing you agree to our",
     "plan.termsLink": "Terms of Service",
     "plan.consentSeparator": " and ",
@@ -136,8 +141,13 @@ export const plan: Record<Lang, Record<string, string>> = {
       "정말 해지할까요? 결제 주기가 끝날 때까지는 유료 기능을 계속 이용할 수 있어요.",
     "plan.keepPlan": "유지하기",
     "plan.cancelling": "해지 중...",
-    "plan.purchaseNotice":
-      "결제 후 유료서비스를 사용하지 않은 경우, 7일차까지는 전액을, 8일차부터 14일차까지는 실제 결제금액의 50%를 환불합니다. 유료 크레딧 또는 유료 전용 기능을 정상적으로 사용한 경우에는 단순 변심 환불이 제공되지 않습니다. 환불금액은 할인 후 실제 결제금액을 기준으로 합니다. 관계 법령과 Paddle 정책에 따른 별도 환불 권리는 적용됩니다.",
+    "plan.refundGuideTitle": "환불 안내",
+    "plan.refundGuideIntro": "유료 서비스를 전혀 사용하지 않은 경우, 결제 후 다음 기준으로 환불됩니다.",
+    "plan.refundGuideFull": "7일 이내: 실제 결제금액 전액",
+    "plan.refundGuideHalf": "8~14일차: 실제 결제금액의 50%",
+    "plan.refundGuideUsed":
+      "유료 서비스를 사용했거나 결제 후 14일이 지난 경우에는 단순 변심 환불이 불가합니다.",
+    "plan.refundGuideMore": "자세한 환불 정책 보기",
     "plan.purchaseConsent": "구독하시면",
     "plan.termsLink": "이용약관",
     "plan.consentSeparator": " 및 ",
