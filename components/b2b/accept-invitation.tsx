@@ -138,8 +138,10 @@ export function AcceptInvitation({ token }: { token: string }) {
               ],
             ]}
           />
-          {/* A team editor or admin invite comes with an editing seat. */}
+          {/* A team editor or admin invite comes with an editing seat. The
+              div keeps the inline tip off the button's line. */}
           {(invite.projectId || role === "reviewer") && (
+          <div>
           <InfoTip label={c("이 초대로 받는 것", "What this invitation gives")} text={c("이 초대로 받는 것", "What this invitation gives")}>
             <p>
               {c(
@@ -148,6 +150,7 @@ export function AcceptInvitation({ token }: { token: string }) {
               )}
             </p>
           </InfoTip>
+          </div>
           )}
           {invite.accepted ? (
             <Link className={buttonClass()} href={href}>
