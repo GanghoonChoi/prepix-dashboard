@@ -935,7 +935,7 @@ export function EditStep({
   const items: [AppScene, string, string, string, string][] = [
     ["open", "Open Prepix and sign in", "Use the same email or Google account.", "Prepix를 열고 로그인하기", "같은 이메일이나 Google 계정으로 로그인해요."],
     ["project", "Create a project", "Pick the editing workflow that fits your video.", "새 프로젝트 만들기", "영상에 맞는 편집 방식을 골라요."],
-    ["import", "Import a short clip", "Start with one clip. Importing doesn't share it.", "짧은 영상 불러오기", "영상 하나로 시작해요. 불러오기만으로는 공유되지 않아요."],
+    ["import", "Import a clip", "Start with one clip. Importing doesn't share it.", "영상 불러오기", "영상 하나로 시작해요. 불러오기만으로는 공유되지 않아요."],
     ["cut", "Make your first cut", "Play the result, tweak a cut, then export.", "첫 컷 편집하기", "결과를 재생하고 컷을 다듬은 뒤 내보내요."],
   ];
   // These happen in the desktop app, which this page cannot see — so the
