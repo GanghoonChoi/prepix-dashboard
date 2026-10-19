@@ -28,6 +28,7 @@ import {
   TeamShell,
 } from "@/components/workspaces/shared";
 import { Dialog } from "@/components/dialog";
+import { buildAppOpenUrl } from "@/lib/workspaces/app-link";
 import {
   ago,
   AvatarStack,
@@ -203,11 +204,18 @@ function ScopedHome({
     { id: "pay", label: c("결제하기", "Pay for the team"), done: state !== "preparing" },
     {
       id: "share",
-      label: c("앱 설치하고 첫 영상 공유하기", "Get the app and share a first video"),
+      label: c("앱에서 첫 영상 공유하기", "Share a first video from the app"),
+      // Installing is not the step — sharing is. Someone who already has the
+      // app needs to know what to press in it.
+      hint: c(
+        "앱에서 이 팀의 프로젝트를 열고 ‘공유하기’를 누르면 여기에 올라와요.",
+        "Open a project of this team in the app and press Share. It shows up here.",
+      ),
       done: shared,
     },
   ];
   const next = firstRun.find((s) => !s.done)?.id;
+  const appLink = buildAppOpenUrl({ workspaceId: workspace.id });
   return (
     <TeamShell
       title={workspace.name}
@@ -304,9 +312,19 @@ function ScopedHome({
               </Link>
             )
           ) : (
-            <Link className={buttonClass()} href={startHref({ step: "app", workspace: workspace.id, intent: null, next: null }, lang)}>
-              {c("앱 설치하기", "Get the app")}
-            </Link>
+            <span className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              {appLink && (
+                <a className={buttonClass()} href={appLink}>
+                  {c("Prepix 앱 열기", "Open Prepix")}
+                </a>
+              )}
+              <Link
+                className="text-sm text-muted underline underline-offset-4 hover:text-foreground"
+                href={startHref({ step: "app", workspace: workspace.id, intent: null, next: null }, lang)}
+              >
+                {c("앱이 아직 없다면 설치하기", "No app yet? Install it")}
+              </Link>
+            </span>
           )}
         </div>
       )}

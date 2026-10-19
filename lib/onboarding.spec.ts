@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseEmails, readStartState, seatPlan, startHref, teamStartHref } from "./onboarding";
+import { parseEmails, readStartState, sameName, seatPlan, startHref, teamStartHref } from "./onboarding";
 
 const id = "0b6f7c1e-2a3b-4c5d-8e9f-0a1b2c3d4e5f";
 
@@ -72,4 +72,18 @@ test("every \"make a team\" goes through /start's team path when first run is on
   process.env.NEXT_PUBLIC_START_ONBOARDING = "";
   assert.equal(teamStartHref("ko"), "/dashboard/workspaces/new");
   process.env.NEXT_PUBLIC_START_ONBOARDING = before;
+});
+
+test("a name already on one of my workspaces is caught, whatever its case or spacing", () => {
+  const rows = [
+    { id: "p", name: "지우의 편집실" },
+    { id: "t", name: "Lasker Studio" },
+  ];
+  assert.equal(sameName("  lasker   STUDIO ", rows)?.id, "t");
+  // Hangul typed as separate jamo is the same name.
+  assert.equal(sameName("지우의 편집실".normalize("NFD"), rows)?.id, "p");
+  // Renaming a space to what it is already called is not a clash.
+  assert.equal(sameName("지우의 편집실", rows, "p"), undefined);
+  assert.equal(sameName("Lasker", rows), undefined);
+  assert.equal(sameName("   ", rows), undefined);
 });

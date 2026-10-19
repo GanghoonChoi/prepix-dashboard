@@ -13,8 +13,9 @@ import {
 import { b2bService } from "@/lib/api/services/b2b.service";
 import type { Invitation, TeamCommerce } from "@/lib/api/generated/b2b";
 import { useTeamCreation } from "@/components/workspaces/use-team-creation";
-import { parseEmails, seatPlan, type Intent } from "@/lib/onboarding";
+import { parseEmails, sameName, seatPlan, type Intent } from "@/lib/onboarding";
 import { formatMoney } from "@/lib/format";
+import type { AppScene } from "./preview";
 import {
   Avatar,
   Badge,
@@ -325,12 +326,15 @@ const TEAM_SIZES: Option[] = [
 export function NameStep({
   intent,
   personal,
+  rows,
   onName,
   onPersonal,
   onTeam,
 }: {
   intent: Intent;
   personal: Row;
+  /** Every workspace the account is in — a new name must not repeat one. */
+  rows: Row[];
   onName: (name: string) => void;
   onPersonal: () => void;
   onTeam: (workspaceId: string) => Promise<void>;
@@ -344,6 +348,11 @@ export function NameStep({
   const [failed, setFailed] = useState(false);
   const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
   const creation = useTeamCreation(capabilities);
+  // Renaming the personal space to what it is already called is no clash,
+  // and neither is retrying a team whose creation may already have landed.
+  const clash = creation.pending
+    ? undefined
+    : sameName(name, rows, team ? undefined : personal.id);
   useEffect(() => {
     if (!team) return;
     let live = true;
@@ -358,7 +367,7 @@ export function NameStep({
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     const next = name.trim();
-    if (!next || busy) return;
+    if (!next || busy || clash) return;
     if (team) {
       await creation.submit(next, async (workspace) => {
         // Whoever makes a team starts on it from now on (lib/home.ts), even
@@ -398,6 +407,13 @@ export function NameStep({
             ? copy("Company or team name", "회사 또는 팀 이름")
             : copy("Workspace name", "워크스페이스 이름")
         }
+        error={
+          clash &&
+          copy(
+            `You already have a workspace called “${clash.name}”. Try another name.`,
+            `‘${clash.name}’ 워크스페이스가 이미 있어요. 다른 이름을 지어 주세요.`,
+          )
+        }
       >
         <input
           id="start-name"
@@ -405,6 +421,7 @@ export function NameStep({
           value={name}
           autoFocus
           maxLength={team ? 100 : 80}
+          aria-invalid={!!clash}
           disabled={working || creation.pending}
           placeholder={team ? copy("e.g. Lasker Studio", "예: 라스커 스튜디오") : copy("e.g. Jiwoo's edits", "예: 지우의 편집실")}
           onChange={(event) => {
@@ -462,7 +479,7 @@ export function NameStep({
         primary={
           <SubmitButton
             busy={working}
-            disabled={!name.trim() || (team && (!capabilities || unavailable))}
+            disabled={!name.trim() || !!clash || (team && (!capabilities || unavailable))}
           >
             {team
               ? creation.pending && !creation.busy
@@ -818,6 +835,19 @@ export function PayStep({
 
 type Os = "mac" | "win";
 
+/**
+ * The computer this page is open on. A phone, an iPad (which calls itself a
+ * Mac) or Linux gets null: there is no app for it, so both are offered.
+ */
+function detectOs(): Os | null {
+  const ua = navigator.userAgent;
+  if (/Android|iPhone|iPad|iPod/i.test(ua)) return null;
+  if (/Windows/i.test(ua)) return "win";
+  // iPadOS asks for desktop pages as a Mac; no Mac has a touch screen.
+  if (/Macintosh/i.test(ua)) return navigator.maxTouchPoints > 1 ? null : "mac";
+  return null;
+}
+
 export function AppStep({
   onInstalled,
   guideHref,
@@ -827,48 +857,49 @@ export function AppStep({
 }) {
   const copy = useCopy();
   const { lang } = useI18n();
-  const [os, setOs] = useState<Os>("mac");
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (/Win/i.test(navigator.userAgent)) setOs("win");
-  }, []);
-  const other: Os = os === "mac" ? "win" : "mac";
+  // Only rendered once the client has resolved the session (see EditStep),
+  // so reading the browser in the initializer cannot disagree with a server render.
+  const [os] = useState(detectOs);
   const label = (value: Os) => (value === "mac" ? "macOS" : "Windows");
   const href = (value: Os) =>
     `https://www.prepix.ai/api/download/${value}${lang === "ko" ? "?from=ko" : ""}`;
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 rounded-lg border border-border p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="font-medium">{copy(`Prepix for ${label(os)}`, `${label(os)}용 Prepix`)}</p>
-            <p className="text-[13px] text-muted">
-              {os === "mac"
-                ? copy("Apple silicon · macOS 13+", "Apple 실리콘 · macOS 13 이상")
-                : copy("Windows 10 or later", "Windows 10 이상")}
-            </p>
-          </div>
-          <a className={primaryButton} href={href(os)}>
-            <Download size={16} strokeWidth={2} aria-hidden="true" />
-            {copy(`Download for ${label(os)}`, `${label(os)}용 다운로드`)}
-          </a>
-      </div>
-      <p className="text-[13px] text-muted">
-        {copy("On another computer? ", "다른 컴퓨터인가요? ")}
-        <a className="text-foreground underline underline-offset-4" href={href(other)}>
-          {copy(`Download for ${label(other)}`, `${label(other)}용 받기`)}
-        </a>
-        {" · "}
-        <a className="text-foreground underline underline-offset-4" href={guideHref}>
-          {copy("Installation guide", "설치 안내")}
-        </a>
-      </p>
-      <p className="text-[13px] leading-5 text-muted text-pretty">
-        {copy(
-          "On a phone? Finish here, then open this address on your Mac or Windows computer.",
-          "휴대폰이라면 여기까지 마치고, Mac이나 Windows 컴퓨터에서 이 주소를 다시 열어 주세요.",
-        )}
-      </p>
+      <ul className="divide-y divide-border rounded-lg border border-border">
+        {(os ? [os] : (["mac", "win"] as const)).map((value) => (
+          <li
+            key={value}
+            className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div>
+              <p className="font-medium">{copy(`Prepix for ${label(value)}`, `${label(value)}용 Prepix`)}</p>
+              <p className="text-[13px] text-muted">
+                {value === "mac"
+                  ? copy("Apple silicon · macOS 13+", "Apple 실리콘 · macOS 13 이상")
+                  : copy("Windows 10 or later", "Windows 10 이상")}
+              </p>
+            </div>
+            <a className={primaryButton} href={href(value)}>
+              <Download size={16} strokeWidth={2} aria-hidden="true" />
+              {copy(`Download for ${label(value)}`, `${label(value)}용 다운로드`)}
+            </a>
+          </li>
+        ))}
+      </ul>
+      {!os && (
+        <p className="text-[13px] leading-5 text-muted text-pretty">
+          {copy(
+            "On a phone? Finish here, then open this address on your Mac or Windows computer.",
+            "휴대폰이라면 여기까지 마치고, Mac이나 Windows 컴퓨터에서 이 주소를 다시 열어 주세요.",
+          )}
+        </p>
+      )}
       <StepActions
+        secondary={
+          <a className={quietButton} href={guideHref}>
+            {copy("Installation guide", "설치 안내")}
+          </a>
+        }
         primary={
           <button type="button" className={primaryButton} onClick={onInstalled}>
             {copy("I have the app", "앱을 설치했어요")}
@@ -890,9 +921,18 @@ function readFirstCut(): string[] {
   }
 }
 
-export function EditStep({ homeHref, helpHref }: { homeHref: string; helpHref: string }) {
+export function EditStep({
+  homeHref,
+  helpHref,
+  onScene,
+}: {
+  homeHref: string;
+  helpHref: string;
+  /** Which step the drawing beside this list should act out. */
+  onScene: (scene: AppScene) => void;
+}) {
   const copy = useCopy();
-  const items: [string, string, string, string, string][] = [
+  const items: [AppScene, string, string, string, string][] = [
     ["open", "Open Prepix and sign in", "Use the same email or Google account.", "Prepix를 열고 로그인하기", "같은 이메일이나 Google 계정으로 로그인해요."],
     ["project", "Create a project", "Pick the editing workflow that fits your video.", "새 프로젝트 만들기", "영상에 맞는 편집 방식을 골라요."],
     ["import", "Import a short clip", "Start with one clip. Importing doesn't share it.", "짧은 영상 불러오기", "영상 하나로 시작해요. 불러오기만으로는 공유되지 않아요."],
@@ -903,7 +943,13 @@ export function EditStep({ homeHref, helpHref }: { homeHref: string; helpHref: s
   // This step only renders after the client has resolved the session, so
   // reading storage in the initializer cannot disagree with a server render.
   const [done, setDone] = useState<string[]>(readFirstCut);
-  const toggle = (id: string) =>
+  // The drawing follows the row last clicked; before any click, the first
+  // one still to do.
+  const [picked, setPicked] = useState<AppScene | null>(null);
+  const shown = picked ?? items.find(([id]) => !done.includes(id))?.[0] ?? "cut";
+  useEffect(() => onScene(shown), [onScene, shown]);
+  const toggle = (id: string) => {
+    setPicked(id as AppScene);
     setDone((was) => {
       const next = was.includes(id) ? was.filter((d) => d !== id) : [...was, id];
       try {
@@ -913,11 +959,13 @@ export function EditStep({ homeHref, helpHref }: { homeHref: string; helpHref: s
       }
       return next;
     });
+  };
   return (
     <div className="space-y-6">
       <ProgressTracker
         title={copy("To your first cut", "첫 컷까지")}
         onToggle={toggle}
+        current={shown}
         steps={items.map(([id, en, enBody, ko, koBody]) => ({
           id,
           label: copy(en, ko),
