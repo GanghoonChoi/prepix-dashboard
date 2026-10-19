@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import "./globals.css";
-import { pretendard, SATOSHI_CSS } from "./fonts";
+import { pretendard, SATOSHI_URL } from "./fonts";
 import { DEFAULT_LANG } from "@/lib/i18n/config";
 import { I18nProvider } from "@/lib/i18n/context";
 
@@ -61,8 +61,7 @@ export default function RootLayout({
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: PICK_SCHEME }} />
-        <link rel="preconnect" href="https://cdn.fontshare.com" crossOrigin="" />
-        <link rel="stylesheet" href={SATOSHI_CSS} />
+        <link rel="preload" href={SATOSHI_URL} as="font" type="font/woff2" crossOrigin="" />
         <link rel="icon" type="image/svg+xml" href="/favicon_black.svg" media="(prefers-color-scheme: light)" />
         <link rel="icon" type="image/svg+xml" href="/favicon_white.svg" media="(prefers-color-scheme: dark)" />
         <Script

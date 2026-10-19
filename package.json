@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3001",
-    "build": "next build",
+    "dev": "node scripts/fetch-satoshi.mjs && next dev -p 3001",
+    "build": "node scripts/fetch-satoshi.mjs && next build",
     "start": "next start -p 3001",
     "lint": "eslint",
     "test": "tsx --test \"lib/**/*.spec.ts\"",

@@ -1,5 +1,19 @@
 @import "@heroui/styles/css";
 
+/*
+ * Satoshi, served from our own domain. scripts/fetch-satoshi.mjs downloads
+ * Fontshare's original at build — its licence forbids redistributing the file,
+ * and this repo is public. `block`, not `swap`: English text waits for Satoshi
+ * (preloaded in layout.tsx) instead of flashing another face first.
+ */
+@font-face {
+  font-family: Satoshi;
+  src: url("/fonts/Satoshi-Variable.woff2") format("woff2");
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: block;
+}
+
 @theme inline {
   /*
    * --font-face below picks Satoshi or Pretendard by language. No mono face:

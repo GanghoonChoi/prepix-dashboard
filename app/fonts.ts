@@ -12,8 +12,6 @@ export const pretendard = localFont({
   ],
 });
 
-// Satoshi, the English face, comes from Fontshare's CDN instead: its licence
-// forbids redistributing the files, and this repo is public. `block`, not
-// `swap`: English text waits for Satoshi rather than flashing another face.
-export const SATOSHI_CSS =
-  "https://api.fontshare.com/v2/css?f[]=satoshi@1&display=block";
+// Satoshi, the English face, is a plain @font-face in globals.css: the file is
+// downloaded at build (scripts/fetch-satoshi.mjs), not committed.
+export const SATOSHI_URL = "/fonts/Satoshi-Variable.woff2";
