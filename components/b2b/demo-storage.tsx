@@ -52,7 +52,7 @@ export function DemoStorage({ workspaceId }: { workspaceId: string }) {
             ? c("결제 페이지를 열지 못했어요. 다시 시도해 주세요.", "Could not open the checkout. Try again.")
             : c(
                 `${size(1)}당 월 ₩${pack.supplyKrw.toLocaleString("ko-KR")} (VAT 별도) · Business 정기 결제일에 함께 갱신 · 데모라 실제로 결제되지 않아요`,
-                `₩${pack.supplyKrw.toLocaleString("ko-KR")} per ${size(1)} a month (VAT extra) · renews with Business · demo, nothing is charged`,
+                `KRW ${pack.supplyKrw.toLocaleString("ko-KR")} per ${size(1)} a month (VAT extra) · renews with Business · demo, nothing is charged`,
               )}
         </p>
       </div>

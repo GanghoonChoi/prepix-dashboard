@@ -733,7 +733,7 @@ export default function PlanPage() {
                 <p className="mt-1 text-[13px] text-muted">
                   {lang === "ko"
                     ? "1인당 월 ₩129,000 · 3인 이상 · 부가세 별도"
-                    : "₩129,000 per seat / month · 3+ seats · VAT extra"}
+                    : "KRW 129,000 per seat / month · 3+ seats · VAT extra"}
                 </p>
               </div>
               <p className="text-[13px] text-muted">

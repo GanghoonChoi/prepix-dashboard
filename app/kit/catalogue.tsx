@@ -1,6 +1,6 @@
 "use client";
 import { useState, type ReactNode } from "react";
-import { Download, Film, Grid2x2, List, Monitor, Moon, Plus, Sun, Trash2, Upload } from "lucide-react";
+import { Command, Download, Film, Grid2x2, List, Monitor, Moon, Plus, Sun, Trash2, Upload } from "lucide-react";
 import {
   AvatarStack,
   Badge,
@@ -122,7 +122,7 @@ function Sheet() {
           <Badge tone="success" dot>승인됨</Badge>
           <Badge tone="warning" dot>좌석 대기</Badge>
           <Badge tone="danger" dot>결제 실패</Badge>
-          <Kbd>⌘K</Kbd>
+          <Kbd><Command size={10} aria-hidden="true" />K</Kbd>
           <Kbd>J</Kbd>
           <AvatarStack people={people} max={4} />
         </div>

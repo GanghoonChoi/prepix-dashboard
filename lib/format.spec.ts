@@ -31,10 +31,10 @@ test("clock time for video lengths", () => {
   assert.equal(formatClock(6.9), "0:06");
 });
 
-test("money: 원 in Korean, ₩ prefix in English, sign before the symbol", () => {
+test("money: 원 in Korean, KRW prefix in English, sign before the code", () => {
   assert.equal(formatMoney(129000, "ko"), "129,000원");
-  assert.equal(formatMoney(129000, "en"), "₩129,000");
-  assert.equal(formatMoney(-9670, "en"), "-₩9,670");
+  assert.equal(formatMoney(129000, "en"), "KRW\u00a0129,000");
+  assert.equal(formatMoney(-9670, "en"), "-KRW\u00a09,670");
 });
 
 test("dates: dotted in tables, month-day inline, no seconds anywhere", () => {

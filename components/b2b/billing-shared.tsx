@@ -18,7 +18,7 @@ import { formatMoney } from "@/lib/format";
 import { useI18n } from "@/lib/i18n/context";
 import { B2bError, errorCode, useCopy } from "./shared";
 
-/** "129,000원" / "₩129,000" in the reader's language (lib/format). */
+/** "129,000원" / "KRW 129,000" in the reader's language (lib/format). */
 export function useWon() {
   const { lang } = useI18n();
   return (value: number) => formatMoney(value, lang === "ko" ? "ko" : "en");
