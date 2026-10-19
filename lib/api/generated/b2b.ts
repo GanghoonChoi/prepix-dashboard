@@ -208,6 +208,8 @@ export type TeamAiUsageView = {
     /** false: left the team this period; their use still counts. */
     member: boolean;
     usedSeconds: number;
+    /** Their cap per period, set by a manager; null = the pool alone. */
+    limitSeconds: number | null;
   }[];
 };
 export type TeamPeople = {
@@ -220,6 +222,8 @@ export type TeamPeople = {
 };
 /** Turn a member's editing seat on or off; the server assigns or releases. */
 export type SetMemberSeat = { requestKey: string; editing: boolean };
+/** Cap one member's share of the team's AI pool per period; null lifts it. */
+export type SetMemberAiLimit = { requestKey: string; limitSeconds: number | null };
 
 export type ChangeTeamMember = RevisionMutation & {
   action: "admin" | "editor" | "reviewer" | "remove" | "suspend" | "reactivate";

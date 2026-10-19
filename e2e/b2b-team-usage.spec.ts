@@ -36,6 +36,22 @@ test("사용량: the team pool and who used it, for owners and admins only", asy
   await expect(rows.filter({ hasText: "tu-owner" })).toContainText("45분");
   await expect(rows.filter({ hasText: "tu-editor" })).toContainText("21분");
 
+  // 한도 (2026-10-19): the owner caps the editor inside the pool, and the
+  // server refuses the editor the same change.
+  await O.page.getByRole("button", { name: /tu-editor.*의 한도/ }).click();
+  const dialog = O.page.getByRole("dialog");
+  await dialog.getByLabel("이번 기간 한도 (분)").fill("30");
+  await dialog.getByRole("button", { name: "저장", exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await expect(rows.filter({ hasText: "tu-editor" })).toContainText("30분");
+  expect((await json(request.get(usage, { headers: owner.headers }))).people.find((p: { userId: string }) => p.userId === editor.id).limitSeconds).toBe(1800);
+  expect(
+    (await request.post(`${api}/v2/workspaces/${team}/b2b/members/${editor.id}/ai-limit`, {
+      headers: editor.headers,
+      data: { requestKey: randomUUID(), limitSeconds: null },
+    })).status(),
+  ).toBe(403);
+
   // An editor has no 사용량 entry, and the address says no.
   const E = await open(browser, editor, `/dashboard/workspaces/${team}`);
   await E.page.waitForURL((u) => u.pathname === `/dashboard/workspaces/${team}`);
