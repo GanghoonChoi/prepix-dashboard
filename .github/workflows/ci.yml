@@ -39,8 +39,11 @@ jobs:
   # real Nest/JWT API, PostgreSQL, S3 (moto), ffmpeg previews, captured mail and the
   # local PG double. No spec reaches a real provider. The harness has two modes
   # that no single flag set covers, so each runs in its own job on its own database.
+  # Each mode is split into shards (default 2, new-teams 4), every shard with its
+  # own harness and database: ~5 min instead of ~13. Only `check` is required to
+  # merge (2026-10-19); these report, and a red one is fixed forward.
   e2e:
-    name: e2e (${{ matrix.mode }})
+    name: e2e (${{ matrix.mode }} ${{ matrix.shard }})
     # Fork PRs get no secrets, so they cannot check out the private backend.
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
@@ -48,7 +51,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: [default, new-teams]
+        include:
+          - { mode: default, shard: 1/2 }
+          - { mode: default, shard: 2/2 }
+          - { mode: new-teams, shard: 1/4 }
+          - { mode: new-teams, shard: 2/4 }
+          - { mode: new-teams, shard: 3/4 }
+          - { mode: new-teams, shard: 4/4 }
     services:
       postgres:
         image: postgres:16-alpine
@@ -159,7 +168,7 @@ jobs:
           # b2b-legal-floor sets time and usage with `docker exec <container> psql`.
           B2B_E2E_PG_CONTAINER: ${{ job.services.postgres.id }}
         run: |
-          pnpm exec playwright test --project ${{ matrix.mode }} --reporter=list,json
+          pnpm exec playwright test --project ${{ matrix.mode }} --shard ${{ matrix.shard }} --reporter=list,json
           # A skip here means the harness is missing something the spec needs. Only an
           # explicit test.fixme (ci-quarantine) may stay unrun.
           node -e '
@@ -178,7 +187,7 @@ jobs:
       - if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: e2e-${{ matrix.mode }}
+          name: e2e-${{ matrix.mode }}-${{ strategy.job-index }}
           path: |
             ${{ runner.temp }}/report.json
             ${{ runner.temp }}/harness.log
