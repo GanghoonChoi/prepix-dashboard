@@ -54,6 +54,10 @@ export default function PlanPage() {
   const reviewModal = useOverlayState();
   const supportModal = useOverlayState();
   const couponModal = useOverlayState();
+  const upgradeModal = useOverlayState();
+  const scheduleModal = useOverlayState();
+  // The plan a switch dialog is about.
+  const [switchTo, setSwitchTo] = useState<CatalogPlan | null>(null);
   const [reviewNote, setReviewNote] = useState("");
   // What coupons currently give this account. A page that cannot load them
   // still works — they are an addition, not the plan.
@@ -217,6 +221,38 @@ export default function PlanPage() {
     setActionLoading(false);
   };
 
+  // One call for all three: up (charged now, `amount` is what the dialog
+  // showed), down (waits for the renewal), or the current plan (keeps it).
+  const confirmSwitch = async (planId: string, amount?: number) => {
+    setActionLoading(true);
+    try {
+      const res = await subscriptionService.changePlan(planId, amount);
+      upgradeModal.close();
+      scheduleModal.close();
+      toast(
+        res.charged
+          ? t("plan.upgradedToast", { plan: planName(planId) })
+          : res.scheduledPlan
+            ? t("plan.scheduledToast", { plan: planName(res.scheduledPlan), date: periodEndLabel ?? "" })
+            : t("plan.keptToast", { plan: planName(planId) }),
+      );
+      await refreshCurrent();
+    } catch (err: unknown) {
+      const res = (err as { response?: { status?: number; data?: { totalKrw?: number } } }).response;
+      if (res?.status === 409 && res.data?.totalKrw !== undefined) {
+        // The price moved after the page was drawn: show the new one, charge nothing.
+        toast(t("plan.priceChanged"), "error");
+        loadData();
+      } else if (res?.status === 402) {
+        toast(t("plan.paymentDeclined"), "error");
+      } else {
+        toast(t("plan.switchFailed"), "error");
+        await refreshCurrent();
+      }
+    }
+    setActionLoading(false);
+  };
+
   const confirmRefund = async () => {
     setActionLoading(true);
     let message = t("plan.refundToast");
@@ -285,6 +321,8 @@ export default function PlanPage() {
   // A subscription on a closed processor (Paddle) will never renew: nothing
   // to cancel, and the way to keep the plan is to subscribe again.
   const stranded = currentSub?.manageable === true && currentSub.renews === false && !isEnded;
+  // A downgrade waiting for the next renewal.
+  const scheduledPlan = currentSub?.manageable && !stranded ? (currentSub.scheduledPlan ?? null) : null;
   const canCancel =
     currentSub?.manageable === true &&
     !stranded &&
@@ -335,7 +373,9 @@ export default function PlanPage() {
           ? t("coupon.planPassActive", { plan: planName(pass!.plan), date: shortDate(pass!.endsAt) })
           : stranded
             ? t("plan.resubscribeNeeded")
-            : null;
+            : scheduledPlan && periodEndLabel
+              ? t("plan.scheduledLine", { plan: planName(scheduledPlan), date: periodEndLabel })
+              : null;
   // A live subscription with nothing else to say renews at the period end.
   const renewsLine =
     !statusLine && canCancel && periodEndLabel ? t("dashboard.renews", { date: periodEndLabel }) : null;
@@ -343,6 +383,21 @@ export default function PlanPage() {
   // Won the way the dashboard writes money (lib/format); other currencies as before.
   const money = (currency: string, amount: number) =>
     currency === "KRW" ? formatMoney(amount, lang) : formatPrice(currency, amount);
+
+  // Plans switch on a subscription we bill ourselves (card, KakaoPay): up at
+  // once for the monthly difference, down at the next renewal (policy
+  // 2026-10-19). Other processors cannot, and the cards say so.
+  const switchable =
+    currentSub?.manageable === true &&
+    status === "active" &&
+    !stranded &&
+    (currentSub.provider === "tosspayments" || currentSub.provider === "portone");
+  const monthPrice = (id: string) =>
+    plans.find((p) => p.id === id)?.prices.find((pr) => pr.interval === "month")?.unitAmount;
+  const monthMinutes = (id: string) => Math.round((plans.find((p) => p.id === id)?.inferenceSecondsPerMonth ?? 0) / 60);
+  // What the upgrade dialog quotes and the server is asked to charge — list
+  // prices, as the server computes it; a mismatch is refused, never charged.
+  const upgradeAmount = switchTo ? (monthPrice(switchTo.id) ?? 0) - (monthPrice(currentPlan) ?? 0) : 0;
 
   const priceLabel = (plan: CatalogPlan) => {
     if (plan.status === "coming_soon")
@@ -421,6 +476,10 @@ export default function PlanPage() {
         onPress: () => handleUpgrade(plan.id),
       };
     }
+    // A downgrade is waiting: the current plan's card takes it back.
+    if (isCurrent && switchable && scheduledPlan) {
+      return { label: t("plan.keepCurrent", { plan: plan.displayName }), disabled: false, onPress: () => void confirmSwitch(plan.id) };
+    }
     if (isCurrent) return { label: t("plan.currentPlan"), disabled: true, onPress: () => {} };
     if (plan.status === "coming_soon") return { label: t("plan.comingSoon"), disabled: true, onPress: () => {} };
     if (plan.id === "free") {
@@ -433,9 +492,19 @@ export default function PlanPage() {
       // checkout the server refuses; saying it is free would be a lie.
       return { label: t("plan.priceUnavailable"), disabled: true, onPress: () => {} };
     }
-    // One subscription per account, and switching between paid plans is not
-    // offered yet (Light joined Creator in 2026-10) — checkout would refuse it,
-    // so say so rather than offer it.
+    const mine = monthPrice(currentPlan);
+    const theirs = monthPrice(plan.id);
+    if (switchable && mine !== undefined && theirs !== undefined) {
+      const open = (modal: { open: () => void }) => () => {
+        setSwitchTo(plan);
+        modal.open();
+      };
+      if (theirs > mine) return { label: t("plan.upgradeTo", { name: plan.displayName }), disabled: false, onPress: open(upgradeModal) };
+      if (scheduledPlan === plan.id) return { label: t("plan.scheduledFrom", { date: periodEndLabel ?? "" }), disabled: true, onPress: () => {} };
+      return { label: t("plan.switchAtRenewal"), disabled: false, onPress: open(scheduleModal) };
+    }
+    // One subscription per account, and a processor other than ours cannot
+    // switch it — checkout would refuse a second one, so say so.
     if (currentSub?.manageable && !isEnded && !stranded) {
       return { label: t("plan.switchAfterCancel"), disabled: true, onPress: () => {} };
     }
@@ -779,6 +848,58 @@ export default function PlanPage() {
           <Button variant="secondary" size="sm" onClick={() => cancelModal.close()} disabled={actionLoading}>{t("plan.keepPlan")}</Button>
           <Button variant="danger" size="sm" onClick={confirmCancel} disabled={actionLoading}>
             {actionLoading ? t("plan.cancelling") : t("plan.cancelSubscription")}
+          </Button>
+        </div>
+      </Dialog>
+
+      {/* Up: charged now, so the dialog says everything the policy asks to be
+          said before paying — the amount, until when the added minutes run,
+          the next payment date, and that the difference is not refunded. */}
+      <Dialog state={upgradeModal} title={switchTo ? t("plan.upgradeTitle", { plan: switchTo.displayName }) : ""}>
+        {switchTo && currentSub?.currentPeriodEnd && (
+          <div className="space-y-3 text-sm text-muted">
+            <p>
+              {t("plan.upgradeBody", {
+                amount: money("KRW", upgradeAmount),
+                plan: switchTo.displayName,
+                minutes: String(monthMinutes(switchTo.id) - monthMinutes(currentPlan)),
+                until: lastDay(currentSub.currentPeriodEnd),
+                next: shortDate(currentSub.currentPeriodEnd),
+              })}
+            </p>
+            <p className="text-foreground">{t("plan.upgradeNoRefund", { from: planName(currentPlan) })}</p>
+            <p className="text-xs">{t("plan.upgradeCharge")}</p>
+          </div>
+        )}
+        <div className="mt-6 flex justify-end gap-3">
+          <Button variant="secondary" size="sm" onClick={() => upgradeModal.close()} disabled={actionLoading}>{t("common.cancel")}</Button>
+          <Button size="sm" onClick={() => switchTo && void confirmSwitch(switchTo.id, upgradeAmount)} disabled={actionLoading || upgradeAmount <= 0}>
+            {actionLoading ? t("plan.processing") : t("plan.upgradeConfirm", { amount: money("KRW", upgradeAmount) })}
+          </Button>
+        </div>
+      </Dialog>
+
+      {/* Down: nothing is charged or refunded now; the renewal does it. */}
+      <Dialog state={scheduleModal} title={switchTo ? t("plan.scheduleTitle", { plan: switchTo.displayName }) : ""}>
+        {switchTo && currentSub?.currentPeriodEnd && (
+          <div className="space-y-3 text-sm text-muted">
+            <p>
+              {t("plan.scheduleBody", {
+                current: planName(currentPlan),
+                plan: switchTo.displayName,
+                until: lastDay(currentSub.currentPeriodEnd),
+                next: shortDate(currentSub.currentPeriodEnd),
+                price: money("KRW", monthPrice(switchTo.id) ?? 0),
+                minutes: String(monthMinutes(switchTo.id)),
+              })}
+            </p>
+            <p>{t("plan.scheduleNoCarry")}</p>
+          </div>
+        )}
+        <div className="mt-6 flex justify-end gap-3">
+          <Button variant="secondary" size="sm" onClick={() => scheduleModal.close()} disabled={actionLoading}>{t("common.cancel")}</Button>
+          <Button size="sm" onClick={() => switchTo && void confirmSwitch(switchTo.id)} disabled={actionLoading}>
+            {actionLoading ? t("plan.processing") : t("plan.scheduleConfirm")}
           </Button>
         </div>
       </Dialog>

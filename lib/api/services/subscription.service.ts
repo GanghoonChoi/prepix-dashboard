@@ -37,6 +37,8 @@ export interface CurrentSubscription {
   // False when that processor's account is closed (Paddle): it will never
   // renew, and the page offers to subscribe again.
   renews?: boolean;
+  // The plan the next renewal moves to (a downgrade waits for it), or null.
+  scheduledPlan?: string | null;
   // Whether a live Paddle subscription backs this plan, i.e. whether there is
   // anything to cancel or downgrade. False for granted tiers and for plans with
   // no subscription at all.
@@ -78,6 +80,8 @@ export interface SubscriptionPayment {
   vatAmount: number;
   currency: string;
   status: "paid" | "partial_cancelled" | "cancelled";
+  /** 'upgrade': a mid-period price difference (never refunded under the 7/14-day rule). */
+  kind?: "subscription" | "upgrade";
   cancelledAmount: number;
   method: "card" | "kakaopay";
   cardCompany: string | null;
@@ -176,10 +180,20 @@ export const subscriptionService = {
     return response.data.data;
   },
 
-  changePlan: async (newPlanId: string, interval: BillingInterval = "month") => {
+  /**
+   * Up: charges `amount` (the difference the buyer was shown) on the saved
+   * card now — a moved price comes back as a 409 carrying the new amount.
+   * Down: scheduled for the next renewal. The current plan: keeps it,
+   * taking back a scheduled change.
+   */
+  changePlan: async (
+    newPlanId: string,
+    amount?: number,
+  ): Promise<{ plan: string; scheduledPlan: string | null; charged?: number }> => {
     const response = await apiClient.post("/subscriptions/change-plan", {
       newPlanId,
-      interval,
+      interval: "month",
+      ...(amount !== undefined ? { amount } : {}),
     });
     return response.data.data;
   },

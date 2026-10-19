@@ -51,7 +51,13 @@ export function Receipt({ id }: { id: string }) {
   const r = receipt;
   const status = paymentStatus[r.status];
   const at = (iso: string) => `${formatDate(iso, lang)} ${formatTime(iso, lang)}`;
-  const item = `Prepix ${PLAN_NAMES[r.plan] ?? r.plan} ${r.interval === "year" ? c("연간 구독", "annual subscription") : c("월간 구독", "monthly subscription")}`;
+  const item = `Prepix ${PLAN_NAMES[r.plan] ?? r.plan} ${
+    r.kind === "upgrade"
+      ? c("업그레이드 차액", "upgrade difference")
+      : r.interval === "year"
+        ? c("연간 구독", "annual subscription")
+        : c("월간 구독", "monthly subscription")
+  }`;
   const method =
     r.method === "kakaopay"
       ? [c("카카오페이", "KakaoPay"), r.cardCompany, r.cardNumber].filter(Boolean).join(" · ")
