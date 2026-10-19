@@ -56,6 +56,8 @@ export function AcceptInvitation({ token }: { token: string }) {
   const href = invite
     ? `/dashboard/workspaces/${invite.workspaceId}${invite.projectId ? `/projects/${invite.projectId}` : ""}`
     : "";
+  // The same names the invite form offers: 편집자, 뷰어, 관리자.
+  const role = invite && (invite.projectRole ?? invite.teamRole);
   return (
     <TeamShell
       title={c("참여 초대", "Participation invitation")}
@@ -63,12 +65,12 @@ export function AcceptInvitation({ token }: { token: string }) {
         invite
           ? invite.kind === "external"
             ? c(
-                "외부 참여자로 이 프로젝트에만 참여합니다.",
+                "외부 게스트로 이 프로젝트에만 참여합니다.",
                 "You join this project only, as an external collaborator.",
               )
             : c(
-                "내부 참여자로 초대되었습니다.",
-                "You are invited as an internal participant.",
+                "팀 멤버로 초대되었습니다.",
+                "You are invited as a teammate.",
               )
           : undefined
       }
@@ -114,13 +116,11 @@ export function AcceptInvitation({ token }: { token: string }) {
                 : []),
               [
                 c("초대 역할", "Invitation role"),
-                invite.projectRole === "producer"
-                  ? c("프로젝트 편집자", "Project editor")
-                  : invite.projectRole === "reviewer"
-                    ? c("프로젝트 뷰어", "Project viewer")
-                    : invite.teamRole === "admin"
-                      ? c("팀 관리자", "Team administrator")
-                      : c("팀 참여자", "Team participant"),
+                role === "admin"
+                  ? c("관리자", "Admin")
+                  : role === "reviewer"
+                    ? c("뷰어", "Viewer")
+                    : c("편집자", "Editor"),
               ],
               ...(invite.projectId
                 ? [
@@ -138,6 +138,8 @@ export function AcceptInvitation({ token }: { token: string }) {
               ],
             ]}
           />
+          {/* A team editor or admin invite comes with an editing seat. */}
+          {(invite.projectId || role === "reviewer") && (
           <InfoTip label={c("이 초대로 받는 것", "What this invitation gives")} text={c("이 초대로 받는 것", "What this invitation gives")}>
             <p>
               {c(
@@ -146,9 +148,12 @@ export function AcceptInvitation({ token }: { token: string }) {
               )}
             </p>
           </InfoTip>
+          )}
           {invite.accepted ? (
             <Link className={buttonClass()} href={href}>
-              {c("참여한 업무 열기", "Open joined work")}
+              {invite.projectId
+                ? c("프로젝트 열기", "Open project")
+                : c("팀 열기", "Open team")}
             </Link>
           ) : (
             <Button
