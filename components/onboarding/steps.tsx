@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Download, User, Users, X } from "lucide-react";
+import { Check, CornerDownLeft, Download, User, Users, X } from "lucide-react";
 import { useI18n } from "@/lib/i18n/context";
 import { userService } from "@/lib/api/services/user.service";
 import {
@@ -53,10 +53,10 @@ const focusRing =
 export const primaryButton = buttonClass();
 export const quietButton = buttonClass({ variant: "ghost" });
 
-/** The ↵ a desktop user can press instead of clicking. */
+/** The Enter a desktop user can press instead of clicking — an icon, as no font we use has ↵. */
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <kbd aria-hidden="true" className="hidden min-w-5 rounded bg-background/15 px-1 font-sans text-[11px] leading-5 text-current/80 sm:inline-block">
+    <kbd aria-hidden="true" className="hidden h-5 min-w-5 items-center justify-center rounded bg-background/15 px-1 text-current/80 sm:inline-flex">
       {children}
     </kbd>
   );
@@ -93,7 +93,7 @@ export function SubmitButton({
         <span className="size-3.5 animate-spin rounded-full border-2 border-current border-r-transparent" />
       )}
       {children}
-      <Kbd>↵</Kbd>
+      <Kbd><CornerDownLeft size={11} /></Kbd>
     </button>
   );
 }
@@ -194,7 +194,7 @@ export function UseStep({
       icon: Users,
       title: ["With my team", "팀과 함께 쓸게요"],
       body: ["Share projects and review together.", "프로젝트를 공유하고 함께 검토해요."],
-      badge: ["₩129,000/seat/mo", "1인 월 129,000원"],
+      badge: ["KRW 129,000/seat/mo", "1인 월 129,000원"],
     },
   ];
   return (

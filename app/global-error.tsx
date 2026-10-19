@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect } from "react";
+import "./globals.css";
+import { pretendard } from "./fonts";
 
 // Catches errors thrown in the root layout itself. It replaces the entire
-// document, so it must render its own <html>/<body>. Kept dependency-free and
-// inline-styled since app providers/styles may not be available at this point.
+// document, so it must render its own <html>/<body>. Inline-styled since app
+// providers may not be available at this point; globals.css is imported only
+// for the fonts.
 export default function GlobalError({
   error,
   reset,
@@ -17,7 +20,7 @@ export default function GlobalError({
   }, [error]);
 
   return (
-    <html lang="en">
+    <html lang="en" className={pretendard.variable}>
       <body
         style={{
           margin: 0,
@@ -29,8 +32,7 @@ export default function GlobalError({
           gap: "24px",
           background: "#0a0a0a",
           color: "#fafafa",
-          fontFamily:
-            "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+          fontFamily: "Satoshi, var(--font-pretendard), sans-serif",
           textAlign: "center",
           padding: "24px",
         }}

@@ -161,9 +161,15 @@ test("team creation, per-address invitation recovery, authenticated acceptance, 
   // 4df91bc replaced the standalone "ready" panel with the workspace home;
   // completing setup now lands there. The seat sentence lives on the members
   // page from this point on, so the assertions below go there for it.
+  // Wait for the home itself: the setup screen has the same h1, and checking
+  // the table straight after the click only passed while setup was in flight.
+  await expect(
+    page.getByRole("button", { name: "설정 완료", exact: true })
+  ).toHaveCount(0);
   await expect(
     page.getByRole("heading", { name: "Studio onboarding", level: 1 })
   ).toBeVisible();
+  await page.goto(`${workspaceUrl}/members`);
   await expect(
     page.getByRole("heading", { name: "멤버와 초대", level: 2 })
   ).toBeVisible();

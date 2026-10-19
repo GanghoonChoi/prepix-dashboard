@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   Check,
+  Command,
+  CornerDownLeft,
   Share2,
   Download,
   FileDown,
@@ -1276,7 +1278,7 @@ function Composer({
             </IconButton>
           )}
           <span className="flex-1" />
-          <Kbd className="hidden sm:inline-flex">⌘↵</Kbd>
+          <Kbd className="hidden gap-0.5 sm:inline-flex" aria-hidden="true"><Command size={10} /><CornerDownLeft size={10} /></Kbd>
           <Button type="submit" size="sm" disabled={mutation.busy || !body.trim()} aria-busy={mutation.busy || undefined}>
             {mutation.busy ? c("전송 중", "Sending") : c("코멘트 남기기", "Post comment")}
           </Button>

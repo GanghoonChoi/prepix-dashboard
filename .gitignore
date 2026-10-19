@@ -34,6 +34,9 @@ yarn-error.log*
 .env*
 !.env.example
 
+# Satoshi: downloaded at build (scripts/fetch-satoshi.mjs), never committed
+/public/fonts/Satoshi-Variable.woff2
+
 # vercel
 .vercel
 

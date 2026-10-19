@@ -1,10 +1,29 @@
 @import "@heroui/styles/css";
 
+/*
+ * Satoshi, served from our own domain. scripts/fetch-satoshi.mjs downloads
+ * Fontshare's original at build — its licence forbids redistributing the file,
+ * and this repo is public. `block`, not `swap`: English text waits for Satoshi
+ * (preloaded in layout.tsx) instead of flashing another face first.
+ */
+@font-face {
+  font-family: Satoshi;
+  src: url("/fonts/Satoshi-Variable.woff2") format("woff2");
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: block;
+}
+
 @theme inline {
-  /* --font-face below picks Satoshi or Pretendard by language. */
+  /*
+   * --font-face below picks Satoshi or Pretendard by language. No mono face:
+   * English is Satoshi and nothing else, so ids, codes and timecodes are too
+   * (with tabular-nums where digits have to line up).
+   */
   --font-sans: var(--font-face), -apple-system, BlinkMacSystemFont,
     "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  --font-mono: var(--font-face), -apple-system, BlinkMacSystemFont,
+    "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
   --color-success-ink: var(--success-ink);
   --color-warning-ink: var(--warning-ink);
   --color-danger-ink: var(--danger-ink);
@@ -15,6 +34,9 @@
  * tokens.ts): English in Satoshi, Korean in Pretendard, Latin included, so a
  * Korean sentence is never set in two faces. Satoshi has no Hangul, so a Korean
  * name on an English page still lands in Pretendard.
+ *
+ * Satoshi has no ₩, ⌘ or ↵ either: English money is "KRW 129,000" and key
+ * hints are icons, so nothing English falls through to a system face.
  */
 :root {
   --font-face: Satoshi, var(--font-pretendard);

@@ -57,11 +57,11 @@ export function formatClock(seconds: number) {
   return h ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
 }
 
-/** "129,000원" / "₩129,000". */
+/** "129,000원" / "KRW 129,000" — Satoshi has no ₩. */
 export function formatMoney(amount: number, lang: Lang) {
   const digits = Math.abs(amount).toLocaleString(locale(lang));
   const sign = amount < 0 ? "-" : "";
-  return lang === "ko" ? `${sign}${digits}원` : `${sign}₩${digits}`;
+  return lang === "ko" ? `${sign}${digits}원` : `${sign}KRW\u00a0${digits}`;
 }
 
 /** "2시간 전" / "3 months ago" from an ISO instant; "—" when never. */

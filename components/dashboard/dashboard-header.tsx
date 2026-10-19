@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { Menu, Search } from "lucide-react";
+import { Command, Menu, Search } from "lucide-react";
 import { useI18n } from "@/lib/i18n/context";
 import { navActive } from "@/lib/workspaces/nav";
 import { useCurrentSpace } from "@/components/dashboard/current-space";
@@ -102,7 +102,7 @@ export function DashboardHeader({
           {ko ? "검색…" : "Search…"}
         </span>
         <span className="hidden sm:inline-flex">
-          <Kbd>⌘K</Kbd>
+          <Kbd><Command size={10} aria-hidden="true" />K</Kbd>
         </span>
       </button>
       <NotificationEntry />
