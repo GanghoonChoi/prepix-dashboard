@@ -8,7 +8,7 @@ import {
   type CatalogPlan,
   type CurrentSubscription,
 } from "@/lib/api/services/subscription.service";
-import { PLAN_NAMES, PLAN_COPY, PLAN_STATUS_META, formatPrice } from "@/lib/constants/data";
+import { PLAN_NAMES, PLAN_COPY, PLAN_STATUS_META, formatPrice, type PlanCopy } from "@/lib/constants/data";
 import { useOverlayState } from "@heroui/react";
 import { Dialog } from "@/components/dialog";
 import { useToast } from "@/components/toast";
@@ -48,10 +48,6 @@ export default function PlanPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [currentSub, setCurrentSub] = useState<CurrentSubscription | null>(null);
   const [plans, setPlans] = useState<CatalogPlan[]>([]);
-  // The same catalog as the default processor would quote it, for a buyer in
-  // Korea whose card is foreign-issued: the domestic processor takes won on
-  // Korean cards only, so they need a way to the dollar price that is not a dead end.
-  const [intlPlans, setIntlPlans] = useState<CatalogPlan[]>([]);
   const [justUpgraded, setJustUpgraded] = useState(false);
   const cancelModal = useOverlayState();
   const refundModal = useOverlayState();
@@ -75,10 +71,6 @@ export default function PlanPage() {
       .then(([sub, catalog]) => {
         setCurrentSub(sub);
         setPlans(catalog);
-        // Only worth asking when this buyer is being quoted won.
-        if (catalog.some((p) => p.prices.some((pr) => pr.currency === "KRW" && p.id !== "free"))) {
-          subscriptionService.getPlans("INTL").then(setIntlPlans).catch(() => setIntlPlans([]));
-        }
       })
       .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
@@ -158,10 +150,10 @@ export default function PlanPage() {
     couponService.benefits().then(setBenefits).catch(() => {});
   };
 
-  const handleUpgrade = async (planId: string, country?: string) => {
+  const handleUpgrade = async (planId: string) => {
     setActionLoading(true);
     try {
-      const result = await subscriptionService.checkout(planId, "month", country);
+      const result = await subscriptionService.checkout(planId, "month");
       // Only Paddle has an in-page overlay, and it is opened against the
       // SERVER-CREATED transaction (client-side creation via `items` is blocked
       // for this vendor). Every other processor hosts its own checkout page, so
@@ -352,19 +344,6 @@ export default function PlanPage() {
   const money = (currency: string, amount: number) =>
     currency === "KRW" ? formatMoney(amount, lang) : formatPrice(currency, amount);
 
-  // The dollar price of a plan for a card issued abroad, or null when there is
-  // nothing to offer (not quoted in won, or no such price).
-  const foreignCardPrice = (plan: CatalogPlan): string | null => {
-    const quoted = plan.prices.find((p) => p.interval === "month");
-    if (!quoted || quoted.currency !== "KRW") return null;
-    const abroad = intlPlans
-      .find((p) => p.id === plan.id)
-      ?.prices.find((p) => p.interval === "month" && p.currency !== "KRW");
-    if (!abroad) return null;
-    const pct = abroad.launchDiscountPercent ?? 0;
-    return formatPrice(abroad.currency, pct ? Math.round(abroad.unitAmount * (1 - pct / 100)) : abroad.unitAmount);
-  };
-
   const priceLabel = (plan: CatalogPlan) => {
     if (plan.status === "coming_soon")
       return {
@@ -464,7 +443,8 @@ export default function PlanPage() {
   };
 
   return (
-    <div>
+    // Boxes and the lines inside them a step darker than the app default.
+    <div className="[--border:color-mix(in_srgb,var(--foreground)_15%,var(--background))]">
       <PageHeader title={t("plan.sectionTitle")} />
       <div className="space-y-8">
 
@@ -620,7 +600,7 @@ export default function PlanPage() {
           <Button
             variant="secondary"
             size="sm"
-            className="self-start"
+            className="self-start shadow-sm"
             onClick={() => { setLinkedCoupon(null); couponModal.open(); }}
           >
             <Ticket size={16} strokeWidth={1.75} aria-hidden="true" />
@@ -649,7 +629,6 @@ export default function PlanPage() {
               const price = priceLabel(plan);
               const btn = buttonFor(plan);
               const copy = PLAN_COPY[lang][plan.id];
-              const abroad = !btn.disabled && plan.id !== "free" ? foreignCardPrice(plan) : null;
 
               return (
                 <div
@@ -690,16 +669,7 @@ export default function PlanPage() {
                       {"note" in price && price.note && <p className="mt-1 text-xs text-foreground">{price.note}</p>}
                     </div>
 
-                    {copy && (
-                      <ul className="mt-4 space-y-1.5">
-                        {copy.features.map((feat) => (
-                          <li key={feat} className="flex items-start gap-2 text-[13px]">
-                            <Check size={14} strokeWidth={1.75} aria-hidden="true" className="mt-0.5 shrink-0 text-muted" />
-                            {feat}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                    {copy && <PlanDetails copy={copy} />}
                   </div>
 
                   <Button
@@ -710,39 +680,28 @@ export default function PlanPage() {
                   >
                     {btn.label}
                   </Button>
-
-                  {abroad && (
-                    <button
-                      type="button"
-                      disabled={actionLoading}
-                      onClick={() => handleUpgrade(plan.id, "INTL")}
-                      className="mt-2 text-center text-xs text-muted underline-offset-2 hover:text-foreground hover:underline disabled:opacity-50"
-                    >
-                      {t("plan.payWithForeignCard", { price: abroad })}
-                    </button>
-                  )}
                 </div>
               );
             })}
             {/* Business is a team plan: it is bought for the team, on the
                 team's plan page, after /start has made the team. */}
             {process.env.NEXT_PUBLIC_START_ONBOARDING === "1" && (
-            <div className={`${cardClass} flex flex-col gap-3 p-5`}>
-              <div>
+            <div className={`${cardClass} flex flex-col p-5`}>
+              <div className="flex-1">
                 <p className="text-base font-semibold">Business</p>
-                <p className="mt-1 text-[13px] text-muted">
-                  {lang === "ko"
-                    ? "1인당 월 ₩129,000 · 3인 이상 · 부가세 별도"
-                    : "KRW 129,000 per seat / month · 3+ seats · VAT extra"}
-                </p>
+                <div className="mt-3">
+                  <span className="whitespace-nowrap">
+                    <span className="text-2xl font-semibold tracking-tight tabular-nums">{money("KRW", 129000)}</span>
+                    <span className="ml-0.5 text-sm text-muted">{lang === "ko" ? "/ 편집자·월" : "/ seat · mo"}</span>
+                  </span>
+                  <p className="mt-1 text-xs text-muted">
+                    {lang === "ko" ? "3인 이상 · 부가세 별도" : "3+ seats · VAT extra"}
+                  </p>
+                </div>
+                <PlanDetails copy={PLAN_COPY[lang].business} />
               </div>
-              <p className="text-[13px] text-muted">
-                {lang === "ko"
-                  ? "팀 워크스페이스, 멤버 관리, 공동 편집과 코멘트, 3TB"
-                  : "Team workspace, members, co-editing and comments, 3TB"}
-              </p>
               <Link
-                className={`${buttonClass({ variant: "secondary" })} mt-auto w-full`}
+                className={`${buttonClass({ variant: "secondary" })} mt-5 w-full`}
                 href={`/start?intent=team&step=workspace&locale=${lang}`}
               >
                 {lang === "ko" ? "팀으로 시작하기" : "Start with your team"}
@@ -756,6 +715,7 @@ export default function PlanPage() {
               policy we can show they saw — so the consent line and its links
               stay on screen; the policy summary is one click away. */}
           <div className="space-y-2">
+            <p className="text-xs text-muted">{t("plan.footnote")}</p>
             <p className="text-xs text-muted">
               {t("plan.purchaseConsent")}{" "}
               <a
@@ -896,5 +856,31 @@ export default function PlanPage() {
       </Dialog>
       </div>
     </div>
+  );
+}
+
+// Below the price, in the homepage card's order: who it is for, the minutes,
+// what it builds on, and what it adds.
+function PlanDetails({ copy }: { copy: PlanCopy }) {
+  return (
+    <>
+      <p className="mt-3 text-[13px] text-muted">{copy.desc}</p>
+      <div className="mt-4 border-t border-border pt-4">
+        <p className="text-sm">
+          <span className="font-semibold tabular-nums">{copy.quota.amount}</span>
+          {copy.quota.per && <span className="text-muted"> {copy.quota.per}</span>}
+        </p>
+        <p className="mt-0.5 text-xs text-muted">{copy.quota.note}</p>
+      </div>
+      <p className="mt-4 text-[13px] font-medium">{copy.includes}</p>
+      <ul className="mt-2 space-y-1.5">
+        {copy.features.map((feat) => (
+          <li key={feat} className="flex items-start gap-2 text-[13px]">
+            <Check size={14} strokeWidth={1.75} aria-hidden="true" className="mt-0.5 shrink-0 text-muted" />
+            {feat}
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }

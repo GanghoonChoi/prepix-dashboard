@@ -30,90 +30,79 @@ export const PLAN_STATUS_META: Record<
   chargeback: { labelKey: "plan.statusChargeback", color: "danger" },
 };
 
-// Marketing copy per tier, per language. The backend owns prices/quotas/status;
-// the frontend owns the localized feature bullets, keyed by plan id.
-type PlanCopy = { description: string; features: string[] };
+// Plan card copy per tier, per language — word for word what the homepage's
+// pricing cards say (laskerstudio.com apps/site/content/landing/{ko,en}.ts),
+// so the two never describe a plan differently. The backend owns prices and
+// quotas; change both places together.
+export type PlanCopy = {
+  desc: string;
+  quota: { amount: string; per?: string; note: string };
+  includes: string;
+  features: string[];
+};
 
 export const PLAN_COPY: Record<Lang, Record<string, PlanCopy>> = {
   en: {
     free: {
-      description: "Get started with AI video editing.",
-      features: [
-        "60 min of AI processing, first 14 days",
-        "Rough cut generation",
-        "Outputs up to 5 min · 720p",
-        "2 projects",
-        "Community support",
-      ],
-    },
-    student: {
-      description: "Full features at a student price.",
-      features: [
-        "180 min of AI processing / month",
-        "Outputs up to 15 min · 1080p, no watermark",
-        "5 projects / month",
-        "Requires student verification",
-      ],
+      desc: "14 days free from sign-up",
+      quota: { amount: "60 min", note: "Footage read during the trial, measured on the uploaded original" },
+      includes: "Core features",
+      features: ["2 plan & rough-cut generations", "10 Agent chat edits", "Multicam support"],
     },
     light: {
-      description: "For creators editing a few videos a month.",
-      features: [
-        "180 min of AI processing / month",
-        "Outputs up to 15 min · 1080p, no watermark",
-        "Conversational rough cut",
-        "5 projects / month",
-      ],
+      desc: "For a creator just getting started",
+      quota: { amount: "180 min", per: "/ mo", note: "Footage read per month, measured on the uploaded original" },
+      includes: "Everything in Free",
+      features: ["Unlimited plans & rough cuts", "Unlimited Agent chat edits", "5 projects a month", "No watermark"],
     },
     creator: {
-      description: "Everything you need to edit at full speed.",
+      desc: "For the full-time solo creator shipping one or two a week",
+      quota: { amount: "300 min", per: "/ mo", note: "Footage read per month, measured on the uploaded original" },
+      includes: "Everything in Light",
+      features: ["Unlimited projects"],
+    },
+    business: {
+      desc: "For in-house content teams and agencies making more video, faster",
+      quota: { amount: "600 min", per: "/ mo", note: "Footage read per month, measured on the uploaded original" },
+      includes: "Everything in Creator",
       features: [
-        "300 min of AI processing / month",
-        "Outputs up to 2 hours · 4K, no watermark",
-        "Multi-angle editing",
-        "Natural language search",
-        "Premiere Pro & Final Cut export",
-        "Priority processing",
+        "3TB cloud storage",
+        "Team workspace and member management",
+        "Usage shared across the team",
+        "Co-editing and comments",
+        "Buy more cloud storage",
       ],
     },
   },
   ko: {
     free: {
-      description: "AI 영상 편집을 시작해보세요.",
-      features: [
-        "가입 후 14일간 60분 AI 처리",
-        "러프컷 생성",
-        "최대 5분 · 720p 출력",
-        "프로젝트 2개",
-        "커뮤니티 지원",
-      ],
-    },
-    student: {
-      description: "학생 요금으로 모든 기능을.",
-      features: [
-        "월 180분 AI 처리",
-        "최대 15분 · 1080p 출력, 워터마크 없음",
-        "월 프로젝트 5개",
-        "학생 인증 필요",
-      ],
+      desc: "가입 후 14일 동안 무료 체험",
+      quota: { amount: "60분", note: "체험 원본 처리량 (분석 요청한 원본 길이 기준)" },
+      includes: "핵심 기능",
+      features: ["기획안 및 러프컷 생성 2회", "Agent 채팅 편집 10회", "멀티앵글 지원"],
     },
     light: {
-      description: "한 달에 몇 편, 가볍게 편집하는 크리에이터.",
-      features: [
-        "월 180분 AI 처리",
-        "최대 15분 · 1080p 출력, 워터마크 없음",
-        "대화형 러프컷",
-        "월 프로젝트 5개",
-      ],
+      desc: "가볍게 시작하는 크리에이터",
+      quota: { amount: "180분", per: "/ 월", note: "월 원본 처리량 (분석 요청한 원본 길이 기준)" },
+      includes: "Free의 모든 기능 포함",
+      features: ["원본마다 분석·기획안 1회 포함", "Agent 채팅 편집 무제한", "프로젝트 월 5개", "워터마크 삭제"],
     },
     creator: {
-      description: "빠른 편집에 필요한 모든 것.",
+      desc: "조연출 없이 주 1–2편을 만드는 1인 풀타임 크리에이터",
+      quota: { amount: "300분", per: "/ 월", note: "월 원본 처리량 (분석 요청한 원본 길이 기준)" },
+      includes: "Light의 모든 기능 포함",
+      features: ["프로젝트 개수 무제한"],
+    },
+    business: {
+      desc: "더 많은 영상을 효율적으로 제작하고 싶은 사내 콘텐츠 제작팀과 에이전시",
+      quota: { amount: "600분", per: "/ 편집자·월", note: "좌석 수만큼 합산해 팀이 함께 사용" },
+      includes: "Creator의 모든 기능 포함",
       features: [
-        "월 300분 AI 처리",
-        "최대 2시간 · 4K 출력, 워터마크 없음",
-        "멀티앵글 편집",
-        "자연어 검색",
-        "Premiere Pro · Final Cut 내보내기",
-        "우선 처리",
+        "3TB 클라우드 저장",
+        "팀 워크스페이스와 멤버 관리",
+        "팀원 간 사용량 공유",
+        "공동 편집 및 코멘트 기능",
+        "클라우드 추가 100GB당 월 5,800원",
       ],
     },
   },

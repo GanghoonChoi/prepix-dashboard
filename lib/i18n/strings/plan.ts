@@ -39,7 +39,6 @@ export const plan: Record<Lang, Record<string, string>> = {
     "plan.checkoutUnavailable":
       "Checkout is not available right now. Please try again later.",
     "plan.checkoutFailed": "Failed to start checkout",
-    "plan.payWithForeignCard": "Card issued outside Korea? {price}/mo",
     "plan.updateCard": "Update payment card",
     "plan.cancelToast":
       "Subscription cancelled. Access continues until your billing period ends.",
@@ -59,6 +58,7 @@ export const plan: Record<Lang, Record<string, string>> = {
     "plan.refundGuideUsed":
       "Once you've used a paid service, or 14 days have passed since payment, change-of-mind refunds aren't available.",
     "plan.refundGuideMore": "View full refund policy",
+    "plan.footnote": "Light and Creator include VAT, Business excludes VAT · Unused minutes do not roll over",
     "plan.purchaseConsent": "By subscribing you agree to our",
     "plan.termsLink": "Terms of Service",
     "plan.consentSeparator": " and ",
@@ -130,7 +130,6 @@ export const plan: Record<Lang, Record<string, string>> = {
     "plan.current": "현재",
     "plan.checkoutUnavailable": "지금은 결제를 진행할 수 없어요. 잠시 후 다시 시도해 주세요.",
     "plan.checkoutFailed": "결제를 시작하지 못했어요",
-    "plan.payWithForeignCard": "해외 발급 카드로 결제 · 월 {price}",
     "plan.updateCard": "카드 다시 등록",
     "plan.cancelToast": "구독을 해지했어요. 결제 주기가 끝날 때까지 계속 이용할 수 있어요.",
     "plan.cancelFailed": "해지에 실패했어요",
@@ -148,6 +147,7 @@ export const plan: Record<Lang, Record<string, string>> = {
     "plan.refundGuideUsed":
       "유료 서비스를 사용했거나 결제 후 14일이 지난 경우에는 단순 변심 환불이 불가합니다.",
     "plan.refundGuideMore": "자세한 환불 정책 보기",
+    "plan.footnote": "Light·Creator 부가세 포함, Business 부가세 별도 · 남은 처리량은 다음 달로 이월되지 않습니다",
     "plan.purchaseConsent": "구독하시면",
     "plan.termsLink": "이용약관",
     "plan.consentSeparator": " 및 ",
