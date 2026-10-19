@@ -777,8 +777,21 @@ export default function PlanPage() {
               </a>
               {t("plan.consentSuffix")}
             </p>
-            <InfoTip label={t("plan.refundTerms")} text={t("plan.refundTerms")}>
-              <p>{t("plan.purchaseNotice")}</p>
+            <InfoTip label={t("plan.refundGuideTitle")} text={t("plan.refundTerms")}>
+              <p>{t("plan.refundGuideIntro")}</p>
+              <ul className="list-disc pl-5">
+                <li>{t("plan.refundGuideFull")}</li>
+                <li>{t("plan.refundGuideHalf")}</li>
+              </ul>
+              <p>{t("plan.refundGuideUsed")}</p>
+              <a
+                href={legalUrl(lang, "refund-policy")}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-block underline underline-offset-2 hover:text-foreground"
+              >
+                {t("plan.refundGuideMore")}
+              </a>
             </InfoTip>
           </div>
         </Block>
