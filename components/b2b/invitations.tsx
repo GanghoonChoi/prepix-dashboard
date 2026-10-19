@@ -8,11 +8,14 @@ import {
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import { inputClass } from "@/components/workspaces/shared";
 import { Button, Field, Select } from "@/components/ui";
+import { parseEmails } from "@/lib/onboarding";
 import { roleSummary } from "./team-roles";
 import { B2bError, freeIntent, errorCode, useCopy } from "./shared";
 
 /**
- * Inviting, the Figma way (2026-10-08): an email and a role, nothing else.
+ * Inviting, the Figma way (2026-10-08): emails and a role, nothing else.
+ * Several addresses go in one field — typed with commas, or pasted from a
+ * sheet or a mail client — and each gets its own invitation.
  *
  * - Team: 편집자 (edits in the app, takes a seat), 뷰어 (watches and
  *   comments, free) or, for the owner, 관리자. The seat follows the role.
@@ -35,7 +38,7 @@ export function InviteForm({
   const c = useCopy();
   const id = data.workspace.id;
   const canBill = !!b2b?.enrolled && b2b.allowedActions.billing;
-  const [email, setEmail] = useState("");
+  const [text, setText] = useState("");
   const [role, setRole] = useState<TeamInviteRole>("editor");
   // A project invite reaches someone outside the team (a guest) or a
   // teammate who is not in this private project yet.
@@ -43,40 +46,55 @@ export function InviteForm({
   const seats = useSeats(id, !projectId);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const pending = useRef<{ hash: string; key: string } | null>(null);
+  const [sent, setSent] = useState(0);
+  // One per address and intent: a retry after a lost response sends the same
+  // request key again, so nobody is invited twice.
+  const pending = useRef(new Map<string, { key: string }>());
   const viewer = role === "reviewer";
   const field = useId();
+  const { emails, invalid } = parseEmails(text, "", []);
+  const count = emails.length;
+  // Seats beyond the free ones are the ones this batch adds.
+  const extra = Math.max(0, count - (seats?.free ?? 0));
   return (
     <form
       className="max-w-xl space-y-4"
       onSubmit={async (event) => {
         event.preventDefault();
-        if (busy) return;
-        const input = {
-          email: email.trim(),
-          kind: projectId ? kind : ("internal" as const),
-          teamRole: projectId && role === "admin" ? ("editor" as const) : role,
-          projectId,
-          projectRole: projectId ? (viewer ? ("reviewer" as const) : ("producer" as const)) : undefined,
-          canDownload: !!projectId && !viewer,
-          assignSeat: projectId ? undefined : !viewer,
-        };
-        const hash = JSON.stringify(input);
-        // A retry after a lost response sends the same intent again.
-        if (pending.current?.hash !== hash) pending.current = { hash, key: crypto.randomUUID() };
+        if (busy || !count || invalid.length) return;
         setBusy(true);
         setError("");
-        try {
-          await b2bService.issueInvitation(id, { ...input, requestKey: pending.current.key });
-          pending.current = null;
-          setEmail("");
-          await onSent();
-        } catch (e) {
-          setError(errorCode(e));
-          if (freeIntent(pending.current, e)) pending.current = null;
-        } finally {
-          setBusy(false);
+        setSent(0);
+        const refused: string[] = [];
+        let firstError = "";
+        for (const email of emails) {
+          const input = {
+            email,
+            kind: projectId ? kind : ("internal" as const),
+            teamRole: projectId && role === "admin" ? ("editor" as const) : role,
+            projectId,
+            projectRole: projectId ? (viewer ? ("reviewer" as const) : ("producer" as const)) : undefined,
+            canDownload: !!projectId && !viewer,
+            assignSeat: projectId ? undefined : !viewer,
+          };
+          const hash = JSON.stringify(input);
+          const intent = pending.current.get(hash) ?? { key: crypto.randomUUID() };
+          pending.current.set(hash, intent);
+          try {
+            await b2bService.issueInvitation(id, { ...input, requestKey: intent.key });
+            pending.current.delete(hash);
+          } catch (e) {
+            refused.push(email);
+            firstError ||= errorCode(e);
+            if (freeIntent(intent, e)) pending.current.delete(hash);
+          }
         }
+        // What was refused stays in the field to fix and send again.
+        setText(refused.join(", "));
+        setError(firstError);
+        setSent(count - refused.length);
+        setBusy(false);
+        if (refused.length < count) await onSent();
       }}
     >
       <div className="flex flex-wrap items-end gap-2">
@@ -84,17 +102,26 @@ export function InviteForm({
           label={c("초대 이메일", "Invitation email")}
           htmlFor={`${field}-email`}
           className="min-w-0 flex-1 basis-56"
+          error={
+            invalid.length > 0 &&
+            c(`이메일 형식이 아닙니다: ${invalid.join(", ")}`, `Not an email: ${invalid.join(", ")}`)
+          }
         >
           <input
             id={`${field}-email`}
             className={inputClass}
-            type="email"
+            type="text"
+            inputMode="email"
+            autoComplete="off"
             required
-            maxLength={254}
-            placeholder="name@company.com"
+            placeholder={c("여러 명은 쉼표로 구분", "Separate several with commas")}
+            aria-invalid={invalid.length > 0}
             disabled={busy}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value);
+              setSent(0);
+            }}
           />
         </Field>
         {projectId && (
@@ -124,10 +151,23 @@ export function InviteForm({
             {!projectId && data.role === "owner" && <option value="admin">{c("관리자", "Admin")}</option>}
           </Select>
         </Field>
-        <Button type="submit" aria-busy={busy} disabled={busy || !email.trim()}>
-          {busy ? c("보내는 중…", "Sending…") : c("초대 보내기", "Send invitation")}
+        <Button type="submit" aria-busy={busy} disabled={busy || !count || invalid.length > 0}>
+          {busy
+            ? c("보내는 중…", "Sending…")
+            : count > 1
+              ? c(`${count}명 초대 보내기`, `Invite ${count} people`)
+              : c("초대 보내기", "Send invitation")}
         </Button>
       </div>
+      {count > 1 && (
+        <ul className="flex flex-wrap gap-1.5" aria-label={c("초대할 사람", "People to invite")}>
+          {emails.map((email) => (
+            <li key={email} className="rounded-md border border-border px-2 py-0.5 text-[13px] break-all">
+              {email}
+            </li>
+          ))}
+        </ul>
+      )}
       {/* What the chosen role means, before the seat it costs. */}
       {!projectId && <p className="text-[13px] leading-5">{c(...roleSummary[role])}</p>}
       <p className="text-xs leading-5 text-muted" data-testid="invite-seat-info">
@@ -135,14 +175,19 @@ export function InviteForm({
           ? c("뷰어는 보고 코멘트만 합니다. 좌석이 필요 없어 무료입니다.", "Viewers watch and comment. They take no seat, so they are free.")
           : projectId
             ? c("이 프로젝트에 참여합니다. 편집자는 자료를 올리고 받을 수 있습니다.", "They join this project. Editors can upload and download.")
-            : seats && seats.free > 0
-              ? c(`좌석 1개를 씁니다 · 남은 좌석 ${seats.free}/${seats.capacity}석`, `Takes a seat · ${seats.free} of ${seats.capacity} free`)
+            : seats && seats.free > 0 && extra === 0
+              ? c(`좌석 ${Math.max(count, 1)}개를 씁니다 · 남은 좌석 ${seats.free}/${seats.capacity}석`, `Takes ${Math.max(count, 1)} seat${count > 1 ? "s" : ""} · ${seats.free} of ${seats.capacity} free`)
               : autoSeats
-                ? c("좌석 1개를 씁니다 · 수락하면 이번 달 남은 기간만큼 자동결제 카드로 결제되고 바로 쓸 수 있습니다.", "Takes a seat · once they accept, the rest of this month is charged to the renewal card and they start at once.")
+                ? c("멤버 추가 수에 맞춰 좌석이 추가됩니다 · 수락하면 이번 달 남은 기간만큼 자동결제 카드로 결제되고 바로 쓸 수 있습니다.", "Seats are added to match the people you add · once they accept, the rest of this month is charged to the renewal card and they start at once.")
                 : canBill
-                ? c("좌석 1개를 씁니다 · 수락하면 멤버 화면에서 이번 달 남은 기간만큼 결제하고 바로 쓸 수 있습니다.", "Takes a seat · once they accept, pay for the rest of this month on People and they start at once.")
-                : c("좌석 1개를 씁니다 · 남은 좌석이 없으면 결제 권한자가 좌석을 추가할 때까지 대기합니다.", "Takes a seat · waits until someone with billing permission adds one.")}
+                ? c("멤버 추가 수에 맞춰 좌석을 추가해야 합니다 · 수락하면 멤버 화면에서 이번 달 남은 기간만큼 결제하고 바로 쓸 수 있습니다.", "Add seats to match the people you add · once they accept, pay for the rest of this month on People and they start at once.")
+                : c("멤버 추가 수에 맞춰 좌석이 필요합니다 · 남은 좌석이 없으면 결제 권한자가 좌석을 추가할 때까지 대기합니다.", "Each person you add needs a seat · without a free one they wait until someone with billing permission adds it.")}
       </p>
+      {sent > 0 && (
+        <p role="status" className="text-[13px]">
+          {c(`${sent}명에게 초대를 보냈습니다.`, `Invited ${sent === 1 ? "1 person" : `${sent} people`}.`)}
+        </p>
+      )}
       {error && <B2bError code={error} />}
     </form>
   );
