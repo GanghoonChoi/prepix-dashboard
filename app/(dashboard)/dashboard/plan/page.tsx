@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { Skeleton } from "@heroui/react";
 import { Check, Ticket } from "lucide-react";
 import {
@@ -31,7 +31,6 @@ import {
   Notice,
   PageHeader,
   buttonClass,
-  cardClass,
   textareaClass,
   type Tone,
   InfoTip,
@@ -359,7 +358,7 @@ export default function PlanPage() {
     // we will never honour.
     if (!price) {
       return plan.id === "free"
-        ? { big: money("KRW", 0), per: null, strike: null, sub: null }
+        ? { big: "Free", per: null, strike: null, sub: null }
         : { big: t("plan.priceUnavailable"), per: null, strike: null, sub: null };
     }
 
@@ -621,32 +620,33 @@ export default function PlanPage() {
 
       {!loading && !loadError && (
         <Block title={t("plan.availablePlans")}>
-          {/* One row where there is room for it. */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-flow-col xl:grid-cols-none xl:auto-cols-fr">
+          {/* One row where there is room for it, two by two before that (a
+              three-up row leaves the fourth card alone). Every card is six
+              rows of this grid (subgrid), so names, prices, lines and lists
+              sit level across cards, as on the homepage. */}
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-flow-col xl:grid-cols-none xl:auto-cols-fr">
             {plans.map((plan) => {
               const isCurrent = currentPlan === plan.id;
               const emphasize = plan.id === "creator" && !isCurrent;
               const price = priceLabel(plan);
               const btn = buttonFor(plan);
-              const copy = PLAN_COPY[lang][plan.id];
 
               return (
-                <div
+                <PlanCard
                   key={plan.id}
-                  className={`flex flex-col rounded-lg border bg-background p-5 ${
-                    isCurrent ? "border-foreground ring-1 ring-foreground" : "border-border"
-                  }`}
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-base font-semibold">{plan.displayName}</p>
-                      {emphasize && <Badge>{t("plan.popular")}</Badge>}
-                      {/* The button says "현재 플랜" itself, except on a coupon
-                          pass, where it offers to keep the plan instead. */}
-                      {isCurrent && !btn.disabled && <Badge>{t("plan.current")}</Badge>}
-                    </div>
-
-                    <div className="mt-3">
+                  current={isCurrent}
+                  name={plan.displayName}
+                  badge={
+                    emphasize ? (
+                      <Badge>{t("plan.popular")}</Badge>
+                    ) : (
+                      // The button says "현재 플랜" itself, except on a coupon
+                      // pass, where it offers to keep the plan instead.
+                      isCurrent && !btn.disabled && <Badge>{t("plan.current")}</Badge>
+                    )
+                  }
+                  price={
+                    <>
                       {/* Wraps as a whole rather than breaking "/월" off the
                           price when a strike-through sits beside it. */}
                       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -655,7 +655,7 @@ export default function PlanPage() {
                         )}
                         <span className="whitespace-nowrap">
                           <span className="text-2xl font-semibold tracking-tight tabular-nums">{price.big}</span>
-                          {price.per && <span className="ml-0.5 text-sm text-muted">{price.per}</span>}
+                          {price.per && <span className="ml-1 text-[13px] text-muted">{price.per}</span>}
                         </span>
                       </div>
                       {"chip" in price && price.chip ? (
@@ -667,46 +667,50 @@ export default function PlanPage() {
                         price.sub && <p className="mt-1 text-xs text-muted">{price.sub}</p>
                       )}
                       {"note" in price && price.note && <p className="mt-1 text-xs text-foreground">{price.note}</p>}
-                    </div>
-
-                    {copy && <PlanDetails copy={copy} />}
-                  </div>
-
-                  <Button
-                    className="mt-5 w-full"
-                    variant={btn.disabled ? "secondary" : "primary"}
-                    disabled={btn.disabled || actionLoading}
-                    onClick={btn.onPress}
-                  >
-                    {btn.label}
-                  </Button>
-                </div>
+                    </>
+                  }
+                  copy={PLAN_COPY[lang][plan.id]}
+                  action={
+                    // One dark button, as on the homepage: the plan we point
+                    // people to, or the one they are about to keep.
+                    <Button
+                      className="w-full"
+                      variant={!btn.disabled && (emphasize || isCurrent) ? "primary" : "secondary"}
+                      disabled={btn.disabled || actionLoading}
+                      onClick={btn.onPress}
+                    >
+                      {btn.label}
+                    </Button>
+                  }
+                />
               );
             })}
             {/* Business is a team plan: it is bought for the team, on the
                 team's plan page, after /start has made the team. */}
             {process.env.NEXT_PUBLIC_START_ONBOARDING === "1" && (
-            <div className={`${cardClass} flex flex-col p-5`}>
-              <div className="flex-1">
-                <p className="text-base font-semibold">Business</p>
-                <div className="mt-3">
-                  <span className="whitespace-nowrap">
-                    <span className="text-2xl font-semibold tracking-tight tabular-nums">{money("KRW", 129000)}</span>
-                    <span className="ml-0.5 text-sm text-muted">{lang === "ko" ? "/ 편집자·월" : "/ seat · mo"}</span>
-                  </span>
-                  <p className="mt-1 text-xs text-muted">
-                    {lang === "ko" ? "3인 이상 · 부가세 별도" : "3+ seats · VAT extra"}
-                  </p>
-                </div>
-                <PlanDetails copy={PLAN_COPY[lang].business} />
-              </div>
-              <Link
-                className={`${buttonClass({ variant: "secondary" })} mt-5 w-full`}
-                href={`/start?intent=team&step=workspace&locale=${lang}`}
-              >
-                {lang === "ko" ? "팀으로 시작하기" : "Start with your team"}
-              </Link>
-            </div>
+              <PlanCard
+                name="Business"
+                price={
+                  <>
+                    <span className="whitespace-nowrap">
+                      <span className="text-2xl font-semibold tracking-tight tabular-nums">{money("KRW", 129000)}</span>
+                      <span className="ml-1 text-[13px] text-muted">{lang === "ko" ? "/ 편집자·월" : "/ seat · mo"}</span>
+                    </span>
+                    <p className="mt-1 text-xs text-muted">
+                      {lang === "ko" ? "3인 이상 · 부가세 별도" : "3+ seats · VAT extra"}
+                    </p>
+                  </>
+                }
+                copy={PLAN_COPY[lang].business}
+                action={
+                  <Link
+                    className={`${buttonClass({ variant: "secondary" })} w-full`}
+                    href={`/start?intent=team&step=workspace&locale=${lang}`}
+                  >
+                    {lang === "ko" ? "팀으로 시작하기" : "Start with your team"}
+                  </Link>
+                }
+              />
             )}
           </div>
 
@@ -859,28 +863,64 @@ export default function PlanPage() {
   );
 }
 
-// Below the price, in the homepage card's order: who it is for, the minutes,
-// what it builds on, and what it adds.
-function PlanDetails({ copy }: { copy: PlanCopy }) {
+// One plan card as six rows of the plans grid — name, price, who it is for,
+// minutes, what it includes, the button — in the homepage card's order. The
+// rows are the grid's own (subgrid), so each line is level with its
+// neighbours' whatever the copy's length.
+function PlanCard({
+  name,
+  badge,
+  price,
+  copy,
+  action,
+  current = false,
+}: {
+  name: string;
+  badge?: ReactNode;
+  price: ReactNode;
+  copy?: PlanCopy;
+  action: ReactNode;
+  current?: boolean;
+}) {
   return (
-    <>
-      <p className="mt-3 text-[13px] text-muted">{copy.desc}</p>
-      <div className="mt-4 border-t border-border pt-4">
-        <p className="text-sm">
-          <span className="font-semibold tabular-nums">{copy.quota.amount}</span>
-          {copy.quota.per && <span className="text-muted"> {copy.quota.per}</span>}
-        </p>
-        <p className="mt-0.5 text-xs text-muted">{copy.quota.note}</p>
+    <div
+      className={`row-span-6 grid grid-rows-subgrid gap-0 rounded-lg border bg-background p-5 ${
+        current ? "border-foreground ring-1 ring-foreground" : "border-border"
+      }`}
+    >
+      <div className="flex min-h-6 items-center justify-between gap-2">
+        <p className="text-base font-semibold">{name}</p>
+        {badge}
       </div>
-      <p className="mt-4 text-[13px] font-medium">{copy.includes}</p>
-      <ul className="mt-2 space-y-1.5">
-        {copy.features.map((feat) => (
-          <li key={feat} className="flex items-start gap-2 text-[13px]">
-            <Check size={14} strokeWidth={1.75} aria-hidden="true" className="mt-0.5 shrink-0 text-muted" />
-            {feat}
-          </li>
-        ))}
-      </ul>
-    </>
+      <div className="mt-3">{price}</div>
+      <p className="mt-3 text-[13px] leading-5 text-muted">{copy?.desc}</p>
+      <div className="mt-4 border-t border-border pt-4">
+        {copy && (
+          <>
+            <p>
+              <span className="text-base font-semibold tabular-nums">{copy.quota.amount}</span>
+              {copy.quota.per && <span className="ml-1 text-[13px] text-muted">{copy.quota.per}</span>}
+            </p>
+            <p className="mt-0.5 text-xs leading-5 text-muted">{copy.quota.note}</p>
+          </>
+        )}
+      </div>
+      <div className="mt-4 border-t border-border pt-4">
+        {copy && (
+          <>
+            <p className="text-[13px] font-medium">{copy.includes}</p>
+            <ul className="mt-2.5 space-y-2">
+              {copy.features.map((feat) => (
+                <li key={feat} className="flex items-start gap-2 text-[13px] leading-5">
+                  <Check size={14} strokeWidth={1.75} aria-hidden="true" className="mt-[3px] shrink-0 text-muted" />
+                  {feat}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+      <div className="mt-6 self-end">{action}</div>
+    </div>
   );
 }
