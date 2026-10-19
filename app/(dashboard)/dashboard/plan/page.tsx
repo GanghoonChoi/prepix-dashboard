@@ -284,6 +284,11 @@ export default function PlanPage() {
   // A subscription on a closed processor (Paddle) will never renew: nothing
   // to cancel, and the way to keep the plan is to subscribe again.
   const stranded = currentSub?.manageable === true && currentSub.renews === false && !isEnded;
+  // One subscription per account, and switching between paid plans is not
+  // offered yet (Light joined Creator in 2026-10), so a live subscription has
+  // nothing to buy here. Its page is its plan and its payments, as on Claude's
+  // billing page; the plan cards show only to someone choosing a plan.
+  const choosingPlan = !(currentSub?.manageable && !isEnded && !stranded);
   const canCancel =
     currentSub?.manageable === true &&
     !stranded &&
@@ -432,10 +437,8 @@ export default function PlanPage() {
       // checkout the server refuses; saying it is free would be a lie.
       return { label: t("plan.priceUnavailable"), disabled: true, onPress: () => {} };
     }
-    // One subscription per account, and switching between paid plans is not
-    // offered yet (Light joined Creator in 2026-10) — checkout would refuse it,
-    // so say so rather than offer it.
-    if (currentSub?.manageable && !isEnded && !stranded) {
+    // Checkout would refuse it (see choosingPlan), so say so rather than offer it.
+    if (!choosingPlan) {
       return { label: t("plan.switchAfterCancel"), disabled: true, onPress: () => {} };
     }
     return { label: t("plan.get", { name: plan.displayName }), disabled: false, onPress: () => handleUpgrade(plan.id) };
@@ -618,7 +621,7 @@ export default function PlanPage() {
         />
       )}
 
-      {!loading && !loadError && (
+      {!loading && !loadError && choosingPlan && (
         <Block title={t("plan.availablePlans")}>
           {/* One row where there is room for it, two by two before that (a
               three-up row leaves the fourth card alone). Every card is six

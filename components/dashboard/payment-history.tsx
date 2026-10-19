@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { Block } from "@/components/workspaces/shared";
-import { Badge, buttonClass, tableClass, tdClass, thClass } from "@/components/ui";
+import { Badge, Button, buttonClass, tableClass, tdClass, thClass } from "@/components/ui";
 import { formatDate, formatMoney } from "@/lib/format";
 import { useI18n } from "@/lib/i18n/context";
 import { PLAN_NAMES } from "@/lib/constants/data";
@@ -39,11 +39,16 @@ export async function openPgReceipt(id: string) {
 /**
  * 결제내역 (2026-10-13): every payment of the personal plan, newest first, with
  * Prepix's own receipt and the card company's slip. Absent until there is one.
+ * The latest few show; the rest open in place, as invoice lists do on Stripe
+ * and GitHub — a year of monthly payments should not be the page.
  */
+const RECENT = 5;
+
 export function PaymentHistory() {
   const { lang } = useI18n();
   const c = (ko: string, en: string) => (lang === "ko" ? ko : en);
   const [rows, setRows] = useState<SubscriptionPayment[] | null>(null);
+  const [all, setAll] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -72,7 +77,7 @@ export function PaymentHistory() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => {
+            {(all ? rows : rows.slice(0, RECENT)).map((r) => {
               const status = paymentStatus[r.status];
               return (
                 <tr key={r.id} data-payment={r.receiptNo}>
@@ -123,6 +128,11 @@ export function PaymentHistory() {
           </tbody>
         </table>
       </div>
+      {!all && rows.length > RECENT && (
+        <Button variant="ghost" size="sm" className="mt-2 -ml-3" onClick={() => setAll(true)}>
+          {c(`전체 보기 (${rows.length}건)`, `Show all (${rows.length})`)}
+        </Button>
+      )}
       {toss && (
         <p className="mt-3 text-xs leading-5 text-muted">
           {c(
