@@ -1,12 +1,23 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import Script from "next/script";
 import "./globals.css";
+import { DEFAULT_LANG } from "@/lib/i18n/config";
 import { I18nProvider } from "@/lib/i18n/context";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+// The site's own Pretendard subsets (laskerstudio.com apps/site/app/fonts).
+// Satoshi, the English face, comes from Fontshare's CDN in <head> instead: its
+// licence forbids redistributing the files, and this repo is public.
+const pretendard = localFont({
+  variable: "--font-pretendard",
+  src: [
+    { path: "./fonts/Pretendard-Regular.subset.woff2", weight: "400" },
+    { path: "./fonts/Pretendard-Medium.subset.woff2", weight: "500" },
+    { path: "./fonts/Pretendard-SemiBold.subset.woff2", weight: "600" },
+    { path: "./fonts/Pretendard-Bold.subset.woff2", weight: "700" },
+    { path: "./fonts/Pretendard-ExtraBold.subset.woff2", weight: "800" },
+  ],
 });
 
 const geistMono = Geist_Mono({
@@ -64,11 +75,14 @@ export default function RootLayout({
   return (
     <html
       suppressHydrationWarning
-      lang="en"
-      className={`dark ${geistSans.variable} ${geistMono.variable} antialiased`}
+      // What the server renders; I18nProvider moves it with the language.
+      lang={DEFAULT_LANG}
+      className={`dark ${pretendard.variable} ${geistMono.variable} antialiased`}
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: PICK_SCHEME }} />
+        <link rel="preconnect" href="https://cdn.fontshare.com" crossOrigin="" />
+        <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=satoshi@1&display=swap" />
         <link rel="icon" type="image/svg+xml" href="/favicon_black.svg" media="(prefers-color-scheme: light)" />
         <link rel="icon" type="image/svg+xml" href="/favicon_white.svg" media="(prefers-color-scheme: dark)" />
         <Script
