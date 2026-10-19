@@ -867,7 +867,12 @@ export default function PlanPage() {
                 next: shortDate(currentSub.currentPeriodEnd),
               })}
             </p>
-            <p className="text-foreground">{t("plan.upgradeNoRefund", { from: planName(currentPlan) })}</p>
+            <p className="text-foreground">
+              {t("plan.upgradeRefund", {
+                date: currentSub.currentPeriodStart ? shortDate(currentSub.currentPeriodStart) : "",
+                from: planName(currentPlan),
+              })}
+            </p>
             <p className="text-xs">{t("plan.upgradeCharge")}</p>
           </div>
         )}

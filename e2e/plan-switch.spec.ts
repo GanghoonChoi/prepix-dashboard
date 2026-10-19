@@ -47,7 +47,7 @@ async function serve(page: Page, current: () => unknown, onChange: (body: Record
   );
 }
 
-test("Light → Creator: the dialog says the amount, minutes, dates and no-refund before charging that amount", async ({ page, request }) => {
+test("Light → Creator: the dialog says the amount, minutes, dates and refund terms before charging that amount", async ({ page, request }) => {
   const email = await account(request);
   let plan = "light";
   const asked: Record<string, unknown>[] = [];
@@ -64,7 +64,9 @@ test("Light → Creator: the dialog says the amount, minutes, dates and no-refun
   await expect(dialog).toContainText("추가 120분은");
   await expect(dialog).toContainText("10월 31일까지");
   await expect(dialog).toContainText("다음 정기 결제일은 2026년 11월 1일이에요");
-  await expect(dialog).toContainText("미사용이어도 단순 변심 환불되지 않아요");
+  // Refunds: the difference goes with the period's payment (2026-10-01), same band.
+  await expect(dialog).toContainText("이번 기간 구독 결제(2026년 10월 1일)와 같은 환불 기준을 따라요");
+  await expect(dialog).toContainText("7일 이내 전액, 14일 이내 50%");
   await dialog.getByRole("button", { name: "20,000원 결제하고 업그레이드" }).click();
 
   await expect(page.getByText("Creator로 바꿨어요")).toBeVisible();
