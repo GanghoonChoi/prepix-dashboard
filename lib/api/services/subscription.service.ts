@@ -112,7 +112,6 @@ export interface CheckoutResult {
   discountId?: string;
 }
 
-export type DemoStorageTier = "active" | "archive";
 /** 일반결제 = this period only; 정기결제 = renews with Business every month. */
 export type DemoStorageMode = "once" | "monthly";
 
@@ -162,7 +161,7 @@ export const subscriptionService = {
   /** Card-company review accounts only: a team's storage on the real pay page, nothing charged. */
   demo: async (): Promise<
     | { available: false }
-    | { available: true; storagePack: { bytes: number; supplyKrw: Record<DemoStorageTier, number> } }
+    | { available: true; storagePack: { bytes: number; supplyKrw: number } }
   > => {
     const response = await apiClient.get("/subscriptions/demo");
     return response.data.data;
@@ -171,10 +170,9 @@ export const subscriptionService = {
   demoCheckout: async (
     workspaceId: string,
     packs: number,
-    tier: DemoStorageTier,
     mode: DemoStorageMode,
   ): Promise<{ checkoutUrl: string }> => {
-    const response = await apiClient.post("/subscriptions/demo-checkout", { workspaceId, packs, tier, mode });
+    const response = await apiClient.post("/subscriptions/demo-checkout", { workspaceId, packs, mode });
     return response.data.data;
   },
 
