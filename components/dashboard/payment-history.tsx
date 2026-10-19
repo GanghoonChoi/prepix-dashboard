@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
-import { Block } from "@/components/workspaces/shared";
-import { Badge, Button, buttonClass, tableClass, tdClass, thClass } from "@/components/ui";
+import { Skeleton } from "@heroui/react";
+import { Badge, EmptyState, buttonClass, tableClass, tdClass, thClass } from "@/components/ui";
 import { formatDate, formatMoney } from "@/lib/format";
 import { useI18n } from "@/lib/i18n/context";
 import { PLAN_NAMES } from "@/lib/constants/data";
@@ -37,18 +37,25 @@ export async function openPgReceipt(id: string) {
 }
 
 /**
- * 결제내역 (2026-10-13): every payment of the personal plan, newest first, with
- * Prepix's own receipt and the card company's slip. Absent until there is one.
- * The latest few show; the rest open in place, as invoice lists do on Stripe
- * and GitHub — a year of monthly payments should not be the page.
+ * 플랜과 결제's two tabs (2026-10-19): the plan, and 결제내역 on its own page,
+ * as billing pages split them on Vercel and Slack — the plan cards and a year
+ * of payments were too much for one page.
  */
-const RECENT = 5;
+export function planTabs(t: (key: string) => string) {
+  return [
+    { href: "/dashboard/plan", label: t("plan.tabPlan") },
+    { href: "/dashboard/plan/payments", label: t("plan.tabPayments"), match: "/dashboard/plan/receipts" },
+  ];
+}
 
+/**
+ * 결제내역 (2026-10-13): every payment of the personal plan, newest first, with
+ * Prepix's own receipt and the card company's slip.
+ */
 export function PaymentHistory() {
   const { lang } = useI18n();
   const c = (ko: string, en: string) => (lang === "ko" ? ko : en);
   const [rows, setRows] = useState<SubscriptionPayment[] | null>(null);
-  const [all, setAll] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -61,10 +68,11 @@ export function PaymentHistory() {
     };
   }, []);
 
-  if (!rows?.length) return null;
+  if (!rows) return <Skeleton className="h-40 w-full rounded-md" />;
+  if (!rows.length) return <EmptyState title={c("아직 결제내역이 없어요", "No payments yet")} />;
   const toss = rows.some((r) => r.provider === "tosspayments" && r.hasPgReceipt);
   return (
-    <Block title={c("결제내역", "Payment history")} label={c("결제내역", "Payment history")}>
+    <section aria-label={c("결제내역", "Payment history")}>
       <div className="overflow-x-auto">
         <table className={tableClass}>
           <thead>
@@ -77,7 +85,7 @@ export function PaymentHistory() {
             </tr>
           </thead>
           <tbody>
-            {(all ? rows : rows.slice(0, RECENT)).map((r) => {
+            {rows.map((r) => {
               const status = paymentStatus[r.status];
               return (
                 <tr key={r.id} data-payment={r.receiptNo}>
@@ -128,11 +136,6 @@ export function PaymentHistory() {
           </tbody>
         </table>
       </div>
-      {!all && rows.length > RECENT && (
-        <Button variant="ghost" size="sm" className="mt-2 -ml-3" onClick={() => setAll(true)}>
-          {c(`전체 보기 (${rows.length}건)`, `Show all (${rows.length})`)}
-        </Button>
-      )}
       {toss && (
         <p className="mt-3 text-xs leading-5 text-muted">
           {c(
@@ -141,6 +144,6 @@ export function PaymentHistory() {
           )}
         </p>
       )}
-    </Block>
+    </section>
   );
 }

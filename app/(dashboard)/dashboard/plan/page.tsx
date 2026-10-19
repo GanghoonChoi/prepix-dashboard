@@ -20,7 +20,7 @@ import { RefundRequestCard } from "@/components/dashboard/refund-request-card";
 import { legalUrl } from "@/lib/i18n/config";
 import { CouponDialog } from "@/components/dashboard/coupon-dialog";
 import { UsageSection } from "@/components/dashboard/usage-card";
-import { PaymentHistory } from "@/components/dashboard/payment-history";
+import { planTabs } from "@/components/dashboard/payment-history";
 import { useSearchParams } from "next/navigation";
 import { couponService, type CouponBenefits } from "@/lib/api/services/coupon.service";
 import {
@@ -30,6 +30,7 @@ import {
   Field,
   Notice,
   PageHeader,
+  PageTabs,
   buttonClass,
   textareaClass,
   type Tone,
@@ -284,11 +285,6 @@ export default function PlanPage() {
   // A subscription on a closed processor (Paddle) will never renew: nothing
   // to cancel, and the way to keep the plan is to subscribe again.
   const stranded = currentSub?.manageable === true && currentSub.renews === false && !isEnded;
-  // One subscription per account, and switching between paid plans is not
-  // offered yet (Light joined Creator in 2026-10), so a live subscription has
-  // nothing to buy here. Its page is its plan and its payments, as on Claude's
-  // billing page; the plan cards show only to someone choosing a plan.
-  const choosingPlan = !(currentSub?.manageable && !isEnded && !stranded);
   const canCancel =
     currentSub?.manageable === true &&
     !stranded &&
@@ -437,8 +433,10 @@ export default function PlanPage() {
       // checkout the server refuses; saying it is free would be a lie.
       return { label: t("plan.priceUnavailable"), disabled: true, onPress: () => {} };
     }
-    // Checkout would refuse it (see choosingPlan), so say so rather than offer it.
-    if (!choosingPlan) {
+    // One subscription per account, and switching between paid plans is not
+    // offered yet (Light joined Creator in 2026-10) — checkout would refuse it,
+    // so say so rather than offer it.
+    if (currentSub?.manageable && !isEnded && !stranded) {
       return { label: t("plan.switchAfterCancel"), disabled: true, onPress: () => {} };
     }
     return { label: t("plan.get", { name: plan.displayName }), disabled: false, onPress: () => handleUpgrade(plan.id) };
@@ -448,6 +446,7 @@ export default function PlanPage() {
     // Boxes and the lines inside them a step darker than the app default.
     <div className="[--border:color-mix(in_srgb,var(--foreground)_15%,var(--background))]">
       <PageHeader title={t("plan.sectionTitle")} />
+      <PageTabs tabs={planTabs(t)} />
       <div className="space-y-8">
 
       {justUpgraded && (
@@ -621,7 +620,7 @@ export default function PlanPage() {
         />
       )}
 
-      {!loading && !loadError && choosingPlan && (
+      {!loading && !loadError && (
         <Block title={t("plan.availablePlans")}>
           {/* One row where there is room for it, two by two before that (a
               three-up row leaves the fourth card alone). Every card is six
@@ -764,7 +763,6 @@ export default function PlanPage() {
         </Block>
       )}
 
-      <PaymentHistory />
 
       <CouponDialog
         state={couponModal}

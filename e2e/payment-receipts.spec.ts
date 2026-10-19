@@ -91,6 +91,9 @@ test("결제내역 lists each payment with its own receipt and the card slip; th
   await page.context().route("https://slip.example.test/**", (route) => route.fulfill({ body: "<title>slip</title>card slip", contentType: "text/html" }));
 
   await login(page, email, "/dashboard/plan?locale=ko");
+  // 결제내역 is the second tab of 플랜과 결제.
+  await page.getByRole("link", { name: "결제내역", exact: true }).click();
+  await expect(page).toHaveURL(/\/dashboard\/plan\/payments$/);
   const history = page.getByRole("region", { name: "결제내역" });
   await expect(history.locator(`[data-payment="${kakao.receiptNo}"]`)).toContainText("취소완료");
   await expect(history.locator(`[data-payment="${kakao.receiptNo}"]`)).toContainText("카카오페이 · 승인번호 30012345");
