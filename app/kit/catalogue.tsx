@@ -348,7 +348,7 @@ function Tracker() {
         steps={[
           { id: "open", label: "Prepix를 열고 로그인하기", hint: "같은 이메일이나 Google 계정으로 로그인해요." },
           { id: "project", label: "새 프로젝트 만들기", hint: "영상에 맞는 편집 방식을 골라요." },
-          { id: "import", label: "짧은 영상 불러오기" },
+          { id: "import", label: "영상 불러오기" },
           { id: "cut", label: "첫 컷 편집하기" },
         ].map((s) => ({ ...s, done: done.includes(s.id) }))}
       />
