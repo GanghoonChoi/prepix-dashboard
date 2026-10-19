@@ -10,7 +10,8 @@
  * tokens so light and dark follow the app, and it has two modes:
  *
  * - `onToggle` given → each row is a checkbox the person ticks themselves
- *   (things that happen outside this page, like a first cut in the app).
+ *   (things that happen outside this page, like a first cut in the app);
+ *   `current` there is the row last clicked, shaded.
  * - no `onToggle` → a read-only list of steps that the page itself completes,
  *   with `current` marking where the person is. A checkbox there would claim
  *   they can tick "pay" by clicking it.
@@ -32,7 +33,7 @@ export function ProgressTracker({
 }: {
   title: string;
   steps: TrackerStep[];
-  /** Read-only mode: the step in progress. */
+  /** The step in progress; with `onToggle`, the one last clicked. */
   current?: string;
   onToggle?: (id: string) => void;
   className?: string;
@@ -95,6 +96,7 @@ export function ProgressTracker({
                   aria-checked={done}
                   className="ui-progress__step"
                   data-done={done || undefined}
+                  data-current={step.id === current || undefined}
                   onClick={() => onToggle(step.id)}
                 >
                   {inner}
@@ -162,7 +164,7 @@ const css = /* css */ `
   font: inherit; font-size: 13px; line-height: 20px; color: inherit; text-align: left;
 }
 button.ui-progress__step { cursor: pointer; transition: background-color 160ms ease; }
-button.ui-progress__step:hover { background: var(--ui-pg-hover); }
+button.ui-progress__step:hover, button.ui-progress__step[data-current] { background: var(--ui-pg-hover); }
 .ui-progress__step:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 
 /* Checkbox: the ring fills and pops, then the tick draws itself. */

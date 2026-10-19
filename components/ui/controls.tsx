@@ -9,7 +9,7 @@ import { ChevronDown, Search, type LucideIcon } from "lucide-react";
 
 // Fields are 36px; a textarea grows from the same padding.
 export const inputClass =
-  "min-h-9 w-full rounded-md border border-field-border bg-field-background px-3 py-1.5 text-sm text-foreground outline-none transition-colors placeholder:text-muted hover:border-foreground/20 focus-visible:border-foreground/40 focus-visible:ring-2 focus-visible:ring-foreground/10 disabled:opacity-50";
+  "min-h-9 w-full rounded-md border border-field-border bg-field-background px-3 py-1.5 text-sm text-foreground outline-none transition-colors placeholder:text-muted hover:border-foreground/20 focus-visible:border-foreground/40 focus-visible:ring-2 focus-visible:ring-foreground/10 aria-invalid:border-danger-ink disabled:opacity-50";
 export const textareaClass = `${inputClass} min-h-20 leading-6`;
 export const selectClass =
   "w-full appearance-none rounded-md border border-field-border bg-field-background pl-3 pr-8 text-[13px] text-foreground outline-none transition-colors hover:border-foreground/20 focus-visible:border-foreground/40 focus-visible:ring-2 focus-visible:ring-foreground/10 disabled:opacity-50";

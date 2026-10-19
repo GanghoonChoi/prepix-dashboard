@@ -34,7 +34,7 @@ import {
   useCopy,
   type PreviewUpdate,
 } from "./steps";
-import { StartPreview, type PreviewState } from "./preview";
+import { StartPreview, type AppScene, type PreviewState } from "./preview";
 import { Button, Notice, ProgressTracker } from "@/components/ui";
 
 type Row = WorkspaceList["workspaces"][number];
@@ -68,6 +68,7 @@ export function StartExperience() {
   const [hover, setHover] = useState<Intent | null>(null);
   const [draftName, setDraftName] = useState<string | null>(null);
   const [draft, setDraft] = useState<PreviewUpdate>({});
+  const [scene, setScene] = useState<AppScene | null>(null);
   const [home, setHome] = useState("/dashboard");
   // Whether the visitor arrived already having answered (the site's Business
   // button sends intent=team). Then "use" is not part of their sequence.
@@ -237,9 +238,9 @@ export function StartExperience() {
     invite: ["Invite your team", "팀원을 초대해 주세요"],
     pay: ["Review your plan", "결제 내용을 확인해 주세요"],
     app: ["Get the desktop app", "데스크톱 앱을 설치해 주세요"],
-    edit: ["Make your first edit", "첫 편집을 해 볼까요?"],
+    edit: ["Make your first edit", "첫 편집을 시작해볼까요?"],
   };
-  const intro: Record<StartStep, [string, string]> = {
+  const intro: Partial<Record<StartStep, [string, string]>> = {
     join: [
       "A teammate already made a space for you. Join to work alongside them.",
       "동료가 만들어 둔 공간이 있어요. 참여하면 같은 곳에서 함께 작업해요.",
@@ -274,10 +275,6 @@ export function StartExperience() {
       "Editing happens in the app, on your computer. Sign in and your workspace is ready.",
       "편집은 컴퓨터의 앱에서 해요. 로그인하면 워크스페이스가 바로 열려요.",
     ],
-    edit: [
-      "Four steps to your first cut. Come back here anytime.",
-      "네 단계면 첫 컷이 나와요. 필요할 때 이 페이지로 돌아오세요.",
-    ],
   };
 
   // The same path as a checklist (affectUI's tracker), beside the preview. It
@@ -310,6 +307,7 @@ export function StartExperience() {
     people: [String(profile?.email ?? "you"), ...(draft.people ?? [])],
     seats: (hover ?? intent) === "team" ? (draft.seats ?? null) : null,
     surface: step === "app" || step === "edit" ? "app" : "workspace",
+    scene: step === "edit" ? scene : null,
   };
 
   let body: React.ReactNode = null;
@@ -417,6 +415,7 @@ export function StartExperience() {
           key={intent ?? "personal"}
           intent={intent ?? "personal"}
           personal={personal}
+          rows={rows}
           onName={setDraftName}
           onPersonal={() => {
             void reload().catch(() => undefined);
@@ -458,9 +457,10 @@ export function StartExperience() {
         })}`}
       />
     );
-  else if (step === "edit") body = <EditStep homeHref={home} helpHref={`${site}/contact`} />;
+  else if (step === "edit") body = <EditStep homeHref={home} helpHref={`${site}/contact`} onScene={setScene} />;
 
   const canGoBack = signedIn && position > 0 && !settling;
+  const lede = intro[step];
 
   return (
     <MotionConfig reducedMotion="user">
@@ -520,9 +520,9 @@ export function StartExperience() {
                           ? copy(...heading[step])
                           : copy("First, connect your account", "먼저 계정을 연결해 주세요")}
                       </h1>
-                      {signedIn && (
+                      {signedIn && lede && (
                         <p className="text-sm leading-6 text-muted text-pretty">
-                          {copy(...intro[step])}
+                          {copy(...lede)}
                         </p>
                       )}
                     </div>

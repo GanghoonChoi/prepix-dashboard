@@ -131,3 +131,23 @@ export function parseEmails(
   }
   return { emails, invalid };
 }
+
+/**
+ * The account's own workspace already called `name`, ignoring case, spacing
+ * and how Hangul was composed. Two of yours with one name are two identical
+ * rows in the switcher. Other people's teams are never compared — that would
+ * tell a stranger which company names exist — and the server, which lets
+ * equal names through on purpose, stays the authority.
+ */
+export function sameName<T extends { id: string; name: string }>(
+  name: string,
+  rows: readonly T[],
+  except?: string,
+): T | undefined {
+  const key = (value: string) =>
+    value.normalize("NFC").trim().replace(/\s+/g, " ").toLocaleLowerCase();
+  const wanted = key(name);
+  return wanted
+    ? rows.find((row) => row.id !== except && key(row.name) === wanted)
+    : undefined;
+}
