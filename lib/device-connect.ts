@@ -20,11 +20,9 @@ export interface ConnectRequest {
   codeChallenge: string;
 }
 
-/**
- * The app's own links, exactly. `prepix-dev` is an unpackaged dev run, which
- * must not take the scheme away from an installed build on the same machine.
- */
-const APP_CALLBACKS = new Set(["prepix://auth/callback", "prepix-dev://auth/callback"]);
+/** The app's own link, exactly. A dev run uses loopback: on macOS every
+ * unpackaged Electron shares one bundle id, so it cannot own a scheme. */
+const APP_CALLBACK = "prepix://auth/callback";
 
 /**
  * Accept a redirect target only if it reaches the app on this machine.
@@ -37,8 +35,7 @@ const APP_CALLBACKS = new Set(["prepix://auth/callback", "prepix-dev://auth/call
  * the scheme, but the code is bound to a PKCE challenge whose verifier never
  * leaves our app, so a stolen code is useless.
  *
- * Loopback (§7.3), what builds before the link send — remove once they are
- * gone:
+ * Loopback (§7.3), what dev runs and builds before the link send:
  *
  *   - literal `127.0.0.1` or `[::1]` only. NOT `localhost`, which resolves
  *     through DNS and can be pointed elsewhere on a hostile network.
@@ -50,7 +47,7 @@ const APP_CALLBACKS = new Set(["prepix://auth/callback", "prepix-dev://auth/call
  */
 export function parseAppRedirect(raw: string | null): URL | null {
   if (!raw) return null;
-  if (APP_CALLBACKS.has(raw)) return new URL(raw);
+  if (raw === APP_CALLBACK) return new URL(raw);
   let url: URL;
   try {
     url = new URL(raw);

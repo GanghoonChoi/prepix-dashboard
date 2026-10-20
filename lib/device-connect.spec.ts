@@ -16,7 +16,7 @@ test("accepts a loopback address with an explicit port", () => {
 
 test("accepts the app's own links, exactly", () => {
   assert.ok(parseAppRedirect("prepix://auth/callback"));
-  assert.ok(parseAppRedirect("prepix-dev://auth/callback"));
+  assert.equal(parseAppRedirect("prepix-dev://auth/callback"), null);
   assert.equal(parseAppRedirect("prepix://auth/callback?code=x"), null);
   assert.equal(parseAppRedirect("prepix://evil/callback"), null);
   assert.equal(parseAppRedirect("other://auth/callback"), null);
