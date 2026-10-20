@@ -167,7 +167,7 @@ export function WorkspaceProvider({
       </div>
     );
   return (
-    <Context.Provider value={{ data, reload, cloudEnabled: cloudEnabled && (!b2b?.enrolled || b2b.team.legacyArchive), b2b }}>
+    <Context.Provider value={{ data, reload, cloudEnabled, b2b }}>
       {/*
         A failed refresh is a banner over the page that is already there, never
         a replacement for it. Children — and their in-progress input — stay

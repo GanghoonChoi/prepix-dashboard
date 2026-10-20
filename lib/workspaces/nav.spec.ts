@@ -86,7 +86,7 @@ test("a team has no web AI entry: team AI runs in the app on the person's seat",
   );
 });
 
-test("a team's nav is folders, people, usage, billing and settings", () => {
+test("a team's nav is folders, the content archive, people, usage, billing and settings", () => {
   const b2b = {
     enabled: true,
     enrolled: true,
@@ -107,6 +107,7 @@ test("a team's nav is folders, people, usage, billing and settings", () => {
   assert.deepEqual(hrefs({ cloudEnabled: true, managementEnabled: true, b2b }), [
     base,
     `${base}/projects`,
+    `${base}/media`,
     `${base}/members`,
     `${base}/usage`,
     `${base}/plan`,
@@ -140,6 +141,7 @@ test("plan and settings are for owners and admins only", () => {
   assert.deepEqual(hrefs({ cloudEnabled: true, managementEnabled: true, b2b }), [
     base,
     `${base}/projects`,
+    `${base}/media`,
   ]);
 });
 

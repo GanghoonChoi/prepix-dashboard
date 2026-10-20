@@ -141,9 +141,10 @@ export function workspaceLinks(
             },
           ] as const)
         : []),
-      ...(status.team.legacyArchive &&
-      options.cloudEnabled &&
-      options.role !== "reviewer"
+      // 콘텐츠 아카이브 — the team's cloud, on its paid storage. Every team
+      // has it again (2026-10-20, user: "클라우드 서비스도 있는데 … 있어야지");
+      // for a while only teams with a legacy archive did.
+      ...(options.cloudEnabled && options.role !== "reviewer"
         ? ([
             {
               href: `${base}/media`,
