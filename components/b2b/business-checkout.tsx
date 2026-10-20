@@ -269,10 +269,12 @@ export function BusinessCheckout({
           disabled={busy || view.renewal.mode === "automatic"}
           onChange={(e) => setConsent(e.target.checked)}
         />
+        {/* One box turns on both the monthly renewal and 멤버 추가 자동결제
+            (changeAutoSeats below), so the sentence names both. */}
         <span>
           {c(
-            "매월 결제일에 등록한 카드로 뷰어를 뺀 멤버 수만큼 자동결제하고, 멤버가 늘면 이번 기간에 남은 날만큼 바로 결제하는 데 동의합니다. 플랜에서 언제든 해지할 수 있습니다.",
-            "I agree to monthly charges to this card for every member but viewers, and to an immediate charge for the days left when members are added. Cancel any time on the plan page.",
+            "매월 결제일과 멤버를 추가할 때 등록한 카드로 자동결제하는 데 동의합니다.",
+            "I agree to automatic charges to this card on each monthly payment date and when members are added.",
           )}
         </span>
       </label>
