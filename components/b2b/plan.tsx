@@ -54,7 +54,9 @@ const fields: [keyof TeamBuyer, string, string, string, string][] = [
   ["businessRegistrationNumber", "사업자등록번호", "Registration number", "off", "text"],
   ["representative", "대표자", "Representative", "name", "text"],
   ["address", "사업장 주소", "Business address", "street-address", "text"],
-  ["contactPhone", "수신 연락처", "Contact phone", "tel", "tel"],
+  ["receiptEmail", "세금계산서 이메일", "Invoice email", "email", "email"],
+  ["contactName", "담당자 이름", "Contact name", "name", "text"],
+  ["contactPhone", "담당자 연락처", "Contact phone", "tel", "tel"],
 ];
 const actionLabels: Record<BillingAction, [string, string]> = {
   order: ["주문", "Order"],
@@ -272,6 +274,8 @@ function Plan({
       businessRegistrationNumber: profile?.businessRegistrationNumber ?? "",
       representative: profile?.representative ?? "",
       address: profile?.address ?? "",
+      receiptEmail: profile?.receiptEmail ?? "",
+      contactName: profile?.contactName ?? "",
       contactPhone: profile?.contactPhone ? formatPhone(profile.contactPhone) : "",
     });
     profileDialog.open();
@@ -541,16 +545,13 @@ function Plan({
             <dl>
               {fields.map(([key, ko, en]) => (
                 <Row key={key} label={c(ko, en)}>
-                  {key !== "contactPhone" ? (
-                    profile[key]
-                  ) : profile.contactPhone ? (
-                    formatPhone(profile.contactPhone)
+                  {/* Saved before 2026-10-20, a profile may lack the email or the person in charge. */}
+                  {!profile[key] ? (
+                    <span className="text-[13px] text-muted">{c("없음 · 수정에서 입력해 주세요", "Missing · add it with Edit")}</span>
+                  ) : key === "contactPhone" ? (
+                    formatPhone(profile.contactPhone!)
                   ) : (
-                    // Saved before 2026-10-12, when the contact was an email.
-                    <>
-                      {profile.receiptEmail}
-                      <span className="block text-[13px] text-muted">{c("수정에서 전화번호로 바꿔 주세요.", "Edit to add a phone number.")}</span>
-                    </>
+                    profile[key]
                   )}
                 </Row>
               ))}

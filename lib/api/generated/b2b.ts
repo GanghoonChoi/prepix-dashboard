@@ -409,10 +409,12 @@ export type TeamBuyer = {
   businessRegistrationNumber: string;
   representative: string;
   address: string;
-  // 수신 연락처: digits of a Korean phone number (2026-10-12). Copies saved
-  // before carry `receiptEmail` instead; new profiles always have a phone.
-  contactPhone?: string;
+  // 세금계산서 이메일 and the person in charge, 담당자 이름 · 연락처 (phone as
+  // digits). A profile saved from 2026-10-20 has all three. Older copies
+  // carry only the phone (10-12) or only the email, and stay valid.
   receiptEmail?: string;
+  contactName?: string;
+  contactPhone?: string;
 };
 /** "01012345678" → "010-1234-5678"; landlines and 15xx lines too. */
 export function formatPhone(digits: string): string {

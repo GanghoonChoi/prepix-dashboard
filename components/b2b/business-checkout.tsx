@@ -23,7 +23,9 @@ const fields: [keyof Omit<TeamBuyer, "schemaVersion">, string, string, string][]
   ["businessRegistrationNumber", "사업자등록번호", "Registration number", "off"],
   ["representative", "대표자", "Representative", "name"],
   ["address", "사업장 주소", "Business address", "street-address"],
-  ["contactPhone", "수신 연락처", "Contact phone", "tel"],
+  ["receiptEmail", "세금계산서 이메일", "Invoice email", "email"],
+  ["contactName", "담당자 이름", "Contact name", "name"],
+  ["contactPhone", "담당자 연락처", "Contact phone", "tel"],
 ];
 /** Only back into onboarding; anything else stays on the plan page. */
 const safeReturn = (value: string | null) => (value && /^\/start(\?|$)/.test(value) ? value : null);
@@ -54,6 +56,8 @@ export function BusinessCheckout({
     businessRegistrationNumber: "",
     representative: "",
     address: "",
+    receiptEmail: "",
+    contactName: "",
     contactPhone: "",
   });
   const [consent, setConsent] = useState(false);
@@ -273,20 +277,20 @@ export function BusinessCheckout({
         <p className="text-[13px] leading-5 text-muted">
           {c("세금계산서", "Invoices")} · {saved.businessName} ·{" "}
           {saved.businessRegistrationNumber.replace(/^(\d{3})(\d{2})(\d{5})$/, "$1-$2-$3")} ·{" "}
-          {saved.contactPhone ? formatPhone(saved.contactPhone) : saved.receiptEmail}
+          {saved.receiptEmail ?? (saved.contactPhone && formatPhone(saved.contactPhone))}
         </p>
       ) : (
         <fieldset className="grid gap-4 sm:grid-cols-2" disabled={busy}>
           <legend className="mb-3 text-sm font-medium">{c("사업자 정보", "Business details")}</legend>
           {fields.map(([key, ko, en, auto]) => (
-            <Field key={key} label={c(ko, en)} htmlFor={`checkout-${key}`} className={key === "address" ? "sm:col-span-2" : ""}>
+            <Field key={key} label={c(ko, en)} htmlFor={`checkout-${key}`} className={key === "address" || key === "receiptEmail" ? "sm:col-span-2" : ""}>
               <input
                 id={`checkout-${key}`}
                 className={inputClass}
                 autoComplete={auto}
                 required
-                type={key === "contactPhone" ? "tel" : "text"}
-                inputMode={key === "businessRegistrationNumber" ? "numeric" : key === "contactPhone" ? "tel" : undefined}
+                type={key === "contactPhone" ? "tel" : key === "receiptEmail" ? "email" : "text"}
+                inputMode={key === "businessRegistrationNumber" ? "numeric" : key === "contactPhone" ? "tel" : key === "receiptEmail" ? "email" : undefined}
                 placeholder={key === "businessRegistrationNumber" ? "000-00-00000" : key === "contactPhone" ? "010-1234-5678" : undefined}
                 value={draft[key] ?? ""}
                 onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
