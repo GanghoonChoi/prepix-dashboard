@@ -182,7 +182,7 @@ export function OwnershipControls({
                 }
                 onClick={() => setConfirm("request")}
               >
-                {c("소유자 넘기기", "Hand over ownership")}
+                {c("소유권 이전하기", "Transfer ownership")}
               </Button>
             )}
             {canAccept && (
@@ -229,7 +229,7 @@ export function OwnershipControls({
             }
             label={
               confirm === "request"
-                ? c("본인 확인하고 넘기기", "Verify and hand over")
+                ? c("본인 확인하고 이전하기", "Verify and transfer")
                 : c("본인 확인하고 수락", "Verify and accept")
             }
             onConfirm={(credential) => execute(confirm, credential)}
@@ -271,8 +271,8 @@ export function OwnershipControls({
     <SettingsSection
       title={c("소유권", "Ownership")}
       description={c(
-        "내부 후임이 본인 확인 후 수락하면 이전됩니다.",
-        "Completes when an internal successor verifies and accepts.",
+        "소유권 이전은 같은 팀 내에서만 가능합니다.",
+        "Ownership can only be transferred within the same team.",
       )}
     >
       {body}

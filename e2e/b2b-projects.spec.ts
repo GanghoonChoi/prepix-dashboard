@@ -612,7 +612,7 @@ test("B2B ownership uses consent and verification, retries lost responses and re
     .getByLabel("새 소유자", { exact: true })
     .selectOption(successor.id);
   await page
-    .getByRole("button", { name: "소유자 넘기기", exact: true })
+    .getByRole("button", { name: "소유권 이전하기", exact: true })
     .click();
   await page.getByLabel("현재 비밀번호", { exact: true }).fill(password);
   let lost = true;
@@ -624,7 +624,7 @@ test("B2B ownership uses consent and verification, retries lost responses and re
     } else await route.continue();
   });
   await page
-    .getByRole("button", { name: "본인 확인하고 넘기기", exact: true })
+    .getByRole("button", { name: "본인 확인하고 이전하기", exact: true })
     .click();
   await expect(
     page.getByLabel("새 소유자", { exact: true }),
@@ -634,7 +634,7 @@ test("B2B ownership uses consent and verification, retries lost responses and re
     .click();
   await page.getByLabel("현재 비밀번호", { exact: true }).fill(password);
   await page
-    .getByRole("button", { name: "본인 확인하고 넘기기", exact: true })
+    .getByRole("button", { name: "본인 확인하고 이전하기", exact: true })
     .click();
   await expect(
     page.getByText("소유권 이전 요청의 수락을 기다리고 있습니다.", {

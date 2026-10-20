@@ -442,7 +442,8 @@ export type TeamOrder = {
   providerOrderId: string;
   state: TeamOrderState;
   quote: TeamQuote;
-  buyer: TeamBuyer;
+  // Null: a card order paid before the business details were entered.
+  buyer: TeamBuyer | null;
   expiresAt: string;
   createdAt: string;
   receipt: { amountKrw: number; approvedAt: string } | null;

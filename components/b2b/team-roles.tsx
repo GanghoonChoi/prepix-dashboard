@@ -39,7 +39,7 @@ const CAN: Record<TeamRole, [string, string][]> = {
     ["관리자가 하는 모든 일", "Everything an admin does"],
     ["플랜과 결제", "Plan and billing"],
     ["관리자 지정", "Appoint admins"],
-    ["소유자 넘기기", "Hand over ownership"],
+    ["소유권 이전하기", "Transfer ownership"],
   ],
   admin: [
     ["멤버 초대, 역할 변경", "Invite people, change roles"],

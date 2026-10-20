@@ -26,13 +26,8 @@ test("plan and billing: one consent at checkout, seats bought by themselves, det
   await expect(checkout).toBeVisible();
   await expect(page.getByRole("heading", { name: "결제 수단" })).toHaveCount(0);
   await expect(page.getByText("중도해지")).toHaveCount(0);
-  await checkout.getByLabel("상호", { exact: true }).fill(buyer.businessName);
-  await checkout.getByLabel("사업자등록번호", { exact: true }).fill(buyer.businessRegistrationNumber);
-  await checkout.getByLabel("대표자", { exact: true }).fill(buyer.representative);
-  await checkout.getByLabel("사업장 주소", { exact: true }).fill(buyer.address);
-  await checkout.getByLabel("세금계산서 이메일", { exact: true }).fill(buyer.receiptEmail);
-  await checkout.getByLabel("담당자 이름", { exact: true }).fill(buyer.contactName);
-  await checkout.getByLabel("담당자 연락처", { exact: true }).fill(buyer.contactPhone);
+  // No business details to start (2026-10-20): they come after paying.
+  await expect(checkout.getByLabel("상호", { exact: true })).toHaveCount(0);
   await checkout.getByRole("checkbox", { name: /멤버가 늘면 이번 기간에 남은 날만큼 바로 결제하는 데 동의합니다/ }).check();
   await checkout.getByRole("button", { name: /카드 등록하고 .*원 결제/ }).click();
   await page.waitForURL(`${double}/billing-auth?**`);
@@ -49,8 +44,6 @@ test("plan and billing: one consent at checkout, seats bought by themselves, det
   await expect(plan).toContainText("3석");
   await expect(plan).toContainText("남은 기간만큼 바로 자동결제");
   await expect(plan).toContainText(/다음 결제\s*\d+월 \d+일/);
-  await expect(page.getByText("세금계산서 이메일")).toBeVisible();
-  await expect(page.getByText("invoice@example.test")).toBeVisible();
   await expect(page.getByText("갱신 방식")).toHaveCount(0);
   await expect(page.getByRole("tab")).toHaveCount(0);
   await shot(page, "plan-active");
@@ -70,8 +63,21 @@ test("plan and billing: one consent at checkout, seats bought by themselves, det
   await expect(payments).toContainText("현재 기간 추가");
   await expect(payments).toContainText("첫 한 달");
 
-  // Invoice details: read here, edited in a dialog.
+  // Invoice details: entered after paying, read here, edited in a dialog.
   const invoice = page.locator("section", { has: page.getByRole("heading", { name: "세금계산서 정보" }) });
+  await expect(invoice).toContainText("아직 입력하지 않았어요.");
+  await invoice.getByRole("button", { name: "입력", exact: true }).click();
+  const add = page.getByRole("dialog", { name: "세금계산서 정보" });
+  await add.getByLabel("상호", { exact: true }).fill(buyer.businessName);
+  await add.getByLabel("사업자등록번호", { exact: true }).fill(buyer.businessRegistrationNumber);
+  await add.getByLabel("대표자", { exact: true }).fill(buyer.representative);
+  await add.getByLabel("사업장 주소", { exact: true }).fill(buyer.address);
+  await add.getByLabel("세금계산서 이메일", { exact: true }).fill(buyer.receiptEmail);
+  await add.getByLabel("담당자 이름", { exact: true }).fill(buyer.contactName);
+  await add.getByLabel("담당자 연락처", { exact: true }).fill(buyer.contactPhone);
+  await add.getByRole("button", { name: "저장", exact: true }).click();
+  await expect(add).toHaveCount(0);
+  await expect(invoice).toContainText("invoice@example.test");
   await invoice.getByRole("button", { name: "수정", exact: true }).click();
   const edit = page.getByRole("dialog", { name: "세금계산서 정보" });
   await expect(edit.getByLabel("담당자 연락처", { exact: true })).toHaveValue("010-1234-5678");
