@@ -6,9 +6,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n/context";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
-import { TeamShell, SpaceBadge } from "@/components/workspaces/shared";
+import { TeamShell, SpaceBadge, SpaceIcon } from "@/components/workspaces/shared";
 import {
   Button,
+  buttonClass,
   CardFooter,
   DangerZone,
   Field,
@@ -29,6 +30,26 @@ import {
   workspaceService,
   type MemberImpact,
 } from "@/lib/api/services/workspace.service";
+/**
+ * A picked image as the team logo: the centre square, 128 px, WebP (PNG where
+ * the browser cannot encode WebP), JPEG if that is still over the 64 KB the
+ * server takes. Done here so the server only ever stores a small raster.
+ */
+async function logoFrom(file: File): Promise<string> {
+  const image = await createImageBitmap(file);
+  const side = Math.min(image.width, image.height);
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 128;
+  canvas
+    .getContext("2d")!
+    .drawImage(image, (image.width - side) / 2, (image.height - side) / 2, side, side, 0, 0, 128, 128);
+  image.close();
+  let url = canvas.toDataURL("image/webp", 0.9);
+  if (!url.startsWith("data:image/webp")) url = canvas.toDataURL("image/png");
+  if (url.length > 65536) url = canvas.toDataURL("image/jpeg", 0.85);
+  return url;
+}
+
 export default function Page() {
   const { data, reload, b2b } = useWorkspace()!;
   const { lang, t } = useI18n();
@@ -117,6 +138,48 @@ export default function Page() {
               : c("팀 정보", "Team details")
           }
         >
+          {!personal && (
+            // Its own row and its own save: picking an image is the change.
+            <div className="mb-4 space-y-1.5">
+              <p className="text-[13px] font-medium">{c("로고", "Logo")}</p>
+              <div className="flex items-center gap-3">
+                <span className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-lg border border-border bg-background">
+                  <SpaceIcon kind="team" size={data.workspace.logo ? 48 : 20} logo={data.workspace.logo} />
+                </span>
+                <label className={`${buttonClass({ variant: "secondary", size: "sm" })} cursor-pointer has-[:disabled]:pointer-events-none has-[:disabled]:opacity-50`}>
+                  {data.workspace.logo ? c("변경", "Change") : c("업로드", "Upload")}
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    className="sr-only"
+                    disabled={busy}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (!file) return;
+                      let logo: string;
+                      try {
+                        logo = await logoFrom(file);
+                      } catch {
+                        return setError("WORKSPACE_LOGO_INVALID");
+                      }
+                      await run(() => workspaceService.logo(id, logo), c("로고를 바꿨습니다.", "Logo updated."));
+                    }}
+                  />
+                </label>
+                {data.workspace.logo && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={busy}
+                    onClick={() => void run(() => workspaceService.logo(id, null), c("로고를 삭제했습니다.", "Logo removed."))}
+                  >
+                    {c("삭제", "Remove")}
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
           <form
             className="space-y-4"
             onSubmit={async (e) => {

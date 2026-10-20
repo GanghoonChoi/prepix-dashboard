@@ -42,13 +42,19 @@ export function WorkspaceSwitcher({ onClose }: { onClose?: () => void }) {
   // chooser with one entry is a chooser for nothing.
   const kind = current && !isPersonal(current) ? "team" : "personal";
   const name = current ? spaceName(current) : t("team.kind.personal");
-  const tile = (k: "personal" | "team", size: "sm" | "md" = "sm") => (
+  // A team's logo fills the tile; otherwise the kind's icon sits in it.
+  const tile = (k: "personal" | "team", size: "sm" | "md" = "sm", logo?: string | null) => (
     <span
-      className={`grid shrink-0 place-items-center border border-border bg-background ${
+      className={`grid shrink-0 place-items-center overflow-hidden border border-border bg-background ${
         size === "md" ? "size-8 rounded-lg" : "size-6 rounded-md"
       }`}
     >
-      <SpaceIcon kind={k} size={size === "md" ? 16 : 14} />
+      {logo && k === "team" ? (
+        // eslint-disable-next-line @next/next/no-img-element -- a data URL; next/image adds nothing
+        <img src={logo} alt="" className="size-full object-cover" />
+      ) : (
+        <SpaceIcon kind={k} size={size === "md" ? 16 : 14} />
+      )}
     </span>
   );
 
@@ -78,7 +84,7 @@ export function WorkspaceSwitcher({ onClose }: { onClose?: () => void }) {
         data-space={kind}
         className="flex min-h-11 w-full items-center gap-2.5 rounded-md px-2 text-[13px] font-semibold text-foreground transition-colors hover:bg-surface-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus aria-expanded:bg-surface-secondary"
       >
-        {tile(kind, "md")}
+        {tile(kind, "md", current?.logo)}
         <span className="min-w-0 flex-1 truncate text-left">{name}</span>
         <ChevronsUpDown
           size={14}
@@ -128,7 +134,7 @@ export function WorkspaceSwitcher({ onClose }: { onClose?: () => void }) {
                     aria-current={selected ? "page" : undefined}
                     className={`${menuItemClass} ${selected ? "font-medium" : ""}`}
                   >
-                    {tile(personal ? "personal" : "team")}
+                    {tile(personal ? "personal" : "team", "sm", row.logo)}
                     <span className="min-w-0 flex-1 truncate">
                       {spaceName(row)}
                     </span>
