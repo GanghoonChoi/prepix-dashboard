@@ -28,7 +28,7 @@ test("plan and billing: one consent at checkout, seats bought by themselves, det
   await expect(page.getByText("중도해지")).toHaveCount(0);
   // No business details to start (2026-10-20): they come after paying.
   await expect(checkout.getByLabel("상호", { exact: true })).toHaveCount(0);
-  await checkout.getByRole("checkbox", { name: /멤버가 늘면 이번 기간에 남은 날만큼 바로 결제하는 데 동의합니다/ }).check();
+  await checkout.getByRole("checkbox", { name: "매월 결제일과 멤버를 추가할 때 등록한 카드로 자동결제하는 데 동의합니다." }).check();
   await checkout.getByRole("button", { name: /카드 등록하고 .*원 결제/ }).click();
   await page.waitForURL(`${double}/billing-auth?**`);
   await page.getByRole("link", { name: "카드 등록 완료" }).click();
