@@ -254,7 +254,8 @@ test("S25 statements: lost issue response recovers by the same key, verified PDF
   await signIn(financePage, finance.email, currentList);
   await expect(financePage.getByRole("link", { name: /확정/ })).toBeVisible();
   expect((await delegate(false, 1)).status()).toBe(201);
-  await financePage.getByRole("button", { name: "최신 상태 확인" }).click();
+  // Coming back to the tab reloads the list (there is no refresh button).
+  await financePage.evaluate(() => window.dispatchEvent(new Event("focus")));
   // Inside main: Next's route announcer is a role=alert too.
   await expect(financePage.getByRole("main").getByRole("alert")).toBeVisible();
   await expect(financePage.getByRole("link", { name: /확정/ })).toHaveCount(0);

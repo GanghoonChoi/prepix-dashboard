@@ -131,18 +131,17 @@ function useStatementApi(scope: StatementScope, key: string, allowed: boolean) {
   return useMemo(() => statementApi(scope, () => owner.signal(), () => owner.assertCurrent()), [scope, owner]);
 }
 /** A response is shown only for the scope it was requested in. A failure
- * clears billing data rather than leaving it or reading as an empty list. */
+ * clears billing data rather than leaving it or reading as an empty list.
+ * Coming back to the tab reloads, so there is no refresh button. */
 function usePinned<T>(key: string, enabled: boolean, fetcher: () => Promise<T>) {
   const [loaded, setLoaded] = useState<{ key: string; value: T } | null>(null);
   const [failure, setFailure] = useState<{ key: string; code: string } | null>(
     null,
   );
-  const [busy, setBusy] = useState(false);
   const sequence = useRef(0);
   const load = useCallback(async () => {
     if (!enabled) return;
     const call = ++sequence.current;
-    setBusy(true);
     try {
       const value = await fetcher();
       if (call !== sequence.current) return;
@@ -152,8 +151,6 @@ function usePinned<T>(key: string, enabled: boolean, fetcher: () => Promise<T>) 
       if (call !== sequence.current) return;
       setLoaded(null);
       setFailure({ key, code: errorCode(error) });
-    } finally {
-      if (call === sequence.current) setBusy(false);
     }
   }, [key, enabled, fetcher]);
   useEffect(() => {
@@ -179,7 +176,6 @@ function usePinned<T>(key: string, enabled: boolean, fetcher: () => Promise<T>) 
   return {
     view: loaded?.key === key ? loaded.value : null,
     error: failure?.key === key ? failure.code : "",
-    busy,
     load,
   };
 }
@@ -217,7 +213,7 @@ export function TeamStatements() {
   const { b2b, scope, key, allowed } = useScope();
   const api = useStatementApi(scope, key, allowed);
   const fetcher = useCallback(() => api.list(), [api]);
-  const { view, error, busy, load } = usePinned(key, allowed, fetcher);
+  const { view, error, load } = usePinned(key, allowed, fetcher);
   const [newest, setNewest] = useState(true);
   if (!b2b?.enrolled) return <B2bError code="B2B_TEAM_NOT_FOUND" />;
   if (!allowed) return <B2bError code="B2B_BILLING_PERMISSION_REQUIRED" />;
@@ -227,17 +223,12 @@ export function TeamStatements() {
       back={{ href: `/dashboard/workspaces/${scope.workspaceId}/plan`, label: c("플랜과 결제", "Plan and billing") }}
     >
       {/* Said once, here: the month pages no longer repeat it. */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-[13px] text-muted">
-          {c(
-            "월별 구매 명세입니다. 세금계산서가 아닙니다.",
-            "Purchases by month. A statement is not a tax invoice.",
-          )}
-        </p>
-        <Button variant="secondary" size="sm" disabled={busy} onClick={() => void load()}>
-          {c("최신 상태 확인", "Refresh")}
-        </Button>
-      </div>
+      <p className="text-[13px] text-muted">
+        {c(
+          "월별 구매 명세입니다. 세금계산서가 아닙니다.",
+          "Purchases by month. A statement is not a tax invoice.",
+        )}
+      </p>
       {error && <StatementError code={error} retry={() => void load()} />}
       {!view ? (
         !error && <TeamLoading />
@@ -370,8 +361,15 @@ function Snapshot({ revision }: { revision: TeamStatementRevision }) {
               <div key={r.sourceOrderIds.join()} className="space-y-0.5 py-3 text-sm first:pt-0 last:pb-0">
                 <p className="font-medium">{r.buyer.businessName}</p>
                 <p className="text-[13px] text-muted tabular-nums">
-                  {r.buyer.businessRegistrationNumber} · {r.buyer.representative} ·{" "}
-                  {r.buyer.contactPhone ? formatPhone(r.buyer.contactPhone) : r.buyer.receiptEmail}
+                  {[
+                    r.buyer.businessRegistrationNumber,
+                    r.buyer.representative,
+                    r.buyer.receiptEmail,
+                    r.buyer.contactName,
+                    r.buyer.contactPhone && formatPhone(r.buyer.contactPhone),
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </p>
                 <p className="text-[13px] text-muted">
                   {r.buyer.address} · {c("주문", "Orders")} {r.sourceOrderIds.map((id) => id.slice(0, 8)).join(", ")}
@@ -449,7 +447,7 @@ export function TeamStatementMonth({ month }: { month: string }) {
   const viewKey = `${key}:${month}`;
   const api = useStatementApi(scope, viewKey, allowed);
   const fetcher = useCallback(() => api.detail(month), [api, month]);
-  const { view, error, busy, load } = usePinned(viewKey, allowed, fetcher);
+  const { view, error, load } = usePinned(viewKey, allowed, fetcher);
   const store = useMemo(() => new BrowserStatementStore(), []);
   const [notice, setNotice] = useState<{ key: string; code: string; pending: boolean } | null>(null);
   const [issuing, setIssuing] = useState(false);
@@ -530,11 +528,6 @@ export function TeamStatementMonth({ month }: { month: string }) {
     <TeamShell
       title={c(`${monthLabel(month)} 이용명세서`, `${monthLabel(month, "en")} statement`)}
       back={{ href: `/dashboard/workspaces/${scope.workspaceId}/statements`, label: c("명세 목록", "All statements") }}
-      actions={
-        <Button variant="secondary" size="sm" disabled={busy} onClick={() => void load()}>
-          {c("최신 상태 확인", "Refresh")}
-        </Button>
-      }
     >
       {error && <StatementError code={error} retry={() => void load()} />}
       {shownNotice && (
