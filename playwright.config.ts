@@ -11,7 +11,7 @@ import { defineConfig } from "@playwright/test";
 // default, the shorter job.
 const modes: Record<string, string[]> = {
   default: [
-    "api-session-mutations", "api-session-races", "archive-preview", "b2b-home-races",
+    "api-session-mutations", "api-session-races", "archive-preview", "connect", "b2b-home-races",
     "b2b-project-list-races", "b2b-projects", "b2b-review-exact-target", "b2b-statements-races",
     "payment-receipts", "plan-switch", "upload-queue", "verify-email", "workspace-kinds", "workspace-onboarding",
   ],

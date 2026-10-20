@@ -2,12 +2,12 @@
 
 import { endSession } from "@/lib/api/session";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Button, Notice } from "@/components/ui";
+import { Button, Notice, buttonClass } from "@/components/ui";
 import { LoadingScreen } from "@/components/loading-screen";
 import { authService } from "@/lib/api/services/auth.service";
 import {
   buildCallbackUrl,
-  parseLoopbackRedirect,
+  parseAppRedirect,
   readAttributionId,
   readConnectRequest,
   type ConnectRequest,
@@ -28,8 +28,13 @@ import { useT } from "@/lib/i18n/context";
  * open any URL it likes in the browser; the person should get to see which
  * account is about to be handed over, on a page with an address bar they can
  * read. That is most of what this flow buys over typing a password into an
- * app window.
+ * app window. The exception is someone who signed in on this very request:
+ * they just chose the account, so asking again is one click for nothing.
  */
+
+/** Holds the request's `state` across the login round trip. Per tab and per
+ * origin, so a crafted link cannot set it. */
+const FRESH_SIGN_IN = "px_connect_fresh";
 
 type Phase = "checking" | "confirm" | "connecting" | "done" | "invalid" | "error";
 
@@ -41,7 +46,9 @@ export default function ConnectPage() {
   const [request, setRequest] = useState<ConnectRequest | null>(null);
   const [account, setAccount] = useState<string>("");
   const [error, setError] = useState("");
+  const [callbackUrl, setCallbackUrl] = useState("");
   const busy = useRef(false);
+  const fresh = useRef(false);
 
   useEffect(() => {
     const parsed = readConnectRequest(window.location.search);
@@ -50,12 +57,15 @@ export default function ConnectPage() {
       return;
     }
     setRequest(parsed);
+    if (sessionStorage.getItem(FRESH_SIGN_IN) === parsed.state) fresh.current = true;
+    sessionStorage.removeItem(FRESH_SIGN_IN);
 
     // Not signed in → send them through the normal login, then straight back
     // here with the request intact. `safeReturnTo` on the login page only
     // accepts internal paths, and this is one.
     const signedIn = localStorage.getItem("accessToken") || localStorage.getItem("refreshToken");
     if (!signedIn) {
+      sessionStorage.setItem(FRESH_SIGN_IN, parsed.state);
       const returnTo = window.location.pathname + window.location.search;
       window.location.replace(loginHref({ returnTo }));
       return;
@@ -87,6 +97,7 @@ export default function ConnectPage() {
   }, [t]);
 
   function switchAccount() {
+    if (request) sessionStorage.setItem(FRESH_SIGN_IN, request.state);
     endSession();
     clearSignedIn();
     window.location.replace(
@@ -115,14 +126,18 @@ export default function ConnectPage() {
       // Re-validate immediately before navigating. The URL was checked on
       // mount, but this is the line that actually hands out a session, so it
       // does not trust a value that has been sitting in React state.
-      const redirect = parseLoopbackRedirect(request.redirectUri);
+      const redirect = parseAppRedirect(request.redirectUri);
       if (!redirect) {
         setPhase("invalid");
         return;
       }
 
+      // A `prepix://` link leaves this page in place (the browser asks first),
+      // so the done screen stays up with a way to ask again.
+      const url = buildCallbackUrl(redirect, { code, state: request.state });
+      setCallbackUrl(url);
       setPhase("done");
-      window.location.replace(buildCallbackUrl(redirect, { code, state: request.state }));
+      window.location.replace(url);
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { message?: string } } };
       setError(axiosErr.response?.data?.message || t("connect.failed"));
@@ -132,12 +147,31 @@ export default function ConnectPage() {
     }
   }, [request, account, t]);
 
+  useEffect(() => {
+    if (phase === "confirm" && fresh.current) {
+      fresh.current = false;
+      void connect();
+    }
+  }, [phase, connect]);
+
   if (phase === "checking") {
     return <LoadingScreen title={t("connect.title")} subtitle={t("auth.pleaseWait")} />;
   }
 
   if (phase === "done") {
-    return <LoadingScreen title={t("connect.handingOver")} subtitle={t("connect.returnToApp")} />;
+    return (
+      <div className="space-y-8">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            {t("connect.handingOver")}
+          </h1>
+          <p className="mt-1.5 text-sm text-muted">{t("connect.returnToApp")}</p>
+        </div>
+        <a href={callbackUrl} className={`${buttonClass()} w-full`}>
+          {t("connect.openApp")}
+        </a>
+      </div>
+    );
   }
 
   if (phase === "invalid") {
