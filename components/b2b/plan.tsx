@@ -251,6 +251,9 @@ function Plan({
   const running = team.currentState === "active";
   const card = view.methods.find((m) => m.state === "active");
   const automatic = plan.mode === "automatic";
+  // Turned off by someone (a plan row in one-off mode), as against a team
+  // that never had automatic payment (a comp order, a one-off purchase).
+  const cancelled = !automatic && plan.updatedAt !== null;
   const ends = team.periodEndsAt;
   const seats = bought && period ? bought.base.seats + period.extraSeats : null;
   // Seats beyond the current product's minimum, at its price.
@@ -398,15 +401,8 @@ function Plan({
               )
             : undefined
         }
-        action={
-          running && !automatic ? (
-            <Badge tone="warning" dot>
-              {c("해지 예정", "Ends at period end")}
-            </Badge>
-          ) : (
-            <StateBadge state={team.currentState} />
-          )
-        }
+        // The team's state, always; whether it renews is the 다음 결제 row's.
+        action={<StateBadge state={team.currentState} />}
       >
         {(seats !== null || ends) && (
         <dl>
@@ -443,7 +439,13 @@ function Plan({
             >
               {!automatic ? (
                 <>
-                  {c("없음", "None")}
+                  {cancelled ? (
+                    <Badge tone="warning" dot>
+                      {c("해지 예정", "Ends at period end")}
+                    </Badge>
+                  ) : (
+                    c("없음", "None")
+                  )}
                   <span className="block text-[13px] text-muted">
                     {c(`자동결제가 꺼져 있어요. ${kstDay(ends, lang)}까지 쓸 수 있어요.`, `Automatic payment is off. Usable until ${kstDay(ends, lang)}.`)}
                   </span>

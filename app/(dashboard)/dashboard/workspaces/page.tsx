@@ -256,17 +256,19 @@ function Spaces({
 function SpaceName({
   personal,
   name,
+  logo,
   muted = false,
 }: {
   personal: boolean;
   name: string;
+  logo?: string | null;
   muted?: boolean;
 }) {
   const { t } = useI18n();
   return (
     <>
       <IconBox>
-        <SpaceIcon kind={personal ? "personal" : "team"} size={15} />
+        <SpaceIcon kind={personal ? "personal" : "team"} size={15} logo={logo} />
       </IconBox>
       <span className={`min-w-0 truncate font-medium ${muted ? "text-muted" : ""}`}>
         {name}
@@ -303,7 +305,7 @@ function SpaceRow({
           data-space={personal ? "personal" : "team"}
           className="flex min-w-0 items-center gap-3 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
         >
-          <SpaceName personal={personal} name={spaceName(workspace)} />
+          <SpaceName personal={personal} name={spaceName(workspace)} logo={workspace.logo} />
         </Link>
       </td>
       {/*

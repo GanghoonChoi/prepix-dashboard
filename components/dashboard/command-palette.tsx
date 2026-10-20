@@ -84,7 +84,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           ? "/dashboard"
           : `/dashboard/workspaces/${row.id}`,
         icon: (
-          <SpaceIcon kind={isPersonal(row) ? "personal" : "team"} size={15} />
+          <SpaceIcon kind={isPersonal(row) ? "personal" : "team"} size={15} logo={row.logo} />
         ),
       })),
     ...(rows

@@ -156,10 +156,16 @@ export function ConfirmDialog({
 export function SpaceIcon({
   kind,
   size = 22,
+  logo,
 }: {
   kind: WorkspaceKind;
   size?: number;
+  /** A team's own logo (settings) stands in for the building. */
+  logo?: string | null;
 }) {
+  if (logo && kind === "team")
+    // eslint-disable-next-line @next/next/no-img-element -- a data URL; next/image adds nothing
+    return <img src={logo} alt="" width={size} height={size} className="shrink-0 rounded-[3px] object-cover" />;
   const Icon = kind === "personal" ? UserRound : Building2;
   return <Icon size={size} strokeWidth={1.5} aria-hidden="true" />;
 }
@@ -190,7 +196,7 @@ export function useSpaceName() {
 export function SpaceBadge({
   workspace,
 }: {
-  workspace: { name: string; type?: string };
+  workspace: { name: string; type?: string; logo?: string | null };
 }) {
   const { t } = useI18n();
   const personal = isPersonal(workspace);
@@ -204,7 +210,7 @@ export function SpaceBadge({
       title={t(personal ? "team.herePersonal" : "team.hereTeam")}
       className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-surface py-1 pl-2 pr-3 text-xs"
     >
-      <SpaceIcon kind={personal ? "personal" : "team"} size={14} />
+      <SpaceIcon kind={personal ? "personal" : "team"} size={14} logo={workspace.logo} />
       <span className="min-w-0 truncate font-medium">
         {spaceName(workspace)}
       </span>

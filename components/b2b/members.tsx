@@ -423,7 +423,7 @@ export function TeamMembers() {
         </div>
       )}
       {owner && handover && (
-        <Dialog state={handoverDialog} title={c("소유자 넘기기", "Hand over ownership")}>
+        <Dialog state={handoverDialog} title={c("소유권 이전하기", "Transfer ownership")}>
           <div className="space-y-3">
             <p className="text-[13px] leading-5 text-muted">
               {c(

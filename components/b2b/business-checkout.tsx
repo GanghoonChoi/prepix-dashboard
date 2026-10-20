@@ -4,13 +4,12 @@ import { useSearchParams } from "next/navigation";
 import { Check, CreditCard } from "lucide-react";
 import {
   b2bService,
-  type TeamBuyer,
   type TeamCommerce,
   type TeamOrder,
 } from "@/lib/api/services/b2b.service";
 import { formatPhone } from "@/lib/api/generated/b2b";
 import { TeamLoading } from "@/components/workspaces/shared";
-import { Button, Field, inputClass, SummaryRows } from "@/components/ui";
+import { Button, SummaryRows } from "@/components/ui";
 import { AUTO_SEATS_CONSENT_VERSION, billingCode, BillingError, openBillingAuth, useWon, type useTeamBilling } from "./billing-shared";
 import { useCopy } from "./shared";
 
@@ -18,15 +17,6 @@ type Product = Extract<TeamCommerce, { configured: true }>["product"];
 type Intent = { userId: string; extraSeats: number; returnTo: string | null };
 const intentKey = (methodId: string) => `prepix:team-checkout:${methodId}`;
 const settled: TeamOrder["state"][] = ["applied", "canceled", "expired", "review_required"];
-const fields: [keyof Omit<TeamBuyer, "schemaVersion">, string, string, string][] = [
-  ["businessName", "상호", "Business name", "organization"],
-  ["businessRegistrationNumber", "사업자등록번호", "Registration number", "off"],
-  ["representative", "대표자", "Representative", "name"],
-  ["address", "사업장 주소", "Business address", "street-address"],
-  ["receiptEmail", "세금계산서 이메일", "Invoice email", "email"],
-  ["contactName", "담당자 이름", "Contact name", "name"],
-  ["contactPhone", "담당자 연락처", "Contact phone", "tel"],
-];
 /** Only back into onboarding; anything else stays on the plan page. */
 const safeReturn = (value: string | null) => (value && /^\/start(\?|$)/.test(value) ? value : null);
 
@@ -51,15 +41,6 @@ export function BusinessCheckout({
   const { api, scope, billing: view, reload } = billing;
   const [product, setProduct] = useState<Product | null>(null);
   const [wanted, setWanted] = useState<number | null>(null);
-  const [draft, setDraft] = useState<Omit<TeamBuyer, "schemaVersion">>({
-    businessName: "",
-    businessRegistrationNumber: "",
-    representative: "",
-    address: "",
-    receiptEmail: "",
-    contactName: "",
-    contactPhone: "",
-  });
   const [consent, setConsent] = useState(false);
   const [step, setStep] = useState<"" | "card" | "charging" | "applying">("");
   const [error, setError] = useState("");
@@ -208,16 +189,6 @@ export function BusinessCheckout({
     if (!api || !scope || busy) return;
     setError("");
     try {
-      if (!saved) {
-        setStep("card");
-        await api.changeProfile({
-          requestKey: crypto.randomUUID(),
-          revision: null,
-          schemaVersion: readiness.profileSchemaVersion ?? "",
-          ...draft,
-        });
-        await reload();
-      }
       if (card) return await finish(card.id, extraSeats);
       setStep("card");
       const start = await api.startMethod({
@@ -280,24 +251,14 @@ export function BusinessCheckout({
           {saved.receiptEmail ?? (saved.contactPhone && formatPhone(saved.contactPhone))}
         </p>
       ) : (
-        <fieldset className="grid gap-4 sm:grid-cols-2" disabled={busy}>
-          <legend className="mb-3 text-sm font-medium">{c("사업자 정보", "Business details")}</legend>
-          {fields.map(([key, ko, en, auto]) => (
-            <Field key={key} label={c(ko, en)} htmlFor={`checkout-${key}`} className={key === "address" || key === "receiptEmail" ? "sm:col-span-2" : ""}>
-              <input
-                id={`checkout-${key}`}
-                className={inputClass}
-                autoComplete={auto}
-                required
-                type={key === "contactPhone" ? "tel" : key === "receiptEmail" ? "email" : "text"}
-                inputMode={key === "businessRegistrationNumber" ? "numeric" : key === "contactPhone" ? "tel" : key === "receiptEmail" ? "email" : undefined}
-                placeholder={key === "businessRegistrationNumber" ? "000-00-00000" : key === "contactPhone" ? "010-1234-5678" : undefined}
-                value={draft[key] ?? ""}
-                onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
-              />
-            </Field>
-          ))}
-        </fieldset>
+        // Business details are not needed to start (2026-10-20): they go in
+        // 세금계산서 정보 on this page once the team is paid for.
+        <p className="text-[13px] leading-5 text-muted">
+          {c(
+            "사업자 정보는 결제 후 이 화면의 ‘세금계산서 정보’에서 입력할 수 있어요.",
+            "Add business details for invoices under “Invoice details” on this page after paying.",
+          )}
+        </p>
       )}
 
       <label className="flex items-start gap-2.5 text-[13px] leading-5">
@@ -330,7 +291,7 @@ export function BusinessCheckout({
 
       <div className="flex flex-wrap items-center gap-3">
         <Button
-          disabled={busy || !consented || !readiness.autoPay || (!saved && Object.values(draft).some((v) => !v.trim()))}
+          disabled={busy || !consented || !readiness.autoPay}
           aria-busy={busy || undefined}
           onClick={() => void pay()}
         >

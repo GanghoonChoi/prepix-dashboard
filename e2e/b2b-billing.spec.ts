@@ -109,13 +109,8 @@ test("Business checkout: details, one card window, the first month charged once 
   // Owner + one invited editor: under the 3-seat floor.
   await expect(checkout).toContainText("3석");
   await expect(checkout).toContainText("멤버 2명");
-  await checkout.getByLabel("상호", { exact: true }).fill(buyer.businessName);
-  await checkout.getByLabel("사업자등록번호", { exact: true }).fill(buyer.businessRegistrationNumber);
-  await checkout.getByLabel("대표자", { exact: true }).fill(buyer.representative);
-  await checkout.getByLabel("사업장 주소", { exact: true }).fill(buyer.address);
-  await checkout.getByLabel("세금계산서 이메일", { exact: true }).fill(buyer.receiptEmail);
-  await checkout.getByLabel("담당자 이름", { exact: true }).fill(buyer.contactName);
-  await checkout.getByLabel("담당자 연락처", { exact: true }).fill(buyer.contactPhone);
+  // No business details to start (2026-10-20).
+  await expect(checkout.getByLabel("상호", { exact: true })).toHaveCount(0);
   const pay = checkout.getByRole("button", { name: /카드 등록하고 .*원 결제/ });
   await expect(pay).toBeDisabled();
   await checkout.getByRole("checkbox", { name: /결제하는 데 동의합니다/ }).check();
@@ -145,7 +140,7 @@ test("Business checkout: details, one card window, the first month charged once 
   expect(orders.items[0].state).toBe("applied");
   const billing = (await (await request.get(`${base}/billing`, { headers: h })).json()).data;
   expect(billing.renewal.mode).toBe("automatic");
-  expect(billing.profile.businessName).toBe(buyer.businessName);
+  expect(billing.profile).toBeNull();
   const status = (await (await request.get(`${base}/status`, { headers: h })).json()).data;
   expect(status.team.currentState).toBe("active");
   const invitations = (await (await request.get(`${base}/invitations`, { headers: h })).json()).data.invitations;
@@ -240,7 +235,7 @@ test("card, invoice details, resume, refund reservation and account switch keep 
   const otherTeam = await team(request, other.headers);
   await page.evaluate(() => localStorage.clear());
   await login(page, other.email, `/dashboard/workspaces/${otherTeam}/plan`);
-  await expect(page.getByTestId("business-checkout").getByLabel("상호", { exact: true })).toHaveValue("");
+  await expect(page.getByTestId("business-checkout")).toBeVisible();
   await expect(page.getByText(buyer.businessName)).toHaveCount(0);
   await expect(page.getByText("43301234****123*")).toHaveCount(0);
   await page.goto(`/dashboard/workspaces/${id}/plan`);
