@@ -34,6 +34,10 @@ const messages: Record<string, [string, string]> = {
     "다른 관리자가 설정을 변경했습니다. 새로고침한 뒤 다시 저장하세요.",
     "Another administrator changed these settings. Refresh before saving again.",
   ],
+  WORKSPACE_LOGO_INVALID: [
+    "PNG, JPG, WebP 이미지만 로고로 쓸 수 있어요.",
+    "Use a PNG, JPG or WebP image for the logo.",
+  ],
   WORKSPACE_SUCCESSOR_INVALID: [
     "참여 중인 관리자 또는 편집자를 인수자로 선택하세요.",
     "Choose an active admin or editor as the successor.",

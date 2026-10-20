@@ -18,6 +18,8 @@ export type Workspace = {
   type?: "personal" | "team";
   b2bEnrolled?: boolean;
   description?: string;
+  /** The team's logo, a PNG/JPEG/WebP data URL (≤ 64 KB); null or absent: none. */
+  logo?: string | null;
   revision?: number;
   seatLimit: number;
   onboardingCompletedAt: string | null;
@@ -204,6 +206,9 @@ export const workspaceService = {
     id: string,
     input: { name: string; description: string; revision: number },
   ) => teamClient.post(`/workspaces/${e(id)}/settings`, input),
+  /** Set the team's logo, or remove it with null. */
+  logo: async (id: string, logo: string | null) =>
+    teamClient.post(`/workspaces/${e(id)}/logo`, { logo }),
   leave: async (id: string) => teamClient.post(`/workspaces/${e(id)}/leave`),
   impact: async (id: string, userId: string) =>
     (
