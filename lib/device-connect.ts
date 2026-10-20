@@ -2,9 +2,10 @@
  * The browser half of the desktop handoff.
  *
  * The desktop app opens this dashboard at `/connect` with a PKCE challenge and
- * a loopback `redirect_uri`. Once the visitor is signed in and has said yes,
- * we ask the backend for a one-time code and send the browser to that loopback
- * address, where the app's own server is listening.
+ * a `redirect_uri`. Once the visitor is signed in and has said yes, we ask the
+ * backend for a one-time code and send the browser to that address — the
+ * app's own `prepix://` link, or, from builds before it, a loopback port the
+ * app's own server is listening on.
  *
  * Everything here is about one question: is this redirect target something the
  * app on THIS machine opened, or something an attacker put in a link?
@@ -20,12 +21,24 @@ export interface ConnectRequest {
 }
 
 /**
- * Accept a redirect target only if it is a loopback address on this machine.
+ * The app's own links, exactly. `prepix-dev` is an unpackaged dev run, which
+ * must not take the scheme away from an installed build on the same machine.
+ */
+const APP_CALLBACKS = new Set(["prepix://auth/callback", "prepix-dev://auth/callback"]);
+
+/**
+ * Accept a redirect target only if it reaches the app on this machine.
  *
  * This is the single most important check in the flow. Without it, `/connect`
  * is an open redirect that hands a live authorization code to whatever host a
- * crafted link names — and the code is a session. RFC 8252 §7.3 names loopback
- * as the native-app redirect, and loopback is the only thing we accept:
+ * crafted link names — and the code is a session. Two shapes, both RFC 8252:
+ *
+ * The app's link (§7.1), matched as a whole string. Another app could claim
+ * the scheme, but the code is bound to a PKCE challenge whose verifier never
+ * leaves our app, so a stolen code is useless.
+ *
+ * Loopback (§7.3), what builds before the link send — remove once they are
+ * gone:
  *
  *   - literal `127.0.0.1` or `[::1]` only. NOT `localhost`, which resolves
  *     through DNS and can be pointed elsewhere on a hostile network.
@@ -35,8 +48,9 @@ export interface ConnectRequest {
  *   - no credentials, no query, no fragment — we append our own, and a
  *     pre-existing `?code=` would let a caller shadow it.
  */
-export function parseLoopbackRedirect(raw: string | null): URL | null {
+export function parseAppRedirect(raw: string | null): URL | null {
   if (!raw) return null;
+  if (APP_CALLBACKS.has(raw)) return new URL(raw);
   let url: URL;
   try {
     url = new URL(raw);
@@ -98,7 +112,7 @@ export function readAttributionId(): string | undefined {
  * Build the URL to send the browser back to.
  *
  * `state` goes back untouched so the app can tell its own in-flight request
- * from a stray hit on its loopback port.
+ * from a stray link.
  */
 export function buildCallbackUrl(
   redirect: URL,
@@ -113,7 +127,7 @@ export function buildCallbackUrl(
 /** Read and validate everything the app put in the query string. */
 export function readConnectRequest(search: string): ConnectRequest | null {
   const q = new URLSearchParams(search);
-  const redirect = parseLoopbackRedirect(q.get("redirect_uri"));
+  const redirect = parseAppRedirect(q.get("redirect_uri"));
   const state = q.get("state") ?? "";
   const codeChallenge = q.get("code_challenge") ?? "";
   const method = q.get("code_challenge_method") ?? "";
