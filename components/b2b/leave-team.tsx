@@ -7,19 +7,13 @@ import { useRouter } from "next/navigation";
 import { b2bService } from "@/lib/api/services/b2b.service";
 import { useWorkspace } from "@/components/workspaces/workspace-context";
 import { Block } from "@/components/workspaces/shared";
-import { Button, buttonClass, DangerZone, Field, inputClass } from "@/components/ui";
+import { Button, buttonClass, DangerZone } from "@/components/ui";
 import { formatDate } from "@/lib/format";
 import { useI18n } from "@/lib/i18n/context";
 import { legalUrl } from "@/lib/i18n/config";
 import { B2bError, freeIntent, errorCode, useCopy } from "./shared";
 
 const DAY = 86_400_000;
-
-/** 을 after a final consonant, 를 otherwise ("라스커 스튜디오를", "팀을"). */
-const object = (word: string) => {
-  const code = word.trim().charCodeAt(word.trim().length - 1) - 0xac00;
-  return code >= 0 && code < 11172 && code % 28 !== 0 ? "을" : "를";
-};
 
 export function LeaveTeam() {
   const { data, b2b } = useWorkspace()!;
@@ -109,7 +103,6 @@ export function DeleteTeam() {
   const c = useCopy();
   const router = useRouter();
   const confirm = useOverlayState();
-  const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const pending = useRef<{ requestKey: string; revision: number; reason: string } | null>(null);
@@ -143,7 +136,6 @@ export function DeleteTeam() {
       </DangerZone>
     );
   }
-  const workspaceName = data.workspace.name;
   return (
     <DangerZone
       title={title}
@@ -152,13 +144,7 @@ export function DeleteTeam() {
         "The team, its members and pending invitations are deleted. This can't be undone.",
       )}
     >
-      <Button
-        variant="danger"
-        onClick={() => {
-          setName("");
-          confirm.open();
-        }}
-      >
+      <Button variant="danger" onClick={confirm.open}>
         {title}
       </Button>
       <Dialog state={confirm} title={c("팀을 삭제하시겠어요?", "Delete this team?")}>
@@ -166,7 +152,7 @@ export function DeleteTeam() {
           className="space-y-4"
           onSubmit={async (event) => {
             event.preventDefault();
-            if (busy || name !== workspaceName) return;
+            if (busy) return;
             pending.current ??= { requestKey: crypto.randomUUID(), revision: team.revision, reason: "팀 삭제" };
             setBusy(true);
             setError("");
@@ -184,45 +170,31 @@ export function DeleteTeam() {
         >
           <div className="space-y-2 text-[13px] leading-5">
             <p className="font-medium">
-              {c("삭제하기 전에 남은 사용량을 한 번 더 확인해 주세요.", "Check what is left of your usage before you delete.")}
+              {c("삭제 전에 남은 사용량을 한 번 더 확인해 주세요.", "Check your remaining usage once more before you delete.")}
             </p>
             <p className="text-muted">
-              {c(
-                "팀을 삭제하면 남은 사용량은 더 이상 사용할 수 없고, 남은 사용량이나 이용 기간에 따른 부분 환불은 제공되지 않아요. 삭제한 팀과 멤버 정보, 보낸 초대는 복구할 수 없어요.",
-                "Once deleted, what is left can't be used, and nothing is refunded for unused usage or time left. The team, its members and sent invitations can't be restored.",
-              )}
+              {c("팀을 삭제하면 복구할 수 없고, 남은 사용량도 이용할 수 없어요.", "A deleted team can't be restored, and its remaining usage can't be used.")}
+              <br />
+              {c("잔여 사용량에 대한 부분 환불은 제공되지 않아요.", "Remaining usage is not partially refunded.")}
             </p>
-            <a
-              className="inline-block font-medium text-foreground underline underline-offset-4"
-              href={legalUrl(lang, "refund-policy")}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {c("환불 정책 확인하기", "Read the refund policy")}
-            </a>
           </div>
           {error && <B2bError code={error} />}
-          <Field
-            htmlFor="delete-team-confirm"
-            label={c(`삭제를 진행하려면 ‘${workspaceName}’${object(workspaceName)} 입력해 주세요.`, `Type “${workspaceName}” to delete.`)}
-          >
-            <input
-              id="delete-team-confirm"
-              className={inputClass}
-              autoComplete="off"
-              value={name}
-              disabled={busy}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </Field>
           <div className="flex flex-wrap justify-end gap-2">
             <Button variant="secondary" disabled={busy || !!pending.current} onClick={confirm.close}>
               {c("팀 유지하기", "Keep the team")}
             </Button>
-            <Button type="submit" variant="danger" aria-busy={busy} disabled={busy || name !== workspaceName}>
+            <Button type="submit" variant="danger" aria-busy={busy} disabled={busy}>
               {busy ? c("삭제 중…", "Deleting…") : c("팀 삭제", "Delete team")}
             </Button>
           </div>
+          <a
+            className="inline-block text-[13px] text-muted underline underline-offset-4 hover:text-foreground"
+            href={legalUrl(lang, "refund-policy")}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {c("환불 정책 확인하기", "Read the refund policy")}
+          </a>
         </form>
       </Dialog>
     </DangerZone>
