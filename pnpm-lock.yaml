@@ -14,6 +14,9 @@ importers:
       '@heroui/styles':
         specifier: ^3.0.2
         version: 3.0.2(tailwind-merge@3.4.0)(tailwindcss@4.2.2)
+      '@intercom/messenger-js-sdk':
+        specifier: 0.0.20
+        version: 0.0.20
       '@noble/hashes':
         specifier: ^2.4.0
         version: 2.4.0
@@ -556,6 +559,9 @@ packages:
     engines: {node: ^18.17.0 || ^20.3.0 || >=21.0.0}
     cpu: [x64]
     os: [win32]
+
+  '@intercom/messenger-js-sdk@0.0.20':
+    resolution: {integrity: sha512-99ixqRcsX4ZL+HnH3xxpQewKqdN9/mtptsnxk5vDd31TQG4x1o0gvp6aNPJm5iX3SPSJldQhA/uqW66NV1LO1w==}
 
   '@internationalized/date@3.12.0':
     resolution: {integrity: sha512-/PyIMzK29jtXaGU23qTvNZxvBXRtKbNnGDFD+PY6CZw/Y8Ex8pFUzkuCJCG9aOqmShjqhS9mPqP6Dk5onQY8rQ==}
@@ -3483,6 +3489,8 @@ snapshots:
 
   '@img/sharp-win32-x64@0.34.5':
     optional: true
+
+  '@intercom/messenger-js-sdk@0.0.20': {}
 
   '@internationalized/date@3.12.0':
     dependencies:

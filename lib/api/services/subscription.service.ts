@@ -208,20 +208,6 @@ export const subscriptionService = {
     return response.data.data;
   },
 
-  // Files the request and notifies the team — no money moves here. Used for
-  // the 50% band, annual plans, and anything else a person has to size.
-  requestRefundReview: async (
-    note?: string,
-  ): Promise<{
-    threadId: string;
-    rate: string;
-    daysElapsed: number;
-    alreadyFiled: boolean;
-    message: string;
-  }> => {
-    const response = await apiClient.post("/subscriptions/refund/review", { note });
-    return response.data.data;
-  },
 };
 
 // --- Refund request threads -------------------------------------------------

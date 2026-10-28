@@ -14,6 +14,7 @@ import { VerifyEmailNotice } from "@/components/workspaces/verify-email";
 import { clearSignedIn } from "@/lib/account-hint";
 import { loginHref, signupHref } from "@/lib/auth-entry";
 import { pageWidth, type PageWidth } from "@/lib/page-width";
+import { IntercomMessenger } from "@/components/intercom";
 
 /** Content width + a 24px gutter each side (16 on phones). */
 const MAIN_WIDTH: Record<PageWidth, string> = {
@@ -188,6 +189,7 @@ export default function DashboardLayout({
       <WorkspaceCapabilities>
       <CurrentSpace>
         <CheckoutErrorListener />
+        <IntercomMessenger />
         <div className="min-h-dvh bg-background">
           {mobileOpen && (
             <div

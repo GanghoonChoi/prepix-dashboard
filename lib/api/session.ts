@@ -31,6 +31,9 @@ export function storeSession(
 }
 export function endSession() {
   for (const key of KEYS) localStorage.removeItem(key);
+  // The Fin messenger keeps its own session cookie; the next account on this
+  // browser must not open this one's conversations.
+  if (typeof window !== "undefined") (window as { Intercom?: (cmd: string) => void }).Intercom?.("shutdown");
 }
 export function readApiSession(baseURL: string): ApiSession {
   const service = new URL(baseURL);
