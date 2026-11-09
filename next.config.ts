@@ -47,6 +47,28 @@ const SITE = "https://prepix.ai";
 const AUTH_ON_SITE = process.env.NEXT_PUBLIC_AUTH_ON_SITE === "1";
 
 const nextConfig: NextConfig = {
+  /*
+    PostHog through this origin (`lib/analytics.ts` sends to `/relay`), the
+    same relay prepix.ai has: ad blockers block posthog.com by name, not a
+    first-party path. Bundles and remote config are on the assets host,
+    everything else on ingestion; first match wins. Its endpoints end in a
+    slash, which Next's own trailing-slash redirect would strip, hence
+    `skipTrailingSlashRedirect`.
+  */
+  skipTrailingSlashRedirect: true,
+  async rewrites() {
+    return [
+      {
+        source: "/relay/static/:path*",
+        destination: "https://us-assets.i.posthog.com/static/:path*",
+      },
+      {
+        source: "/relay/array/:path*",
+        destination: "https://us-assets.i.posthog.com/array/:path*",
+      },
+      { source: "/relay/:path*", destination: "https://us.i.posthog.com/:path*" },
+    ];
+  },
   async redirects() {
     if (!AUTH_ON_SITE) return [];
     /*
