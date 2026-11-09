@@ -4,6 +4,7 @@ import "./globals.css";
 import { pretendard, SATOSHI_URL } from "./fonts";
 import { DEFAULT_LANG } from "@/lib/i18n/config";
 import { I18nProvider } from "@/lib/i18n/context";
+import { AnalyticsBoot } from "@/components/analytics-boot";
 
 export const metadata: Metadata = {
   metadataBase: new URL(
@@ -71,6 +72,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-dvh bg-background text-foreground font-sans">
         <I18nProvider>{children}</I18nProvider>
+        <AnalyticsBoot />
       </body>
     </html>
   );
