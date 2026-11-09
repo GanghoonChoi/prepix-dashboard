@@ -24,6 +24,13 @@ import { readAttributionId } from "@/lib/device-connect";
 const POSTHOG_TOKEN = "phc_x6IEHUGQNzWMQa8atVSZomfBjwWCIqYLD24kTMUjq9U";
 // The `/relay` rewrite in next.config.ts: ad blockers block posthog.com by name.
 const POSTHOG_RELAY = "/relay";
+/*
+  The only host that records. CI's e2e jobs drive this app in a real browser
+  on every push, and local dev and preview deployments would all land in the
+  production project otherwise. A hostname, not an env var, so nothing has
+  to be remembered on the deploy platform for production to keep recording.
+*/
+const RECORDED_HOST = "dashboard.prepix.ai";
 
 let started = false;
 
@@ -50,6 +57,7 @@ export function identityAction(
 
 export function startAnalytics(): void {
   if (started || typeof window === "undefined") return;
+  if (window.location.hostname !== RECORDED_HOST) return;
   started = true;
 
   // Bootstrapping `px_aid` for a signed-in reader would overwrite the account
