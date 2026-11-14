@@ -265,18 +265,11 @@ test("own device retirement survives a lost response and keeps replacement capac
   ).data.project;
   await invite(request, team.id, owner, staff, project.id);
   await ownSeat(request, `${endpoint}/licences`, owner);
-  expect(
-    (
-      await request.post(`${endpoint}/licences/assignments`, {
-        headers: owner.headers,
-        data: {
-          requestKey: randomUUID(),
-          periodId,
-          userId: staff.id,
-        },
-      })
-    ).status(),
-  ).toBe(201);
+  // Paid roles are assigned by the licence reconciler; do not race it with a second assignment.
+  const teamLicences = (await (await request.get(`${endpoint}/licences`, { headers: owner.headers })).json()).data;
+  expect(teamLicences.assignments.some((assignment: { userId: string; periodId: string; state: string }) =>
+    assignment.userId === staff.id && assignment.periodId === periodId && assignment.state === "active",
+  ), "the paid editor holds its seat").toBeTruthy();
   const d1 = await device(request, team.id, owner, project.id),
     d2 = await device(request, team.id, owner, project.id);
   await device(request, team.id, owner, project.id);
