@@ -12,18 +12,23 @@ const dollars = (cents: number) => new Intl.NumberFormat("en-US", { style: "curr
 export function BillingCurrency({ workspaceId, preparing, children }: { workspaceId: string; preparing: boolean; children: (selector: ReactNode) => ReactNode }) {
   const c = useCopy();
   const { scope, error: scopeError, reload } = useTeamBilling(workspaceId);
+  if (scopeError) return <TeamShell title={c("플랜과 결제", "Plan and billing")}><BillingError code={scopeError} /><Button onClick={() => void reload()}>{c("다시 확인", "Check again")}</Button></TeamShell>;
+  if (!scope) return <TeamLoading />;
+  return <ScopedBillingCurrency key={`${scope.origin}:${scope.userId}:${workspaceId}`} workspaceId={workspaceId} preparing={preparing} scope={scope}>{children}</ScopedBillingCurrency>;
+}
+function ScopedBillingCurrency({ workspaceId, preparing, scope, children }: { workspaceId: string; preparing: boolean; scope: BillingScope; children: (selector: ReactNode) => ReactNode }) {
+  const c = useCopy();
   const [view, setView] = useState<InternationalBilling | null>(null);
-  const [currency, setCurrency] = useState("KRW");
-  useEffect(() => { if (new URLSearchParams(window.location.search).get("currency") === "USD") setCurrency("USD"); }, []);
+  const [currency, setCurrency] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("currency") === "USD" ? "USD" : "KRW");
   const [error, setError] = useState("");
+  const [retry, setRetry] = useState(0);
   useEffect(() => {
     let active = true;
-    setView(null); setError("");
-    if (scope) b2bService.international(workspaceId, scope.userId!).then(result => { if (active) setView(result); }).catch(e => { if (active) setError(billingCode(e)); });
+    b2bService.international(workspaceId, scope.userId!).then(result => { if (active) setView(result); }).catch(e => { if (active) setError(billingCode(e)); });
     return () => { active = false; };
-  }, [workspaceId, scope]);
-  if (error || scopeError) return <TeamShell title={c("플랜과 결제", "Plan and billing")}><BillingError code={scopeError || error} /><Button onClick={() => { setError(""); void reload().then(() => { if (scope) return b2bService.international(workspaceId, scope.userId!).then(setView); }).catch(e => setError(billingCode(e))); }}>{c("다시 확인", "Check again")}</Button></TeamShell>;
-  if (!view || !scope) return <TeamLoading />;
+  }, [workspaceId, scope.userId, retry]);
+  if (error) return <TeamShell title={c("플랜과 결제", "Plan and billing")}><BillingError code={error} /><Button onClick={() => { setError(""); setRetry(value => value + 1); }}>{c("다시 확인", "Check again")}</Button></TeamShell>;
+  if (!view) return <TeamLoading />;
   const international = !!view.account?.status || !!view.pending || currency === "USD";
   const selector = preparing && !view.account?.status && !view.pending ? <SettingsSection title={c("결제 통화", "Billing currency")}>
     <Select aria-label={c("결제 통화", "Billing currency")} value={international ? "USD" : "KRW"} onChange={e => setCurrency(e.target.value)}>
@@ -36,10 +41,15 @@ export function BillingCurrency({ workspaceId, preparing, children }: { workspac
 export function InternationalPlan({ workspaceId, view, setView, selector, scope }: { scope: BillingScope; workspaceId: string; view: InternationalBilling; setView: (view: InternationalBilling) => void; selector?: ReactNode }) {
   const c = useCopy();
   const alive = useRef(true), sequence = useRef(0);
-  useEffect(() => { alive.current = true; return () => { alive.current = false; sequence.current++; }; }, []);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   const [seats, setSeats] = useState(1), [packs, setPacks] = useState(1);
   const [mode, setMode] = useState<"automatic" | "one_off">("one_off");
-  const [keepSeats, setKeepSeats] = useState(view.account?.seats ?? 1), [keepPacks, setKeepPacks] = useState(view.account?.storagePacks ?? 0);
+  const defaultsKey = `${view.account?.seats}:${view.account?.storagePacks}`;
+  const [renewalDraft, setRenewalDraft] = useState({ key: defaultsKey, seats: view.account?.seats ?? 1, packs: view.account?.storagePacks ?? 0 });
+  const keepSeats = renewalDraft.key === defaultsKey ? renewalDraft.seats : view.account?.seats ?? 1;
+  const keepPacks = renewalDraft.key === defaultsKey ? renewalDraft.packs : view.account?.storagePacks ?? 0;
+  const setKeepSeats = (seats: number) => setRenewalDraft({ key: defaultsKey, seats, packs: keepPacks });
+  const setKeepPacks = (packs: number) => setRenewalDraft({ key: defaultsKey, seats: keepSeats, packs });
   const [busy, setBusy] = useState(false), [error, setError] = useState("");
   const [refundId, setRefundId] = useState(""), [reason, setReason] = useState("");
   const account = view.account, active = !!account?.accessActive;
@@ -55,15 +65,14 @@ export function InternationalPlan({ workspaceId, view, setView, selector, scope 
     const result = await b2bService.internationalRefresh(workspaceId, scope.userId!);
     if (alive.current && call === sequence.current) setView(result);
   }, [workspaceId, scope.userId, setView]);
+  const needsPolling = !!view.pending || !!account?.syncPending;
   useEffect(() => {
     let active = true;
     const check = () => { if (active) void refresh().catch(() => {}); };
     check(); window.addEventListener("focus", check);
-    const timer = window.setInterval(check, view.pending || account?.syncPending ? 5000 : 60000);
+    const timer = window.setInterval(check, needsPolling ? 5000 : 60000);
     return () => { active = false; clearInterval(timer); window.removeEventListener("focus", check); };
-  }, [refresh, view.pending?.id, account?.syncPending]);
-  useEffect(() => { if (account?.cancelAtEnd) setMode("one_off"); }, [account?.cancelAtEnd]);
-  useEffect(() => { setKeepSeats(account?.seats ?? 1); setKeepPacks(account?.storagePacks ?? 0); }, [account?.seats, account?.storagePacks]);
+  }, [refresh, view.pending?.id, needsPolling]);
   const purchase = (action: InternationalPurchase["action"], quantity: number, renewal: InternationalPurchase["renewal"]) => run(async () => {
     if (!scope) throw new Error("B2B_BILLING_SCOPE_CHANGED");
     const key = `prepix:usd:${scope.origin}:${scope.userId}:${workspaceId}`;
@@ -109,8 +118,8 @@ export function InternationalPlan({ workspaceId, view, setView, selector, scope 
         <p className="mb-3 text-xs text-muted">{c("구매 즉시 다음 Business 갱신 시각 전까지 적용됩니다. 월 중 구매도 정가이며 일할 계산하지 않습니다. 일회성은 갱신일에 만료되고, 정기 추가는 같은 갱신일에 같은 용량으로 다시 부여되어 누적되지 않습니다.", "Available immediately until the next Business anniversary, exclusive. Full pack price applies mid-month. Once expires at renewal. Recurring renews on the same anniversary without accumulating capacity.")}</p>
         <div className="flex flex-wrap items-center gap-3">
           <Select aria-label={c("추가 저장공간", "Additional storage")} value={packs} disabled={busy || !!pending} onChange={e => setPacks(Number(e.target.value))}>{Array.from({ length: 100 }, (_, n) => <option key={n + 1} value={n + 1}>{(n + 1) * 100}GB · {dollars((n + 1) * 500)}</option>)}</Select>
-          <Select aria-label={c("갱신 방식", "Renewal")} value={mode} disabled={busy || !!pending} onChange={e => setMode(e.target.value as typeof mode)}><option value="one_off">{c("이번 기간만", "This period only")}</option><option value="automatic" disabled={account!.cancelAtEnd}>{c("매월 갱신", "Renew monthly")}</option></Select>
-          <Button disabled={busy || !!pending || !scope} onClick={() => void purchase("storage", packs, mode)}>{c("구매 내용 확인", "Review purchase")}</Button>
+          <Select aria-label={c("갱신 방식", "Renewal")} value={account!.cancelAtEnd ? "one_off" : mode} disabled={busy || !!pending} onChange={e => setMode(e.target.value as typeof mode)}><option value="one_off">{c("이번 기간만", "This period only")}</option><option value="automatic" disabled={account!.cancelAtEnd}>{c("매월 갱신", "Renew monthly")}</option></Select>
+          <Button disabled={busy || !!pending || !scope} onClick={() => void purchase("storage", packs, account!.cancelAtEnd ? "one_off" : mode)}>{c("구매 내용 확인", "Review purchase")}</Button>
         </div>
         <p className="mt-3 text-xs text-muted">{c("80%·90%에서 알림을 보내며, 100%에서는 새 업로드를 막습니다. 자동 초과 과금은 없습니다. 추가 용량은 단순 변심 환불이 제한되며 법정 사유·결제 오류·미제공 예외는 별도로 검토합니다.", "Warnings at 80% and 90%; new uploads stop at 100%. No automatic overage charges. Storage change-of-mind refunds are restricted; statutory rights, billing errors and non-provision exceptions are reviewed separately.")}</p>
       </SettingsSection>

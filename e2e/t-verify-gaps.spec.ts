@@ -59,7 +59,11 @@ test("F02: switching personal <-> team and team A <-> team B writes no rows", as
     const switcher = () => S.page.locator('aside button[aria-haspopup="menu"][data-space]:visible');
     const pick = async (label: string) => {
       await switcher().click();
-      await S.page.locator('[role="menu"]:visible').getByText(label, { exact: false }).first().click();
+      const item = S.page.locator('[role="menu"]:visible').getByRole("menuitem").filter({ hasText: label }).first();
+      const destination = await item.getAttribute("href");
+      expect(destination).toBeTruthy();
+      await item.click();
+      await S.page.waitForURL(url => url.pathname === destination);
       await S.page.waitForLoadState("networkidle");
     };
     // One warm-up lap first: opening a space for the first time may legitimately lazy-create its own rows.
