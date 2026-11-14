@@ -90,28 +90,10 @@ export const team = {
     "team.acceptPending": "Accept invitation",
     "team.verifyTitle": "Verify your email address",
     "team.verifyBody":
-      "Open the link we sent. You'll need it to recover your password and to join teams.",
+      "Enter the 6-digit code we emailed you. You'll need it to use AI features and to join teams.",
     "team.verifyPending":
       "{count} invitation(s) are waiting. Verify your email to join.",
-    "team.verifyResend": "Resend verification email",
-    "team.verifySending": "Sending…",
-    "team.verifySent":
-      "Verification email sent. Check your inbox, including spam.",
-    "team.verifyConfirmTitle": "Email verification",
-    "team.verifyConfirmDesc":
-      "We are confirming the link from your verification email.",
-    "team.verifyChecking": "Verifying your email…",
-    "team.verifyDone": "Your email address is verified.",
-    "team.verifyDoneDesc": "You can now accept team invitations.",
-    "team.verifyOpenTeams": "Go to workspaces",
-    "team.error.EMAIL_VERIFICATION_TOKEN_INVALID":
-      "This verification link is not valid. Open the most recent verification email, or send a new one.",
-    "team.error.EMAIL_VERIFICATION_TOKEN_EXPIRED":
-      "This verification link expired. Send a new verification email and use the newest link.",
-    "team.error.EMAIL_VERIFICATION_TOKEN_USED":
-      "This link was already used. Your email is verified — sign in to continue.",
-    "team.error.EMAIL_VERIFICATION_RATE_LIMITED":
-      "Too many verification emails. Wait a few minutes and use the newest link.",
+    "team.verifyEnterCode": "Enter code",
     "team.seatRequest": "Ask the owner ({email}) to add seats.",
     "team.seatRequestAction": "Email the owner",
     "team.error.WORKSPACES_DISABLED":
@@ -286,27 +268,10 @@ export const team = {
     "team.acceptPending": "초대 수락",
     "team.verifyTitle": "이메일 주소를 인증해 주세요",
     "team.verifyBody":
-      "보낸 링크를 열면 끝나요. 비밀번호 찾기와 팀 초대에 필요해요.",
+      "메일로 받은 6자리 코드를 입력하면 끝나요. AI 기능과 팀 초대에 필요해요.",
     "team.verifyPending":
       "받은 팀 초대가 {count}개 있습니다. 이메일을 인증하면 참여할 수 있습니다.",
-    "team.verifyResend": "인증 메일 다시 보내기",
-    "team.verifySending": "보내는 중…",
-    "team.verifySent":
-      "인증 메일을 보냈습니다. 받은 편지함과 스팸함을 확인하세요.",
-    "team.verifyConfirmTitle": "이메일 인증",
-    "team.verifyConfirmDesc": "인증 메일의 링크를 확인하고 있습니다.",
-    "team.verifyChecking": "이메일을 인증하는 중…",
-    "team.verifyDone": "이메일 주소를 인증했습니다.",
-    "team.verifyDoneDesc": "이제 팀 초대를 수락할 수 있습니다.",
-    "team.verifyOpenTeams": "워크스페이스로 이동",
-    "team.error.EMAIL_VERIFICATION_TOKEN_INVALID":
-      "인증 링크가 올바르지 않습니다. 가장 최근에 받은 인증 메일의 링크를 열거나 인증 메일을 다시 받으세요.",
-    "team.error.EMAIL_VERIFICATION_TOKEN_EXPIRED":
-      "인증 링크가 만료되었습니다. 인증 메일을 다시 받아 최신 링크를 사용하세요.",
-    "team.error.EMAIL_VERIFICATION_TOKEN_USED":
-      "이미 사용한 링크입니다. 이메일 인증이 끝났으니 로그인해서 계속하세요.",
-    "team.error.EMAIL_VERIFICATION_RATE_LIMITED":
-      "인증 메일을 너무 많이 요청했습니다. 몇 분 뒤 가장 최근 링크를 사용하세요.",
+    "team.verifyEnterCode": "코드 입력하기",
     "team.seatRequest": "소유자({email})에게 좌석 추가를 요청하세요.",
     "team.seatRequestAction": "소유자에게 메일 보내기",
     "team.error.WORKSPACES_DISABLED":

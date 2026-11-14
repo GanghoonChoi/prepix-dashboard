@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { loginHref, signupHref } from "./auth-entry";
+import { loginHref, signupHref, verifyEmailHref } from "./auth-entry";
 import { safeReturnTo } from "./return-to";
 
 test("local authentication preserves the share destination; site authentication pins dashboard destinations to their origin", () => {
@@ -35,4 +35,14 @@ test("local authentication preserves the share destination; site authentication 
     if (previousSetting === undefined) delete process.env.NEXT_PUBLIC_AUTH_ON_SITE;
     else process.env.NEXT_PUBLIC_AUTH_ON_SITE = previousSetting;
   }
+});
+
+test("the sign-up code page carries where to go next, and only a safe destination survives it", () => {
+  const href = verifyEmailHref("https://prepix.ai/start?step=use", "ko");
+  const query = new URL(href, "https://dashboard.prepix.ai").searchParams;
+  assert.equal(new URL(href, "https://dashboard.prepix.ai").pathname, "/verify-email");
+  assert.equal(query.get("locale"), "ko");
+  assert.equal(safeReturnTo(query.get("returnTo")), "https://prepix.ai/start?step=use");
+  const hostile = new URL(verifyEmailHref("https://evil-prepix.ai/login", "ko"), "https://dashboard.prepix.ai");
+  assert.equal(safeReturnTo(hostile.searchParams.get("returnTo")), "/dashboard");
 });

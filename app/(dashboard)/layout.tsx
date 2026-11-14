@@ -231,12 +231,12 @@ export default function DashboardLayout({
               }
             >
               {/*
-                Every signed-in page, not just the team one: verification gates
-                accepting invitations, and `emailVerified` is now a real field
-                rather than something inferred from a team-only response.
-                Strictly `=== false` — an older server omits it entirely.
+                Every signed-in page, not just the team one: the sign-up code
+                gates paid work and accepting invitations. Strictly `=== true`
+                — an older server omits the field, and a Google account never
+                owes a code.
               */}
-              {profile?.emailVerified === false && !onInvitationPage && (
+              {profile?.emailVerificationRequired === true && !onInvitationPage && (
                 <div className="mb-6">
                   <VerifyEmailNotice />
                 </div>

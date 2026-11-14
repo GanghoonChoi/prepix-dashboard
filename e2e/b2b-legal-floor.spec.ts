@@ -31,15 +31,15 @@ async function account(request: APIRequestContext, prefix: string) {
   const session = (await (await request.post(`${api}/v2/auth/email/login`, { data: { email, password } })).json()).data;
   const headers = { Authorization: `Bearer ${session.accessToken}` };
   expect((await request.post(`${api}/v2/auth/email/verify/request`, { headers })).status()).toBe(200);
-  let verifyUrl: string | undefined;
+  let code: string | undefined;
   await expect
     .poll(async () => {
       const mail = await (await request.get(`${api}/__test/mail`)).json();
-      verifyUrl = mail.findLast((m: { to: string; verifyUrl?: string }) => m.to === email && m.verifyUrl)?.verifyUrl;
-      return verifyUrl;
+      code = mail.findLast((m: { to: string; code?: string }) => m.to === email && m.code)?.code;
+      return code;
     })
     .toBeTruthy();
-  expect((await request.post(`${api}/v2/auth/email/verify/confirm`, { data: { token: new URL(verifyUrl!).searchParams.get("token") } })).status()).toBe(200);
+  expect((await request.post(`${api}/v2/auth/email/verify/code`, { headers, data: { code: code! } })).status()).toBe(200);
   return { email, id: session.user.id as string, headers };
 }
 async function payOrder(request: APIRequestContext, h: { Authorization: string }, base: string, orderId: string) {

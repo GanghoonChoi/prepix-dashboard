@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { test, expect } from "@playwright/test";
-import { harnessEnv } from "./harness-env";
+import { confirmSignupCode, harnessEnv } from "./harness-env";
 const api = harnessEnv("B2B_E2E_API_URL");
 const password = "LocalPreview123";
 
@@ -39,6 +39,7 @@ test("a playable original opens in the player, an undecodable one says so", asyn
     ).json()
   ).data;
   const headers = { Authorization: `Bearer ${session.accessToken}` };
+  await confirmSignupCode(request, api, email, headers);
   const cloud = (
     await (
       await request.get(`${api}/v2/workspaces/capabilities/cloud`, { headers })

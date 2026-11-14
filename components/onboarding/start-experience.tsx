@@ -5,7 +5,7 @@ import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
 import { Lockup } from "@/components/brand";
 import { useI18n } from "@/lib/i18n/context";
-import { loginHref, signupHref } from "@/lib/auth-entry";
+import { loginHref, signupHref, verifyEmailHref } from "@/lib/auth-entry";
 import {
   readStartState,
   startHref,
@@ -144,6 +144,16 @@ export function StartExperience() {
     };
   }, [signedIn]);
 
+  // An email sign-up owes its code before first run goes on (/verify-email
+  // comes back here). Only an explicit `true` sends it: an older server says
+  // nothing, and nothing is the same as no gate.
+  useEffect(() => {
+    if (profile?.emailVerificationRequired === true)
+      window.location.replace(
+        verifyEmailHref(window.location.pathname + window.location.search, lang),
+      );
+  }, [profile, lang]);
+
   // An answer that came from the site is saved once, the same as one given here.
   const urlIntent = state?.intent ?? null;
   useEffect(() => {
@@ -170,7 +180,12 @@ export function StartExperience() {
   }, [signedIn, intent, list]);
 
   const site = `https://www.prepix.ai${ko ? "/ko" : ""}`;
-  const settling = signedIn && (status === "loading" || !profileSettled);
+  // Held on the loading frame while an account that owes its code is sent away.
+  const settling =
+    signedIn &&
+    (status === "loading" ||
+      !profileSettled ||
+      profile?.emailVerificationRequired === true);
   if (!state)
     return (
       <main className="p-10" role="status">

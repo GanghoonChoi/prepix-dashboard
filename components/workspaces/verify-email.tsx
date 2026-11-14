@@ -1,34 +1,37 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { MailCheck } from "lucide-react";
 import { useI18n } from "@/lib/i18n/context";
-import { authService } from "@/lib/api/services/auth.service";
+import { verifyEmailHref } from "@/lib/auth-entry";
 import { workspaceService } from "@/lib/api/services/workspace.service";
-import { workspaceError } from "@/lib/workspaces/onboarding";
 import { useWorkspaceCapabilities } from "./capabilities";
-import { TeamError } from "./shared";
-import { Button } from "@/components/ui";
+import { buttonClass } from "@/components/ui";
 
 /**
- * "Verify your email", for a signed-in account that has not.
+ * "Verify your email", for a signed-in email account that has not entered its
+ * sign-up code. The button opens the code page, which mails a code if none is
+ * out and comes back here.
  *
- * Whether to show it comes from the account's own `emailVerified`, so it can
- * live above every dashboard page. The waiting-invitation line is separate: an
- * unverified user is handed a COUNT in place of the invitation rows — no
- * workspace name, no id, no token — so this says an invitation is waiting and
- * deliberately does not claim to know which team. Repeating a name we were
- * never given would leak exactly what withholding the rows protects.
+ * The waiting-invitation line is separate: an unverified user is handed a
+ * COUNT in place of the invitation rows — no workspace name, no id, no token —
+ * so this says an invitation is waiting and deliberately does not claim to
+ * know which team. Repeating a name we were never given would leak exactly
+ * what withholding the rows protects.
  *
  * The count is fetched here rather than passed in, because this renders above
  * every page and only for the rare unverified account.
  */
 export function VerifyEmailNotice() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const { capabilities } = useWorkspaceCapabilities();
-  const [state, setState] = useState<"idle" | "sending" | "sent">("idle");
-  const [error, setError] = useState("");
   const [pending, setPending] = useState(0);
+  const [here, setHere] = useState("/dashboard");
   const teamsEnabled = !!capabilities?.enabled;
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setHere(window.location.pathname + window.location.search);
+  }, []);
   useEffect(() => {
     if (!teamsEnabled) return;
     let active = true;
@@ -45,7 +48,7 @@ export function VerifyEmailNotice() {
     };
   }, [teamsEnabled]);
   // One line above the page, not a card that pushes everything down: every new
-  // account sees it on every screen until the link is opened.
+  // account sees it on every screen until the code is in.
   return (
     <section
       // Named, so it is a real landmark a screen reader can jump to rather than
@@ -60,34 +63,13 @@ export function VerifyEmailNotice() {
         </span>{" "}
         <span className="text-muted">{t("team.verifyBody")}</span>
         {pending > 0 && <span className="block">{t("team.verifyPending", { count: pending })}</span>}
-        {state === "sent" && (
-          <span role="status" className="block">
-            {t("team.verifySent")}
-          </span>
-        )}
       </p>
-      {error && <TeamError code={error} />}
-      <Button
-        variant="secondary"
-        size="sm"
-        disabled={state === "sending"}
-        aria-busy={state === "sending"}
-        onClick={async () => {
-          setState("sending");
-          setError("");
-          try {
-            await authService.requestEmailVerification();
-            setState("sent");
-          } catch (e) {
-            // A 429 is the expected answer to an impatient second click, and
-            // says "wait", not "failed".
-            setError(workspaceError(e));
-            setState("idle");
-          }
-        }}
+      <Link
+        href={verifyEmailHref(here, lang)}
+        className={buttonClass({ variant: "secondary", size: "sm" })}
       >
-        {t(state === "sending" ? "team.verifySending" : "team.verifyResend")}
-      </Button>
+        {t("team.verifyEnterCode")}
+      </Link>
     </section>
   );
 }

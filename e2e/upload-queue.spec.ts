@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { harnessEnv } from "./harness-env";
+import { confirmSignupCode, harnessEnv } from "./harness-env";
 const api = harnessEnv("B2B_E2E_API_URL");
 const password = "LocalPreview123";
 
@@ -34,6 +34,7 @@ test("a rejected file does not cancel the batch and the rest still upload", asyn
     ).json()
   ).data;
   const headers = { Authorization: `Bearer ${session.accessToken}` };
+  await confirmSignupCode(request, api, email, headers);
   const cloud = (
     await (
       await request.get(`${api}/v2/workspaces/capabilities/cloud`, { headers })

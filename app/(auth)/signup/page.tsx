@@ -12,7 +12,7 @@ import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { Turnstile } from "@/components/auth/turnstile";
 import { authService } from "@/lib/api/services/auth.service";
 import { markSignedIn } from "@/lib/account-hint";
-import { loginHref } from "@/lib/auth-entry";
+import { loginHref, verifyEmailHref } from "@/lib/auth-entry";
 import { sleep } from "@/lib/utils";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
 import { useI18n } from "@/lib/i18n/context";
@@ -178,11 +178,12 @@ export default function SignupPage() {
         fireConfetti();
         await sleep(800);
         /*
-          First run continues at /start — the workspace is ready and the next
-          real step is the desktop app. An explicit `returnTo` still wins, so
-          someone who arrived from an invitation goes back to it.
+          The emailed code comes first (/verify-email), then first run at
+          /start — the workspace is ready and the next real step is the
+          desktop app. An explicit `returnTo` still wins over /start, so
+          someone who arrived from an invitation goes back to it after the code.
         */
-        go(readReturnTo(firstRunHref(lang)));
+        go(verifyEmailHref(readReturnTo(firstRunHref(lang)), lang));
         return;
       } catch (err: unknown) {
         const axiosErr = err as {

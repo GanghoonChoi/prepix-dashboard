@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { harnessEnv } from "./harness-env";
+import { confirmSignupCode, harnessEnv } from "./harness-env";
 
 /**
  * Personal and team workspaces are different objects (spec D13), and each test
@@ -298,6 +298,7 @@ test("the space is named where files land, and cancelling an upload asks the sam
     ).json()
   ).data;
   const headers = { Authorization: `Bearer ${session.accessToken}` };
+  await confirmSignupCode(request, api, email, headers);
   const cloud = (
     await (
       await request.get(`${api}/v2/workspaces/capabilities/cloud`, { headers })

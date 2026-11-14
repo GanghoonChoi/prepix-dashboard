@@ -91,27 +91,25 @@ export const authService = {
   },
 
   /**
-   * Resend the verification mail to the signed-in account's own address. The
-   * address is never a parameter — the server takes it from the session — so
-   * this cannot be used to mail a stranger. Rate limited; a 429 comes back in
-   * the house error shape.
+   * Mail a sign-up code to the signed-in account's own address. The address is
+   * never a parameter — the server takes it from the session — so this cannot
+   * be used to mail a stranger. `ensure` sends only when no usable code is out
+   * (what the code page asks on open); without it, a new code (다시 보내기).
+   * Rate limited; a 429 comes back in the house error shape.
    */
-  requestEmailVerification: async (): Promise<{ success: true }> => {
-    const response = await apiClient.post("/auth/email/verify/request");
+  requestEmailVerification: async (
+    ensure = false,
+  ): Promise<{ success: true; alreadyVerified: boolean }> => {
+    const response = await apiClient.post(
+      "/auth/email/verify/request",
+      ensure ? { ensure: true } : {},
+    );
     return response.data.data;
   },
 
-  /**
-   * Public: the link lands here before there is necessarily a session.
-   * Invalid, expired and already-used are distinct answers and must stay that
-   * way — "try again" is wrong advice for two of the three.
-   */
-  confirmEmailVerification: async (
-    token: string,
-  ): Promise<{ success: true }> => {
-    const response = await apiClient.post("/auth/email/verify/confirm", {
-      token,
-    });
+  /** The six digits from that mail, for the signed-in account. */
+  confirmEmailCode: async (code: string): Promise<{ success: true }> => {
+    const response = await apiClient.post("/auth/email/verify/code", { code });
     return response.data.data;
   },
 

@@ -1,117 +1,184 @@
 "use client";
 import { Suspense, useCallback, useEffect, useState } from "react";
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { Button, Field, Notice, inputClass } from "@/components/ui";
 import { useI18n } from "@/lib/i18n/context";
 import { loginHref } from "@/lib/auth-entry";
 import { authService } from "@/lib/api/services/auth.service";
+import { usePageTitle } from "@/lib/hooks/use-page-title";
+import { readReturnTo } from "@/lib/return-to";
 import { workspaceError } from "@/lib/workspaces/onboarding";
-import { buttonClass } from "@/components/ui";
-import { TeamError } from "@/components/workspaces/shared";
-import { VerifyEmailNotice } from "@/components/workspaces/verify-email";
 
 /**
- * Where a verification email lands.
+ * The sign-up code. An email sign-up lands here before /start (signup page),
+ * and /start sends an account that still owes it back here. The code proves
+ * the address; the server holds paid work until it is in.
  *
- * `?token=` rather than a path segment because that is the URL the backend
- * actually sends (`${DASHBOARD_URL}/verify-email?token=…`), matching the
- * existing `/reset-password?token=` convention. `next.config.ts` gives this
- * route `no-referrer` / `no-store` / `noindex`, which matters more for a token
- * in a query string than in a path.
- *
- * Public, not under `(dashboard)`: confirm takes the token alone and a link
- * opened in a fresh browser must not be bounced through a login form first.
- *
- * Invalid, expired and already-used are three different answers with three
- * different next actions, so they never collapse into one "try again".
+ * Signed in only: the code is checked against the session's own account. On
+ * open it asks for a code only if none is out, so arriving straight from
+ * registration (which already mailed one) does not send a second.
  */
-function Confirm() {
+const KNOWN = new Set([
+  "EMAIL_VERIFICATION_CODE_INVALID",
+  "EMAIL_VERIFICATION_CODE_EXPIRED",
+  "EMAIL_VERIFICATION_RATE_LIMITED",
+]);
+
+function readEmail(): string {
+  try {
+    return JSON.parse(localStorage.getItem("userInfo") ?? "null")?.email ?? "";
+  } catch {
+    return "";
+  }
+}
+
+/** Keep the cached account in step, as user.service does for useType. */
+function markVerified() {
+  try {
+    const cached = JSON.parse(localStorage.getItem("userInfo") ?? "null");
+    if (cached)
+      localStorage.setItem(
+        "userInfo",
+        JSON.stringify({ ...cached, emailVerified: true, emailVerificationRequired: false }),
+      );
+  } catch {
+    // A cache, nothing more.
+  }
+}
+
+function CodeForm() {
   const { t, lang } = useI18n();
-  const token = useSearchParams().get("token") ?? "";
-  const [state, setState] = useState<"checking" | "done" | "failed">(
-    token ? "checking" : "failed",
-  );
-  const [error, setError] = useState(
-    token ? "" : "EMAIL_VERIFICATION_TOKEN_INVALID",
-  );
-  const [attempt, setAttempt] = useState(0);
+  usePageTitle(t("auth.verifyCodeTitle"));
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState("");
+
+  const go = useCallback(() => {
+    const destination = readReturnTo();
+    if (destination.startsWith("/")) router.replace(destination);
+    else window.location.assign(destination);
+  }, [router]);
+
+  const explain = (e: unknown) => {
+    const reason = workspaceError(e);
+    return t(`auth.verifyError.${KNOWN.has(reason) ? reason : "FAILED"}`);
+  };
+
   useEffect(() => {
-    if (!token) return;
+    if (!(localStorage.getItem("accessToken") || localStorage.getItem("refreshToken"))) {
+      router.replace(
+        loginHref({ returnTo: window.location.pathname + window.location.search }),
+      );
+      return;
+    }
+    setEmail(readEmail());
     let active = true;
     authService
-      .confirmEmailVerification(token)
-      .then(() => {
-        if (!active) return;
-        setError("");
-        setState("done");
+      .requestEmailVerification(true)
+      .then((result) => {
+        if (!active || !result.alreadyVerified) return;
+        markVerified();
+        go();
       })
-      .catch((e) => {
-        if (!active) return;
-        setError(workspaceError(e));
-        setState("failed");
-      });
+      .catch((e) => active && setError(explain(e)));
     return () => {
       active = false;
     };
-  }, [token, attempt]);
-  const retry = useCallback(() => {
-    setState("checking");
-    setAttempt((value) => value + 1);
-  }, []);
-  // Already verified is a success for the person holding the link, even though
-  // the token itself is spent — so it does not offer a resend.
-  const used = error === "EMAIL_VERIFICATION_TOKEN_USED";
+    // `explain` reads only `t`; a language switch must not mail again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [go, router]);
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!/^\d{6}$/.test(code) || busy) return;
+    setBusy(true);
+    setError("");
+    setSent(false);
+    try {
+      await authService.confirmEmailCode(code);
+      markVerified();
+      go();
+    } catch (e) {
+      setError(explain(e));
+      setBusy(false);
+    }
+  }
+
+  async function resend() {
+    setSending(true);
+    setError("");
+    setSent(false);
+    try {
+      await authService.requestEmailVerification();
+      setCode("");
+      setSent(true);
+    } catch (e) {
+      setError(explain(e));
+    } finally {
+      setSending(false);
+    }
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          {t("team.verifyConfirmTitle")}
+          {t("auth.verifyCodeTitle")}
         </h1>
-        <p className="mt-1.5 text-sm text-muted">
-          {t("team.verifyConfirmDesc")}
+        <p className="mt-1.5 text-sm text-muted break-all">
+          {email ? t("auth.verifyCodeSentTo", { email }) : t("auth.verifyCodeDesc")}
         </p>
       </div>
-      {state === "checking" && (
-        <p role="status" className="text-sm">
-          {t("team.verifyChecking")}
-        </p>
-      )}
-      {state === "done" && (
-        <div className="space-y-4">
-          <p role="status" className="text-sm font-medium">
-            {t("team.verifyDone")}
-          </p>
-          <p className="text-sm leading-6 text-muted">
-            {t("team.verifyDoneDesc")}
-          </p>
-        </div>
-      )}
-      {state === "failed" && (
-        <div className="space-y-4">
-          <TeamError
-            code={error}
-            // Only a transport failure is worth repeating with the same token.
-            retry={error === "REQUEST_FAILED" ? retry : undefined}
+
+      <form onSubmit={submit} className="space-y-5">
+        <Field label={t("auth.verifyCodeLabel")} htmlFor="code">
+          <input
+            id="code"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            pattern="\d{6}"
+            maxLength={6}
+            required
+            autoFocus
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            placeholder="000000"
+            className={`${inputClass} tabular-nums tracking-[0.3em]`}
           />
-          {/*
-            An invalid or expired token needs a NEW email, which only a
-            signed-in account can ask for. A spent one needs nothing.
-          */}
-          {!used && <VerifyEmailNotice />}
-        </div>
-      )}
-      <div className="flex flex-wrap gap-3">
-        {(state === "done" || used) && (
-          <Link href="/dashboard/workspaces" className={buttonClass()}>
-            {t("team.verifyOpenTeams")}
-          </Link>
+        </Field>
+        {error && <Notice tone="danger">{error}</Notice>}
+        {sent && (
+          <p role="status" className="text-sm text-muted">
+            {t("auth.verifyCodeResent")}
+          </p>
         )}
-        <Link
-          href={loginHref({ returnTo: "/dashboard/workspaces", lang })}
-          className={buttonClass({ variant: "secondary" })}
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={busy || code.length !== 6}
+          aria-busy={busy}
         >
-          {t("team.switchAccount")}
-        </Link>
+          {busy ? t("auth.verifyCodeChecking") : t("auth.verifyCodeSubmit")}
+        </Button>
+      </form>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+        <Button variant="secondary" disabled={sending} aria-busy={sending} onClick={resend}>
+          {t("auth.verifyCodeResend")}
+        </Button>
+        <Button
+          variant="ghost"
+          onClick={() => {
+            authService.logout();
+            router.replace(loginHref({ lang }));
+          }}
+        >
+          {t("auth.verifyCodeOtherAccount")}
+        </Button>
       </div>
     </div>
   );
@@ -120,7 +187,7 @@ function Confirm() {
 export default function VerifyEmailPage() {
   return (
     <Suspense fallback={null}>
-      <Confirm />
+      <CodeForm />
     </Suspense>
   );
 }

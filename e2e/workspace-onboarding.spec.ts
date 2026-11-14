@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { harnessEnv } from "./harness-env";
+import { enterSignupCode, harnessEnv } from "./harness-env";
 
 // Run against scripts/workspaces-preview.cjs in prepix-backend only. It uses a
 // dedicated local DB and captures mail; no production email/payment is involved.
@@ -371,6 +371,8 @@ test("an invited new user completes signup and returns directly to the invitatio
   await page.getByRole("button", { name: "계속하기", exact: true }).click();
   await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: "계정 만들기", exact: true }).click();
+  // The emailed code first; the code page then goes on to the invitation.
+  await enterSignupCode(page, api, email);
   await expect(
     page.getByRole("heading", { name: "팀 초대를 받았습니다" })
   ).toBeVisible();
@@ -555,6 +557,9 @@ test("first run offers a waiting invitation and skipping it goes on to the first
     .getByRole("link", { name: "이미 계정이 있어요", exact: true })
     .click();
   await login(page, email);
+  // An email account that never entered its code is sent to the code page
+  // first, and comes back to /start.
+  await enterSignupCode(page, api, email);
   await expect(page).toHaveURL(/\/start\b/);
   await expect(
     page.getByRole("heading", { name: "초대가 도착했어요" })

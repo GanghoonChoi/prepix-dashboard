@@ -1,5 +1,5 @@
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
-import { harnessEnv } from "./harness-env";
+import { confirmSignupCode, harnessEnv } from "./harness-env";
 
 // Real Chrome, real local Nest/JWT API and PostgreSQL; the payment provider is
 // the local HTTP PG double (scripts/b2b-pg-double.cjs). Requires the preview
@@ -13,7 +13,10 @@ async function account(request: APIRequestContext, prefix: string) {
   const email = `${prefix}-${crypto.randomUUID()}@example.test`;
   expect((await request.post(`${api}/v2/auth/register`, { data: { email, password, username: prefix } })).status()).toBe(201);
   const session = (await (await request.post(`${api}/v2/auth/email/login`, { data: { email, password } })).json()).data;
-  return { email, headers: { Authorization: `Bearer ${session.accessToken}` } };
+  const headers = { Authorization: `Bearer ${session.accessToken}` };
+  // These flows end on /start, which sends an account that owes its sign-up code away first.
+  await confirmSignupCode(request, api, email, headers);
+  return { email, headers };
 }
 async function team(request: APIRequestContext, headers: Record<string, string>) {
   const created = await request.post(`${api}/v2/workspaces`, { headers, data: { name: "로컬 결제 팀", requestKey: crypto.randomUUID() } });

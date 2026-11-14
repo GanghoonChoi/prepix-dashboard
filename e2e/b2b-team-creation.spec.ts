@@ -4,7 +4,7 @@ import {
   type Page,
   type APIRequestContext,
 } from "@playwright/test";
-import { harnessEnv } from "./harness-env";
+import { confirmSignupCode, harnessEnv } from "./harness-env";
 const api = harnessEnv("B2B_E2E_API_URL");
 const password = "LocalPreview123";
 async function account(request: APIRequestContext) {
@@ -23,7 +23,10 @@ async function account(request: APIRequestContext) {
       })
     ).json()
   ).data;
-  return { email, headers: { Authorization: `Bearer ${session.accessToken}` } };
+  const headers = { Authorization: `Bearer ${session.accessToken}` };
+  // /start sends an account that owes its sign-up code to the code page.
+  await confirmSignupCode(request, api, email, headers);
+  return { email, headers };
 }
 async function signIn(page: Page, email: string) {
   await page.goto("/login?returnTo=%2Fdashboard%2Fworkspaces&locale=ko");
