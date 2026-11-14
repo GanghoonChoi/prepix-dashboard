@@ -1,4 +1,6 @@
 "use client";
+import { BillingCurrency } from "./international";
+import { TeamStorage } from "./storage";
 import { Suspense, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -102,7 +104,7 @@ function Row({ label, children, action }: { label: ReactNode; children: ReactNod
 export function B2bPlan(props: { status: Extract<B2bStatus, { enrolled: true }>; workspace: { id: string; name: string } }) {
   return (
     <Suspense>
-      <Plan {...props} />
+      <BillingCurrency key={props.workspace.id} workspaceId={props.workspace.id} preparing={props.status.team.currentState === "preparing"}>{selector => <Plan {...props} currencySelector={selector} />}</BillingCurrency>
     </Suspense>
   );
 }
@@ -110,9 +112,11 @@ export function B2bPlan(props: { status: Extract<B2bStatus, { enrolled: true }>;
 function Plan({
   status,
   workspace,
+  currencySelector,
 }: {
   status: Extract<B2bStatus, { enrolled: true }>;
   workspace: { id: string; name: string };
+  currencySelector?: ReactNode;
 }) {
   const c = useCopy();
   const won = useWon();
@@ -263,7 +267,7 @@ function Plan({
   const estimate =
     product && seats !== null
       ? Math.round(
-          (product.base.supplyKrw + product.extraSeat.supplyKrw * Math.min(plan.extraSeats ?? extraNow, extraNow)) *
+          (product.base.supplyKrw + product.extraSeat.supplyKrw * Math.min(plan.extraSeats ?? extraNow, extraNow) + product.storagePack.supplyKrw * plan.storagePacks) *
             (1 + product.settlement.vatBasisPoints / 10_000),
         )
       : null;
@@ -361,6 +365,7 @@ function Plan({
 
   return (
     <TeamShell title={c("플랜과 결제", "Plan and billing")}>
+      {currencySelector}
       <RenewalConsentCard billing={billing} />
       {r.missing.length > 0 && (
         <Notice role="status">
@@ -496,6 +501,8 @@ function Plan({
         </dl>
         )}
       </SettingsSection>
+
+      {running && <TeamStorage workspaceId={workspace.id} />}
 
       {target && (
         <SettingsSection title={target === "initial" ? c("결제하고 시작", "Pay to start") : c("다시 시작", "Restart")}>

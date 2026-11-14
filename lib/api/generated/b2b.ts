@@ -213,6 +213,8 @@ export type TeamAiUsageView = {
   }[];
 };
 export type TeamPeople = {
+  /** Free Viewers, including reserved invitations, cannot exceed paid seats. */
+  viewers?: { capacity: number; used: number; reserved: number };
   people: TeamPerson[];
   canDelegateBilling: boolean;
   /** Seats of the running period; null before the first purchase. */
@@ -220,7 +222,7 @@ export type TeamPeople = {
   /** Waiting members are bought seats automatically (billing auto-seats). */
   autoSeats?: boolean;
 };
-/** Turn a member's editing seat on or off; the server assigns or releases. */
+/** Toggle editing access. Billing still counts every owner/admin/editor role. */
 export type SetMemberSeat = { requestKey: string; editing: boolean };
 /** Cap one member's share of the team's AI pool per period; null lifts it. */
 export type SetMemberAiLimit = { requestKey: string; limitSeconds: number | null };
@@ -271,13 +273,34 @@ export type OwnershipTransfer = {
 };
 
 export type Rounding = "floor" | "ceil" | "half_up";
+export type InternationalPurchase = {
+  requestKey: string;
+  action: "start" | "storage" | "seats";
+  quantity: number;
+  renewal: "one_off" | "automatic";
+};
+export type InternationalBilling = {
+  available: boolean;
+  currency: "USD";
+  seatCents: number;
+  storagePackCents: number;
+  account: null | {
+    seats: number; storagePacks: number; cancelAtEnd: boolean;
+    accessActive: boolean;
+    revision: number; syncPending: boolean; status: string | null;
+    renewsAt: string | null;
+  };
+  pending: null | { id: string; state: string; checkoutUrl: string | null; supplyCents: number; expiresAt: string };
+  payments: { id: string; orderId: string | null; paidAt: string; supplyCents: number; taxCents: number; totalCents: number; refunded: boolean; refundPending: boolean; refundRequested: boolean; refundDenied: boolean }[];
+};
 // Team AI is per seat (decision 2026-10-06): every paid seat, base or extra,
-// carries the same allotment for its period. No pooled team AI, no AI packs.
+// carries the same allotment into the shared team pool. No AI packs.
 // SOT: backend/docs/b2b-ai-accounting.md "Per-seat AI"
+/** Legacy *Krw wire names carry minor currency units: won for KRW, cents for USD. */
 export type TeamProduct = {
   version: string;
   name: string;
-  currency: "KRW";
+  currency: "KRW" | "USD";
   aiUnitLabel: string;
   aiUnitDescription: string;
   base: {
@@ -366,7 +389,7 @@ export type TeamQuote = {
     supplyKrw: number;
     vatKrw: number;
     totalKrw: number;
-    currency: "KRW";
+    currency: "KRW" | "USD";
   };
   allowances: {
     seats: number;
@@ -508,7 +531,7 @@ export type TeamRefund = {
     supplyKrw: number;
     vatKrw: number;
     totalKrw: number;
-    currency: "KRW";
+    currency: "KRW" | "USD";
   };
   allowances: { seats: number; storageBytes: number; aiUnits: number };
   lines: TeamRefundLine[];
@@ -1548,6 +1571,9 @@ export type RegisterPublication = {
   // A render/result identity; one editing work may generate several cuts.
   originResultId: string;
   originRequestId: string | null;
+  // 0115: the desktop sequence this result was rendered from. Each later share of the same
+  // sequence by the same internal member stacks on its series (`GET publications/series`).
+  originSequenceId?: string;
   basisRevision?: number;
   uploadId: string;
   title: string;
@@ -1612,6 +1638,10 @@ export type PublicationMutationLookup = {
   state: "not_received" | "completed";
   result: PublicationMutationResult | null;
 };
+/** `GET publications/series?sequenceId=`: the asset the actor's next share of that sequence
+ * adds a version to, or null when it starts a new one (never shared, an external member, or
+ * the latest series is no longer the actor's to add to — trashed or another steward). */
+export type PublicationSeries = { assetId: string | null };
 export type PublicationList = {
   currentUserId: string;
   /** null: a team project's default maker who has not worked on it yet
@@ -2663,6 +2693,9 @@ export type UserNotificationKind =
   | "payment.renewal_consent_required"
   | "payment.terminated"
   | "payment.statement_issued"
+  | "lifecycle.storage_80"
+  | "lifecycle.storage_90"
+  | "lifecycle.storage_100"
   | "lifecycle.period_ended"
   | "lifecycle.recovery_storage"
   | "lifecycle.deletion_due"

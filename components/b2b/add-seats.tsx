@@ -55,10 +55,10 @@ export function AddSeats({
         const method = billing.methods.find((m) => m.id === billing.renewal.methodId && m.state === "active");
         if (billing.renewal.mode !== "automatic" || !method) throw new Error("B2B_AUTOPAY_REQUIRED");
         const period = commerce.configured ? commerce.currentPeriod : null;
-        if (!period?.product) throw new Error("B2B_QUOTE_PERIOD_CHANGED");
+        if (!commerce.configured || !period?.product) throw new Error("B2B_QUOTE_PERIOD_CHANGED");
         const result = await b2bService.purchaseQuote(workspaceId, {
           requestKey: crypto.randomUUID(),
-          productVersion: period.product.version,
+          productVersion: commerce.product.version,
           target: "current",
           renewal: "automatic",
           sourcePeriodId: period.id,

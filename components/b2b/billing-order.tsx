@@ -147,6 +147,10 @@ export function BillingOrder({ workspaceId, orderId }: { workspaceId: string; or
     ) : (
       <TeamLoading />
     );
+  if (order.quote.amounts.currency === "USD") return <TeamShell title={c("결제 내역", "Payment")}>
+    <p>{c("달러 결제의 세금·영수증과 환불 상태는 해외 Business 결제 화면에서 확인할 수 있습니다.", "Review USD payment taxes, receipts and refunds in international Business billing.")}</p>
+    <a className="mt-4 inline-block underline underline-offset-4" href={`/dashboard/workspaces/${workspaceId}/plan?currency=USD`}>{c("플랜과 결제로 돌아가기", "Back to plan and billing")}</a>
+  </TeamShell>;
   const label = orderLabels[order.state];
   const remaining = {
     extraSeats: order.quote.selection.extraSeats - order.refunds.filter((r) => r.state === "refunded").reduce((n, r) => n + (r.selection?.extraSeats ?? 0), 0),

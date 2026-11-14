@@ -41,14 +41,14 @@ test("plan and billing: one consent at checkout, seats bought by themselves, det
   await page.goto(`/dashboard/workspaces/${id}/plan`);
   const plan = page.getByRole("region", { name: "Business" }).or(page.locator("section", { has: page.getByRole("heading", { name: "Business", exact: true }) })).first();
   await expect(plan).toContainText("이용 중");
-  await expect(plan).toContainText("3석");
+  await expect(plan).toContainText("1석");
   await expect(plan).toContainText("남은 기간만큼 바로 자동결제");
   await expect(plan).toContainText(/다음 결제\s*\d+월 \d+일/);
-  await expect(page.getByText("갱신 방식")).toHaveCount(0);
+  await expect(page.getByLabel("갱신 방식", { exact: true })).toBeVisible();
   await expect(page.getByRole("tab")).toHaveCount(0);
   await shot(page, "plan-active");
 
-  // Three editors join; the third is one too many and is bought a seat.
+  // Every additional paid role is bought a seat above the one-seat minimum.
   for (let i = 0; i < 3; i++) {
     const p = await account(request, `plan-ed${i}`);
     expect((await request.post(`${base}/invitations`, { headers: h, data: { requestKey: crypto.randomUUID(), email: p.email, kind: "internal", teamRole: "editor", assignSeat: true } })).status()).toBe(201);
@@ -62,6 +62,25 @@ test("plan and billing: one consent at checkout, seats bought by themselves, det
   const payments = page.locator("section", { has: page.getByRole("heading", { name: "결제 내역" }) });
   await expect(payments).toContainText("현재 기간 추가");
   await expect(payments).toContainText("첫 한 달");
+
+  // Full-price storage, with payment confirmation and immediate capacity.
+  const storage = page.locator("section", { has: page.getByRole("heading", { name: "추가 저장공간", exact: true }) });
+  await expect(storage).toContainText("100GB당 5,800원");
+  await storage.getByRole("button", { name: "구매 내용 확인" }).click();
+  await expect(storage).toContainText("6,380원 결제 (VAT 포함)");
+  await storage.getByRole("button", { name: "6,380원 결제에 동의" }).click();
+  await expect(storage.getByRole("status")).toContainText("저장공간을 추가했어요");
+  expect((await json(request.get(`${api}/v2/workspaces/${id}/overview`, { headers: h }))).storage.limit).toBe(3.1e12);
+  await storage.getByLabel("갱신 방식", { exact: true }).selectOption("automatic");
+  await storage.getByRole("button", { name: "구매 내용 확인" }).click();
+  await storage.getByRole("button", { name: "6,380원 결제에 동의" }).click();
+  await expect(storage).toContainText("매월 추가 100GB");
+  expect((await json(request.get(`${api}/v2/workspaces/${id}/overview`, { headers: h }))).storage.limit).toBe(3.2e12);
+  await storage.getByRole("button", { name: "다음 갱신일부터 축소" }).click();
+  await expect(storage.getByRole("status")).toContainText("다음 Business 갱신일부터 변경돼요");
+  expect((await json(request.get(`${api}/v2/workspaces/${id}/overview`, { headers: h }))).storage.limit).toBe(3.2e12);
+  expect((await json(request.get(`${base}/billing`, { headers: h }))).renewal.storagePacks).toBe(0);
+  await shot(page, "plan-storage-policy");
 
   // Invoice details: entered after paying, read here, edited in a dialog.
   const invoice = page.locator("section", { has: page.getByRole("heading", { name: "세금계산서 정보" }) });
