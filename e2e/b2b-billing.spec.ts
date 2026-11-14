@@ -309,13 +309,17 @@ test("USD Business shows $129 seats and $5 storage, keeps tax separate, and pins
     }
     await route.fulfill({ json: { data: view } });
   });
-  await login(page, owner.email, `/dashboard/workspaces/${id}/plan?currency=USD`);
+  const returnTo = `/start?intent=team&workspace=${id}&step=pay`;
+  await login(page, owner.email, `/dashboard/workspaces/${id}/plan?${new URLSearchParams({ currency: "USD", return: returnTo })}`);
   await expect(page.getByRole("heading", { name: "Business · USD", exact: true })).toBeVisible();
   await expect(page.getByText("좌석당 월 $129 · 최소 1석 · 세금 별도", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "$129.00/월 결제 내용 확인" }).click();
   await expect(page.getByRole("link", { name: "결제창 열기" })).toHaveAttribute("href", "https://www.creem.io/test/b2b-ui");
   complete = true;
   await page.getByRole("button", { name: "결제 상태 확인" }).click();
+  // The provider returns to a clean plan URL; the scoped onboarding destination survives it.
+  await page.goto(`/dashboard/workspaces/${id}/plan`);
+  await expect(page.getByRole("link", { name: "팀 설정 계속하기" })).toHaveAttribute("href", returnTo);
   const storage = section(page, "저장공간 추가");
   await expect(storage).toContainText("100GB당 $5 + 세금");
   for (const mode of ["one_off", "automatic"]) {

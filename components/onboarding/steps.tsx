@@ -816,6 +816,11 @@ export function PayStep({
           )}
         </p>
       )}
+      <p className="text-sm text-muted">
+        <Link className="underline underline-offset-2" href={`/dashboard/workspaces/${workspaceId}/plan?${new URLSearchParams({ return: returnTo, currency: "USD", seats: String(plan.seats) })}`}>
+          {copy("International billing: $129 per seat/month plus tax", "해외 결제: 좌석당 월 $129 + 세금")}
+        </Link>
+      </p>
       <StepActions
         secondary={later}
         primary={

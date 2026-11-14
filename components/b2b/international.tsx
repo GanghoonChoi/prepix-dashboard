@@ -42,7 +42,17 @@ export function InternationalPlan({ workspaceId, view, setView, selector, scope 
   const c = useCopy();
   const alive = useRef(true), sequence = useRef(0);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
-  const [seats, setSeats] = useState(1), [packs, setPacks] = useState(1);
+  const returnKey = `prepix:usd-return:${scope.origin}:${scope.userId}:${workspaceId}`;
+  const [returnTo] = useState(() => {
+    if (typeof window === "undefined") return null;
+    const value = new URLSearchParams(window.location.search).get("return") ?? sessionStorage.getItem(returnKey);
+    return value && /^\/start(\?|$)/.test(value) ? value : null;
+  });
+  useEffect(() => { if (returnTo) sessionStorage.setItem(returnKey, returnTo); }, [returnKey, returnTo]);
+  const [seats, setSeats] = useState(() => {
+    const value = typeof window === "undefined" ? 1 : Number(new URLSearchParams(window.location.search).get("seats"));
+    return Number.isInteger(value) && value >= 1 && value <= 10000 ? value : 1;
+  }), [packs, setPacks] = useState(1);
   const [mode, setMode] = useState<"automatic" | "one_off">("one_off");
   const defaultsKey = `${view.account?.seats}:${view.account?.storagePacks}`;
   const [renewalDraft, setRenewalDraft] = useState({ key: defaultsKey, seats: view.account?.seats ?? 1, packs: view.account?.storagePacks ?? 0 });
@@ -92,6 +102,7 @@ export function InternationalPlan({ workspaceId, view, setView, selector, scope 
   return <TeamShell title={c("플랜과 결제", "Plan and billing")}>
     {selector}
     {error && <BillingError code={error} />}
+    {active && returnTo && <a className={buttonClass({})} href={returnTo} onClick={() => sessionStorage.removeItem(returnKey)}>{c("팀 설정 계속하기", "Continue team setup")}</a>}
     <SettingsSection title="Business · USD" description={c("좌석당 월 $129 · 최소 1석 · 세금 별도", "$129 per seat per month · 1 seat minimum · taxes extra")}>
       <p className="text-sm">{c("팀 공용 3TB, 좌석당 월 600분의 원본 분석 시간을 팀이 공유합니다. 원본 분석과 기획 1회를 포함하며 같은 원본의 Agent 편집과 프로젝트 수는 무제한입니다.", "Includes 3TB shared team storage and a shared pool of 600 source-analysis minutes per paid seat per month. Source analysis and one plan are included. Agent editing of the same source and project count are unlimited.")}</p>
       <p className="mt-2 text-xs text-muted">{c("Owner·Admin·Editor는 각각 유료 1석입니다. Viewer는 무료이며 유료 좌석 수만큼 초대할 수 있습니다.", "Owner, Admin and Editor each use one paid seat. Viewers are free, up to the number of paid seats.")}</p>
