@@ -4,6 +4,20 @@ import type { Lang } from "../config";
 
 export const auth: Record<Lang, Record<string, string>> = {
   en: {
+    // Sign-up code (/verify-email)
+    "auth.verifyCodeTitle": "Enter the code from your email",
+    "auth.verifyCodeSentTo": "We sent a 6-digit code to {email}.",
+    "auth.verifyCodeDesc": "We sent a 6-digit code to your email.",
+    "auth.verifyCodeLabel": "Verification code",
+    "auth.verifyCodeSubmit": "Verify",
+    "auth.verifyCodeChecking": "Checking…",
+    "auth.verifyCodeResend": "Resend code",
+    "auth.verifyCodeResent": "A new code is on its way.",
+    "auth.verifyCodeOtherAccount": "Use a different account",
+    "auth.verifyError.EMAIL_VERIFICATION_CODE_INVALID": "That code doesn't match. Check it and try again.",
+    "auth.verifyError.EMAIL_VERIFICATION_CODE_EXPIRED": "This code has expired. Send a new one.",
+    "auth.verifyError.EMAIL_VERIFICATION_RATE_LIMITED": "Too many codes requested. Try again in a few minutes.",
+    "auth.verifyError.FAILED": "Couldn't verify. Try again.",
     // Shared titles / words
     "auth.signIn": "Sign in",
     "auth.createAccount": "Create account",
@@ -104,6 +118,20 @@ export const auth: Record<Lang, Record<string, string>> = {
     "auth.copyright": "© {year} Lasker Inc. All rights reserved.",
   },
   ko: {
+    // 가입 인증 코드 (/verify-email)
+    "auth.verifyCodeTitle": "메일로 받은 코드를 입력해 주세요",
+    "auth.verifyCodeSentTo": "{email}로 6자리 코드를 보냈어요.",
+    "auth.verifyCodeDesc": "메일로 6자리 코드를 보냈어요.",
+    "auth.verifyCodeLabel": "인증 코드",
+    "auth.verifyCodeSubmit": "확인",
+    "auth.verifyCodeChecking": "확인하는 중…",
+    "auth.verifyCodeResend": "다시 보내기",
+    "auth.verifyCodeResent": "새 코드를 보냈어요.",
+    "auth.verifyCodeOtherAccount": "다른 계정으로 로그인",
+    "auth.verifyError.EMAIL_VERIFICATION_CODE_INVALID": "코드가 맞지 않아요. 다시 확인해 주세요.",
+    "auth.verifyError.EMAIL_VERIFICATION_CODE_EXPIRED": "코드가 만료됐어요. 새 코드를 받아 주세요.",
+    "auth.verifyError.EMAIL_VERIFICATION_RATE_LIMITED": "코드를 너무 많이 요청했어요. 몇 분 뒤에 다시 받아 주세요.",
+    "auth.verifyError.FAILED": "인증하지 못했어요. 다시 시도해 주세요.",
     // Shared titles / words
     "auth.signIn": "로그인",
     "auth.createAccount": "계정 만들기",

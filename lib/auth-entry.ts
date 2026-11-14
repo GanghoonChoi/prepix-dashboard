@@ -57,3 +57,7 @@ function entry(path: "/login" | "/signup", options: Options = {}): string {
 
 export const loginHref = (options?: Options) => entry("/login", options);
 export const signupHref = (options?: Options) => entry("/signup", options);
+
+/** The sign-up code page; once the code is in it goes on to `returnTo`. */
+export const verifyEmailHref = (returnTo: string, lang?: Lang): string =>
+  `/verify-email?${new URLSearchParams({ locale: lang ?? readLang(), returnTo })}`;

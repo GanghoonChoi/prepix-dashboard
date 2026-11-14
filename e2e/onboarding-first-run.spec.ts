@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { harnessEnv } from "./harness-env";
+import { enterSignupCode, harnessEnv } from "./harness-env";
 
 // Run against scripts/workspaces-preview.cjs in prepix-backend with new B2B
 // teams on (B2B_TEST_ENABLED, B2B_TEST_NEW_TEAMS, B2B_TEST_LAUNCH_DEFAULTS)
@@ -19,6 +19,7 @@ async function signup(page: Page, email: string, query = "") {
   await page.getByRole("button", { name: "계속하기", exact: true }).click();
   await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: "계정 만들기", exact: true }).click();
+  await enterSignupCode(page, api, email);
 }
 
 async function get<T>(page: Page, path: string): Promise<T> {

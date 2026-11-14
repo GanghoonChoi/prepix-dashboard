@@ -44,18 +44,19 @@ async function account(request: APIRequestContext, label: string) {
   ).data;
   const headers = { Authorization: `Bearer ${session.accessToken}` };
   expect((await request.post(`${api}/v2/auth/email/verify/request`, { headers })).status()).toBe(200);
-  let message: { verifyUrl: string } | undefined;
+  let message: { code: string } | undefined;
   await expect
     .poll(async () => {
       const mailbox = await (await request.get(`${api}/__test/mail`)).json();
-      message = mailbox.findLast((m: { to: string; verifyUrl?: string }) => m.to === email && m.verifyUrl);
-      return message?.verifyUrl;
+      message = mailbox.findLast((m: { to: string; code?: string }) => m.to === email && m.code);
+      return message?.code;
     })
     .toBeTruthy();
   expect(
     (
-      await request.post(`${api}/v2/auth/email/verify/confirm`, {
-        data: { token: new URL(message!.verifyUrl).searchParams.get("token") },
+      await request.post(`${api}/v2/auth/email/verify/code`, {
+        headers,
+        data: { code: message!.code },
       })
     ).status(),
   ).toBe(200);

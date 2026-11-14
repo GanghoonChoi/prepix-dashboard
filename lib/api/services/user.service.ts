@@ -13,6 +13,11 @@ export type Profile = {
    * only ever act on an explicit `false`.
    */
   emailVerified?: boolean;
+  /**
+   * An email sign-up that has not entered its code: /start sends it to
+   * /verify-email first. Same rule as `emailVerified` — act only on `true`.
+   */
+  emailVerificationRequired?: boolean;
   /** /start answers, as codes (backend migration 0096). Null = never asked. */
   useType?: "personal" | "team" | null;
   jobRole?: string | null;

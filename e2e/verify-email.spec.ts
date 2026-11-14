@@ -7,7 +7,7 @@ import { harnessEnv } from "./harness-env";
 const api = harnessEnv("B2B_E2E_API_URL");
 const password = "LocalPreview123";
 
-type Message = { to: string; kind?: string; verifyUrl?: string };
+type Message = { to: string; kind?: string; code?: string };
 
 // The harness captures mail from a send the API does not await, so a read taken
 // the instant a request returns can legitimately arrive first. Poll for it.
@@ -99,8 +99,7 @@ test("an unverified account is prompted everywhere, told an invitation waits wit
   // An invitation is waiting — and the team behind it stays unnamed.
   await expect(page.getByText(/팀 초대가 1개 있습니다/)).toBeVisible();
   await expect(page.getByText(teamName)).toHaveCount(0);
-  await expect(notice.getByRole("button", { name: "인증 메일 다시 보내기" }))
-    .toBeVisible();
+  await expect(notice.getByRole("link", { name: "코드 입력하기" })).toBeVisible();
 
   // The team page shows no invitation rows for an unverified account, because
   // the server sends none.
@@ -110,21 +109,20 @@ test("an unverified account is prompted everywhere, told an invitation waits wit
     page.getByText("이메일 주소를 인증해 주세요", { exact: true })
   ).toBeVisible();
 
-  // Resend, then verify with the link that actually arrives.
-  await page
-    .getByRole("button", { name: "인증 메일 다시 보내기", exact: true })
-    .first()
-    .click();
-  await expect(page.getByText(/인증 메일을 보냈습니다/)).toBeVisible();
+  // The notice opens the code page; a wrong code is refused, the mailed one works.
+  await page.getByRole("link", { name: "코드 입력하기", exact: true }).click();
+  await expect(page).toHaveURL(/\/verify-email/);
   const mail = await mailbox(request, newcomer, "verification");
-  expect(mail?.verifyUrl).toBeTruthy();
-  await page.goto(mail!.verifyUrl!);
-  await expect(page.getByText("이메일 주소를 인증했습니다.")).toBeVisible();
+  expect(mail?.code).toMatch(/^\d{6}$/);
+  const wrong = String((Number(mail!.code) + 1) % 1_000_000).padStart(6, "0");
+  await page.getByLabel("인증 코드").fill(wrong);
+  await page.getByRole("button", { name: "확인", exact: true }).click();
+  await expect(page.getByText(/코드가 맞지 않아요/)).toBeVisible();
+  await page.getByLabel("인증 코드").fill(mail!.code!);
+  await page.getByRole("button", { name: "확인", exact: true }).click();
 
-  // Verified: the prompt is gone and the invitation is now named and actionable.
-  await page
-    .getByRole("link", { name: "워크스페이스로 이동", exact: true })
-    .click();
+  // Verified: back where it came from, the prompt gone, the invitation named.
+  await expect(page).toHaveURL(/\/dashboard\/workspaces/);
   await expect(page.getByText(teamName).first()).toBeVisible();
   await expect(
     page.getByText("이메일 주소를 인증해 주세요", { exact: true })
@@ -135,38 +133,33 @@ test("an unverified account is prompted everywhere, told an invitation waits wit
   expect(errors).toEqual([]);
 });
 
-test("invalid, already-used and missing verification links each say their own thing", async ({
+test("an email sign-up enters its code before first run goes on", async ({
   page,
   request,
 }) => {
-  const email = `spent-${Date.now()}@example.test`;
+  const email = `signup-code-${Date.now()}@example.test`;
   expect(
     (
       await request.post(`${api}/v2/auth/register`, {
-        data: { email, password, username: "spent" },
+        data: { email, password, username: "code" },
       })
     ).status()
   ).toBe(201);
-  const mail = await mailbox(request, email, "verification");
-  expect(mail?.verifyUrl).toBeTruthy();
+  await page.goto(`/login?returnTo=${encodeURIComponent("/start")}&locale=ko`);
+  await login(page, email);
+  // /start sends an account that owes its code to the code page, and the page
+  // does not mail a second code on top of the one registration sent.
+  await expect(page).toHaveURL(/\/verify-email/);
+  const first = await mailbox(request, email, "verification");
+  expect(first?.code).toMatch(/^\d{6}$/);
+  const all = (await (await request.get(`${api}/__test/mail`)).json()) as Message[];
+  expect(all.filter((m) => m.to === email && m.kind === "verification")).toHaveLength(1);
 
-  await page.goto(`${mail!.verifyUrl!}&locale=ko`);
-  await expect(page.getByText("이메일 주소를 인증했습니다.")).toBeVisible();
-
-  // The same link a second time is spent, not invalid — and offers no resend,
-  // because the address is already verified.
-  await page.goto(`${mail!.verifyUrl!}&locale=ko`);
-  await expect(page.getByText(/이미 사용한 링크입니다/)).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "인증 메일 다시 보내기" })
-  ).toHaveCount(0);
-
-  // A token that was never issued is a different answer again.
-  await page.goto(`/verify-email?token=${"a".repeat(64)}&locale=ko`);
-  await expect(page.getByText(/인증 링크가 올바르지 않습니다/)).toBeVisible();
-
-  // And no token at all must not look like a success.
-  await page.goto("/verify-email?locale=ko");
-  await expect(page.getByText(/인증 링크가 올바르지 않습니다/)).toBeVisible();
-  await expect(page.getByText("이메일 주소를 인증했습니다.")).toHaveCount(0);
+  // 다시 보내기 mails a new one; only that one counts.
+  await page.getByRole("button", { name: "다시 보내기", exact: true }).click();
+  await expect(page.getByText("새 코드를 보냈어요.")).toBeVisible();
+  const second = await mailbox(request, email, "verification");
+  await page.getByLabel("인증 코드").fill(second!.code!);
+  await page.getByRole("button", { name: "확인", exact: true }).click();
+  await expect(page).toHaveURL(/\/start/);
 });
