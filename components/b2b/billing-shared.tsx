@@ -91,6 +91,12 @@ export const refundLabels: Record<TeamRefundState, [string, string]> = {
   review_required: ["환불 운영 확인 중", "Refund under operations review"],
 };
 const messages: Record<string, [string, string]> = {
+  B2B_USE_INTERNATIONAL_BILLING: ["달러 결제는 해외 플랜과 결제 화면에서 관리해 주세요.", "Manage USD billing on the international plan page."],
+  B2B_ORIGINAL_PAYER_REQUIRED: ["결제 카드와 결제사 영수증은 최초 결제자만 관리할 수 있어요.", "Only the original payer can manage the card and provider receipts."],
+  B2B_PAID_ROLES_EXCEED_SEATS: ["유료 멤버와 Viewer 초대 수를 수용할 좌석이 필요해요. 멤버를 조정한 뒤 다시 확인해 주세요.", "Keep enough paid seats for paid members and Viewer invitations. Adjust members first."],
+  B2B_INTERNATIONAL_PROVIDER_UNAVAILABLE: ["결제사 응답을 확인하지 못했어요. 결제 상태를 다시 확인해 주세요.", "The payment provider did not respond. Check payment status again."],
+  B2B_INTERNATIONAL_ACTIVE_PLAN_REQUIRED: ["해외 Business 구독 상태를 먼저 확인해 주세요.", "Check your international Business subscription first."],
+  B2B_PENDING_ORDER_EXISTS: ["진행 중인 결제의 결과를 먼저 확인해 주세요.", "Check the pending payment before starting another."],
   B2B_BILLING_OPERATION_PENDING: ["다른 창에서 시작한 결제 관련 요청이 확인 중입니다. 원래 요청의 결과를 먼저 확인해 주세요.", "A billing request started in another window is pending. Check the original request first."],
   B2B_BILLING_OPERATION_INVALID: ["보관된 요청 기록을 확인할 수 없습니다. 새 결제를 보내지 않고 중단했습니다.", "The saved request cannot be verified. No new payment was sent."],
   B2B_BILLING_SCOPE_CHANGED: ["다른 팀 화면으로 이동했습니다. 원래 팀에서 요청 결과를 확인해 주세요.", "The team changed. Check the request in the original team."],

@@ -764,11 +764,11 @@ export default function PlanPage() {
                 price={
                   <>
                     <span className="whitespace-nowrap">
-                      <span className="text-2xl font-semibold tracking-tight tabular-nums">{money("KRW", 129000)}</span>
-                      <span className="ml-1 text-[13px] text-muted">{lang === "ko" ? "/ 편집자·월" : "/ seat · mo"}</span>
+                      <span className="text-2xl font-semibold tracking-tight tabular-nums">{lang === "ko" ? money("KRW", 129000) : money("USD", 129)}</span>
+                      <span className="ml-1 text-[13px] text-muted">{lang === "ko" ? "/ 유료 좌석·월" : "/ paid seat · mo"}</span>
                     </span>
                     <p className="mt-1 text-xs text-muted">
-                      {lang === "ko" ? "3인 이상 · 부가세 별도" : "3+ seats · VAT extra"}
+                      {lang === "ko" ? "1인부터 · 부가세 별도" : "1 seat minimum · taxes extra"}
                     </p>
                   </>
                 }

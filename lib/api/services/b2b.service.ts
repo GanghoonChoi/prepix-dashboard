@@ -2,6 +2,8 @@ import { apiClient } from "../client";
 import { mutationHeaders } from "../session";
 import { homeEnvironment, readHome, type HomeScope } from "../../b2b-home/home";
 import type {
+  InternationalBilling,
+  InternationalPurchase,
   B2bStatus,
   TeamHome,
   EditingDeviceOverview,
@@ -54,17 +56,25 @@ async function get<T>(path: string, account?: string): Promise<T> {
     })
   ).data.data;
 }
-async function post<T>(path: string, input: unknown): Promise<T> {
+async function post<T>(path: string, input: unknown, account?: string): Promise<T> {
   const result = (
     await apiClient.post<{ data: T }>(path, input, {
       timeout: 30_000,
       ...mutationHeaders(),
+      ...(account ? { headers: { ...mutationHeaders().headers, "X-Prepix-Account-ID": account } } : {}),
     })
   ).data.data;
   window.dispatchEvent(new Event("workspaces:changed"));
   return result;
 }
 export const b2bService = {
+  international: (id: string, account: string) => get<InternationalBilling>(`${base(id)}/international`, account),
+  internationalPurchase: (id: string, input: InternationalPurchase, account: string) => post<InternationalBilling>(`${base(id)}/international/checkout`, input, account),
+  internationalRefresh: (id: string, account: string) => post<InternationalBilling>(`${base(id)}/international/refresh`, {}, account),
+  internationalCancelCheckout: (id: string, checkoutId: string, account: string) => post<InternationalBilling>(`${base(id)}/international/checkout/${e(checkoutId)}/cancel`, {}, account),
+  internationalRenewal: (id: string, input: { revision: number; seats: number; storagePacks: number; cancelAtEnd: boolean }, account: string) => post<InternationalBilling>(`${base(id)}/international/renewal`, input, account),
+  internationalRefund: (id: string, transaction: string, reason: string, account: string) => post<InternationalBilling>(`${base(id)}/international/payments/${e(transaction)}/refund`, { reason }, account),
+  internationalPortal: (id: string, account: string) => post<{ url: string }>(`${base(id)}/international/portal`, {}, account),
   home: (scope: HomeScope, signal: AbortSignal) =>
     readHome(
       scope,

@@ -201,7 +201,7 @@ export function CloudError({
 /**
  * Storage, as a card at the top of the archive (2026-10-08): how much is used
  * out of how much, how much is left, and a bar that splits what is stored
- * from what is still uploading. It turns amber past 80% and red past 95%,
+ * from what is still uploading. It warns at 80% and 90%,
  * because a full archive is the one moment this number matters.
  */
 export function StorageMeter({
@@ -222,7 +222,7 @@ export function StorageMeter({
   const percent =
     total > 0 && share < 0.001 ? c("0.1% 미만", "under 0.1%") : `${(share * 100).toFixed(share < 0.1 ? 1 : 0)}%`;
   const tone =
-    share >= 0.95 ? "bg-danger" : share >= 0.8 ? "bg-warning" : "bg-foreground";
+    share >= 0.9 ? "bg-danger" : share >= 0.8 ? "bg-warning" : "bg-foreground";
   return (
     <section
       aria-label={c("저장 공간", "Storage")}
@@ -284,10 +284,10 @@ export function StorageMeter({
         </span>
         {note && <span className="sm:ml-auto">{note}</span>}
       </div>
-      {share >= 0.95 && (
+      {share >= 0.8 && (
         <p className="mt-3 text-xs leading-5 text-danger">
           {c(
-            "저장 공간이 거의 찼습니다. 휴지통을 비우거나 플랜에서 용량을 늘려 주세요.",
+            "저장공간 사용량이 80% 이상입니다. 90%부터 용량을 확인해 주세요. 100%에서는 새 업로드가 중단되며 자동 초과 과금은 없습니다.",
             "Storage is nearly full. Empty the trash or add capacity on your plan.",
           )}
         </p>

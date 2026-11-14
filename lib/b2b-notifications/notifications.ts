@@ -200,6 +200,12 @@ export function describe(n: UserNotification, ko: boolean): string {
             `The ${p.month} statement was issued. Download it before team data is deleted`,
           )
         : t("명세가 발행됐어요", "A statement was issued");
+    case "lifecycle.storage_80":
+      return t("저장공간을 80% 사용했어요. 남은 용량을 확인해 주세요", "Storage is 80% full. Check your remaining capacity");
+    case "lifecycle.storage_90":
+      return t("저장공간을 90% 사용했어요. 100%에서는 새 업로드가 중단됩니다", "Storage is 90% full. New uploads stop at 100%");
+    case "lifecycle.storage_100":
+      return t("저장공간이 가득 차 새 업로드가 중단됐어요. 자동 초과 과금은 없습니다", "Storage is full and new uploads are blocked. No overage charges apply");
     case "lifecycle.period_ended":
       return dated(
         p.readOnlyUntil,

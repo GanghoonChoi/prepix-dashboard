@@ -109,8 +109,8 @@ test("Business checkout: details, one card window, the first month charged once 
   const back = `/start?locale=ko&step=app&workspace=${id}`;
   await login(page, owner.email, `/dashboard/workspaces/${id}/plan?${new URLSearchParams({ return: back })}`);
   const checkout = page.getByTestId("business-checkout");
-  // Owner + one invited editor: under the 3-seat floor.
-  await expect(checkout).toContainText("3석");
+  // Owner and one invited editor each use one paid seat.
+  await expect(checkout).toContainText("2석");
   await expect(checkout).toContainText("멤버 2명");
   // No business details to start (2026-10-20).
   await expect(checkout.getByLabel("상호", { exact: true })).toHaveCount(0);
@@ -284,4 +284,55 @@ test("a payment-window return confirms only in the scope that started it", async
   await tamper(own);
   await page.reload();
   await expect(page.getByText("반영 완료", { exact: true })).toBeVisible({ timeout: 30_000 });
+});
+
+test("USD Business shows $129 seats and $5 storage, keeps tax separate, and pins every payment to the signed-in account", async ({ page, request }) => {
+  const owner = await account(request, "usd-billing-ui");
+  const id = await team(request, owner.headers);
+  type View = import("../lib/api/generated/b2b").InternationalBilling;
+  let view: View = { available: true, currency: "USD", seatCents: 12900, storagePackCents: 500, account: null, pending: null, payments: [] };
+  const inputs: { action: string; quantity: number; renewal: string; account: string | undefined }[] = [];
+  let complete = false;
+  await page.route(`${api}/v2/workspaces/${id}/b2b/international**`, async route => {
+    const req = route.request(), path = new URL(req.url()).pathname;
+    if (path.endsWith("/checkout")) {
+      const input = req.postDataJSON();
+      inputs.push({ ...input, account: req.headers()["x-prepix-account-id"] });
+      const cents = input.quantity * (input.action === "storage" ? 500 : 12900);
+      view = { ...view, pending: { id: crypto.randomUUID(), state: "open", checkoutUrl: "https://www.creem.io/test/b2b-ui", supplyCents: cents, expiresAt: new Date(Date.now() + 1800000).toISOString() } };
+    } else if (path.endsWith("/refresh") && complete && view.pending) {
+      const input = inputs.at(-1)!;
+      const cents = view.pending.supplyCents;
+      view = { ...view, pending: null, account: { seats: 1, storagePacks: (view.account?.storagePacks ?? 0) + (input.action === "storage" && input.renewal === "automatic" ? input.quantity : 0), cancelAtEnd: false, accessActive: true, revision: (view.account?.revision ?? -1) + 1, syncPending: false, status: "active", renewsAt: new Date(Date.now() + 30 * 86400000).toISOString() },
+        payments: [{ id: crypto.randomUUID(), orderId: crypto.randomUUID(), paidAt: new Date().toISOString(), supplyCents: cents, taxCents: cents / 10, totalCents: cents * 1.1, refunded: false, refundPending: false, refundRequested: false, refundDenied: false }, ...view.payments] };
+      complete = false;
+    }
+    await route.fulfill({ json: { data: view } });
+  });
+  const returnTo = `/start?intent=team&workspace=${id}&step=pay`;
+  await login(page, owner.email, `/dashboard/workspaces/${id}/plan?${new URLSearchParams({ currency: "USD", return: returnTo })}`);
+  await expect(page.getByRole("heading", { name: "Business · USD", exact: true })).toBeVisible();
+  await expect(page.getByText("좌석당 월 $129 · 최소 1석 · 세금 별도", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "$129.00/월 결제 내용 확인" }).click();
+  await expect(page.getByRole("link", { name: "결제창 열기" })).toHaveAttribute("href", "https://www.creem.io/test/b2b-ui");
+  complete = true;
+  await page.getByRole("button", { name: "결제 상태 확인" }).click();
+  // The provider returns to a clean plan URL; the scoped onboarding destination survives it.
+  await page.goto(`/dashboard/workspaces/${id}/plan`);
+  await expect(page.getByRole("link", { name: "팀 설정 계속하기" })).toHaveAttribute("href", returnTo);
+  const storage = section(page, "저장공간 추가");
+  await expect(storage).toContainText("100GB당 $5 + 세금");
+  for (const mode of ["one_off", "automatic"]) {
+    await storage.getByLabel("갱신 방식", { exact: true }).selectOption(mode);
+    await storage.getByRole("button", { name: "구매 내용 확인" }).click();
+    await expect(section(page, "결제 확인")).toContainText("공급가 $5.00");
+    complete = true;
+    await page.getByRole("button", { name: "결제 상태 확인" }).click();
+    await expect(section(page, "결제 확인")).toHaveCount(0);
+  }
+  await expect(page.getByText("다음 월 결제 $134.00 + 세금", { exact: true })).toBeVisible();
+  await expect(page.getByText("(세금 $0.50 포함)", { exact: true })).toHaveCount(2);
+  expect(inputs.map(i => [i.action, i.quantity, i.renewal])).toEqual([["start", 1, "automatic"], ["storage", 1, "one_off"], ["storage", 1, "automatic"]]);
+  expect(inputs.every(i => !!i.account)).toBe(true);
+  await page.screenshot({ path: "/tmp/prepix-b2b-usd-plan.png", fullPage: true });
 });

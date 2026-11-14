@@ -180,6 +180,8 @@ const errors: Record<string, [string, string]> = {
     "사용량 기록을 확인하고 있습니다. 확인이 끝날 때까지 새 작업과 정산을 진행할 수 없습니다.",
     "Usage records need review. New jobs and settlement are unavailable until this is resolved.",
   ],
+  B2B_PAID_SEATS_REQUIRED: ["해외 플랜과 결제에서 유료 좌석을 먼저 추가해 주세요.", "Purchase the required seats in international billing first."],
+  B2B_VIEWER_LIMIT_REACHED: ["무료 Viewer는 유료 좌석 수까지만 초대할 수 있습니다. 좌석을 추가하거나 기존 Viewer·초대를 정리해 주세요.", "Free Viewers cannot exceed paid seats. Add seats or remove existing Viewers or invitations."],
   B2B_SEAT_REVIEWER: [
     "검토 역할에는 편집 좌석을 줄 수 없습니다. 먼저 역할을 제작으로 바꿔 주세요.",
     "Reviewers cannot hold an editing seat. Change their role to editor first.",

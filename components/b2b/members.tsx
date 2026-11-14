@@ -204,6 +204,7 @@ export function TeamMembers() {
         !loadError && <TeamLoading />
       ) : (
         <div className="space-y-4">
+          {roster.viewers && <p className="text-xs text-muted">{c(`무료 Viewer ${roster.viewers.reserved}/${roster.viewers.capacity}명 · 대기 초대 포함 · 유료 좌석 수까지`, `Free Viewers ${roster.viewers.reserved}/${roster.viewers.capacity} · includes pending invitations · limited to paid seats`)}</p>}
           {!!seats?.waiting && (
             <div data-testid="seat-shortage">
               <Notice
