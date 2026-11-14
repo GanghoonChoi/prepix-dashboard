@@ -96,7 +96,7 @@ test("business: team name, invitations held until payment, pay later lands on th
   await page.getByRole("button", { name: "팀 만들기", exact: true }).click();
 
   await expect(page.getByRole("heading", { name: "팀원을 초대해 주세요" })).toBeVisible();
-  // Your own address is dropped; one teammate + you is still the 3-seat floor.
+  // Your own address is dropped; every remaining paid role needs exactly one seat.
   await page.getByLabel("팀원 이메일", { exact: true }).fill(`${hire}, ${typo}, ${email}`);
   await expect(page.getByText(/나 포함 3명 → 3석/)).toBeVisible();
   await page.getByRole("button", { name: "다음", exact: true }).click();
@@ -105,11 +105,12 @@ test("business: team name, invitations held until payment, pay later lands on th
   await page.goBack();
   await page.getByRole("listitem").filter({ hasText: typo }).getByRole("button", { name: "취소" }).click();
   await expect(page.getByRole("listitem").filter({ hasText: typo })).toHaveCount(0);
-  await expect(page.getByText(/나 포함 2명 → 3석/)).toBeVisible();
+  await expect(page.getByText(/나 포함 2명 → 2석/)).toBeVisible();
   await page.getByRole("button", { name: "다음", exact: true }).click();
 
   await expect(page.getByRole("heading", { name: "결제 내용을 확인해 주세요" })).toBeVisible();
-  await expect(page.getByText("3석", { exact: true })).toBeVisible();
+  await expect(page.getByText("2석", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "해외 결제: 좌석당 월 $129 + 세금" })).toHaveAttribute("href", /currency=USD&seats=2/);
   await expect(page.getByText("결제가 끝나면 1명에게 초대 메일을 보내 드릴게요.")).toBeVisible();
   await page.getByRole("button", { name: "나중에 결제할게요", exact: true }).click();
 
@@ -128,9 +129,9 @@ test("business: team name, invitations held until payment, pay later lands on th
   const profile = await get<{ useType: string; teamSize: string }>(page, "/users/profile");
   expect(profile).toMatchObject({ useType: "team", teamSize: "6-20" });
   // The seat count /start showed is what the checkout charges: you and the
-  // invited teammate, under the 3-seat floor.
+  // invited teammate, without an extra minimum-seat charge.
   await page.goto(`/dashboard/workspaces/${id}/plan?locale=ko`);
-  await expect(page.getByTestId("business-checkout")).toContainText("3석");
+  await expect(page.getByTestId("business-checkout")).toContainText("2석");
   await expect(page.getByTestId("business-checkout")).toContainText("멤버 2명");
   // Coming back to "create your team" never offers a second team.
   await page.goto("/start?intent=team&step=workspace&locale=ko");
