@@ -316,7 +316,8 @@ test("USD Business shows $129 seats and $5 storage, keeps tax separate, and pins
   await page.getByRole("button", { name: "$129.00/월 결제 내용 확인" }).click();
   await expect(page.getByRole("link", { name: "결제창 열기" })).toHaveAttribute("href", "https://www.creem.io/test/b2b-ui");
   complete = true;
-  await page.getByRole("button", { name: "결제 상태 확인" }).click();
+  // A provider payment can settle through polling before a manual click reaches the page.
+  await expect(section(page, "결제 확인")).toHaveCount(0, { timeout: 15000 });
   // The provider returns to a clean plan URL; the scoped onboarding destination survives it.
   await page.goto(`/dashboard/workspaces/${id}/plan`);
   await expect(page.getByRole("link", { name: "팀 설정 계속하기" })).toHaveAttribute("href", returnTo);
@@ -327,8 +328,7 @@ test("USD Business shows $129 seats and $5 storage, keeps tax separate, and pins
     await storage.getByRole("button", { name: "구매 내용 확인" }).click();
     await expect(section(page, "결제 확인")).toContainText("공급가 $5.00");
     complete = true;
-    await page.getByRole("button", { name: "결제 상태 확인" }).click();
-    await expect(section(page, "결제 확인")).toHaveCount(0);
+    await expect(section(page, "결제 확인")).toHaveCount(0, { timeout: 15000 });
   }
   await expect(page.getByText("다음 월 결제 $134.00 + 세금", { exact: true })).toBeVisible();
   await expect(page.getByText("(세금 $0.50 포함)", { exact: true })).toHaveCount(2);
