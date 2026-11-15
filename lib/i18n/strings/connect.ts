@@ -22,6 +22,13 @@ export const connect: Record<Lang, Record<string, string>> = {
     "connect.invalidBody":
       "It did not come from the Prepix app on this computer, or it has been altered. Open the app and choose “Sign in with browser” again.",
 
+    "connect.chat.title": "Sign in to prepix chat",
+    "connect.chat.subtitle": "prepix chat is asking to sign in as you. Nothing is shared until you continue.",
+    "connect.chat.handingOver": "Back to prepix chat",
+    "connect.chat.returnToApp": "You are going back to prepix chat. You can close this tab if it stays open.",
+    "connect.chat.openApp": "Open prepix chat",
+    "connect.chat.note": "Only prepix chat can receive this. You can sign out of prepix chat at any time.",
+
     "session.title": "Signing you in",
     "session.failedTitle": "That sign-in link has expired",
     "session.failedBody":
@@ -46,6 +53,13 @@ export const connect: Record<Lang, Record<string, string>> = {
     "connect.invalidBody":
       "이 컴퓨터의 Prepix 앱에서 온 링크가 아니거나, 주소가 바뀌었습니다. 앱을 열고 ‘브라우저에서 로그인’을 다시 눌러주세요.",
     "connect.invalidTitle": "사용할 수 없는 링크입니다",
+
+    "connect.chat.title": "prepix chat에 로그인",
+    "connect.chat.subtitle": "prepix chat이 이 계정으로 로그인하려고 합니다. 계속을 누르기 전까지는 아무것도 전달되지 않습니다.",
+    "connect.chat.handingOver": "prepix chat으로 돌아가는 중",
+    "connect.chat.returnToApp": "prepix chat으로 돌아갑니다. 이 탭이 남아 있으면 닫아도 됩니다.",
+    "connect.chat.openApp": "prepix chat 열기",
+    "connect.chat.note": "prepix chat만 받을 수 있습니다. prepix chat에서 언제든 로그아웃할 수 있습니다.",
 
     "session.title": "로그인하는 중",
     "session.failedTitle": "로그인 링크가 만료됐습니다",
