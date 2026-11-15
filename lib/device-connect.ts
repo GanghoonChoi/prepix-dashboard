@@ -25,6 +25,17 @@ export interface ConnectRequest {
 const APP_CALLBACK = "prepix://auth/callback";
 
 /**
+ * prepix chat (the editor you message on KakaoTalk or the web) signs people in
+ * with the same Prepix account through this page, exactly as the app does: its
+ * server holds the PKCE verifier, so the code is useless to anyone else. One
+ * fixed https address, matched as a whole string like the app's link.
+ */
+export const CHAT_CALLBACK = "https://chat.prepix.ai/auth/callback";
+
+/** Who is asking: the screen names prepix chat instead of the app. */
+export const isChatRedirect = (raw: string) => raw === CHAT_CALLBACK;
+
+/**
  * Accept a redirect target only if it reaches the app on this machine.
  *
  * This is the single most important check in the flow. Without it, `/connect`
@@ -47,7 +58,7 @@ const APP_CALLBACK = "prepix://auth/callback";
  */
 export function parseAppRedirect(raw: string | null): URL | null {
   if (!raw) return null;
-  if (raw === APP_CALLBACK) return new URL(raw);
+  if (raw === APP_CALLBACK || raw === CHAT_CALLBACK) return new URL(raw);
   let url: URL;
   try {
     url = new URL(raw);

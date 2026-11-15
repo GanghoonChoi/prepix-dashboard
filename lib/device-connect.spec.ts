@@ -22,6 +22,18 @@ test("accepts the app's own links, exactly", () => {
   assert.equal(parseAppRedirect("other://auth/callback"), null);
 });
 
+test("accepts prepix chat's own callback, exactly", () => {
+  assert.ok(parseAppRedirect("https://chat.prepix.ai/auth/callback"));
+  assert.equal(parseAppRedirect("https://chat.prepix.ai/auth/callback?code=x"), null);
+  assert.equal(parseAppRedirect("https://chat.prepix.ai/evil"), null);
+  assert.equal(parseAppRedirect("https://chat.prepix.ai.evil.com/auth/callback"), null);
+  assert.equal(parseAppRedirect("http://chat.prepix.ai/auth/callback"), null);
+  assert.equal(
+    buildCallbackUrl(parseAppRedirect("https://chat.prepix.ai/auth/callback")!, { code: "c0de", state: "s7ate" }),
+    "https://chat.prepix.ai/auth/callback?code=c0de&state=s7ate",
+  );
+});
+
 test("puts code and state on the app's link", () => {
   const url = buildCallbackUrl(parseAppRedirect("prepix://auth/callback")!, {
     code: "c0de",

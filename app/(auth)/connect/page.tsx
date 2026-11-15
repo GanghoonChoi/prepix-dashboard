@@ -7,6 +7,7 @@ import { LoadingScreen } from "@/components/loading-screen";
 import { authService } from "@/lib/api/services/auth.service";
 import {
   buildCallbackUrl,
+  isChatRedirect,
   parseAppRedirect,
   readAttributionId,
   readConnectRequest,
@@ -38,12 +39,17 @@ const FRESH_SIGN_IN = "px_connect_fresh";
 
 type Phase = "checking" | "confirm" | "connecting" | "done" | "invalid" | "error";
 
-export default function ConnectPage() {
-  const t = useT();
-  usePageTitle(t("connect.title"));
+// Lines that name who is asking: prepix chat has its own (lib/device-connect.ts CHAT_CALLBACK).
+const NAMED = new Set(["connect.title", "connect.subtitle", "connect.handingOver", "connect.returnToApp", "connect.openApp", "connect.note"]);
 
+export default function ConnectPage() {
+  const t0 = useT();
   const [phase, setPhase] = useState<Phase>("checking");
   const [request, setRequest] = useState<ConnectRequest | null>(null);
+  const chat = request ? isChatRedirect(request.redirectUri) : false;
+  const t = useCallback((key: string) => t0(chat && NAMED.has(key) ? key.replace("connect.", "connect.chat.") : key), [t0, chat]);
+  usePageTitle(t("connect.title"));
+
   const [account, setAccount] = useState<string>("");
   const [error, setError] = useState("");
   const [callbackUrl, setCallbackUrl] = useState("");
