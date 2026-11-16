@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { subscriptionService, type DemoStorageMode } from "@/lib/api/services/subscription.service";
 import { cardClass, Select } from "@/components/ui";
 import { useCopy } from "./shared";
@@ -9,12 +9,14 @@ import { useCopy } from "./shared";
  * 클라우드 추가결제 for the card company's review login (backend
  * PAYMENTS_DEMO_ACCOUNTS): how much, then 일반결제 or 정기결제 — one click
  * each to our real pay page, which says the rest before the money. Nothing
- * is charged. Everyone else gets nothing here: the server decides, so the
- * list never ships to the browser.
+ * is charged. Everyone else gets `children` (the real storage purchase, which
+ * charges the team's saved card and so has no window to show a reviewer): the
+ * server decides, so the list never ships to the browser.
  */
-export function DemoStorage({ workspaceId }: { workspaceId: string }) {
+export function DemoStorage({ workspaceId, children }: { workspaceId: string; children?: ReactNode }) {
   const c = useCopy();
-  const [pack, setPack] = useState<{ bytes: number; supplyKrw: number } | null>(null);
+  // undefined while asking, null for everyone but the review account.
+  const [pack, setPack] = useState<{ bytes: number; supplyKrw: number } | null | undefined>(undefined);
   const [packs, setPacks] = useState(1);
   const [busy, setBusy] = useState<DemoStorageMode | null>(null);
   const [failed, setFailed] = useState(false);
@@ -23,9 +25,10 @@ export function DemoStorage({ workspaceId }: { workspaceId: string }) {
     void subscriptionService
       .demo()
       .then((r) => setPack(r.available ? r.storagePack : null))
-      .catch(() => undefined);
+      .catch(() => setPack(null));
   }, []);
-  if (!pack) return null;
+  if (pack === undefined) return null;
+  if (pack === null) return <>{children}</>;
 
   const size = (n: number) => {
     const gb = (n * pack.bytes) / 1e9;
