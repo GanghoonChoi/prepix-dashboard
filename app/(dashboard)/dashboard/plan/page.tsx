@@ -10,6 +10,7 @@ import {
 } from "@/lib/api/services/subscription.service";
 import { PLAN_NAMES, PLAN_COPY, PLAN_STATUS_META, formatPrice, type PlanCopy } from "@/lib/constants/data";
 import { useOverlayState } from "@heroui/react";
+import { showNewMessage } from "@intercom/messenger-js-sdk";
 import { Dialog } from "@/components/dialog";
 import { useToast } from "@/components/toast";
 import { usePageTitle } from "@/lib/hooks/use-page-title";
@@ -27,12 +28,10 @@ import {
   Badge,
   Button,
   Card,
-  Field,
   Notice,
   PageHeader,
   PageTabs,
   buttonClass,
-  textareaClass,
   type Tone,
   InfoTip,
 } from "@/components/ui";
@@ -51,14 +50,11 @@ export default function PlanPage() {
   const [justUpgraded, setJustUpgraded] = useState(false);
   const cancelModal = useOverlayState();
   const refundModal = useOverlayState();
-  const reviewModal = useOverlayState();
-  const supportModal = useOverlayState();
   const couponModal = useOverlayState();
   const upgradeModal = useOverlayState();
   const scheduleModal = useOverlayState();
   // The plan a switch dialog is about.
   const [switchTo, setSwitchTo] = useState<CatalogPlan | null>(null);
-  const [reviewNote, setReviewNote] = useState("");
   // What coupons currently give this account. A page that cannot load them
   // still works — they are an addition, not the plan.
   const [benefits, setBenefits] = useState<CouponBenefits | null>(null);
@@ -271,37 +267,6 @@ export default function PlanPage() {
     setActionLoading(false);
   };
 
-  // The half-refund band and anything else a person has to size. Files the
-  // request and notifies the team; nothing is refunded here, so the toast must
-  // not read like it was — a customer who thinks the money is on its way and
-  // then waits two days is the one who calls their bank.
-  const submitSupportRequest = async () => {
-    await fileRefundRequest(supportModal);
-  };
-
-  const submitRefundReview = async () => {
-    await fileRefundRequest(reviewModal);
-  };
-
-  const fileRefundRequest = async (modal: { close: () => void }) => {
-    setActionLoading(true);
-    try {
-      const res = await subscriptionService.requestRefundReview(
-        reviewNote.trim() || undefined,
-      );
-      modal.close();
-      setReviewNote("");
-      toast(res?.alreadyFiled ? t("plan.reviewAlreadyFiledToast") : t("plan.reviewFiledToast"));
-      // Refreshes into the pending state, so the control the user just used is
-      // gone by the time the toast fades.
-      await refreshCurrent();
-    } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { message?: string } } };
-      toast(axiosErr.response?.data?.message || t("plan.refundFailed"), "error");
-    }
-    setActionLoading(false);
-  };
-
   const currentPlan = currentSub?.plan || "free";
   const status = currentSub?.status ?? "active";
   const statusMeta = PLAN_STATUS_META[status];
@@ -327,20 +292,15 @@ export default function PlanPage() {
     currentSub?.manageable === true &&
     !stranded &&
     ["active", "trialing", "past_due"].includes(status);
-  // Three affordances, not one, because the policy has three bands: refund now,
-  // ask us to review, or nothing here. The backend decides which — rendering a
-  // button whose request would only 4xx is how people end up at their bank
-  // instead of at us.
-  const refundOffer = currentSub?.refund;
-  const canRefund = refundOffer?.action === "self-serve";
-  const canRequestReview = refundOffer?.action === "request-review";
-  // A payment we can't judge automatically still has a person behind it, and a
-  // statutory right or a service fault is refundable whatever the band says.
-  // Showing nothing here is how someone concludes there is no way to reach us
-  // and calls their bank instead — so these reasons get a route, not silence.
+  // Refund now, or ask Fin — which files the review (the backend's
+  // IntercomController) for the 50% band and anything else a person decides,
+  // statutory rights and service faults included. Showing nothing there is
+  // how someone concludes there is no way to reach us and calls their bank.
   // The other reasons (no subscription, nothing charged) have no payment to
   // talk about, and a refund link on those is just confusing.
-  const needsSupport = refundOffer?.action === "contact-support";
+  const refundOffer = currentSub?.refund;
+  const canRefund = refundOffer?.action === "self-serve";
+  const needsSupport = refundOffer?.action === "request-review" || refundOffer?.action === "contact-support";
   // A filed request replaces every control: the question this person has is
   // "did it go through", and another button answers the wrong one.
   const refundPending = refundOffer?.action === "pending";
@@ -570,7 +530,7 @@ export default function PlanPage() {
                 </p>
               )}
             </div>
-            {(updatesCard || canCancel || canRefund || canRequestReview || needsSupport || refundPending) && (
+            {(updatesCard || canCancel || canRefund || needsSupport || refundPending) && (
               <div className="flex flex-wrap items-center gap-2">
                 {/* The domestic processor mends a failed card by registering a new
                     one; the others have no such step here. */}
@@ -589,13 +549,8 @@ export default function PlanPage() {
                     {t("plan.requestRefund")}
                   </Button>
                 )}
-                {canRequestReview && (
-                  <Button variant="ghost" size="sm" onClick={() => reviewModal.open()}>
-                    {t("plan.requestRefundReview")}
-                  </Button>
-                )}
                 {needsSupport && (
-                  <Button variant="ghost" size="sm" onClick={() => supportModal.open()}>
+                  <Button variant="ghost" size="sm" onClick={() => showNewMessage(t("plan.refundFinPrompt"))}>
                     {t("plan.refundContactSupport")}
                   </Button>
                 )}
@@ -905,70 +860,6 @@ export default function PlanPage() {
           <Button variant="secondary" size="sm" onClick={() => scheduleModal.close()} disabled={actionLoading}>{t("common.cancel")}</Button>
           <Button size="sm" onClick={() => switchTo && void confirmSwitch(switchTo.id)} disabled={actionLoading}>
             {actionLoading ? t("plan.processing") : t("plan.scheduleConfirm")}
-          </Button>
-        </div>
-      </Dialog>
-
-      {/* Out-of-band refunds. Same submission as the review request — the
-          backend files it with the facts either way and a person decides —
-          but the copy must not promise a rate, because none applies here. */}
-      <Dialog state={supportModal} title={t("plan.supportModalTitle")}>
-        <p className="text-sm text-muted">
-          {refundOffer?.reason === "used"
-            ? t("plan.supportModalBodyUsed")
-            : refundOffer?.reason === "previous-policy"
-              ? t("plan.supportModalBodyPreviousPolicy")
-              : t("plan.supportModalBodyWindowClosed")}
-        </p>
-        <Field label={t("plan.reviewNoteLabel")} htmlFor="support-note" className="mt-4">
-          <textarea
-            id="support-note"
-            value={reviewNote}
-            onChange={(e) => setReviewNote(e.target.value)}
-            rows={3}
-            maxLength={1000}
-            placeholder={t("plan.supportNotePlaceholder")}
-            className={textareaClass}
-          />
-        </Field>
-        <p className="mt-3 text-xs text-muted">{t("plan.supportModalContact")}</p>
-        <div className="mt-6 flex justify-end gap-3">
-          <Button variant="secondary" size="sm" onClick={() => supportModal.close()} disabled={actionLoading}>
-            {t("common.cancel")}
-          </Button>
-          <Button variant="primary" size="sm" onClick={submitSupportRequest} disabled={actionLoading}>
-            {actionLoading ? t("plan.reviewSubmitting") : t("plan.reviewSubmit")}
-          </Button>
-        </div>
-      </Dialog>
-
-      {/* Review-request modal — the 50% band and anything a person has to size.
-          States plainly that this is a request, and that the rate is decided on
-          the request date, not the day we get to it. */}
-      <Dialog state={reviewModal} title={t("plan.reviewModalTitle")}>
-        <p className="text-sm text-muted">{t("plan.reviewModalBody")}</p>
-        {refundOffer?.daysElapsed != null && (
-          <p className="mt-2 text-xs text-muted">
-            {t("plan.reviewDayCount", { days: String(refundOffer.daysElapsed) })}
-          </p>
-        )}
-        <Field label={t("plan.reviewNoteLabel")} htmlFor="review-note" className="mt-4">
-          <textarea
-            id="review-note"
-            value={reviewNote}
-            onChange={(e) => setReviewNote(e.target.value)}
-            rows={3}
-            maxLength={1000}
-            placeholder={t("plan.reviewNotePlaceholder")}
-            className={textareaClass}
-          />
-        </Field>
-        <div className="mt-6 flex justify-end gap-3">
-          <Button variant="secondary" size="sm" onClick={() => reviewModal.close()} disabled={actionLoading}>
-            {t("common.cancel")}
-          </Button>
-          <Button variant="primary" size="sm" onClick={submitRefundReview} disabled={actionLoading}>
-            {actionLoading ? t("plan.reviewSubmitting") : t("plan.reviewSubmit")}
           </Button>
         </div>
       </Dialog>
